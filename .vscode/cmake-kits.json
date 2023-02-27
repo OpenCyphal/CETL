@@ -1,0 +1,84 @@
+[
+    {
+        "name": "c++14-native-gcc",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": false,
+            "CETLVAST_CPP_STANDARD": "14"
+        }
+    },
+    {
+        "name": "c++14-native-gcc-w-cov",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": true,
+            "CETLVAST_CPP_STANDARD": "14"
+        }
+    },
+    {
+        "name": "c++14-native-clang",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": false,
+            "CETLVAST_CPP_STANDARD": "14"
+        }
+    },
+    {
+        "name": "c++14-native-clang-w-cov",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": true,
+            "CETLVAST_CPP_STANDARD": "14"
+        }
+    },
+    {
+        "name": "c++20-native-gcc",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": false,
+            "CETLVAST_CPP_STANDARD": "20"
+        }
+    },
+    {
+        "name": "c++20-native-gcc-w-cov",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/gcc-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": true,
+            "CETLVAST_CPP_STANDARD": "20"
+        }
+    },
+    {
+        "name": "c++20-native-clang-enable-assert",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": false,
+            "CETLVAST_CPP_STANDARD": "20",
+            "CETL_ENABLE_DEBUG_ASSERT": true
+        }
+    },
+    {
+        "name": "c++20-native-clang",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": false,
+            "CETLVAST_CPP_STANDARD": "20"
+        }
+    },
+    {
+        "name": "c++20-native-clang-w-cov",
+        "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
+        "cmakeSettings": {
+            "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
+            "CETLVAST_ENABLE_COVERAGE": true,
+            "CETLVAST_CPP_STANDARD": "20"
+        }
+    }
+]

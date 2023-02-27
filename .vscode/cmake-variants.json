@@ -1,0 +1,18 @@
+{
+    "buildType": {
+        "default": "debug",
+        "description": "Variant for CETLVAST build kits.",
+        "choices": {
+            "debug": {
+                "short": "Debug",
+                "long": "Debug builds, no optimizations.",
+                "buildType": "Debug"
+            },
+            "release": {
+                "short": "Release",
+                "long": "Release builds, some optimizations",
+                "buildType": "Release"
+            }
+        }
+    }
+}
