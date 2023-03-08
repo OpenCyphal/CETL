@@ -94,6 +94,10 @@ private:
     value_type data_[data_len];
 };
 
+// required till C++ 17. Redundant but allowed after that.
+template <typename SpanType, std::size_t Extent>
+const std::size_t SpanData<SpanType, Extent>::data_len;
+
 template <typename SpanType>
 class SpanData<SpanType, 0>
 {
@@ -105,8 +109,7 @@ public:
 
     SpanData()
         : SpanData({})
-    {
-    }
+    {}
 
     explicit SpanData(value_type&& fill_value)
         : data_(nullptr)
@@ -134,6 +137,10 @@ private:
     value_type* data_;
 };
 
+// required till C++ 17. Redundant but allowed after that.
+template <typename SpanType>
+const std::size_t SpanData<SpanType, 0>::data_len;
+
 // +----------------------------------------------------------------------+
 // | Test Suite(s)
 // +----------------------------------------------------------------------+
@@ -143,8 +150,7 @@ private:
  */
 template <typename T>
 class TestSpan : public ::testing::Test
-{
-};
+{};
 
 using SpanImplementations = ::testing::Types<cetl::span<int, 0>,
                                              cetl::span<int, 16>,
@@ -326,8 +332,7 @@ struct TestStlArrayCtorIfNotZero<TypeParam, 0>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestStlArrayCtor)
@@ -470,13 +475,12 @@ struct TestSubviewFirstByExtent<
     TypeParam,
     std::integral_constant<bool, ((TypeParam::extent >= 2) && (TypeParam::extent < cetl::dynamic_extent))>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
-        TypeParam subject(testData.data(), TypeParam::extent);
-        auto      subview = subject.template first<subextent>();
+        constexpr std::size_t subextent = TypeParam::extent - 1;
+        TypeParam             subject(testData.data(), TypeParam::extent);
+        auto                  subview = subject.template first<subextent>();
         ASSERT_EQ(decltype(subview)::extent, subextent);
         ASSERT_EQ(subview.size(), subextent);
         ASSERT_NE(subject.size(), subview.size());
@@ -512,8 +516,7 @@ struct TestSubviewFirstByExtent<TypeParam, std::integral_constant<bool, (TypePar
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewFirst)
@@ -530,13 +533,12 @@ template <typename TypeParam>
     struct TestSubviewLastByExtent < TypeParam,
     std::integral_constant<bool, TypeParam::extent >= 2 && TypeParam::extent<cetl::dynamic_extent>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
-        TypeParam subject(testData.data(), TypeParam::extent);
-        auto      subview = subject.template last<subextent>();
+        constexpr std::size_t subextent = TypeParam::extent - 1;
+        TypeParam             subject(testData.data(), TypeParam::extent);
+        auto                  subview = subject.template last<subextent>();
         ASSERT_EQ(decltype(subview)::extent, subextent);
         ASSERT_EQ(subview.size(), subextent);
         ASSERT_NE(subject.size(), subview.size());
@@ -553,9 +555,9 @@ struct TestSubviewLastByExtent<TypeParam, std::integral_constant<bool, TypeParam
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
-        const std::size_t subextent = SpanData<DeducedTypeParam>::data_len - 1;
-        TypeParam         subject(testData.data());
-        auto              subview = subject.template last<subextent>();
+        constexpr std::size_t subextent = SpanData<DeducedTypeParam>::data_len - 1;
+        TypeParam             subject(testData.data());
+        auto                  subview = subject.template last<subextent>();
         ASSERT_EQ(decltype(subview)::extent, subextent);
         ASSERT_EQ(subview.size(), subextent);
         ASSERT_NE(subject.size(), subview.size());
@@ -573,8 +575,7 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewLast)
@@ -591,8 +592,6 @@ template <typename TypeParam>
     struct TestSubviewSubspanByExtent < TypeParam,
     std::integral_constant<bool, TypeParam::extent >= 3 && TypeParam::extent<cetl::dynamic_extent>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
@@ -678,8 +677,7 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewSubspan)
@@ -696,11 +694,11 @@ template <typename TypeParam>
     struct TestSubviewFirstDynamicByExtent < TypeParam,
     std::integral_constant<bool, TypeParam::extent >= 2 && TypeParam::extent<cetl::dynamic_extent>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
+        const std::size_t subextent = TypeParam::extent - 1;
+
         // proper sub-set
         TypeParam proper_subject(testData.data(), TypeParam::extent);
         auto      proper_subview = proper_subject.first(subextent);
@@ -753,8 +751,7 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewFirstDynamic)
@@ -771,11 +768,11 @@ template <typename TypeParam>
     struct TestSubviewLastDynamicByExtent < TypeParam,
     std::integral_constant<bool, TypeParam::extent >= 2 && TypeParam::extent<cetl::dynamic_extent>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
+        constexpr std::size_t subextent = TypeParam::extent - 1;
+
         // proper subset
         TypeParam proper_subject(testData.data(), TypeParam::extent);
         auto      proper_subview = proper_subject.last(subextent);
@@ -827,8 +824,7 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewLastDynamic)
@@ -846,8 +842,6 @@ template <typename TypeParam>
     struct TestSubviewSubspanDynamicByExtent < TypeParam,
     std::integral_constant<bool, TypeParam::extent >= 3 && TypeParam::extent<cetl::dynamic_extent>>
 {
-    static constexpr std::size_t subextent = TypeParam::extent - 1;
-
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&& testData)
     {
@@ -934,8 +928,7 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {
-    }
+    {}
 };
 
 TYPED_TEST(TestSpan, TestSubviewSubspanDynamic)
@@ -946,7 +939,7 @@ TYPED_TEST(TestSpan, TestSubviewSubspanDynamic)
 
 TEST(TestSpanCopyCtor, CopyCetlSpanSame)
 {
-    int three[3] = {0, 1, 2};
+    int                three[3] = {0, 1, 2};
     cetl::span<int, 3> fixture(three);
     cetl::span<int, 3> subject(fixture);
 
@@ -954,23 +947,21 @@ TEST(TestSpanCopyCtor, CopyCetlSpanSame)
     ASSERT_EQ(fixture.data(), subject.data());
 }
 
-
 TEST(TestSpanCopyCtor, CopyCetlSpanFromDynamic)
 {
-    int three[3] = {0, 1, 2};
-    cetl::span<int> fixture(three, 3);
+    int                three[3] = {0, 1, 2};
+    cetl::span<int>    fixture(three, 3);
     cetl::span<int, 3> subject(fixture);
 
     ASSERT_EQ(fixture.size(), subject.size());
     ASSERT_EQ(fixture.data(), subject.data());
 }
 
-
 TEST(TestSpanCopyCtor, CopyCetlSpanToDynamic)
 {
-    int three[3] = {0, 1, 2};
+    int                three[3] = {0, 1, 2};
     cetl::span<int, 3> fixture(three, 3);
-    cetl::span<int> subject(fixture);
+    cetl::span<int>    subject(fixture);
 
     ASSERT_EQ(fixture.size(), subject.size());
     ASSERT_EQ(fixture.data(), subject.data());
@@ -978,14 +969,12 @@ TEST(TestSpanCopyCtor, CopyCetlSpanToDynamic)
 
 TEST(TestSpanCopyCtor, CopyCetlSpanToFromDynamic)
 {
-    int three[3] = {0, 1, 2};
+    int             three[3] = {0, 1, 2};
     cetl::span<int> fixture(three, 3);
     cetl::span<int> subject(fixture);
 
     ASSERT_EQ(fixture.size(), subject.size());
     ASSERT_EQ(fixture.data(), subject.data());
 }
-
-
 
 }  //  namespace

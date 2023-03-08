@@ -6,6 +6,7 @@
 #define CETL_SPAN_H_INCLUDED
 
 #include <array>
+#include <cstdint>
 #include <iterator>
 #include <limits>
 #include <type_traits>
@@ -14,11 +15,10 @@
 
 namespace cetl
 {
-
 ///
 /// Used by span to indicate that the span size is not fixed.
 /// @see std::dynamic_extent
-inline constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
+constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 
 /// A borrowed view into a contiguous set of objects. Spans can either be static, where the set of objects is fixed
 /// and known, or dynamic where the number of objects in the contiguous set may change.
@@ -74,8 +74,7 @@ public:
     template <std::size_t DeducedExtent = Extent, typename std::enable_if<(DeducedExtent == 0), bool>::type = true>
     constexpr span() noexcept
         : data_{nullptr}
-    {
-    }
+    {}
 
     /// Creates a span starting at an element for a given length.
     /// The span's view into the data starts at the element pointed to by the first pointer. The size of the
@@ -115,8 +114,7 @@ public:
     template <std::size_t DeducedExtent = Extent, typename std::enable_if<(DeducedExtent != 0), bool>::type = true>
     constexpr span(element_type (&arr)[DeducedExtent]) noexcept
         : data_(arr)
-    {
-    }
+    {}
 
     /// Creates a span over an entire `std::array` starting at the array's first element.
     /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
@@ -129,8 +127,7 @@ public:
               typename std::enable_if<std::is_convertible<ArrayElementType (*)[], T (*)[]>::value, bool>::type = true>
     constexpr span(std::array<ArrayElementType, Extent>& arr) noexcept
         : data_(arr.data())
-    {
-    }
+    {}
 
     /// Creates a span over an entire `const std::array` starting at the array's first element.
     /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
@@ -144,8 +141,7 @@ public:
         typename std::enable_if<std::is_convertible<const ArrayElementType (*)[], T (*)[]>::value, bool>::type = true>
     constexpr span(const std::array<ArrayElementType, Extent>& arr) noexcept
         : data_(arr.data())
-    {
-    }
+    {}
 
     // TODO: C++20 range constructor.
     // template< class R >
@@ -185,8 +181,7 @@ public:
                                       bool>::type = true>
     constexpr span(const span<DeducedElementType, Extent>& source) noexcept
         : data_(source.data())
-    {
-    }
+    {}
 
     /// Default copy constructor
     /// @see std::span::span()
@@ -314,7 +309,7 @@ public:
     /// If the span has a zero size or not.
     /// @return true if the span size is 0 where "size" is the same as span::extent
     /// for this specialization.
-    [[nodiscard]] constexpr bool empty() const noexcept
+    constexpr bool empty() const noexcept
     {
         return (Extent == 0);
     }
@@ -432,6 +427,10 @@ private:
     pointer data_;
 };
 
+// required till C++ 17. Redundant but allowed after that.
+template <typename T, std::size_t Extent>
+const std::size_t span<T, Extent>::extent;
+
 /// Specialization of span where the extent is dynamic.
 template <typename T>
 class span<T, cetl::dynamic_extent>
@@ -473,8 +472,7 @@ public:
     constexpr span() noexcept
         : data_{nullptr}
         , size_{0}
-    {
-    }
+    {}
 
     /// Creates a span starting at an element for a given length.
     /// The span's view into the data starts at the element pointed to by the first pointer. The size of the
@@ -485,8 +483,7 @@ public:
     constexpr span(iterator first, size_type count)
         : data_{first}
         , size_{count}
-    {
-    }
+    {}
 
     /// Creates a span starting at an element to the element before the given end.
     /// That is, `span == [first, end)`. The size of the span becomes end - first.
@@ -515,8 +512,7 @@ public:
     constexpr span(element_type (&arr)[ArrayLen]) noexcept
         : data_(arr)
         , size_(ArrayLen)
-    {
-    }
+    {}
 
     /// Creates a span over an entire `std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
@@ -533,8 +529,7 @@ public:
     constexpr span(std::array<ArrayElementType, ArrayLen>& arr) noexcept
         : data_(arr.data())
         , size_(ArrayLen)
-    {
-    }
+    {}
 
     /// Creates a span over an entire `const std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
@@ -552,8 +547,7 @@ public:
     constexpr span(const std::array<ArrayElementType, ArrayLen>& arr) noexcept
         : data_(arr.data())
         , size_(ArrayLen)
-    {
-    }
+    {}
 
     // TODO: C++20 range constructor.
     // template< class R >
@@ -576,8 +570,7 @@ public:
     constexpr span(const span<DeducedElementType, DeducedExtent>& source) noexcept
         : data_(source.data())
         , size_(source.size())
-    {
-    }
+    {}
 
     /// Default copy constructor
     /// @see std::span::span()
@@ -662,7 +655,7 @@ public:
     ///
     /// Returns if the span has a zero size or not.
     /// @return true if the span size is 0.
-    [[nodiscard]] constexpr bool empty() const noexcept
+    constexpr bool empty() const noexcept
     {
         return (size_ == 0);
     }
@@ -766,6 +759,10 @@ private:
     pointer   data_;
     size_type size_;
 };
+
+// required till C++ 17. Redundant but allowed after that.
+template <typename T>
+const std::size_t span<T, cetl::dynamic_extent>::extent;
 
 }  // namespace cetl
 

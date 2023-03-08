@@ -27,6 +27,7 @@
         "/arr/",
         "/subspan/i"
     ],
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
     "cmake.configureOnEdit": false,
     "cmake.buildDirectory": "${workspaceFolder}/cetlvast/build_vscode/build",
