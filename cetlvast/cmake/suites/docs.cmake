@@ -8,4 +8,4 @@
 #
 find_package(docs REQUIRED)
 
-create_docs_target(docs OFF)
+create_docs_target(docs ON)
