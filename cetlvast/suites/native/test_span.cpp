@@ -2,6 +2,7 @@
 /// Verification tests for span.h
 /// @copyright Copyright (c) 2023 Amazon.com Inc. and its affiliates. All Rights Reserved.
 
+#include "cetl/cetl.h"
 #include "cetlvast/helpers.h"
 #include <vector>
 #include <initializer_list>
@@ -9,7 +10,7 @@
 #include <algorithm>
 #include <utility>
 
-#if IS_CPP20
+#if (__cplusplus >= CETL_CPP_STANDARD_20)
 
 static_assert(__cpp_lib_span, "__cpp_lib_span was not defined for this compiler when using 2020.02?");
 #    include <span>

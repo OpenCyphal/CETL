@@ -11,12 +11,4 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-namespace cetlvast
-{
-
-/// Common test for compilation under C++20
-#define IS_CPP20 (__cplusplus >= 202002L)
-
-} // namespace cetlvast
-
 #endif  // CETLVAST_HELPERS_H_INCLUDED

@@ -206,6 +206,8 @@ public:
     constexpr reference operator[](size_type idx) const
     {
         CETL_DEBUG_ASSERT((idx < Extent), "Indexing outside of the span is undefined.");
+        CETL_DEBUG_ASSERT((data_ != nullptr), "Indexing with non data (nullptr) is undefined.");
+        CETL_DEBUG_ASSERT((Extent > 0), "Indexing a 0-size span is undefined.");
         return data_[idx];
     }
 
@@ -309,7 +311,11 @@ public:
     /// If the span has a zero size or not.
     /// @return true if the span size is 0 where "size" is the same as span::extent
     /// for this specialization.
-    constexpr bool empty() const noexcept
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    [[nodiscard]]
+#endif
+    constexpr bool
+    empty() const noexcept
     {
         return (Extent == 0);
     }
@@ -589,6 +595,8 @@ public:
     constexpr reference operator[](size_type idx) const
     {
         CETL_DEBUG_ASSERT((idx < size_), "Indexing outside of the span is undefined.");
+        CETL_DEBUG_ASSERT((data_ != nullptr), "Indexing with non data (nullptr) is undefined.");
+        CETL_DEBUG_ASSERT((size_ > 0), "Indexing a 0-size span is undefined.");
         return data_[idx];
     }
 
@@ -655,7 +663,11 @@ public:
     ///
     /// Returns if the span has a zero size or not.
     /// @return true if the span size is 0.
-    constexpr bool empty() const noexcept
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    [[nodiscard]]
+#endif
+    constexpr bool
+    empty() const noexcept
     {
         return (size_ == 0);
     }

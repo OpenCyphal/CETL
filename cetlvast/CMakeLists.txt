@@ -5,6 +5,10 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
+# +---------------------------------------------------------------------------+
+# | PROJECT
+# +---------------------------------------------------------------------------+
+
 project(cetlvast CXX)
 
 if (NOT DEFINED CETLVAST_PROJECT_ROOT)
@@ -39,35 +43,6 @@ include_directories(
     "${CETLVAST_PROJECT_ROOT}/cetlvast/include"
 )
 
-if(NOT DEFINED CETLVAST_FLAG_SET)
-    message(STATUS "CETLVAST_FLAG_SET was not defined. Setting to \"native-full\" as a default")
-    set(CETLVAST_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native-full.cmake)
-else()
-    set(CETLVAST_FLAG_SET ${CETLVAST_FLAG_SET})
-endif()
-
-if(NOT DEFINED CETLVAST_TESTBUILD)
-    message(STATUS "CETLVAST_TESTBUILD was not defined. Setting to \"native tests\" as a default")
-    set(CETLVAST_TESTBUILD ${CMAKE_SOURCE_DIR}/cmake/suites/native.cmake)
-else()
-    set(CETLVAST_TESTBUILD ${CETLVAST_TESTBUILD})
-endif()
-
-if(NOT DEFINED CETL_ENABLE_DEBUG_ASSERT)
-    message(STATUS "CETL_ENABLE_DEBUG_ASSERT was not defined. Setting to off as a default")
-    set(CETL_ENABLE_DEBUG_ASSERT OFF)
-endif()
-
-if(NOT DEFINED CETLVAST_ENABLE_COVERAGE)
-    message(STATUS "CETLVAST_ENABLE_COVERAGE was not defined. Coverage will not be enabled.")
-    set(CETLVAST_ENABLE_COVERAGE OFF)
-endif()
-
-if(NOT DEFINED CETLVAST_STYLE_CHECK)
-    message(STATUS "CETLVAST_STYLE_CHECK was not defined. Style will always be checked. Set to OFF to disable.")
-    set(CETLVAST_STYLE_CHECK ON)
-endif()
-
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)
     message(STATUS "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
     set(CMAKE_MODULE_PATH ${CETLVAST_CMAKE_MODULE_PATH})
@@ -79,16 +54,50 @@ else()
     message(STATUS "CMAKE_MODULE_PATH set to ${CMAKE_MODULE_PATH}")
 endif()
 
-if(DEFINED CETLVAST_CPP_STANDARD)
-    message(STATUS "CETLVAST_CPP_STANDARD was set to C++${CETLVAST_CPP_STANDARD} by the CETLVAST_CPP_STANDARD variable.")
+# +---------------------------------------------------------------------------+
+# | OPTIONS/VARIANTS
+# +---------------------------------------------------------------------------+
+
+option(CETL_ENABLE_DEBUG_ASSERT "Enable or disable runtime asserts in CETL code." OFF)
+option(CETLVAST_ENABLE_COVERAGE "Enable or disable coverage data instrumentation in test builds." OFF)
+option(CETLVAST_STYLE_CHECK "Enable or disable a check for violations of the project's style standards." ON)
+
+set(CETLVAST_CPP_STANDARD "20" CACHE STRING "C++ standard to use when compiling.")
+set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20 23)
+
+message(STATUS "[ Build Options ]--------------------------------------\n\
+    CMAKE_BUILD_TYPE:         ${CMAKE_BUILD_TYPE}\n\
+    CETL_ENABLE_DEBUG_ASSERT: ${CETL_ENABLE_DEBUG_ASSERT}\n\
+    CETLVAST_ENABLE_COVERAGE: ${CETLVAST_ENABLE_COVERAGE}\n\
+    CETLVAST_STYLE_CHECK:     ${CETLVAST_STYLE_CHECK}\n\
+    CETLVAST_CPP_STANDARD:    ${CETLVAST_CPP_STANDARD}\n\
+-----------------------------------------------------------\n\
+")
+
+# +---------------------------------------------------------------------------+
+# | KITS
+# +---------------------------------------------------------------------------+
+
+if(NOT DEFINED CETLVAST_FLAG_SET)
+    message(VERBOSE "CETLVAST_FLAG_SET was not defined. Setting to \"native-full\" as a default")
+    set(CETLVAST_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native-full.cmake)
 else()
-    #
-    # Tell cmake where to find our custom scripts.
-    #
-    set(CETLVAST_CPP_STANDARD "20")
-    message(STATUS "CETLVAST_CPP_STANDARD set to default: C++${CETLVAST_CPP_STANDARD}")
+    set(CETLVAST_FLAG_SET ${CETLVAST_FLAG_SET})
 endif()
 
+if(NOT DEFINED CETLVAST_TEST_SUITE)
+    message(VERBOSE "CETLVAST_TEST_SUITE was not defined. Setting to \"native tests\" as a default")
+    set(CETLVAST_TEST_SUITE ${CMAKE_SOURCE_DIR}/cmake/suites/native.cmake)
+else()
+    set(CETLVAST_TEST_SUITE ${CETLVAST_TEST_SUITE})
+endif()
+
+message(STATUS "[ Build Kit ]-------------------------------------------\n\
+    CMAKE_TOOLCHAIN_FILE:     ${CMAKE_TOOLCHAIN_FILE}\n\
+    CETLVAST_FLAG_SET:        ${CETLVAST_FLAG_SET}\n\
+    CETLVAST_TEST_SUITE:      ${CETLVAST_TEST_SUITE}\n\
+-----------------------------------------------------------\n\
+")
 
 # +---------------------------------------------------------------------------+
 # | FLAG SETS
@@ -108,11 +117,6 @@ include(${CETLVAST_FLAG_SET})
 find_package(gtest REQUIRED)
 
 #
-# Finds programs needed to build the CETL documentation
-#
-find_package(docs REQUIRED)
-
-#
 # We require clang-format to check the style as part of CI builds.
 #
 find_package(clangformat REQUIRED)
@@ -123,15 +127,6 @@ find_package(clangformat REQUIRED)
 create_check_style_target(format-check ${CETLVAST_STYLE_CHECK} "${CETL_INCLUDE}/**/*.h")
 
 # +---------------------------------------------------------------------------+
-# | BUILD UNIT TESTS
+# | BUILD SELECTED TEST SUITE
 # +---------------------------------------------------------------------------+
-include(${CETLVAST_TESTBUILD})
-
-# +---------------------------------------------------------------------------+
-# | DOCUMENTATION GENERATION
-# +---------------------------------------------------------------------------+
-if(NOT DEFINED CETLVAST_SKIP_DOCS OR NOT CETLVAST_SKIP_DOCS)
-    create_docs_target(docs OFF)
-else()
-    message(STATUS "CETLVAST_SKIP_DOCS is ON. Skipping documentation generation for this build.")
-endif()
+include(${CETLVAST_TEST_SUITE})
