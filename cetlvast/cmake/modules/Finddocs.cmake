@@ -4,7 +4,7 @@
 #
 
 
-find_package(Doxygen QUIET)
+find_package(Doxygen REQUIRED)
 find_program(TAR tar)
 
 # +---------------------------------------------------------------------------+

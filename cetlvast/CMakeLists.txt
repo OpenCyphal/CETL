@@ -86,8 +86,8 @@ else()
 endif()
 
 if(NOT DEFINED CETLVAST_TEST_SUITE)
-    message(VERBOSE "CETLVAST_TEST_SUITE was not defined. Setting to \"native tests\" as a default")
-    set(CETLVAST_TEST_SUITE ${CMAKE_SOURCE_DIR}/cmake/suites/native.cmake)
+    message(VERBOSE "CETLVAST_TEST_SUITE was not defined. Setting to \"unittest\" as a default")
+    set(CETLVAST_TEST_SUITE ${CMAKE_SOURCE_DIR}/cmake/suites/unittest.cmake)
 else()
     set(CETLVAST_TEST_SUITE ${CETLVAST_TEST_SUITE})
 endif()
@@ -106,25 +106,6 @@ message(STATUS "[ Build Kit ]-------------------------------------------\n\
 # Load all our compile flag sets into the appropriate places.
 #
 include(${CETLVAST_FLAG_SET})
-
-# +---------------------------------------------------------------------------+
-# | EXTERNAL DEPENDENCIES
-# +---------------------------------------------------------------------------+
-
-#
-# googletest (and googlemock) external project.
-#
-find_package(gtest REQUIRED)
-
-#
-# We require clang-format to check the style as part of CI builds.
-#
-find_package(clangformat REQUIRED)
-
-# +---------------------------------------------------------------------------+
-# | STYLE
-# +---------------------------------------------------------------------------+
-create_check_style_target(format-check ${CETLVAST_STYLE_CHECK} "${CETL_INCLUDE}/**/*.h")
 
 # +---------------------------------------------------------------------------+
 # | BUILD SELECTED TEST SUITE

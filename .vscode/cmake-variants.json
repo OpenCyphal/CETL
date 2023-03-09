@@ -76,13 +76,6 @@
                 "settings": {
                     "CETLVAST_CPP_STANDARD": "20"
                 }
-            },
-            "23": {
-                "short": "--std=c++23",
-                "long": "Compile and link using the C++23 standard.",
-                "settings": {
-                    "CETLVAST_CPP_STANDARD": "23"
-                }
             }
         }
     }

@@ -1,20 +1,20 @@
 [
     {
-        "name": "unit-gcc",
+        "name": "unittest-gcc",
         "description": "Compile and run unit tests using the host's default gcc toolchain.",
         "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/gcc-native.cmake",
         "cmakeSettings": {
             "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
-            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/native.cmake"
+            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/unittest.cmake"
         }
     },
     {
-        "name": "unit-clang",
+        "name": "unittest-clang",
         "description": "Compile and run unit tests using the host's default clang toolchain.",
         "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
             "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
-            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/native.cmake"
+            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/unittest.cmake"
         }
     },
     {
@@ -32,7 +32,7 @@
         "toolchainFile": "${workspaceFolder}/cetlvast/cmake/toolchains/clang-native.cmake",
         "cmakeSettings": {
             "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
-            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/native.cmake"
+            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/compile.cmake"
         }
     },
     {
