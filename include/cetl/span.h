@@ -1,5 +1,5 @@
 /// @file
-/// Defines a generic span type
+/// Defines a span type that is mostly compliant to ISO/IEC 14882:2020(E) but compatible with C++14 and newer.
 /// @copyright Copyright (c) 2023 Amazon.com Inc. and its affiliates. All Rights Reserved.
 
 #ifndef CETL_SPAN_H_INCLUDED
