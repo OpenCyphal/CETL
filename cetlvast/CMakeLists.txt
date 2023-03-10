@@ -11,9 +11,20 @@ cmake_minimum_required(VERSION 3.16.0)
 
 project(cetlvast CXX)
 
+if (NOT DEFINED CETL_ROOT)
+    get_filename_component(CETL_ROOT
+                           "${CMAKE_SOURCE_DIR}/../"
+                           REALPATH BASE_DIR
+                           "${CMAKE_BINARY_DIR}")
+    message(STATUS "Setting CETL_ROOT = ${CETL_ROOT}")
+else()
+    message(STATUS "Using ${CETL_ROOT} for CETL_ROOT")
+endif()
+
+
 if (NOT DEFINED CETLVAST_PROJECT_ROOT)
     get_filename_component(CETLVAST_PROJECT_ROOT
-                           "${CMAKE_SOURCE_DIR}/../"
+                           "${CMAKE_SOURCE_DIR}"
                            REALPATH BASE_DIR
                            "${CMAKE_BINARY_DIR}")
     message(STATUS "Setting CETLVAST_PROJECT_ROOT = ${CETLVAST_PROJECT_ROOT}")
@@ -36,11 +47,11 @@ message(STATUS "Ensuring EXTERNAL_PROJECT_DIRECTORY=${EXTERNAL_PROJECT_DIRECTORY
 #
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
-set(CETL_INCLUDE "${CETLVAST_PROJECT_ROOT}/include")
+set(CETL_INCLUDE "${CETL_ROOT}/include")
 
 include_directories(
     ${CETL_INCLUDE}
-    "${CETLVAST_PROJECT_ROOT}/cetlvast/include"
+    "${CETLVAST_PROJECT_ROOT}/include"
 )
 
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)

@@ -8,7 +8,7 @@
 #
 
 # All test binaries and reports will be created under this directory.
-set(CETLVAST_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/cetlvast/suites/native)
+set(CETLVAST_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/cetlvast/suites/unittest)
 
 #
 # googletest (and googlemock) external project.
@@ -130,7 +130,7 @@ add_custom_command(
                ${CETLVAST_GCOV_TOOL_ARG}
                --rc lcov_branch_coverage=1
                --extract ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.all.info
-                         ${CETLVAST_PROJECT_ROOT}/include/\\*
+                         ${CETL_ROOT}/include/\\*
                --output-file ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.info
      DEPENDS ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.all.info
 )

@@ -35,7 +35,7 @@ template <typename T, std::size_t Extent>
 class span
 {
 public:
-    // (Groupings per https://en.cppreference.com/w/cpp/container/span)
+    //
     // +----------------------------------------------------------------------+
     // | Member Constants
     // +----------------------------------------------------------------------+
@@ -393,7 +393,7 @@ public:
     ///         new span's `Extent` is this span's `Extent` minus `Offset`.
     /// @see std::span::subspan()
     template <size_type Offset, size_type Count = cetl::dynamic_extent>
-    constexpr auto subspan() const -> span<element_type, (Count != cetl::dynamic_extent) ? Count : Extent - Offset>
+    constexpr span<element_type, (Count != cetl::dynamic_extent) ? Count : Extent - Offset> subspan() const
     {
         static_assert(Offset <= extent, "subspan Offsets > extent are ill-formed.");
         static_assert((Count == cetl::dynamic_extent) || (Count <= extent - Offset),
@@ -437,7 +437,9 @@ private:
 template <typename T, std::size_t Extent>
 const std::size_t span<T, Extent>::extent;
 
+
 /// Specialization of span where the extent is dynamic.
+/// @snippet{trimleft} example_01_span.cpp helloworld
 template <typename T>
 class span<T, cetl::dynamic_extent>
 {

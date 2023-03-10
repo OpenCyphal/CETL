@@ -2,10 +2,91 @@
 # Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 
+# +---------------------------------------------------------------------------+
+# | STYLE
+# +---------------------------------------------------------------------------+
+#
+# We require clang-format to check the style as part of CI builds.
+#
+find_package(clangformat REQUIRED)
 
+create_check_style_target(format-check ${CETLVAST_STYLE_CHECK} "${CETL_INCLUDE}/**/*.h")
+
+
+# +---------------------------------------------------------------------------+
+# | BUILD NATIVE EXAMPLE CODE
+# +---------------------------------------------------------------------------+
+# All example binaries will be created under this directory.
+set(CETLVAST_NATIVE_EXAMPLE_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/cetlvast/suites/examples)
+
+
+#
+# function: define_native_example_build - creates an rule to build an executable for
+# a given example.
+#
+# param: ARG_EXAMPLE_NAME   string     - The name to give the executable binary.
+# param: ARG_EXAMPLE_SOURCE List[path] - A list of source files to compile into
+#                                        the example binary.
+# param: ARG_OUTDIR path               - A path to output example binaries.
+#
+function(define_native_example_build ARG_EXAMPLE_NAME ARG_EXAMPLE_SOURCE ARG_OUTDIR)
+
+     add_executable(${ARG_EXAMPLE_NAME} ${ARG_EXAMPLE_SOURCE})
+     set_target_properties(${ARG_EXAMPLE_NAME}
+                           PROPERTIES
+                           RUNTIME_OUTPUT_DIRECTORY "${ARG_OUTDIR}"
+     )
+
+endfunction()
+
+
+#
+# function: define_native_example_run - creates a rule that will and run individual
+# examples.
+#
+# param: ARG_EXAMPLE_NAME string - The name of the example to run. A target will be created
+#                                  with the name run_${ARG_EXAMPLE_NAME}
+# param: ARG_OUTDIR path         - The path where the example binaries live.
+#
+function(define_native_example_run ARG_EXAMPLE_NAME ARG_OUTDIR)
+     add_custom_target(
+          run_${ARG_EXAMPLE_NAME}
+          COMMAND
+               ${ARG_OUTDIR}/${ARG_EXAMPLE_NAME}
+          DEPENDS
+               ${ARG_EXAMPLE_NAME}
+     )
+
+endfunction()
+
+file(GLOB NATIVE_EXAMPLES
+     LIST_DIRECTORIES false
+     RELATIVE ${CETLVAST_PROJECT_ROOT}
+        suites/docs/examples/example_*.cpp
+)
+
+set(ALL_EXAMPLES "")
+
+foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
+    get_filename_component(NATIVE_EXAMPLE_NAME ${NATIVE_EXAMPLE} NAME_WE)
+    message(STATUS "Defining native example binary ${NATIVE_EXAMPLE_NAME} for source file ${NATIVE_EXAMPLE}")
+    define_native_example_build(${NATIVE_EXAMPLE_NAME} ${NATIVE_EXAMPLE} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
+    define_native_example_run(${NATIVE_EXAMPLE_NAME} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
+    list(APPEND ALL_EXAMPLES "run_${NATIVE_EXAMPLE_NAME}")
+endforeach()
+
+add_custom_target(
+     run_all_examples
+     DEPENDS
+          ${ALL_EXAMPLES}
+)
+
+# +---------------------------------------------------------------------------+
+# | DOXYGEN
+# +---------------------------------------------------------------------------+
 #
 # Finds programs needed to build the CETL documentation
 #
 find_package(docs REQUIRED)
 
-create_docs_target(docs ON)
+create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples)

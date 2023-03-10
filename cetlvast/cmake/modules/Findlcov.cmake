@@ -83,7 +83,7 @@ if(LCOV)
                         ${CETLVAST_GCOV_TOOL_ARG}
                         --rc lcov_branch_coverage=1
                         --extract ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.info
-                        ${CETLVAST_PROJECT_ROOT}/include/\\*
+                        ${CETL_ROOT}/include/\\*
                         --output-file ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
             OUTPUT ${ARG_OUTDIR}/coverage.${ARG_TEST_NAME}.filtered.info
             DEPENDS ${ARG_TEST_NAME}

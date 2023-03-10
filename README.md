@@ -1,4 +1,4 @@
-![OpenCyphal](doc_source/images/html/cetl_logo.svg) Cyphal Embedded Template Library
+![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo.svg) Cyphal Embedded Template Library
 ===================
 
 > We like to pronounce CETL as "settle"
