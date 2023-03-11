@@ -1,6 +1,9 @@
 #
-# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
 #
+
 # Toolchain for using clang on what-ever-platform-this-is (aka "native").
 # CMake and/or Ubuntu defaults to gcc.
 #

@@ -1,6 +1,12 @@
-/*
- * Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
- */
+/// @file
+/// Compile test that ensures nodiscard attribute is provided when using
+/// c++17 or newer.
+///
+/// @copyright
+/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+/// Copyright Amazon.com Inc. or its affiliates.
+/// SPDX-License-Identifier: MIT
+///
 #include "cetl/cetl.h"
 #include "cetl/span.h"
 
@@ -13,6 +19,8 @@ int main()
     cetl::span<int,0> subject;
 #ifndef CETLVAST_COMPILETEST_PRECHECK
     subject.empty(); // this should fail because nodiscard is available
+#else
+    (void)subject;
 #endif
     return 0;
 }

@@ -1,6 +1,9 @@
 #
-# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
 #
+
 # unit tests compiled for whatever environment the build is running on. They assume they are running
 # on a fairly robust POSIX environment and use googletest/googlemock to organize the tests. Native tests should work
 # on linux, osx, or Windows hosts and should work on any popular architecture including 32-bit and 64-bit ARM and x86.
@@ -16,17 +19,6 @@ set(CETLVAST_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/cetlvast/suites/
 find_package(gtest REQUIRED)
 find_package(lcov REQUIRED)
 find_package(genhtml REQUIRED)
-
-# +---------------------------------------------------------------------------+
-# | STYLE
-# +---------------------------------------------------------------------------+
-#
-# We require clang-format to check the style as part of CI builds.
-#
-find_package(clangformat REQUIRED)
-
-create_check_style_target(format-check ${CETLVAST_STYLE_CHECK} "${CETL_INCLUDE}/**/*.h")
-
 
 # +---------------------------------------------------------------------------+
 # | BUILD NATIVE UNIT TESTS

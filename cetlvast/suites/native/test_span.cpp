@@ -1,6 +1,11 @@
 /// @file
-/// Verification tests for span.h
-/// @copyright Copyright (c) 2023 Amazon.com Inc. and its affiliates. All Rights Reserved.
+/// Unit tests for span.h
+///
+/// @copyright
+/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+/// Copyright Amazon.com Inc. or its affiliates.
+/// SPDX-License-Identifier: MIT
+///
 
 #include "cetl/cetl.h"
 #include "cetlvast/helpers.h"

@@ -25,7 +25,8 @@
         "/cetl(vast)?/",
         "/(c|d)tor/i",
         "/arr/",
-        "/subspan/i"
+        "/subspan/i",
+        "/nodiscar/"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,

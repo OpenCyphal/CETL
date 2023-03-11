@@ -1,6 +1,11 @@
 /// @file
 /// Defines a span type that is mostly compliant to ISO/IEC 14882:2020(E) but compatible with C++14 and newer.
-/// @copyright Copyright (c) 2023 Amazon.com Inc. and its affiliates. All Rights Reserved.
+///
+/// @copyright
+/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+/// Copyright Amazon.com Inc. or its affiliates.
+/// SPDX-License-Identifier: MIT
+///
 
 #ifndef CETL_SPAN_H_INCLUDED
 #define CETL_SPAN_H_INCLUDED
@@ -88,7 +93,7 @@ public:
     {
         (void) count;  // Count isn't actually used in static spans.
         CETL_DEBUG_ASSERT(count == extent,
-                          "Undefined behavior: Constructing a fixed span where the Extent parameter is different from "
+                          "CDE_span_001: Constructing a fixed span where the Extent parameter is different from "
                           "the count passed into this constructor.");
     }
 
@@ -105,7 +110,7 @@ public:
         : data_(first)
     {
         (void) end;  // Last isn't actually used in static spans.
-        CETL_DEBUG_ASSERT(std::distance(first, end) == Extent, "Iterator range does not equal Extent.");
+        CETL_DEBUG_ASSERT(std::distance(first, end) == Extent, "CDE_span_002: Iterator range does not equal Extent.");
     }
 
     /// Creates a span starting at the first element of a c-style array through to the end of that array.
@@ -164,8 +169,7 @@ public:
         : data_(source.data())
     {
         CETL_DEBUG_ASSERT(extent == source.size(),
-                          "Undefined behavior: providing a dynamic span with a size different from this static "
-                          "span's.");
+                          "CDE_span_003: providing a dynamic span with a size different from this static span's.");
     }
 
     /// Copy constructor to create a span from another span.
@@ -436,7 +440,6 @@ private:
 // required till C++ 17. Redundant but allowed after that.
 template <typename T, std::size_t Extent>
 const std::size_t span<T, Extent>::extent;
-
 
 /// Specialization of span where the extent is dynamic.
 /// @snippet{trimleft} example_01_span.cpp helloworld

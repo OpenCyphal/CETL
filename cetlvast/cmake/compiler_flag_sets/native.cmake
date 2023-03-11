@@ -1,7 +1,9 @@
+#
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
+#
 
-#
-# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
-#
 # C, CXX, LD, and AS flags for building native unit tests. These flags also include
 # instrumentation for code coverage.
 #

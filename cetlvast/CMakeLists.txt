@@ -1,6 +1,7 @@
 #
 # Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
-# Copyright 2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
 #
 
 cmake_minimum_required(VERSION 3.16.0)
@@ -90,8 +91,8 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
 # +---------------------------------------------------------------------------+
 
 if(NOT DEFINED CETLVAST_FLAG_SET)
-    message(VERBOSE "CETLVAST_FLAG_SET was not defined. Setting to \"native-full\" as a default")
-    set(CETLVAST_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native-full.cmake)
+    message(VERBOSE "CETLVAST_FLAG_SET was not defined. Setting to \"native\" as a default")
+    set(CETLVAST_FLAG_SET ${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/native.cmake)
 else()
     set(CETLVAST_FLAG_SET ${CETLVAST_FLAG_SET})
 endif()

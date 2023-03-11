@@ -59,6 +59,7 @@ if(GTEST_FOUND)
         "-Wno-float-equal"
         "-Wno-double-promotion"
         "-Wno-conversion"
+        "-Wno-missing-declarations"
     )
     target_compile_options(gtest
         PRIVATE

@@ -1,6 +1,11 @@
 /// @file
 /// CETL VerificAtion SuiTe – Test suite helpers.
-/// @copyright Copyright (c) 2023 Amazon.com Inc. and its affiliates. All Rights Reserved.
+///
+/// @copyright
+/// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+/// Copyright Amazon.com Inc. or its affiliates.
+/// SPDX-License-Identifier: MIT
+///
 
 #ifndef CETLVAST_HELPERS_H_INCLUDED
 #define CETLVAST_HELPERS_H_INCLUDED

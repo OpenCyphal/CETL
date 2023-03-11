@@ -15,7 +15,7 @@
     "workspaceFolder": "/repo",
     "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
     "mounts": [
-        "source=root-vscode-server,target=/root/.vscode-server/extensions,type=volume",
-        "source=cmake,target=/repo/cetlvast/build_vscode,type=volume"
+        "source=profile,target=/root,type=volume",
+        "target=/root/.vscode-server,type=volume"
     ]
 }

@@ -1,4 +1,10 @@
 #
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+
+#
 # Ensure clang-format is available and check style rules.
 #
 
@@ -66,7 +72,7 @@ endfunction(create_apply_style_target)
 
 
 include(FindPackageHandleStandardArgs)
- 
+
 find_package_handle_standard_args(clangformat
     REQUIRED_VARS CLANG_FORMAT
 )

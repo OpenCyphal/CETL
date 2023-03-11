@@ -1,3 +1,8 @@
+#
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
+#
 
 find_program(LCOV lcov)
 
@@ -62,7 +67,7 @@ if(LCOV)
                         --directory ${CMAKE_CURRENT_BINARY_DIR}
                         --output-file ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.baseline.info
             COMMAND
-                ${ARG_OUTDIR}/${ARG_TEST_NAME}
+                ${CMAKE_COMMAND} -E env "GCOV_EXIT_AT_ERROR=1" ${ARG_OUTDIR}/${ARG_TEST_NAME}
             COMMAND # Generate coverage from tests.
                 ${LCOV}
                         ${CETLVAST_GCOV_TOOL_ARG}

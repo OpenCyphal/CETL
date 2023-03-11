@@ -52,5 +52,12 @@
             "CETLVAST_FLAG_SET": "${workspaceFolder}/cetlvast/cmake/compiler_flag_sets/native.cmake",
             "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/docs.cmake"
         }
+    },
+    {
+        "name": "lint",
+        "description": "Static checkers.",
+        "cmakeSettings": {
+            "CETLVAST_TEST_SUITE": "${workspaceFolder}/cetlvast/cmake/suites/lint.cmake"
+        }
     }
 ]
