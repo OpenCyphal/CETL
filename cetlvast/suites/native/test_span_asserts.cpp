@@ -26,8 +26,7 @@ static void TestStaticSpanWithWrongSize()
 
 TEST(DeathTestSpanAssertions, TestStaticSpanWithWrongSize)
 {
-    EXPECT_DEATH(TestStaticSpanWithWrongSize(),
-                 "CDE_span_001");
+    EXPECT_DEATH(TestStaticSpanWithWrongSize(), "CDE_span_001");
 }
 
 // +----------------------------------------------------------------------+
@@ -40,23 +39,21 @@ static void TestStaticSpanWithWrongDistance()
 
 TEST(DeathTestSpanAssertions, TestStaticSpanWithWrongDistance)
 {
-    EXPECT_DEATH(TestStaticSpanWithWrongDistance(),
-                 "CDE_span_002");
+    EXPECT_DEATH(TestStaticSpanWithWrongDistance(), "CDE_span_002");
 }
 
 // +----------------------------------------------------------------------+
 
 static void TestStaticSpanFromDynamicOfWrongSize()
 {
-    const char* hello_world = "Hello World";
+    const char*            hello_world = "Hello World";
     cetl::span<const char> hello_span(hello_world, 11);
     (void) cetl::span<const char, 10>(hello_span);
 }
 
 TEST(DeathTestSpanAssertions, TestStaticSpanFromDynamicOfWrongSize)
 {
-    EXPECT_DEATH(TestStaticSpanFromDynamicOfWrongSize(),
-                 "CDE_span_003");
+    EXPECT_DEATH(TestStaticSpanFromDynamicOfWrongSize(), "CDE_span_003");
 }
 
 #endif  // CETL_ENABLE_DEBUG_ASSERT

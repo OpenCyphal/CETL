@@ -26,7 +26,8 @@
         "/(c|d)tor/i",
         "/arr/",
         "/subspan/i",
-        "/nodiscar/"
+        "/nodiscar/",
+        "/trimleft/"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,

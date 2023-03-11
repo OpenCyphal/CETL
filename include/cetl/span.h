@@ -294,7 +294,7 @@ public:
     constexpr reference back() const
     {
         CETL_DEBUG_ASSERT((Extent != 0), "Calling back on an empty span is undefined.");
-        return *(end() - 1);
+        return data_[Extent - 1];
     }
 
     ///
@@ -375,7 +375,7 @@ public:
     constexpr span<element_type, Count> last() const
     {
         static_assert(Count <= extent, "subviews beyond the size of the span's view are not allowed.");
-        return span<element_type, Count>{(data_ + extent) - Count, Count};
+        return span<element_type, Count>{&data_[extent - Count], Count};
     }
 
     /// Create a new span `count` elements from the last item of the current span to its end.
@@ -386,7 +386,7 @@ public:
     constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= extent, "Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>((data_ + extent) - count, count);
+        return span<element_type, cetl::dynamic_extent>(&data_[extent - count], count);
     }
 
     /// Create a new span `Offset` elements from the start of the current span and for `Count` elements.
@@ -405,7 +405,7 @@ public:
         return span < element_type,
                Count != cetl::dynamic_extent
                    ? Count
-                   : extent - Offset > {data_ + Offset, Count == cetl::dynamic_extent ? size() - Offset : Count};
+                   : extent - Offset > {&data_[Offset], Count == cetl::dynamic_extent ? size() - Offset : Count};
     }
 
     /// Create a new span `Offset` elements from the start of the current span and for either `Count` elements or,
@@ -423,12 +423,12 @@ public:
         CETL_DEBUG_ASSERT(Offset <= extent, "subspan Offsets > size() are ill-formed.");
         if (Count == cetl::dynamic_extent)
         {
-            return {data_ + Offset, extent - Offset};
+            return {&data_[Offset], extent - Offset};
         }
         else
         {
             CETL_DEBUG_ASSERT(Count <= (extent - Offset), "subspan Count argument is ill-formed");
-            return {data_ + Offset, Count};
+            return {&data_[Offset], Count};
         }
     }
 
@@ -650,7 +650,7 @@ public:
     constexpr reference back() const
     {
         CETL_DEBUG_ASSERT((size_ > 0), "Calling back on an empty span is undefined.");
-        return *(end() - 1);
+        return data_[size_ - 1];
     }
 
     /// @copydoc span::data()
@@ -725,7 +725,7 @@ public:
     constexpr span<element_type, Count> last() const
     {
         CETL_DEBUG_ASSERT(Count <= size_, "Subviews beyond the size of the span's view are undefined.");
-        return span<element_type, Count>((data_ + size_) - Count, Count);
+        return span<element_type, Count>(&data_[size_ - Count], Count);
     }
 
     /// @copydoc span::last(span::size_type count) const
@@ -733,7 +733,7 @@ public:
     constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= size_, "Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>((data_ + size_) - count, count);
+        return span<element_type, cetl::dynamic_extent>(&data_[size_ - count], count);
     }
 
     /// Create a new span Offset elements from the start of the current span and for `Count` elements.
@@ -751,7 +751,7 @@ public:
         CETL_DEBUG_ASSERT(Offset <= size_, "subspan Offsets > extent are ill-formed.");
         CETL_DEBUG_ASSERT((Count == cetl::dynamic_extent) || (Count <= size_ - Offset),
                           "subspan Count argument is ill-formed");
-        return span<element_type, Count>{data_ + Offset, Count == cetl::dynamic_extent ? size() - Offset : Count};
+        return span<element_type, Count>{&data_[Offset], Count == cetl::dynamic_extent ? size() - Offset : Count};
     }
 
     /// @copydoc span::subspan(span::size_type Offset, span::size_type Count) const
@@ -762,12 +762,12 @@ public:
         CETL_DEBUG_ASSERT(Offset <= size_, "subspan Offsets > size() are ill-formed.");
         if (Count == cetl::dynamic_extent)
         {
-            return {data_ + Offset, size_ - Offset};
+            return {&data_[Offset], size_ - Offset};
         }
         else
         {
             CETL_DEBUG_ASSERT(Count <= (size_ - Offset), "subspan Count argument is ill-formed");
-            return {data_ + Offset, Count};
+            return {&data_[Offset], Count};
         }
     }
 

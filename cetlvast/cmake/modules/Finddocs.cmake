@@ -89,7 +89,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     add_custom_target(${ARG_DOCS_TARGET_NAME}-html DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html)
 
     add_custom_command(OUTPUT ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz
-                        COMMAND ${TAR} -vzcf docs/html.gz docs/html/
+                        COMMAND ${TAR} -vzcf ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz ${DOXYGEN_OUTPUT_DIRECTORY}/html/
                         DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html
                         WORKING_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}
                         COMMENT "Creating html tarball."
