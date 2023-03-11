@@ -209,9 +209,8 @@ public:
     /// @see std::span::operator[]()
     constexpr reference operator[](size_type idx) const
     {
-        CETL_DEBUG_ASSERT((idx < Extent), "Indexing outside of the span is undefined.");
-        CETL_DEBUG_ASSERT((data_ != nullptr), "Indexing with non data (nullptr) is undefined.");
-        CETL_DEBUG_ASSERT((Extent > 0), "Indexing a 0-size span is undefined.");
+        CETL_DEBUG_ASSERT((idx < Extent), "CDE_span_004: Indexing outside of the span is undefined.");
+        CETL_DEBUG_ASSERT((data_ != nullptr), "CDE_span_005: Indexing with non data (nullptr) is undefined.");
         return data_[idx];
     }
 
@@ -282,7 +281,7 @@ public:
     /// @see std::span::front
     constexpr reference front() const
     {
-        CETL_DEBUG_ASSERT((Extent != 0), "Calling front on an empty span is undefined.");
+        CETL_DEBUG_ASSERT((Extent != 0), "CDE_span_006: Calling front on an empty span is undefined.");
         return *begin();
     }
 
@@ -293,7 +292,7 @@ public:
     /// @see std::span::back
     constexpr reference back() const
     {
-        CETL_DEBUG_ASSERT((Extent != 0), "Calling back on an empty span is undefined.");
+        CETL_DEBUG_ASSERT((Extent != 0), "CDE_span_007: Calling back on an empty span is undefined.");
         return data_[Extent - 1];
     }
 
@@ -363,7 +362,8 @@ public:
     /// @see std::span::first
     constexpr span<element_type, cetl::dynamic_extent> first(size_type count) const
     {
-        CETL_DEBUG_ASSERT(count <= Extent, "Dynamic subviews beyond the size of the span's view are undefined.");
+        CETL_DEBUG_ASSERT(count <= Extent,
+                          "CDE_span_008: Dynamic subviews beyond the size of the span's view are undefined.");
         return span<element_type, cetl::dynamic_extent>(data_, count);
     }
 
@@ -385,7 +385,7 @@ public:
     /// @see std::span::last
     constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
     {
-        CETL_DEBUG_ASSERT(count <= extent, "Dynamic subviews beyond the size of the span's view are undefined.");
+        CETL_DEBUG_ASSERT(count <= extent, "CDE_span_009: Dynamic subviews beyond the size of the span's view are undefined.");
         return span<element_type, cetl::dynamic_extent>(&data_[extent - count], count);
     }
 
@@ -420,14 +420,14 @@ public:
     constexpr span<element_type, cetl::dynamic_extent> subspan(size_type Offset,
                                                                size_type Count = cetl::dynamic_extent) const
     {
-        CETL_DEBUG_ASSERT(Offset <= extent, "subspan Offsets > size() are ill-formed.");
+        CETL_DEBUG_ASSERT(Offset <= extent, "CDE_span_010: subspan Offsets > size() are ill-formed.");
         if (Count == cetl::dynamic_extent)
         {
             return {&data_[Offset], extent - Offset};
         }
         else
         {
-            CETL_DEBUG_ASSERT(Count <= (extent - Offset), "subspan Count argument is ill-formed");
+            CETL_DEBUG_ASSERT(Count <= (extent - Offset), "CDE_span_011: subspan Count argument is ill-formed");
             return {&data_[Offset], Count};
         }
     }
