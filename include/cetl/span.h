@@ -34,6 +34,13 @@ class span;
 ///
 /// This version is for spans where the extent is static (see span< T, cetl::dynamic_extent > for the dynamic
 /// extent specialization)
+///
+/// @par Example
+/// Creating a stream operator for `cetl::span`...
+/// @snippet{trimleft} example_01_span_static.cpp global
+/// ...enables trivial printing of substrings without allocation of a new buffer.
+/// @snippet{trimleft} example_01_span_static.cpp main
+///
 /// @tparam T       The element type.
 /// @tparam Extent  The extent type of this span; either dynamic or static.
 template <typename T, std::size_t Extent>
@@ -448,7 +455,7 @@ template <typename T, std::size_t Extent>
 const std::size_t span<T, Extent>::extent;
 
 /// Specialization of span where the extent is dynamic.
-/// @snippet{trimleft} example_01_span.cpp helloworld
+/// @snippet{trimleft} example_01_span_dynamic.cpp main
 template <typename T>
 class span<T, cetl::dynamic_extent>
 {

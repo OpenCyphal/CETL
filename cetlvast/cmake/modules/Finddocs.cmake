@@ -82,7 +82,6 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     configure_file(${DOXYGEN_SOURCE}/doxygen.ini
                     ${DOXYGEN_CONFIG_FILE}
                 )
-
     add_custom_command(OUTPUT ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html
                         COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYGEN_CONFIG_FILE}
                         DEPENDS

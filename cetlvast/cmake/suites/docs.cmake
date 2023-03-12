@@ -57,19 +57,21 @@ file(GLOB NATIVE_EXAMPLES
 )
 
 set(ALL_EXAMPLES "")
+set(ALL_EXAMPLE_RUNS "")
 
 foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
     get_filename_component(NATIVE_EXAMPLE_NAME ${NATIVE_EXAMPLE} NAME_WE)
     message(STATUS "Defining native example binary ${NATIVE_EXAMPLE_NAME} for source file ${NATIVE_EXAMPLE}")
     define_native_example_build(${NATIVE_EXAMPLE_NAME} ${NATIVE_EXAMPLE} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
     define_native_example_run(${NATIVE_EXAMPLE_NAME} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
-    list(APPEND ALL_EXAMPLES "run_${NATIVE_EXAMPLE_NAME}")
+    list(APPEND ALL_EXAMPLES "${NATIVE_EXAMPLE_NAME}")
+    list(APPEND ALL_EXAMPLE_RUNS "run_${NATIVE_EXAMPLE_NAME}")
 endforeach()
 
 add_custom_target(
      run_all_examples
      DEPENDS
-          ${ALL_EXAMPLES}
+          ${ALL_EXAMPLE_RUNS}
 )
 
 # +---------------------------------------------------------------------------+
@@ -80,4 +82,4 @@ add_custom_target(
 #
 find_package(docs REQUIRED)
 
-create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples ${ALL_EXAMPLES})
+create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples "${ALL_EXAMPLES}")
