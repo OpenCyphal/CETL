@@ -71,7 +71,7 @@ endfunction()
 file(GLOB NATIVE_TESTS
      LIST_DIRECTORIES false
      RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-     ${CMAKE_CURRENT_SOURCE_DIR}/suites/native/test_*.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/suites/unittest/test_*.cpp
 )
 
 add_custom_target(

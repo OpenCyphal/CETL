@@ -79,7 +79,8 @@ public:
     template <std::size_t DeducedExtent = Extent, typename std::enable_if<(DeducedExtent == 0), bool>::type = true>
     constexpr span() noexcept
         : data_{nullptr}
-    {}
+    {
+    }
 
     /// Creates a span starting at an element for a given length.
     /// The span's view into the data starts at the element pointed to by the first pointer. The size of the
@@ -119,7 +120,8 @@ public:
     template <std::size_t DeducedExtent = Extent, typename std::enable_if<(DeducedExtent != 0), bool>::type = true>
     constexpr span(element_type (&arr)[DeducedExtent]) noexcept
         : data_(arr)
-    {}
+    {
+    }
 
     /// Creates a span over an entire `std::array` starting at the array's first element.
     /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
@@ -132,7 +134,8 @@ public:
               typename std::enable_if<std::is_convertible<ArrayElementType (*)[], T (*)[]>::value, bool>::type = true>
     constexpr span(std::array<ArrayElementType, Extent>& arr) noexcept
         : data_(arr.data())
-    {}
+    {
+    }
 
     /// Creates a span over an entire `const std::array` starting at the array's first element.
     /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
@@ -146,7 +149,8 @@ public:
         typename std::enable_if<std::is_convertible<const ArrayElementType (*)[], T (*)[]>::value, bool>::type = true>
     constexpr span(const std::array<ArrayElementType, Extent>& arr) noexcept
         : data_(arr.data())
-    {}
+    {
+    }
 
     // TODO: C++20 range constructor.
     // template< class R >
@@ -185,7 +189,8 @@ public:
                                       bool>::type = true>
     constexpr span(const span<DeducedElementType, Extent>& source) noexcept
         : data_(source.data())
-    {}
+    {
+    }
 
     /// Default copy constructor
     /// @see std::span::span()
@@ -385,7 +390,8 @@ public:
     /// @see std::span::last
     constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
     {
-        CETL_DEBUG_ASSERT(count <= extent, "CDE_span_009: Dynamic subviews beyond the size of the span's view are undefined.");
+        CETL_DEBUG_ASSERT(count <= extent,
+                          "CDE_span_009: Dynamic subviews beyond the size of the span's view are undefined.");
         return span<element_type, cetl::dynamic_extent>(&data_[extent - count], count);
     }
 
@@ -483,7 +489,8 @@ public:
     constexpr span() noexcept
         : data_{nullptr}
         , size_{0}
-    {}
+    {
+    }
 
     /// Creates a span starting at an element for a given length.
     /// The span's view into the data starts at the element pointed to by the first pointer. The size of the
@@ -494,7 +501,8 @@ public:
     constexpr span(iterator first, size_type count)
         : data_{first}
         , size_{count}
-    {}
+    {
+    }
 
     /// Creates a span starting at an element to the element before the given end.
     /// That is, `span == [first, end)`. The size of the span becomes end - first.
@@ -512,7 +520,7 @@ public:
         static_assert(sizeof(size_type) >= sizeof(typename std::iterator_traits<EndType>::difference_type),
                       "Signed conversion is not safe if the iterator difference type is larger than our size_type");
         CETL_DEBUG_ASSERT(std::distance(first, end) >= 0,
-                          "Negative distance between first and end iterators is undefined.");
+                          "CDE_span_012: Negative distance between first and end iterators is undefined.");
     }
 
     /// Creates a span starting at the first element of a c-style array through to the end of that array.
@@ -523,7 +531,8 @@ public:
     constexpr span(element_type (&arr)[ArrayLen]) noexcept
         : data_(arr)
         , size_(ArrayLen)
-    {}
+    {
+    }
 
     /// Creates a span over an entire `std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
@@ -540,7 +549,8 @@ public:
     constexpr span(std::array<ArrayElementType, ArrayLen>& arr) noexcept
         : data_(arr.data())
         , size_(ArrayLen)
-    {}
+    {
+    }
 
     /// Creates a span over an entire `const std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
@@ -558,7 +568,8 @@ public:
     constexpr span(const std::array<ArrayElementType, ArrayLen>& arr) noexcept
         : data_(arr.data())
         , size_(ArrayLen)
-    {}
+    {
+    }
 
     // TODO: C++20 range constructor.
     // template< class R >
@@ -581,7 +592,8 @@ public:
     constexpr span(const span<DeducedElementType, DeducedExtent>& source) noexcept
         : data_(source.data())
         , size_(source.size())
-    {}
+    {
+    }
 
     /// Default copy constructor
     /// @see std::span::span()

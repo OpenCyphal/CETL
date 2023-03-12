@@ -44,6 +44,20 @@ TEST(DeathTestSpanAssertions, TestStaticSpanWithWrongDistance)
 
 // +----------------------------------------------------------------------+
 
+static void TestDynamicSpanWithNegativeDistance()
+{
+    const char* hello_world = "Hello World";
+    (void) cetl::span<const char>(&hello_world[11], hello_world);
+}
+
+TEST(DeathTestSpanAssertions, TestDynamicSpanWithNegativeDistance)
+{
+    EXPECT_DEATH(TestDynamicSpanWithNegativeDistance(), "CDE_span_012");
+}
+
+
+// +----------------------------------------------------------------------+
+
 static void TestStaticSpanFromDynamicOfWrongSize()
 {
     const char*            hello_world = "Hello World";

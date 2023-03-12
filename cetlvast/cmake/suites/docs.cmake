@@ -80,4 +80,4 @@ add_custom_target(
 #
 find_package(docs REQUIRED)
 
-create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples)
+create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples ${ALL_EXAMPLES})
