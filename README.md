@@ -1,4 +1,4 @@
-![OpenCyphal](doc_source/images/html/cetl_logo.svg) Cyphal Embedded Template Library
+![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo.svg) Cyphal Embedded Template Library
 ===================
 
 > We like to pronounce CETL as "settle"
@@ -13,7 +13,7 @@ The include directory contains the CETL headers all within a folder, "cetl".
 
 > Staying with the theme, you can call this "settle-vast"
 
-We recommend you build the CETL Verification Suite using your target toolchain and run the suite on
+We recommend you build the CETL VerificAtion SuiTe using your target toolchain and run the suite on
 your target hardware to ensure it is fully compatible. The suite is designed to work with minimal
 platform I/O and does not require a filesystem. On thicker platforms, like linux, CETLVaSt can be
 used to generate more robust output and even coverage reports to verify that the test suite is
@@ -35,7 +35,8 @@ the default STL allocator but will always support an alternative way to manage t
 will suffice CETL uses that explicitly. If a function should be constexpr the constexpr keyword will be used. etc.
 - **CETL does not use macros** – With the exception of include guard ifndef clauses, CETL does not use any C macros.
 Users are in control and can write `__cplusplus` conditional includes that select CETL over STL in their own headers.
-- **CETL is Autosar 2020 compliant** – Where it violates Autosar rules comments will provide a clear rationale.
+- **CETL is [Autosar C++14](https://www.autosar.org/fileadmin/standards/adaptive/20-11/AUTOSAR_RS_CPP14Guidelines.pdf)
+compliant** – Where it violates Autosar rules comments will provide a clear rationale.
 
 
 ## Support Matrix

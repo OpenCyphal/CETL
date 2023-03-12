@@ -1,14 +1,12 @@
 {
     "name": "linux development environment",
-    "image": "ghcr.io/opencyphal/ts20.4.1",
+    "image": "ghcr.io/opencyphal/toolshed:ts22.4.1",
     "customizations": {
         "vscode": {
             "extensions": [
                 "ms-vscode.cpptools",
                 "twxs.cmake",
-                "uavcan.dsdl",
                 "ms-vscode.cmake-tools",
-                "zixuanwang.linkerscript",
                 "ban.spellright",
                 "xaver.clang-format"
             ]
@@ -17,9 +15,7 @@
     "workspaceFolder": "/repo",
     "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
     "mounts": [
-        "source=root-vscode-server,target=/root/.vscode-server/extensions,type=volume",
-        "source=cmake,target=/repo/test/build_vscode,type=volume"
-    ],
-    "forwardPorts": [9382],
-    "postCreateCommand": "git submodule update --init --recursive"
+        "source=profile,target=/root,type=volume",
+        "target=/root/.vscode-server,type=volume"
+    ]
 }

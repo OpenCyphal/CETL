@@ -1,5 +1,6 @@
 # Dumb OS crap
 .DS_Store
+*.bak
 
 # Build outputs
 *.o
@@ -39,3 +40,6 @@ __pycache__
 # it in if you are using one.
 .vagrant
 Vagrantfile
+
+# vscode
+.vscode/c_cpp_properties.json
