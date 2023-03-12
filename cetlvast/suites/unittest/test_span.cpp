@@ -16,6 +16,7 @@
 #include <utility>
 
 #if (__cplusplus >= CETL_CPP_STANDARD_20)
+#    include <version>
 
 static_assert(__cpp_lib_span, "__cpp_lib_span was not defined for this compiler when using 2020.02?");
 #    include <span>
@@ -115,7 +116,8 @@ public:
 
     SpanData()
         : SpanData({})
-    {}
+    {
+    }
 
     explicit SpanData(value_type&& fill_value)
         : data_(nullptr)
@@ -338,7 +340,8 @@ struct TestStlArrayCtorIfNotZero<TypeParam, 0>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestStlArrayCtor)
@@ -522,7 +525,8 @@ struct TestSubviewFirstByExtent<TypeParam, std::integral_constant<bool, (TypePar
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewFirst)
@@ -581,7 +585,8 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewLast)
@@ -683,7 +688,8 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewSubspan)
@@ -757,7 +763,8 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewFirstDynamic)
@@ -830,7 +837,8 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewLastDynamic)
@@ -934,7 +942,8 @@ template <typename TypeParam>
     // nothing to test.
     template <typename DeducedTypeParam>
     void operator()(SpanData<DeducedTypeParam>&&)
-    {}
+    {
+    }
 };
 
 TYPED_TEST(TestSpan, TestSubviewSubspanDynamic)
