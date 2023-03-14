@@ -42,6 +42,7 @@
     ],
     "editor.wordWrapColumn": 120,
     "editor.rulers": [
+        80,
         120
     ],
     "files.eol": "\n",

@@ -69,6 +69,12 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
 endforeach()
 
 add_custom_target(
+     build_all_examples
+     DEPENDS
+          ${ALL_EXAMPLES}
+)
+
+add_custom_target(
      run_all_examples
      DEPENDS
           ${ALL_EXAMPLE_RUNS}

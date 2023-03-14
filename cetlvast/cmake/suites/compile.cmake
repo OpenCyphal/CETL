@@ -25,6 +25,14 @@ function(define_compile_failure_test ARG_TEST_NAME ARG_TEST_SOURCE)
 
     target_compile_definitions(${ARG_TEST_NAME}_precheck PRIVATE CETLVAST_COMPILETEST_PRECHECK=1)
 
+    add_custom_target(
+          "run_${ARG_TEST_NAME}_precheck"
+          COMMAND
+               ${CMAKE_CURRENT_BINARY_DIR}/${ARG_TEST_NAME}_precheck
+          DEPENDS
+               "${ARG_TEST_NAME}_precheck"
+    )
+
     # Now define the doomed version for ctest to run...
     add_executable(${ARG_TEST_NAME} ${ARG_TEST_SOURCE})
 
@@ -57,7 +65,23 @@ file(GLOB COMPILE_TESTS
      ${CMAKE_CURRENT_SOURCE_DIR}/suites/compile/test_*.cpp
 )
 
+set(ALL_TESTS_BUILD "")
+set(ALL_TESTS "")
+
 foreach(COMPILE_TEST ${COMPILE_TESTS})
     get_filename_component(COMPILE_TEST_NAME ${COMPILE_TEST} NAME_WE)
     define_compile_failure_test(${COMPILE_TEST_NAME} ${COMPILE_TEST})
+    list(APPEND ALL_TESTS_BUILD "${COMPILE_TEST_NAME}_precheck")
+    list(APPEND ALL_TESTS "run_${COMPILE_TEST_NAME}_precheck")
 endforeach()
+
+add_custom_target(
+     build_all
+     DEPENDS ${ALL_TESTS_BUILD}
+)
+
+add_custom_target(
+     test_all
+     DEPENDS
+          ${ALL_TESTS}
+)

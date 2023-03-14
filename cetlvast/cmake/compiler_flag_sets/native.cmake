@@ -9,8 +9,7 @@
 #
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_flag_sets/_native_common.cmake)
 
-
-if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
     message(STATUS "Release build. Setting optimization flags.")
     list(APPEND C_FLAG_SET
                 "-O1"

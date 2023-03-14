@@ -6,6 +6,16 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
+###############################################################################
+# DON'T USE CMAKE!
+#
+#     ...directly that is. We provide a verify.py script that wraps up a bunch
+# of conventions and environment variables that you'd otherwise need to know.
+# Use it to invoke cmake or at least use it to tell you how to invoke cmake.
+# We also provide full vscode cmake integration that has the same knowledge
+# of cetlvast that the verify.py script has.
+###############################################################################
+
 # +---------------------------------------------------------------------------+
 # | PROJECT
 # +---------------------------------------------------------------------------+
@@ -75,7 +85,10 @@ option(CETLVAST_ENABLE_COVERAGE "Enable or disable coverage data instrumentation
 option(CETLVAST_STYLE_CHECK "Enable or disable a check for violations of the project's style standards." ON)
 
 set(CETLVAST_CPP_STANDARD "20" CACHE STRING "C++ standard to use when compiling.")
-set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20 23)
+set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20)
+
+set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type.")
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Debug)
 
 message(STATUS "[ Build Options ]--------------------------------------\n\
     CMAKE_BUILD_TYPE:         ${CMAKE_BUILD_TYPE}\n\
