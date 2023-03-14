@@ -58,11 +58,13 @@ docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x
 ```
 3. cd into the CETLVaSt test suite directory then run the verify script to
 configure the unittest suite with `--configure-only` and (we suggest)
-`--force-ninja`. By including `-vv` you can see the exact cmake commands
-verify.py is executing and you and use `--dry-run` if you really don't
-like my python script so much that you want to do all the typing yourself
-(It's not like I spent a ton of time documenting all of these options for
-you. No no. It's fine. Don't try to apologize now...):
+`--force-ninja`. This step is important because it pulls test-only dependencies
+from github (i.e. googletest) and configures them for use by CETLVaSt. By
+including `-vv` you can see the exact cmake commands verify.py is executing and
+you and use `--dry-run` if you really hate my python script so much that you
+want to do all the typing yourself (It's not like I spent a ton of time
+documenting all of these options for you. No no. It's fine. Don't try to
+apologize now...):
 ```
 cd cetlvast
 ./verify.py -vv --configure-only --force-ninja unittest

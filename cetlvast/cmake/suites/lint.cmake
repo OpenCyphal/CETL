@@ -10,3 +10,11 @@
 find_package(clangformat REQUIRED)
 
 create_check_style_target(format-check ${CETLVAST_STYLE_CHECK} "${CETL_INCLUDE}/**/*.h")
+
+add_custom_target(
+     suite_all
+     COMMENT
+        "All CETL suites define this target as a default action scripts can rely on."
+     DEPENDS
+        format-check
+)

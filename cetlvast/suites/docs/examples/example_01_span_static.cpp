@@ -6,14 +6,14 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-#include "cetl/span.h"
+#include "cetl/pf20/span.h"
 #include <iostream>
 #include <string>
 #include <algorithm>
 
 //! [global]
 template<typename T, std::size_t Extent>
-std::ostream& operator<<(std::ostream& os, const cetl::span<T, Extent>& sp)
+std::ostream& operator<<(std::ostream& os, const cetl::pf20::span<T, Extent>& sp)
 {
     std::for_each(sp.begin(), sp.end(), [&os](const char c) { os << c; });
     return os;
@@ -24,7 +24,7 @@ int main()
 {
 //! [main]
     constexpr const char* greeting = "Hello Static World";
-    std::cout << cetl::span<const char, 12>{greeting, 12} << std::endl;
+    std::cout << cetl::pf20::span<const char, 12>{greeting, 12} << std::endl;
 //! [main]
     return 0;
 }

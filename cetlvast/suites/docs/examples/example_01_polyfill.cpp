@@ -1,21 +1,22 @@
 /// @file
-/// Example of using the dynamic-extent specialization of cetl::span.
+/// Example of using one of the CETL polyfill headers.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-#include "cetl/pf20/span.h"
+#include "cetl/pf20/cetlpf.h"
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <type_traits>
+
 
 int main()
 {
-//! [main]
     std::string greeting{"Hello Dynamic World."};
-    cetl::pf20::span<const char> dynamic{greeting.c_str(), 13};
+    std::span<const char> dynamic{greeting.c_str(), 13};
     auto print = [](const char c) { std::cout << c; };
 
     // Print just the characters in the span...
@@ -23,9 +24,8 @@ int main()
     std::cout << std::endl;
 
     // or...
-    std::string substring{dynamic.begin(), dynamic.size()};
+    std::string substring{dynamic.begin(), dynamic.end()};
     std::cout << substring << std::endl;
-//! [main]
 
     return 0;
 }

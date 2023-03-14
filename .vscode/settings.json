@@ -10,6 +10,8 @@
         "/(lib)?cyphal/g",
         "/ovfl/g",
         "/Cyphal/ig",
+        "/cetl/i",
+        "/cetlvast/i",
         "/tparam/g",
         "/\\.hpp/g",
         "/endcode/g",
@@ -20,14 +22,17 @@
         "/g(oogle)?test/",
         "/(?:de?|con)struct(?:able?|or)/i",
         "/copydoc/",
-        "/(r)?begin/",
-        "/(r)?end/",
+        "/\\b(r)?begin/",
+        "/\\b(r)?end/",
         "/cetl(vast)?/",
         "/(c|d)tor/i",
         "/arr/",
         "/subspan/i",
-        "/nodiscar/",
-        "/trimleft/"
+        "/nodiscard/",
+        "/trimleft/",
+        "/polyfill/i",
+        "/autosar/i",
+        "/__cplusplus/"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
@@ -42,7 +47,6 @@
     ],
     "editor.wordWrapColumn": 120,
     "editor.rulers": [
-        80,
         120
     ],
     "files.eol": "\n",
