@@ -7,7 +7,8 @@
 """
     Command-line helper for running verification builds.
 
-    Someday I'll generalize this but for now "it's better than a bash script."
+    emrainey says this script should be replaced with conan profiles. I'll look
+    into this but for now "it's better than a bash script."
 
 """
 
