@@ -55,9 +55,9 @@ def _make_parser() -> argparse.ArgumentParser:
 
         #      | cmake   | verify.py
         ----------------------------
-        (none) : NOTICE  : warn
-             1 : STATUS  : info
-             2 : VERBOSE : debug
+        (none) : NOTICE  : warning
+             1 : STATUS  : warning
+             2 : VERBOSE : info
              3 : DEBUG   : debug
             4+ : TRACE   : debug
 
@@ -399,15 +399,13 @@ def _cmake_run(
     """
     Simple wrapper around cmake execution logic
     """
-    logging.debug(
+    logging.info(
         textwrap.dedent(
             """
-
     *****************************************************************
     About to run command: {}
     in directory        : {}
     *****************************************************************
-
     """
         ).format(" ".join(cmake_args), str(cmake_dir))
     )
@@ -715,9 +713,9 @@ def main() -> int:
 
     logging_level = logging.WARN
 
-    if args.verbose == 1:
+    if args.verbose == 2:
         logging_level = logging.INFO
-    elif args.verbose > 1:
+    elif args.verbose > 3:
         logging_level = logging.DEBUG
 
     logging.basicConfig(format="%(levelname)s: %(message)s", level=logging_level)
