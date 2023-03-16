@@ -1,0 +1,59 @@
+name: "Run CETLVaSt suites"
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  release:
+    types: [ published ]
+
+jobs:
+  unittest:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.1
+    strategy:
+      matrix:
+        std: [base, intermediate, target]
+        toolchain: [gcc, clang]
+    steps:
+    - uses: actions/checkout@v3
+    - name: verify-gtests
+      run: |
+        ./cetlvast/verify.py -cd ./cetlvast \
+                             --build-flavor Debug \
+                             --asserts \
+                             --cpp-standard ${{ matrix.std }} \
+                             --toolchain ${{ matrix.toolchain }} \
+                             unittest
+    - name: verify-compiletests
+      run: |
+        ./cetlvast/verify.py -cd ./cetlvast \
+                             --build-flavor Debug \
+                             --cpp-standard ${{ matrix.std }} \
+                             --toolchain ${{ matrix.toolchain }} \
+                             compile
+  lint:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.1
+    steps:
+    - uses: actions/checkout@v3
+    - name: verify
+      run: |
+        ./cetlvast/verify.py -cd ./cetlvast \
+                             lint
+  docs:
+    runs-on: ubuntu-latest
+    container: ghcr.io/opencyphal/toolshed:ts22.4.1
+    steps:
+    - uses: actions/checkout@v3
+    - name: verify
+      run: ./cetlvast/verify.py -cd ./cetlvast docs
+    - name: upload
+      if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
+      run: |
+        gh-pages \
+          --dotfiles \
+          --message "Doc upload for release ${{ steps.process_event.outputs.tag }}" \
+          --user "${{ env. GITHUB_ACTOR }}" \
+          --dist "$(./cetlvast/verify.py -cd ./cetlvast -lssd docs)/html"

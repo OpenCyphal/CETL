@@ -17,8 +17,6 @@ set(CETLVAST_NATIVE_TEST_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/cetlvast/suites/
 # googletest (and googlemock) external project.
 #
 find_package(gtest REQUIRED)
-find_package(lcov REQUIRED)
-find_package(genhtml REQUIRED)
 
 # +---------------------------------------------------------------------------+
 # | BUILD NATIVE UNIT TESTS
@@ -83,26 +81,45 @@ add_custom_target(
      COMMENT "Resetting coverage counters."
 )
 
+set(ALL_TESTS_BUILD "")
 set(ALL_TESTS "")
-set(ALL_TESTS_WITH_LCOV "")
-set(ALL_TEST_COVERAGE "")
 
 foreach(NATIVE_TEST ${NATIVE_TESTS})
     get_filename_component(NATIVE_TEST_NAME ${NATIVE_TEST} NAME_WE)
     message(STATUS "Defining googletest binary ${NATIVE_TEST_NAME} for source file ${NATIVE_TEST}")
     define_native_unit_test(${NATIVE_TEST_NAME} ${NATIVE_TEST} ${CETLVAST_NATIVE_TEST_BINARY_DIR})
     define_native_test_run(${NATIVE_TEST_NAME} ${CETLVAST_NATIVE_TEST_BINARY_DIR})
+    list(APPEND ALL_TESTS_BUILD "${NATIVE_TEST_NAME}")
+    list(APPEND ALL_TESTS "run_${NATIVE_TEST_NAME}")
+endforeach()
+
+add_custom_target(
+     build_all
+     DEPENDS ${ALL_TESTS_BUILD}
+)
+
+if (CETLVAST_ENABLE_COVERAGE)
+
+message(STATUS "Coverage is enabled: adding coverage targets.")
+
+# +---------------------------------------------------------------------------+
+#   If coverage is enabled we have more work to do...
+# +---------------------------------------------------------------------------+
+
+find_package(lcov REQUIRED)
+find_package(genhtml REQUIRED)
+
+set(ALL_TESTS_WITH_LCOV "")
+set(ALL_TEST_COVERAGE "")
+
+foreach(NATIVE_TEST ${NATIVE_TESTS})
+    get_filename_component(NATIVE_TEST_NAME ${NATIVE_TEST} NAME_WE)
     define_native_test_run_with_lcov(${NATIVE_TEST_NAME} ${CETLVAST_NATIVE_TEST_BINARY_DIR})
     define_natve_test_coverage(${NATIVE_TEST_NAME} ${CETLVAST_NATIVE_TEST_BINARY_DIR})
-    list(APPEND ALL_TESTS "run_${NATIVE_TEST_NAME}")
     list(APPEND ALL_TESTS_WITH_LCOV "run_${NATIVE_TEST_NAME}_with_lcov")
     list(APPEND ALL_TEST_COVERAGE "--add-tracefile")
     list(APPEND ALL_TEST_COVERAGE "${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.${NATIVE_TEST_NAME}.filtered.info")
 endforeach()
-
-# +---------------------------------------------------------------------------+
-#   Finally, we setup an overall report. the coverage.info should be uploaded
-#   to a coverage reporting service as part of the CI pipeline.
 
 add_custom_command(
      OUTPUT ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.all.info
@@ -148,6 +165,10 @@ add_custom_target(
      DEPENDS ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.info
      COMMENT "Build and run all tests and generate an overall html coverage report."
 )
+
+endif()
+
+# +---------------------------------------------------------------------------+
 
 add_custom_target(
      test_all

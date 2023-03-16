@@ -1,13 +1,19 @@
-![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo.svg) Cyphal Embedded Template Library
+![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo.svg#gh-light-mode-only) \
+![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo_dark.svg#gh-dark-mode-only) \
+Cyphal Embedded Template Library
 ===================
 
 > We like to pronounce CETL as "settle"
 
 [![Forum](https://img.shields.io/discourse/https/forum.opencyphal.org/users.svg)](https://forum.opencyphal.org)
+[![Documentation](https://img.shields.io/badge/docs-soon-grey.svg)](https://opencyphal.org/CETL/)
 
 ## include
 
 The include directory contains the CETL headers all within a folder, "cetl".
+
+TODO: Once [Issue #12](https://github.com/OpenCyphal-Garage/CETL/issues/12) is complete we'll provide some more
+info here on how we expect you to take a dependency on CETL.
 
 ## CETLVaSt
 
@@ -33,17 +39,31 @@ mimicking other support libraries like Boost.
 the default STL allocator but will always support an alternative way to manage their memory.
 - **CETL minimizes type aliasing and never injects typedef or macros into external namespaces.** – If an `std::uint8_t`
 will suffice CETL uses that explicitly. If a function should be constexpr the constexpr keyword will be used. etc.
-- **CETL does not use macros** – With the exception of include guard ifndef clauses, CETL does not use any C macros.
-Users are in control and can write `__cplusplus` conditional includes that select CETL over STL in their own headers.
+- **CETL tries really, really hard to not use macros** – With the exception of include guard ifndef clauses, CETL does
+not use any C macros where a C++ template or other construct will suffice.
 - **CETL is [Autosar C++14](https://www.autosar.org/fileadmin/standards/adaptive/20-11/AUTOSAR_RS_CPP14Guidelines.pdf)
 compliant** – Where it violates Autosar rules comments will provide a clear rationale.
+- **CETL headers have minimal dependencies** – While there is a `cetl/cetl.h` it is minimal and does not drag a large
+set of conventions, typedefs, and other constructs that will pollute your code. Each type provided is isolated as much
+as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.h
+with minimal effort.
 
 
 ## Support Matrix
 
-The following support is not guaranteed, as this is an open source project and there are no contractual obligations
+| CETL Version | C++ Base Version | C++ Target Version | Current Maturity      | Release Date | Security Fixes | EOL   |
+|--------------|------------------|--------------------|-----------------------|--------------|----------------|-------|
+| 1.x          | C++14            | C++20              | ![pre-alpha](https://img.shields.io/badge/status-beta-blue) | (TBA) | (TBA) | (TBA) |
+
+
+The above support is not guaranteed, as this is an open source project and there are no contractual obligations
 agreed to by any party that contributes; however, the OpenCyphal community will use this support matrix as guidelines
 to shape their work.
+
+**C++ Base Version** – The version of C++ required to use this release of CETL.
+
+**C++ Target Version** – The newest version of C++ this version of CETL was tested against. This version may increase
+without a new release if a new version is released and the community is able to verify the existing release against it.
 
 **Release Date** – The date after which active development of new features for a given release will cease and all updates
 will be bug fixes only.
@@ -53,6 +73,5 @@ vulnerabilities (See [SECURITY.md](./SECURITY.md)).
 
 **End-Of-Life (EOL)** – The date after which no changes of any kind will be accepted.
 
-| CETL Version | C++ Base Version | Current Maturity                                                          | Release Date | Security Fixes | EOL   |
-|--------------|------------------|---------------------------------------------------------------------------|--------------|----------------|-------|
-| 1.0          | C++14            | ![pre-alpha](https://img.shields.io/badge/status-pre--alpha-red)          | (TBA)        | (TBA)          | (TBA) |
+![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo_dark.svg#gh-dark-mode-only)\
+![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo.svg#gh-light-mode-only)
