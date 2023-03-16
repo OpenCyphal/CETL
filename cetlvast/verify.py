@@ -6,6 +6,9 @@
 #
 """
     Command-line helper for running verification builds.
+
+    Someday I'll generalize this but for now "it's better than a bash script."
+
 """
 
 import argparse
@@ -242,6 +245,23 @@ def _make_parser() -> argparse.ArgumentParser:
             pushd $(./verify.py -lsbd none)
             ninja -t commands
             popd
+
+    """[1:])
+    )
+
+    action_args.add_argument(
+        "-lssd",
+        "--ls-builddir-suite",
+        action="store_true",
+        help=textwrap.dedent(
+            """
+        Emits a relative path to the build directory for a given suite then
+        exits. For Example:
+
+            open "$(./verify.py -lssd docs)/html/index.html"
+
+        This action happens before the build directory action so -rm will be
+        ignored.
 
     """[1:])
     )
@@ -676,6 +696,10 @@ def _handle_special_actions(args: argparse.Namespace, cmake_args: typing.List[st
     return 0
 
 
+def _handle_lssd(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path, gitdir: pathlib.Path) -> int:
+    sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
+    return 0
+
 # +---------------------------------------------------------------------------+
 
 
@@ -713,6 +737,9 @@ def main() -> int:
     """
         ).format(os.path.basename(__file__), str(args), _get_version_string(args, verification_dir))
     )
+
+    if args.ls_builddir_suite:
+        return _handle_lssd(args, cmake_args, cmake_dir, verification_dir)
 
     _remove_build_dir_action(args, cmake_dir)
 

@@ -5,8 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  release:
+    types: [ published ]
 
-jobs:    
+jobs:
   unittest:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.1
@@ -46,6 +48,12 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: verify
+      run: ./cetlvast/verify.py -cd ./cetlvast docs
+    - name: upload
+      if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
       run: |
-        ./cetlvast/verify.py -cd ./cetlvast \
-                             docs
+        gh-pages \
+          --dotfiles \
+          --message "Doc upload for release ${{ steps.process_event.outputs.tag }}" \
+          --user "${{ env. GITHUB_ACTOR }}" \
+          --dist "$(./cetlvast/verify.py -cd ./cetlvast -lssd docs)/html"
