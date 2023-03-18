@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for span.h
+/// Unit tests for span.hpp
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,8 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "cetl/cetl.h"
-#include "cetlvast/helpers.h"
+#include "cetl/cetl.hpp"
+#include "cetlvast/helpers.hpp"
 #include <vector>
 #include <initializer_list>
 #include <type_traits>
@@ -24,7 +24,7 @@ static_assert(std::numeric_limits<std::size_t>::max() == std::dynamic_extent,
               "These tests assume std::dynamic_extent is the max for size_t.");
 #endif
 
-#include "cetl/pf20/span.h"
+#include "cetl/pf20/span.hpp"
 static_assert(std::numeric_limits<std::size_t>::max() == cetl::pf20::dynamic_extent,
               "These tests assume cetl::pf20::dynamic_extent is the max for size_t.");
 

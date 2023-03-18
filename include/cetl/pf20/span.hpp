@@ -16,7 +16,7 @@
 #include <limits>
 #include <type_traits>
 
-#include "cetl/cetl.h"
+#include "cetl/cetl.hpp"
 
 namespace cetl
 {

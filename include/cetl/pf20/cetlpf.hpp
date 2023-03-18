@@ -36,13 +36,13 @@
 #ifndef CETL_PF20_H_INCLUDED
 #define CETL_PF20_H_INCLUDED
 
-#include "cetl/cetl.h"
+#include "cetl/cetl.hpp"
 
 #if (__cplusplus >= CetlCppStandard20)
 #    include <span>
 
 #else
-#    include "cetl/pf20/span.h"
+#    include "cetl/pf20/span.hpp"
 
 namespace std
 {

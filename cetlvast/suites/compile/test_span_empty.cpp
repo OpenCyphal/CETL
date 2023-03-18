@@ -7,8 +7,8 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-#include "cetl/cetl.h"
-#include "cetl/pf20/span.h"
+#include "cetl/cetl.hpp"
+#include "cetl/pf20/span.hpp"
 
 #ifndef CETLVAST_COMPILETEST_PRECHECK
 static_assert(__cplusplus >= CetlCppStandard17, "We simply pass this test (i.e. fail to compile) for C++14");

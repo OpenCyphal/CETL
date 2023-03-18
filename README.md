@@ -17,7 +17,7 @@ specification for the `std::span` type.
 
 > Any type found directly under the cetl folder does *not* adhere to a known standard and is specific only to CETL.
 
-Also under each "cetl/pfXX" folder will be a "cetlpf.h" header. These headers enable automatic polyfill behavior but do
+Also under each "cetl/pfXX" folder will be a "cetlpf.hpp" header. These headers enable automatic polyfill behavior but do
 so by violating certain AUTOSAR-14 rules. We recommend using the CETL polyfill types directly in code that adheres
 to AUTOSAR-14.
 
@@ -52,9 +52,9 @@ will suffice CETL uses that explicitly. If a function should be constexpr the co
 not use any C macros where a C++ template or other construct will suffice.
 - **CETL is [Autosar C++14](https://www.autosar.org/fileadmin/standards/adaptive/20-11/AUTOSAR_RS_CPP14Guidelines.pdf)
 compliant** – Where it violates Autosar rules comments will provide a clear rationale.
-- **CETL headers have minimal dependencies** – While there is a `cetl/cetl.h` it is minimal and does not drag a large
+- **CETL headers have minimal dependencies** – While there is a `cetl/cetl.hpp` it is minimal and does not drag a large
 set of conventions, typedefs, and other constructs that will pollute your code. Each type provided is isolated as much
-as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.h
+as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.hpp
 with minimal effort.
 
 

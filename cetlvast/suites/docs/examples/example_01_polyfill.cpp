@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-#include "cetl/pf20/cetlpf.h"
+#include "cetl/pf20/cetlpf.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>

@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for span.h
+/// Unit tests for span.hpp
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,9 +7,9 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "cetl/cetl.h"
-#include "cetlvast/helpers.h"
-#include "cetl/pf20/span.h"
+#include "cetl/cetl.hpp"
+#include "cetlvast/helpers.hpp"
+#include "cetl/pf20/span.hpp"
 
 namespace
 {

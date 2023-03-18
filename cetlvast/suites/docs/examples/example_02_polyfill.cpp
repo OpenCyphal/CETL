@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-#include "cetl/pf20/span.h"
+#include "cetl/pf20/span.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>

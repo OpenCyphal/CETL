@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for the behavior of the cetl/pf20/cetlpf.h header.
+/// Unit tests for the behavior of the cetl/pf20/cetlpf.hpp header.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,8 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "cetlvast/helpers.h"
-#include "cetl/pf20/cetlpf.h"
+#include "cetlvast/helpers.hpp"
+#include "cetl/pf20/cetlpf.hpp"
 
 namespace
 {
