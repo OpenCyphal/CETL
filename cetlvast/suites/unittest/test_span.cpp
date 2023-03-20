@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <utility>
 
-#if (__cplusplus >= CetlCppStandard20)
+#if (__cplusplus >= CETL_CPP_STANDARD_20)
 #    include <version>
 
 static_assert(__cpp_lib_span, "__cpp_lib_span was not defined for this compiler when using 2020.02?");

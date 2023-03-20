@@ -32,7 +32,8 @@
         "/trimleft/",
         "/polyfill/i",
         "/autosar/i",
-        "/__cplusplus/"
+        "/__cplusplus/",
+        "/<cassert>/"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,

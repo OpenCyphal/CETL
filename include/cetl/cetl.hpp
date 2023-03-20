@@ -40,42 +40,40 @@
 // We define these in a common header since we might encounter odd values on some compilers that we'll have to
 // provide special cases for.
 
-/// @defgroup CetlCppStandard Guaranteed CETL c++ standard numbers
-/// We name these as if they were constexpr variables because a future version of
-/// CETL (not planned at the time of this writing) will drop C++14 support at which
-/// time these will become inline variables. Until then these macros are an AUTOSAR-14 Rule
-/// A16-0-1 violation.
+/// @defgroup CETL_CPP_STANDARD Guaranteed CETL c++ standard numbers
+/// These macros are an AUTOSAR-14 Rule A16-0-1 violation but can be used to conditionally include headers which
+/// is compliant with A16-0-1.
 /// @{
 
-/// @def CetlCppStandard14
+/// @def CETL_CPP_STANDARD_14
 /// Provides the proper value to test against `__cplusplus` for c++14.
 /// ```
-/// #if __cplusplus >= CetlCppStandard14
+/// #if __cplusplus >= CETL_CPP_STANDARD_14
 /// #include <something_from_cpp_14>
 /// #endif
 /// ```
-#define CetlCppStandard14 201402L
+#define CETL_CPP_STANDARD_14 201402L
 
-/// @def CetlCppStandard17
+/// @def CETL_CPP_STANDARD_17
 /// Provides the proper value to test against `__cplusplus` for c++14.
 /// ```
-/// #if __cplusplus >= CetlCppStandard17
+/// #if __cplusplus >= CETL_CPP_STANDARD_17
 /// #include <something_from_cpp_14>
 /// #include <something_from_cpp_17>
 /// #endif
 /// ```
-#define CetlCppStandard17 201703L
+#define CETL_CPP_STANDARD_17 201703L
 
-/// @def CetlCppStandard20
+/// @def CETL_CPP_STANDARD_20
 /// Provides the proper value to test against `__cplusplus` for c++14.
 /// ```
-/// #if __cplusplus >= CetlCppStandard17
+/// #if __cplusplus >= CETL_CPP_STANDARD_17
 /// #include <something_from_cpp_14>
 /// #include <something_from_cpp_17>
 /// #include <something_from_cpp_20>
 /// #endif
 /// ```
-#define CetlCppStandard20 202002L
+#define CETL_CPP_STANDARD_20 202002L
 
 /// @}
 #endif  // CETL_H_INCLUDED

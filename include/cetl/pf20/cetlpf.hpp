@@ -29,7 +29,7 @@
 /// In these cases something like this might also be in order:
 ///
 /// ```
-/// static_assert(__cplusplus < CetlCppStandard20, "Don't use CETL if you are compiling for C++20.");
+/// static_assert(__cplusplus < CETL_CPP_STANDARD_20, "Don't use CETL if you are compiling for C++20.");
 /// ```
 ///
 
@@ -38,7 +38,7 @@
 
 #include "cetl/cetl.hpp"
 
-#if (__cplusplus >= CetlCppStandard20)
+#if (__cplusplus >= CETL_CPP_STANDARD_20)
 #    include <span>
 
 #else
