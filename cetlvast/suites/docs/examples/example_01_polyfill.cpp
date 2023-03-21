@@ -12,11 +12,13 @@
 #include <algorithm>
 #include <type_traits>
 
+#include <gtest/gtest.h>
 
-int main()
+TEST(example_01_polyfill, main)
 {
+//! [main]
     std::string greeting{"Hello Dynamic World."};
-    std::span<const char> dynamic{greeting.c_str(), 13};
+    cetl::span<const char> dynamic{greeting.c_str(), 13};
     auto print = [](const char c) { std::cout << c; };
 
     // Print just the characters in the span...
@@ -26,6 +28,5 @@ int main()
     // or...
     std::string substring{dynamic.begin(), dynamic.end()};
     std::cout << substring << std::endl;
-
-    return 0;
+//! [main]
 }

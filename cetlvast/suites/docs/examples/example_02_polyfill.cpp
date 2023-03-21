@@ -6,11 +6,15 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
+// cSpell: words myspan
+
 #include "cetl/pf20/span.hpp"
 #include <iostream>
 #include <string>
 #include <algorithm>
 #include <type_traits>
+
+#include <gtest/gtest.h>
 
 namespace
 {
@@ -24,8 +28,9 @@ using myspan = cetl::pf20::span<T, Extent>;
 
 }  // end anonymous namespace
 
-int main()
+TEST(example_02_polyfill, main)
 {
+//! [main]
     std::string        greeting{"Hello Dynamic World."};
     myspan<const char> dynamic{greeting.c_str(), 13};
     auto               print = [](const char c) { std::cout << c; };
@@ -38,5 +43,5 @@ int main()
     std::string substring{dynamic.begin(), dynamic.end()};
     std::cout << substring << std::endl;
 
-    return 0;
+//! [main]
 }

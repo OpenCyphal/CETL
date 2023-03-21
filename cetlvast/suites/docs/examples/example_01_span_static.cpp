@@ -11,6 +11,8 @@
 #include <string>
 #include <algorithm>
 
+#include <gtest/gtest.h>
+
 //! [global]
 template<typename T, std::size_t Extent>
 std::ostream& operator<<(std::ostream& os, const cetl::pf20::span<T, Extent>& sp)
@@ -20,11 +22,11 @@ std::ostream& operator<<(std::ostream& os, const cetl::pf20::span<T, Extent>& sp
 }
 //! [global]
 
-int main()
+
+TEST(example_01_span_static, main)
 {
 //! [main]
     constexpr const char* greeting = "Hello Static World";
     std::cout << cetl::pf20::span<const char, 12>{greeting, 12} << std::endl;
 //! [main]
-    return 0;
 }

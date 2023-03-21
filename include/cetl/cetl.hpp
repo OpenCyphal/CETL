@@ -7,19 +7,15 @@
 /// SPDX-License-Identifier: MIT
 ///
 /// @note
-/// Keep this very spare. CETL's desire is to adapt to future C++ standards
-/// and too many CETL-specific definitions makes it difficult for users to switch off of CETL in the
-/// future.
+/// Keep this very spare. CETL's desire is to adapt to future C++ standards and too many CETL-specific definitions makes
+/// it difficult for users to switch off of CETL in the future.
 ///
-/// If `CETL_H_ERASE` is defined then all CETL types will exclude the `cetl/cetl.hpp` header which
-/// removes all common dependencies, other than C++ standard headers, from CETL. The types will not build due to
-/// missing macros but the user can re-define these based on subsequent compiler errors. This allows elision of
-/// cetl.hpp without modifying CETL source code. The CETL types are not guaranteed to work with cetl.hpp removed; you
-/// have been warned.
-///
-/// @warning
-/// polyfill headers cannot be used if CETL_H_ERASE is defined. Presumably, if you really want to minimize your
-/// dependencies, you would not be using the polyfill headers.
+/// @def CETL_H_ERASE
+/// If `CETL_H_ERASE` is defined then all CETL types will exclude all cetl headers which removes all common
+/// dependencies, other than C++ standard headers, from CETL. The types will not build due to
+/// missing macros and/or type aliases but the user can re-define these based on subsequent compiler errors. This allows
+/// elision of cetl.hpp and dependencies on CETL polyfill types without modifying CETL source code.
+/// Note that CETL polyfill headers cannot be used if CETL_H_ERASE is defined.
 ///
 
 #ifndef CETL_H_INCLUDED
@@ -27,6 +23,10 @@
 
 #ifdef CETL_H_ERASE
 #    error "CETL_H_ERASE was defined. This header should never be included when the build is trying to erase it!"
+#elif defined(CETL_DOXYGEN)
+// Define then undefine to expose CETL_H_ERASE to doxygen.
+#    define CETL_H_ERASE
+#    undef CETL_H_ERASE
 #endif
 
 /// @defgroup CETL_VERSION The semantic version number of the CETL library.
@@ -74,6 +74,11 @@
 #else
 #    define CETL_DEBUG_ASSERT(c, m) ((void) m)
 #endif  // CETL_ENABLE_DEBUG_ASSERT
+
+// Make the standard exceptions available only if exceptions are enabled.
+#if __cpp_exceptions
+#    include <stdexcept>
+#endif
 
 /// @defgroup CETL_CPP_STANDARD Guaranteed CETL c++ standard numbers
 /// These macros are an AUTOSAR-14 Rule A16-0-1 violation but can be used to conditionally include headers which
@@ -130,4 +135,7 @@ static_assert(__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STA
                   __cplusplus >= CETL_CPP_STANDARD_20,
               "Unknown __cplusplus value found?");
 
+/// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering
+///                 to target C++ specifications.
+/// @namespace cetl::pmr CETL extensions to the standard Polymorphic Memory Resource (PMR) namespace, `std::pmr`.
 #endif  // CETL_H_INCLUDED

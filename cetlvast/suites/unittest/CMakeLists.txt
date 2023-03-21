@@ -1,0 +1,73 @@
+#
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: MIT
+#
+
+cmake_minimum_required(VERSION 3.22.0)
+
+project(cetlvast_unittest CXX)
+
+find_package(googletest REQUIRED)
+find_package(o1heap REQUIRED)
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+find_package(gcovr REQUIRED)
+endif()
+
+# +---------------------------------------------------------------------------+
+#   We generate individual test binaires so we can record which test generated
+#   what coverage. We also allow test authors to generate coverage reports for
+#   just one test allowing for faster iteration.
+file(GLOB NATIVE_TESTS
+    LIST_DIRECTORIES false
+    CONFIGURE_DEPENDS
+    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
+    test_*.cpp
+)
+
+set(ALL_TESTS_BUILD "")
+set(ALL_TESTS_RUN "")
+
+foreach(NATIVE_TEST ${NATIVE_TESTS})
+    define_native_gtest_unittest_targets(
+        TEST_SOURCE ${NATIVE_TEST}
+        EXTRA_TEST_LIBS
+            cetl
+            o1heap
+        OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
+        OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
+        OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
+    )
+
+    list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
+    list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
+
+    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+        define_gcovr_tracefile_target(
+            TARGET ${LOCAL_TEST_TARGET}
+            TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
+            EXCLUDE_TEST_FRAMEWORKS
+            EXCLUDE_TARGET
+            OUT_TRACEFILE_VARIABLE LOCAL_TEST_TRACEFILE
+        )
+    endif()
+endforeach()
+
+add_custom_target(
+     build_unittests
+     DEPENDS
+          ${ALL_TESTS_BUILD}
+)
+
+add_custom_target(
+     run_unittests
+     DEPENDS
+          ${ALL_TESTS_RUN}
+)
+
+set_directory_properties(PROPERTIES
+    IN_BUILD_TESTS "${ALL_TESTS_RUN}"
+)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    enable_html_report()
+endif()

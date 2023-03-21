@@ -11,7 +11,9 @@
 #include <string>
 #include <algorithm>
 
-int main()
+#include <gtest/gtest.h>
+
+TEST(example_01_span_dynamic, main)
 {
 //! [main]
     std::string greeting{"Hello Dynamic World."};
@@ -26,6 +28,4 @@ int main()
     std::string substring{dynamic.begin(), dynamic.size()};
     std::cout << substring << std::endl;
 //! [main]
-
-    return 0;
 }
