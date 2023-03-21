@@ -89,3 +89,11 @@ add_custom_target(
 find_package(docs REQUIRED)
 
 create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples "${ALL_EXAMPLES}")
+
+add_custom_target(
+     suite_all
+     COMMENT
+        "All CETL suites define this target as a default action scripts can rely on."
+     DEPENDS
+        docs
+)

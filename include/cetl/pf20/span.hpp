@@ -7,8 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef CETL_SPAN_H_INCLUDED
-#define CETL_SPAN_H_INCLUDED
+#ifndef CETL_PF20_SPAN_H_INCLUDED
+#define CETL_PF20_SPAN_H_INCLUDED
 
 #include <array>
 #include <cstdint>
@@ -16,10 +16,13 @@
 #include <limits>
 #include <type_traits>
 
-#include "cetl/cetl.h"
+#include "cetl/cetl.hpp"
 
 namespace cetl
 {
+namespace pf20
+{
+
 ///
 /// Used by span to indicate that the span size is not fixed.
 /// @see std::dynamic_extent
@@ -28,11 +31,11 @@ constexpr std::size_t dynamic_extent = std::numeric_limits<std::size_t>::max();
 /// A borrowed view into a contiguous set of objects. Spans can either be static, where the set of objects is fixed
 /// and known, or dynamic where the number of objects in the contiguous set may change.
 /// This template is compatible with class: std::span available in C++20.
-template <typename T, std::size_t Extent = cetl::dynamic_extent>
+template <typename T, std::size_t Extent = dynamic_extent>
 class span;
 
 ///
-/// This version is for spans where the extent is static (see span< T, cetl::dynamic_extent > for the dynamic
+/// This version is for spans where the extent is static (see span< T, dynamic_extent > for the dynamic
 /// extent specialization)
 ///
 /// @par Example
@@ -176,7 +179,7 @@ public:
     template <typename DeducedElementType,
               typename std::enable_if<std::is_convertible<DeducedElementType (*)[], element_type (*)[]>::value,
                                       bool>::type = true>
-    explicit constexpr span(const span<DeducedElementType, cetl::dynamic_extent>& source) noexcept
+    explicit constexpr span(const span<DeducedElementType, dynamic_extent>& source) noexcept
         : data_(source.data())
     {
         CETL_DEBUG_ASSERT(extent == source.size(),
@@ -189,7 +192,7 @@ public:
     ///                 conversion](https://en.cppreference.com/w/cpp/language/implicit_conversion#Qualification_conversions).
     /// @param source The span to copy from. The resulting span has `size() == source.size()` and
     ///               `data() == source.data()`. For this overload `extent == source::extent` is also true and
-    ///               `extent != cetl::dynamic_extent`.
+    ///               `extent != dynamic_extent`.
     /// @see std::span()
     template <typename DeducedElementType,
               typename std::enable_if<std::is_convertible<DeducedElementType (*)[], element_type (*)[]>::value,
@@ -372,11 +375,11 @@ public:
     ///               current span's size the behavior is undefined.
     /// @return A new span with a dynamic extent extent and a size of `count`.
     /// @see std::span::first
-    constexpr span<element_type, cetl::dynamic_extent> first(size_type count) const
+    constexpr span<element_type, dynamic_extent> first(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= Extent,
                           "CDE_span_008: Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>(data_, count);
+        return span<element_type, dynamic_extent>(data_, count);
     }
 
     /// Create a new span `Count` elements from the last item of the current span to its end.
@@ -395,46 +398,44 @@ public:
     ///                `count` is greater than the current span's size.
     /// @return A new span with a size of `count` and a dynamic extent.
     /// @see std::span::last
-    constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
+    constexpr span<element_type, dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= extent,
                           "CDE_span_009: Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>(&data_[extent - count], count);
+        return span<element_type, dynamic_extent>(&data_[extent - count], count);
     }
 
     /// Create a new span `Offset` elements from the start of the current span and for `Count` elements.
     /// @tparam Offset  Number of elements from the start of the current span for the subspan.
     /// @tparam Count   The number of elements from the Offset to include in the subspan. If this value is
-    ///                 `cetl::dynamic_extent` then the Count is `size() - Offset`.
-    /// @return A new span where the `Extent` is `Count` if this was not `cetl::dynamic_extent` otherwise the
+    ///                 `dynamic_extent` then the Count is `size() - Offset`.
+    /// @return A new span where the `Extent` is `Count` if this was not `dynamic_extent` otherwise the
     ///         new span's `Extent` is this span's `Extent` minus `Offset`.
     /// @see std::span::subspan()
-    template <size_type Offset, size_type Count = cetl::dynamic_extent>
-    constexpr span<element_type, (Count != cetl::dynamic_extent) ? Count : Extent - Offset> subspan() const
+    template <size_type Offset, size_type Count = dynamic_extent>
+    constexpr span<element_type, (Count != dynamic_extent) ? Count : Extent - Offset> subspan() const
     {
         static_assert(Offset <= extent, "subspan Offsets > extent are ill-formed.");
-        static_assert((Count == cetl::dynamic_extent) || (Count <= extent - Offset),
-                      "subspan Count argument is ill-formed");
+        static_assert((Count == dynamic_extent) || (Count <= extent - Offset), "subspan Count argument is ill-formed");
         return span < element_type,
-               Count != cetl::dynamic_extent
+               Count != dynamic_extent
                    ? Count
-                   : extent - Offset > {&data_[Offset], Count == cetl::dynamic_extent ? size() - Offset : Count};
+                   : extent - Offset > {&data_[Offset], Count == dynamic_extent ? size() - Offset : Count};
     }
 
     /// Create a new span `Offset` elements from the start of the current span and for either `Count` elements or,
-    /// if Count is `cetl::dynamic_extent`, for the remaining size of the span (i.e. `size() - Offset`).
+    /// if Count is `dynamic_extent`, for the remaining size of the span (i.e. `size() - Offset`).
     /// The behavior of this method is undefined where `Count` is greater-than the size of this span or if
-    /// `Count` is not cetl::dynamic_extent but `Count` is greater-than `size() - Offset`.
+    /// `Count` is not dynamic_extent but `Count` is greater-than `size() - Offset`.
     /// @param Offset  Number of elements from the start of the current span for the subspan.
     /// @param Count   The number of elements from the Offset to include in the subspan. If this value is
-    ///                `cetl::dynamic_extent` then the Count is `size() - Offset`.
+    ///                `dynamic_extent` then the Count is `size() - Offset`.
     /// @return A new span with a dynamic extent.
     /// @see std::span::subspan()
-    constexpr span<element_type, cetl::dynamic_extent> subspan(size_type Offset,
-                                                               size_type Count = cetl::dynamic_extent) const
+    constexpr span<element_type, dynamic_extent> subspan(size_type Offset, size_type Count = dynamic_extent) const
     {
         CETL_DEBUG_ASSERT(Offset <= extent, "CDE_span_010: subspan Offsets > size() are ill-formed.");
-        if (Count == cetl::dynamic_extent)
+        if (Count == dynamic_extent)
         {
             return {&data_[Offset], extent - Offset};
         }
@@ -457,7 +458,7 @@ const std::size_t span<T, Extent>::extent;
 /// Specialization of span where the extent is dynamic.
 /// @snippet{trimleft} example_01_span_dynamic.cpp main
 template <typename T>
-class span<T, cetl::dynamic_extent>
+class span<T, dynamic_extent>
 {
 public:
     // (Groupings per https://en.cppreference.com/w/cpp/container/span)
@@ -465,7 +466,7 @@ public:
     // | Member Constants
     // +----------------------------------------------------------------------+
     /// The value of Extent for this template instantiation.
-    static constexpr std::size_t extent = cetl::dynamic_extent;
+    static constexpr std::size_t extent = dynamic_extent;
 
     // +----------------------------------------------------------------------+
     // | Member Types
@@ -728,11 +729,11 @@ public:
 
     /// @copydoc span::first(span::size_type count) const
     ///
-    constexpr span<element_type, cetl::dynamic_extent> first(size_type count) const
+    constexpr span<element_type, dynamic_extent> first(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= size_,
                           "CDE_span_018: Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>(data_, count);
+        return span<element_type, dynamic_extent>(data_, count);
     }
 
     /// Create a new span `Count` elements from the last item of the current span to its end.
@@ -749,38 +750,37 @@ public:
 
     /// @copydoc span::last(span::size_type count) const
     ///
-    constexpr span<element_type, cetl::dynamic_extent> last(size_type count) const
+    constexpr span<element_type, dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= size_,
                           "CDE_span_020: Dynamic subviews beyond the size of the span's view are undefined.");
-        return span<element_type, cetl::dynamic_extent>(&data_[size_ - count], count);
+        return span<element_type, dynamic_extent>(&data_[size_ - count], count);
     }
 
     /// Create a new span Offset elements from the start of the current span and for `Count` elements.
     /// The behavior of this method is undefined where `Count` is greater-than the size of this span or if
-    /// `Count` is not cetl::dynamic_extent but `Count` is greater-than `size() - Offset`.
+    /// `Count` is not dynamic_extent but `Count` is greater-than `size() - Offset`.
     /// @tparam Offset  Number of elements from the start of the current span for the subspan.
     /// @tparam Count   The number of elements from the Offset to include in the subspan. If this value is
-    ///                 `cetl::dynamic_extent` then the Count is `size() - Offset`.
-    /// @return A new span where the new `Extent` is `Count` if that parameter was not `cetl::dynamic_extent` otherwise
-    ///         the new span's `Extent` is `cetl::dynamic_extent`.
+    ///                 `dynamic_extent` then the Count is `size() - Offset`.
+    /// @return A new span where the new `Extent` is `Count` if that parameter was not `dynamic_extent` otherwise
+    ///         the new span's `Extent` is `dynamic_extent`.
     /// @see std::span::subspan()
-    template <size_type Offset, size_type Count = cetl::dynamic_extent>
+    template <size_type Offset, size_type Count = dynamic_extent>
     constexpr span<element_type, Count> subspan() const
     {
         CETL_DEBUG_ASSERT(Offset <= size_, "CDE_span_023: subspan Offsets > extent are ill-formed.");
-        CETL_DEBUG_ASSERT((Count == cetl::dynamic_extent) || (Count <= size_ - Offset),
+        CETL_DEBUG_ASSERT((Count == dynamic_extent) || (Count <= size_ - Offset),
                           "CDE_span_024: subspan Count argument is ill-formed");
-        return span<element_type, Count>{&data_[Offset], Count == cetl::dynamic_extent ? size() - Offset : Count};
+        return span<element_type, Count>{&data_[Offset], Count == dynamic_extent ? size() - Offset : Count};
     }
 
     /// @copydoc span::subspan(span::size_type Offset, span::size_type Count) const
     ///
-    constexpr span<element_type, cetl::dynamic_extent> subspan(size_type Offset,
-                                                               size_type Count = cetl::dynamic_extent) const
+    constexpr span<element_type, dynamic_extent> subspan(size_type Offset, size_type Count = dynamic_extent) const
     {
         CETL_DEBUG_ASSERT(Offset <= size_, "CDE_span_021: subspan Offsets > size() are ill-formed.");
-        if (Count == cetl::dynamic_extent)
+        if (Count == dynamic_extent)
         {
             return {&data_[Offset], size_ - Offset};
         }
@@ -799,8 +799,9 @@ private:
 
 // required till C++ 17. Redundant but allowed after that.
 template <typename T>
-const std::size_t span<T, cetl::dynamic_extent>::extent;
+const std::size_t span<T, dynamic_extent>::extent;
 
+}  // namespace pf20
 }  // namespace cetl
 
-#endif  // CETL_SPAN_H_INCLUDED
+#endif  // CETL_PF20_SPAN_H_INCLUDED

@@ -43,7 +43,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     file(GLOB_RECURSE DOXYGEN_INPUT_LIST
         LIST_DIRECTORIES false
         CONFIGURE_DEPENDS
-        ${CETL_ROOT}/include/**/*.h
+        ${CETL_ROOT}/include/**/*.hpp
     )
 
     list(APPEND DOXYGEN_INPUT_LIST "${CETL_ROOT}/README.md")

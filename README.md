@@ -10,7 +10,16 @@ Cyphal Embedded Template Library
 
 ## include
 
-The include directory contains the CETL headers all within a folder, "cetl".
+The include directory contains the CETL headers all within a folder, "cetl". Types found under "cetl/pfXX" folders and
+within `cetl::pfxx` namespaces are ["polyfill"](https://en.wikipedia.org/wiki/Polyfill_(programming)) types that adhere
+to the XX standard. For example, `cetl::pf20::span` is a type that adheres, as closely as possible, to the C++20
+specification for the `std::span` type.
+
+> Any type found directly under the cetl folder does *not* adhere to a known standard and is specific only to CETL.
+
+Also under each "cetl/pfXX" folder will be a "cetlpf.hpp" header. These headers enable automatic polyfill behavior but do
+so by violating certain AUTOSAR-14 rules. We recommend using the CETL polyfill types directly in code that adheres
+to AUTOSAR-14.
 
 TODO: Once [Issue #12](https://github.com/OpenCyphal-Garage/CETL/issues/12) is complete we'll provide some more
 info here on how we expect you to take a dependency on CETL.
@@ -39,13 +48,13 @@ mimicking other support libraries like Boost.
 the default STL allocator but will always support an alternative way to manage their memory.
 - **CETL minimizes type aliasing and never injects typedef or macros into external namespaces.** – If an `std::uint8_t`
 will suffice CETL uses that explicitly. If a function should be constexpr the constexpr keyword will be used. etc.
-- **CETL tries really, really hard to not use macros** – With the exception of include guard ifndef clauses, CETL does
+- **CETL tries really, really hard to not use macros** – Except where AUTOSAR-14 Rule A16-0-1 permits, CETL does
 not use any C macros where a C++ template or other construct will suffice.
 - **CETL is [Autosar C++14](https://www.autosar.org/fileadmin/standards/adaptive/20-11/AUTOSAR_RS_CPP14Guidelines.pdf)
 compliant** – Where it violates Autosar rules comments will provide a clear rationale.
-- **CETL headers have minimal dependencies** – While there is a `cetl/cetl.h` it is minimal and does not drag a large
+- **CETL headers have minimal dependencies** – While there is a `cetl/cetl.hpp` it is minimal and does not drag a large
 set of conventions, typedefs, and other constructs that will pollute your code. Each type provided is isolated as much
-as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.h
+as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.hpp
 with minimal effort.
 
 

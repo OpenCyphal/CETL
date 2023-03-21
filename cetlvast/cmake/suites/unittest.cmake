@@ -176,23 +176,13 @@ add_custom_target(
           ${ALL_TESTS}
 )
 
-# +---------------------------------------------------------------------------+
-#   If we can we try to upload the report to sonarqube.
-#
-find_package(sonar-scanner)
-
-if (SONAR_SCANNER_FOUND)
-     message(STATUS "sonarqube upload binary was defined. Adding the upload target: sonarqube_upload")
-     add_custom_target(
-          sonarqube_upload
-          ${SONARQUBE} --root ${CMAKE_CURRENT_SOURCE_DIR} ${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.info -v
-          COMMENT "Upload to sonarqube (requires that SONARQUBE_TOKEN is defined in the environment)."
-     )
-
-else()
-     message(STATUS "sonarqube upload script not found. Upload target will not be available.")
-endif()
-
+add_custom_target(
+     suite_all
+     COMMENT
+        "All CETL suites define this target as a default action scripts can rely on."
+     DEPENDS
+        test_all
+)
 
 # Write a README to create the tests folder.
 file(WRITE ${CETLVAST_NATIVE_TEST_BINARY_DIR}/README.txt
