@@ -22,6 +22,10 @@ cmake_minimum_required(VERSION 3.22.0)
 
 project(cetlvast CXX)
 
+if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
+    set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
+endif()
+
 if (NOT DEFINED CETL_ROOT)
     set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
     cmake_path(ABSOLUTE_PATH LOCAL_PARENT_OF_SOURCE_PATH
@@ -109,6 +113,8 @@ set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Debug)
 set(CETLVAST_COVERAGE_REPORT_FORMAT "html" CACHE STRING "Coverage reporting standard to use when building coverage reports.")
 set_property(CACHE CETLVAST_COVERAGE_REPORT_FORMAT PROPERTY STRINGS "html" "sonarqube" "json")
 
+option(CETLVAST_DISABLE_CPP_EXCEPTIONS "Attempt to disable C++ exceptions for the current toolchain." OFF)
+
 message(STATUS "[ Build Options ]--------------------------------------\n\
     CMAKE_BUILD_TYPE:                ${CMAKE_BUILD_TYPE}\n\
     CETL_ENABLE_DEBUG_ASSERT:        ${CETL_ENABLE_DEBUG_ASSERT}\n\
@@ -116,6 +122,7 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
     CETLVAST_COVERAGE_REPORT_FORMAT: ${CETLVAST_COVERAGE_REPORT_FORMAT}\n\
     CETLVAST_STYLE_CHECK:            ${CETLVAST_STYLE_CHECK}\n\
     CETLVAST_CPP_STANDARD:           ${CETLVAST_CPP_STANDARD}\n\
+    CETLVAST_DISABLE_CPP_EXCEPTIONS: ${CETLVAST_DISABLE_CPP_EXCEPTIONS}\n\
 -----------------------------------------------------------\n\
 ")
 

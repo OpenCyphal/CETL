@@ -16,7 +16,7 @@
 int main()
 {
     std::string greeting{"Hello Dynamic World."};
-    std::span<const char> dynamic{greeting.c_str(), 13};
+    cetl::span<const char> dynamic{greeting.c_str(), 13};
     auto print = [](const char c) { std::cout << c; };
 
     // Print just the characters in the span...

@@ -4,10 +4,8 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-vscode.cpptools",
-                "twxs.cmake",
-                "ms-vscode.cmake-tools",
-                "ban.spellright",
+                "ms-vscode.cpptools-extension-pack",
+                "streetsidesoftware.code-spell-checker",
                 "xaver.clang-format"
             ]
         }

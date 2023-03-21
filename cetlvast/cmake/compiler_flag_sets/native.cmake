@@ -29,6 +29,12 @@ else()
     endif()
 endif()
 
+if (CETLVAST_DISABLE_CPP_EXCEPTIONS)
+    message(STATUS "CETLVAST_DISABLE_CPP_EXCEPTIONS is true. Adding -fno-exceptions to compiler flags.")
+    list(APPEND C_FLAG_SET
+                "-fno-exceptions")
+endif()
+
 list(APPEND CXX_FLAG_SET ${C_FLAG_SET})
 list(APPEND ASM_FLAG_SET ${C_FLAG_SET})
 

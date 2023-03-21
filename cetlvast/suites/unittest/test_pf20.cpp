@@ -21,4 +21,10 @@ TEST(PF20TestSuite, TestSpanIsSpantastic)
     ASSERT_EQ(3, always_std.back());
 }
 
+TEST(PF20TestSuite, TestNullMemoryResource)
+{
+    std::pmr::memory_resource* nmr = std::pmr::null_memory_resource();
+    ASSERT_NE(nullptr, nmr);
+}
+
 }  // namespace

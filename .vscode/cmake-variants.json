@@ -78,5 +78,24 @@
                 }
             }
         }
-    }
+    },
+    "exceptions":{
+        "default": "enabled",
+        "choices": {
+            "enabled": {
+                "short": "exceptions",
+                "long": "Compile with standard C++ exception handling.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": false
+                }
+            },
+            "disabled": {
+                "short": "no-exceptions",
+                "long": "Disable C++ exceptions where the compiler supports this.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": true
+                }
+            }
+        }
+    },
 }
