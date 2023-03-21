@@ -1,3 +1,17 @@
+# Proposing a New Type
+
+If you want to add to CETL you should start on the [forum](https://forum.opencyphal.org/c/app/cetl/22). Once we have
+tacit approval the type should be developed using a [standard Github workflow](https://docs.github.com/en/get-started/quickstart/contributing-to-projects).
+
+> Please don't write code on the forum. The forum post should be used to build consensus that a given type should be
+developed and contributed to CETL before you go wasting your time writing the code. Once you have that level of support
+it's time to move to Github.
+
+For some types, however, we may want to stage introduction but make the type available to maintainers and
+early-adopters. To facilitate git submodule access to CETL and to avoid noise we use feature branches upstream to
+incubate such types. As such, we may request that your PR to `main` be redirected to a feature branch we setup in the
+form of `preview/{your incubating feature name}`.
+
 # Running CETLVaSt
 
 ```
