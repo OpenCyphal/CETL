@@ -16,7 +16,9 @@
 #include <limits>
 #include <type_traits>
 
-#include "cetl/cetl.hpp"
+#ifndef CETL_H_ERASE
+#    include "cetl/cetl.hpp"
+#endif
 
 namespace cetl
 {
@@ -329,7 +331,7 @@ public:
     /// If the span has a zero size or not.
     /// @return true if the span size is 0 where "size" is the same as span::extent
     /// for this specialization.
-#if (__cplusplus >= CETL_CPP_STANDARD_17)
+#if (__cplusplus >= 201703L)
     [[nodiscard]]
 #endif
     constexpr bool
@@ -687,7 +689,7 @@ public:
     ///
     /// Returns if the span has a zero size or not.
     /// @return true if the span size is 0.
-#if (__cplusplus >= CETL_CPP_STANDARD_17)
+#if (__cplusplus >= 201703L)
     [[nodiscard]]
 #endif
     constexpr bool

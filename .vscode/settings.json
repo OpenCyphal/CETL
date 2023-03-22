@@ -33,7 +33,9 @@
         "/polyfill/i",
         "/autosar/i",
         "/__cplusplus/",
-        "/<cassert>/"
+        "/<cassert>/",
+        "/godbolt/i",
+        "/cppreference/"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
