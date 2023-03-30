@@ -21,8 +21,27 @@ Also under each "cetl/pfXX" folder will be a "cetlpf.hpp" header. These headers 
 so by violating certain AUTOSAR-14 rules. We recommend using the CETL polyfill types directly in code that adheres
 to AUTOSAR-14.
 
-TODO: Once [Issue #12](https://github.com/OpenCyphal-Garage/CETL/issues/12) is complete we'll provide some more
-info here on how we expect you to take a dependency on CETL.
+There are currently three ways to take a dependency on CETL (see [issue #9](https://github.com/OpenCyphal/CETL/issues/9)
+for a future 4th way):
+
+1. **Download the [release zip/tar from github](https://github.com/OpenCyphal/CETL/releases)** – This, of course, provides
+no strong link back to the CETL source and test artifacts associated with it but you have full control over it and can
+do whatever you like within the terms of the [LICENSE](./LICENSE) including deleting everything except the one or two
+types you wanted to use.
+
+2. **Git Submodules** – Including CETL as a submodule is perfectly acceptable however you'll also get cetlvast which
+might be annoying if you are looking for the bare minimum set files from CETL. It does provide a seamless update mechanism
+and is a fairly well-supported practice.
+
+3. **Filtering** – By creating a fork of CETL and using [git-filter-repo](https://github.com/newren/git-filter-repo/)
+you can create a one-way transform from CETL to a branch in your fork that is filtered to include only the files and
+history you want to depend on:
+    ```bash
+    git-filter-repo --path-rename include/: --path-regex "^include/LICENSE|^include/cetl/cetl.hpp|^include/cetl/pf20/span.hpp"
+    ```
+    While this may seem the same as just downloading the source and picking the files you want to use the technique
+    does maintain the relevant history for the remaining files and you can repeat the process in an automated fashion
+    for any subsequent CETL patches or releases.
 
 ## CETLVaSt
 
@@ -57,30 +76,6 @@ set of conventions, typedefs, and other constructs that will pollute your code. 
 as practical and users that want to copy and paste one of the CETL headers into their project can easily elide cetl.hpp
 with minimal effort.
 
-
-## Support Matrix
-
-| CETL Version | C++ Base Version | C++ Target Version | Current Maturity      | Release Date | Security Fixes | EOL   |
-|--------------|------------------|--------------------|-----------------------|--------------|----------------|-------|
-| 1.x          | C++14            | C++20              | ![pre-alpha](https://img.shields.io/badge/status-beta-blue) | (TBA) | (TBA) | (TBA) |
-
-
-The above support is not guaranteed, as this is an open source project and there are no contractual obligations
-agreed to by any party that contributes; however, the OpenCyphal community will use this support matrix as guidelines
-to shape their work.
-
-**C++ Base Version** – The version of C++ required to use this release of CETL.
-
-**C++ Target Version** – The newest version of C++ this version of CETL was tested against. This version may increase
-without a new release if a new version is released and the community is able to verify the existing release against it.
-
-**Release Date** – The date after which active development of new features for a given release will cease and all updates
-will be bug fixes only.
-
-**Security Fixes** – The date after which no bug fixes will be accepted unless they are to patch critical security
-vulnerabilities (See [SECURITY.md](./SECURITY.md)).
-
-**End-Of-Life (EOL)** – The date after which no changes of any kind will be accepted.
 
 ![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo_dark.svg#gh-dark-mode-only)\
 ![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo.svg#gh-light-mode-only)
