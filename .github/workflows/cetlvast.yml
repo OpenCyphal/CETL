@@ -46,9 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.1
     steps:
+    - uses: actions/checkout@v3
     - name: setup environment
       run: echo "CETL_DOCS_PATH=$(./cetlvast/verify.py -cd ./cetlvast -lssd docs)" >> $GITHUB_ENV
-    - uses: actions/checkout@v3
     - name: verify
       run: ./cetlvast/verify.py -cd ./cetlvast docs
     - name: Upload artifact
