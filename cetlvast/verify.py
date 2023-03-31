@@ -251,6 +251,21 @@ def _make_parser() -> argparse.ArgumentParser:
     )
 
     action_args.add_argument(
+        "-lsext",
+        "--ls-extdir",
+        action="store_true",
+        help=textwrap.dedent(
+            """
+        Emits a relative path to the external test dependencies directory. Use with "none" suite to
+        simply emit this path and exit. For example:
+
+          - name: setup environment
+            run: echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -lsext none)" >> $GITHUB_ENV
+
+    """[1:])
+    )
+
+    action_args.add_argument(
         "-lssd",
         "--ls-builddir-suite",
         action="store_true",
@@ -695,10 +710,6 @@ def _handle_special_actions(args: argparse.Namespace, cmake_args: typing.List[st
     return 0
 
 
-def _handle_lssd(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path, gitdir: pathlib.Path) -> int:
-    sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
-    return 0
-
 # +---------------------------------------------------------------------------+
 
 
@@ -738,7 +749,12 @@ def main() -> int:
     )
 
     if args.ls_builddir_suite:
-        return _handle_lssd(args, cmake_args, cmake_dir, verification_dir)
+        sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
+        return 0
+
+    if args.ls_extdir:
+        sys.stdout.write(str(cmake_dir.parent / pathlib.Path(cmake_dir.stem + "_ext")))
+        return 0
 
     _remove_build_dir_action(args, cmake_dir)
 
