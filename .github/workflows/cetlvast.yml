@@ -55,8 +55,8 @@ jobs:
                              compile
 
   docs:
+    needs: lint
     runs-on: ubuntu-latest
-    needs: unittest
     container: ghcr.io/opencyphal/toolshed:ts22.4.1
     steps:
     - uses: actions/checkout@v3
@@ -75,6 +75,7 @@ jobs:
     - name: verify
       run: ./cetlvast/verify.py -cd ./cetlvast docs
     - name: Upload docs
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/upload-artifact@v3
       with:
         name: github-pages
@@ -82,7 +83,9 @@ jobs:
         if-no-files-found: error
   deploy-docs:
     if: ${{ (github.event_name == 'release' && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch' }}
-    needs: docs
+    needs:
+      - docs
+      - unittest
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
       contents: read
