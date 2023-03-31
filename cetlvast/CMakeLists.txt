@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-cmake_minimum_required(VERSION 3.16.0)
+cmake_minimum_required(VERSION 3.22.0)
 
 ###############################################################################
 # DON'T USE CMAKE!
@@ -23,34 +23,36 @@ cmake_minimum_required(VERSION 3.16.0)
 project(cetlvast CXX)
 
 if (NOT DEFINED CETL_ROOT)
-    get_filename_component(CETL_ROOT
-                           "${CMAKE_SOURCE_DIR}/../"
-                           REALPATH BASE_DIR
-                           "${CMAKE_BINARY_DIR}")
-    message(STATUS "Setting CETL_ROOT = ${CETL_ROOT}")
+    set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
+    cmake_path(ABSOLUTE_PATH LOCAL_PARENT_OF_SOURCE_PATH
+               OUTPUT_VARIABLE CETL_ROOT
+               BASE_DIRECTORY "${CMAKE_BINARY_DIR}")
+    cmake_path(NORMAL_PATH CETL_ROOT OUTPUT_VARIABLE CETL_ROOT)
+    message(DEBUG "Setting CETL_ROOT = ${CETL_ROOT}")
 else()
-    message(STATUS "Using ${CETL_ROOT} for CETL_ROOT")
+    message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
 endif()
 
 
 if (NOT DEFINED CETLVAST_PROJECT_ROOT)
-    get_filename_component(CETLVAST_PROJECT_ROOT
-                           "${CMAKE_SOURCE_DIR}"
-                           REALPATH BASE_DIR
-                           "${CMAKE_BINARY_DIR}")
-    message(STATUS "Setting CETLVAST_PROJECT_ROOT = ${CETLVAST_PROJECT_ROOT}")
+    set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
+    cmake_path(ABSOLUTE_PATH CMAKE_SOURCE_DIR
+               OUTPUT_VARIABLE CETLVAST_PROJECT_ROOT
+               BASE_DIRECTORY "${CMAKE_BINARY_DIR}")
+    cmake_path(NORMAL_PATH CMAKE_BINARY_DIR OUTPUT_VARIABLE CMAKE_BINARY_DIR)
+    message(DEBUG "Setting CETLVAST_PROJECT_ROOT = ${CETLVAST_PROJECT_ROOT}")
 else()
-    message(STATUS "Using ${CETLVAST_PROJECT_ROOT} for CETLVAST_PROJECT_ROOT")
+    message(DEBUG "Using ${CETLVAST_PROJECT_ROOT} for CETLVAST_PROJECT_ROOT")
 endif()
 
 if (NOT DEFINED CETLVAST_EXT_FOLDER)
-    get_filename_component(CETLVAST_BUILD_DIR_STUB ${CMAKE_CURRENT_BINARY_DIR} NAME)
+    cmake_path(GET CMAKE_CURRENT_BINARY_DIR FILENAME CETLVAST_BUILD_DIR_STUB)
     set(EXTERNAL_PROJECT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${CETLVAST_BUILD_DIR_STUB}_ext")
 else()
     set(EXTERNAL_PROJECT_DIRECTORY "${CETLVAST_EXT_FOLDER}")
 endif()
 
-message(STATUS "Ensuring EXTERNAL_PROJECT_DIRECTORY=${EXTERNAL_PROJECT_DIRECTORY}")
+message(DEBUG "Ensuring EXTERNAL_PROJECT_DIRECTORY=${EXTERNAL_PROJECT_DIRECTORY}")
 
 #
 # Make sure we have our external project directory created. We use this
@@ -58,7 +60,7 @@ message(STATUS "Ensuring EXTERNAL_PROJECT_DIRECTORY=${EXTERNAL_PROJECT_DIRECTORY
 #
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
-set(CETL_INCLUDE "${CETL_ROOT}/include")
+cmake_path(APPEND CETL_ROOT "include" OUTPUT_VARIABLE CETL_INCLUDE)
 
 include_directories(
     ${CETL_INCLUDE}
@@ -66,15 +68,28 @@ include_directories(
 )
 
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)
-    message(STATUS "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
+    message(DEBUG "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
     set(CMAKE_MODULE_PATH ${CETLVAST_CMAKE_MODULE_PATH})
 else()
     #
     # Tell cmake where to find our custom scripts.
     #
     set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
-    message(STATUS "CMAKE_MODULE_PATH set to ${CMAKE_MODULE_PATH}")
+    message(DEBUG "CMAKE_MODULE_PATH set to ${CMAKE_MODULE_PATH}")
 endif()
+
+
+message(STATUS
+"[ globals ]-----------------------------------------------\n\
+    CETL_ROOT:                  ${CETL_ROOT}\n\
+    CETL_INCLUDE:               ${CETL_INCLUDE}\n\
+    CMAKE_MODULE_PATH:          ${CMAKE_MODULE_PATH}\n\
+    CETLVAST_PROJECT_ROOT:      ${CETLVAST_PROJECT_ROOT}\n\
+    EXTERNAL_PROJECT_DIRECTORY: ${EXTERNAL_PROJECT_DIRECTORY}\n\
+    CMAKE_SOURCE_DIR:           ${CMAKE_SOURCE_DIR}\n\
+    CMAKE_CURRENT_BINARY_DIR:   ${CMAKE_CURRENT_BINARY_DIR}\n\
+-----------------------------------------------------------\n\
+")
 
 # +---------------------------------------------------------------------------+
 # | OPTIONS/VARIANTS
@@ -90,14 +105,21 @@ set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20)
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type.")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Debug)
 
+set(CETLVAST_COVERAGE_REPORT_FORMAT "html" CACHE STRING "Coverage reporting standard to use when building coverage reports.")
+set_property(CACHE CETLVAST_COVERAGE_REPORT_FORMAT PROPERTY STRINGS "html" "sonarqube" "json")
+
 message(STATUS "[ Build Options ]--------------------------------------\n\
-    CMAKE_BUILD_TYPE:         ${CMAKE_BUILD_TYPE}\n\
-    CETL_ENABLE_DEBUG_ASSERT: ${CETL_ENABLE_DEBUG_ASSERT}\n\
-    CETLVAST_ENABLE_COVERAGE: ${CETLVAST_ENABLE_COVERAGE}\n\
-    CETLVAST_STYLE_CHECK:     ${CETLVAST_STYLE_CHECK}\n\
-    CETLVAST_CPP_STANDARD:    ${CETLVAST_CPP_STANDARD}\n\
+    CMAKE_BUILD_TYPE:                ${CMAKE_BUILD_TYPE}\n\
+    CETL_ENABLE_DEBUG_ASSERT:        ${CETL_ENABLE_DEBUG_ASSERT}\n\
+    CETLVAST_ENABLE_COVERAGE:        ${CETLVAST_ENABLE_COVERAGE}\n\
+    CETLVAST_COVERAGE_REPORT_FORMAT: ${CETLVAST_COVERAGE_REPORT_FORMAT}\n\
+    CETLVAST_STYLE_CHECK:            ${CETLVAST_STYLE_CHECK}\n\
+    CETLVAST_CPP_STANDARD:           ${CETLVAST_CPP_STANDARD}\n\
 -----------------------------------------------------------\n\
 ")
+
+# Always need this.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # +---------------------------------------------------------------------------+
 # | KITS

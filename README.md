@@ -6,7 +6,16 @@ Cyphal Embedded Template Library
 > We like to pronounce CETL as "settle"
 
 [![Forum](https://img.shields.io/discourse/https/forum.opencyphal.org/users.svg)](https://forum.opencyphal.org)
-[![Documentation](https://img.shields.io/badge/docs-soon-grey.svg)](https://opencyphal.org/CETL/)
+[![Documentation](https://opencyphal.github.io/CETL/docs-ok-green.svg)](https://opencyphal.github.io/CETL/)
+
+[![CodeQL](https://github.com/OpenCyphal/CETL/actions/workflows/codeql.yml/badge.svg)](https://github.com/OpenCyphal/CETL/actions/workflows/codeql.yml)
+[![CETLVaSt](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml/badge.svg)](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml)
+[![Open Bugs](https://img.shields.io/github/issues/OpenCyphal/CETL/bug?label=bugs&logo=github)](https://github.com/OpenCyphal/CETL/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
+
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=coverage)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
+
 
 ## include
 

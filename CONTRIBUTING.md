@@ -43,10 +43,10 @@ and manually run it.
 
 ### TLDR
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.1
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
 git clone {this repo}
 cd CETL
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3
 cd /repo/cetlvast
 ./verify.py -vv -c --force-ninja unittest
 pushd $(./verify.py -lsbd none)
@@ -57,7 +57,7 @@ ninja test_all
 
 1. Pull the OpenCyphal dev-container used for CETL:
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.1
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
 ```
 2. Clone CETL, cd into the repo, and launch an interactive terminal session of
 the dev container. This command will mount the current directory (`${PWD}`) in

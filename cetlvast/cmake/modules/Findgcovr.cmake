@@ -4,14 +4,10 @@
 # SPDX-License-Identifier: MIT
 #
 
-#
-# Find sonar-scanner.
-#
-
-find_program(SONAR_SCANNER sonar-scanner)
+find_program(GCOVR gcovr)
 
 include(FindPackageHandleStandardArgs)
 
-find_package_handle_standard_args(sonar-scanner
-    REQUIRED_VARS SONAR_SCANNER
+find_package_handle_standard_args(gcovr
+    REQUIRED_VARS GCOVR
 )

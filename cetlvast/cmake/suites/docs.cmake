@@ -60,7 +60,7 @@ set(ALL_EXAMPLES "")
 set(ALL_EXAMPLE_RUNS "")
 
 foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
-    get_filename_component(NATIVE_EXAMPLE_NAME ${NATIVE_EXAMPLE} NAME_WE)
+    cmake_path(GET NATIVE_EXAMPLE STEM NATIVE_EXAMPLE_NAME)
     message(STATUS "Defining native example binary ${NATIVE_EXAMPLE_NAME} for source file ${NATIVE_EXAMPLE}")
     define_native_example_build(${NATIVE_EXAMPLE_NAME} ${NATIVE_EXAMPLE} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
     define_native_example_run(${NATIVE_EXAMPLE_NAME} ${CETLVAST_NATIVE_EXAMPLE_BINARY_DIR})
@@ -89,6 +89,7 @@ add_custom_target(
 find_package(docs REQUIRED)
 
 create_docs_target(docs ON ${CETLVAST_PROJECT_ROOT}/suites/docs/examples "${ALL_EXAMPLES}")
+create_docs_tarball_target(docs_tarball OFF)
 
 add_custom_target(
      suite_all

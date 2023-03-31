@@ -82,6 +82,7 @@ def _make_parser() -> argparse.ArgumentParser:
         Used to form -DCETLVAST_TEST_SUITE value
 
         The five cetlvast suites are:
+        -----------------------------------------------------------------------
 
             unit tests      : googletest/googlemock tests compiled and executed
                               on the local system. these tests verify the core
@@ -153,13 +154,18 @@ def _make_parser() -> argparse.ArgumentParser:
 
     variant_args.add_argument(
         "--coverage",
-        action="store_true",
+        choices=["sonarqube", "html"],
         help=textwrap.dedent(
             """
-        Sets -DCETLVAST_ENABLE_COVERAGE:BOOL=ON
+        Enables instrumentation of code and selects coverage report format.
 
-        Enables instrumentation of code and selects coverage reporting test
-        targets.
+        -DCETLVAST_ENABLE_COVERAGE:BOOL=ON
+
+        -DCETLVAST_COVERAGE_REPORT_FORMAT:STRING=<value>
+        -----------------------------------------------------------------------
+
+        html                  : Generages a human-readable HTML report.
+        sonarqube             : Generates an XML file compatible with sonarqube.
 
     """[1:])
     )
@@ -184,7 +190,9 @@ def _make_parser() -> argparse.ArgumentParser:
         default="target",
         help=textwrap.dedent(
             """
+
         Sets -DCETLVAST_CPP_STANDARD value
+        -----------------------------------------------------------------------
 
         base (C++14)          : Use the C++ 14 standard which is the base
                                 standard for CETL 1.0. This allows testing of
@@ -235,46 +243,69 @@ def _make_parser() -> argparse.ArgumentParser:
     )
 
     action_args.add_argument(
-        "-lsbd",
-        "--ls-builddir",
-        action="store_true",
+        "-ls",
+        "--list",
+        choices=["builddir", "extdir", "cppstd", "covri", "covrd"],
         help=textwrap.dedent(
             """
-        Emits a relative path to the build directory. Use with "none" suite to
-        simply emit this path and exit. For example:
 
-            pushd $(./verify.py -lsbd none)
-            ninja -t commands
-            popd
+        Lists various internal values to allow integration with CI or other
+        build scripts without hardcoding these values.
+
+        -ls/--list values
+        -----------------------------------------------------------------------
+
+        builddir    Emits a relative path to a build directory. Use with "none"
+                    suite to emit the root build path and exit. For example:
+
+                        pushd $(./verify.py -ls builddir none)
+                        ninja -t commands
+                        popd
+
+                    Use with a suite to emite a path to the suite's build
+                    output. For example:
+
+                        open "$(./verify.py -ls buildir docs)/html/index.html"
+
+        extdir      Emits a relative path to the external test dependencies
+                    directory. Use with "none" suite to simply emit this path
+                    and exit. For example:
+
+                      - name: setup environment
+                        run: |
+                            echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV
+
+        cppstd      Emits an integer value for the cpp standard defined by
+                    default or by a --cpp-standard argument provided to this
+                    script. For example:
+
+                        echo "-std=c++$(./verify.py --cpp-standard base -ls cppstd docs)"
+
+        covri       If --coverage is set this will return a path to a report index file.
+
+                        open $(./verify.py --coverage html -ls covri unittest)
+
+        covrd       If --coverage is set this will return a path to a file or folder that
+                    is/contains the coverage report.
+
+                        tar -vzcf report.gz $(./verify.py --coverage html -ls covrd unittest)
+
+        All ls actions happen before the build directory action so -rm will be
+        ignored.
 
     """[1:])
     )
 
     action_args.add_argument(
-        "-lsext",
-        "--ls-extdir",
+        "-lsstd",
+        "--ls-cpp-standard",
         action="store_true",
         help=textwrap.dedent(
             """
-        Emits a relative path to the external test dependencies directory. Use with "none" suite to
-        simply emit this path and exit. For example:
+        Emits an integer value for the cpp standard defined by default or by a
+        --cpp-standard argument provided to this script. For example:
 
-          - name: setup environment
-            run: echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -lsext none)" >> $GITHUB_ENV
-
-    """[1:])
-    )
-
-    action_args.add_argument(
-        "-lssd",
-        "--ls-builddir-suite",
-        action="store_true",
-        help=textwrap.dedent(
-            """
-        Emits a relative path to the build directory for a given suite then
-        exits. For Example:
-
-            open "$(./verify.py -lssd docs)/html/index.html"
+            echo "-std=c++$(./verify.py --cpp-standard base -lsstd docs)"
 
         This action happens before the build directory action so -rm will be
         ignored.
@@ -405,6 +436,20 @@ def _make_parser() -> argparse.ArgumentParser:
 # +---------------------------------------------------------------------------+
 
 
+def _cpp_standard_arg_to_number(args: argparse.Namespace, ) -> int:
+    if args.cpp_standard == "base":
+        return 14
+    elif args.cpp_standard == "intermediate":
+        return 17
+    elif args.cpp_standard == "target":
+        return 20
+    else:
+        raise RuntimeError("internal error: illegal cpp-standard choice got through? ({})".format(args.cpp_standard))
+
+
+# +---------------------------------------------------------------------------+
+
+
 def _cmake_run(
     cmake_args: typing.List[str],
     cmake_dir: pathlib.Path,
@@ -501,6 +546,24 @@ def _create_build_dir_action(args: argparse.Namespace, cmake_dir: pathlib.Path) 
 # +---------------------------------------------------------------------------+
 
 
+def _to_cmake_logging_level(verbose: int) -> str:
+    if verbose == 1:
+        cmake_logging_level = "STATUS"
+    elif verbose == 2:
+        cmake_logging_level = "VERBOSE"
+    elif verbose == 3:
+        cmake_logging_level = "DEBUG"
+    elif verbose > 3:
+        cmake_logging_level = "TRACE"
+    else:
+        cmake_logging_level = "NOTICE"
+
+    return cmake_logging_level
+
+
+# +---------------------------------------------------------------------------+
+
+
 def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path) -> int:
     """
     Format and execute cmake configure command. This also include the cmake build directory (re)creation
@@ -510,41 +573,31 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
     if args.build_only or args.test_only:
         return 0
 
-    if args.verbose == 1:
-        cmake_logging_level = "STATUS"
-    elif args.verbose == 2:
-        cmake_logging_level = "VERBOSE"
-    elif args.verbose == 3:
-        cmake_logging_level = "DEBUG"
-    elif args.verbose > 3:
-        cmake_logging_level = "TRACE"
-    else:
-        cmake_logging_level = "NOTICE"
-
     cmake_configure_args = cmake_args.copy()
 
-    cmake_configure_args.append("--log-level={}".format(cmake_logging_level))
+    cmake_configure_args.append("--log-level={}".format(_to_cmake_logging_level(args.verbose)))
 
     flag_set_dir = pathlib.Path("cmake") / pathlib.Path("compiler_flag_sets")
-    flagset_file = (flag_set_dir / pathlib.Path("native")).with_suffix(".cmake")
+    flagset_file = (flag_set_dir / pathlib.Path("native")).with_suffix(_cmake_configure.cmake_suffix)
 
     cmake_configure_args.append("-DCETLVAST_FLAG_SET={}".format(str(flagset_file)))
 
     if args.suite != "none":
         test_suite_dir = pathlib.Path("cmake") / pathlib.Path("suites")
-        test_suite_dir = (test_suite_dir / pathlib.Path(args.suite)).with_suffix(".cmake")
+        test_suite_dir = (test_suite_dir / pathlib.Path(args.suite)).with_suffix(_cmake_configure.cmake_suffix)
         cmake_configure_args.append("-DCETLVAST_TEST_SUITE={}".format(str(test_suite_dir)))
     if args.toolchain != "none":
         toolchain = pathlib.Path("cmake") / pathlib.Path("toolchains")
         if args.toolchain == "clang":
-            toolchain_file = toolchain / pathlib.Path("clang-native").with_suffix(".cmake")
+            toolchain_file = toolchain / pathlib.Path("clang-native").with_suffix(_cmake_configure.cmake_suffix)
         else:
-            toolchain_file = toolchain / pathlib.Path("gcc-native").with_suffix(".cmake")
+            toolchain_file = toolchain / pathlib.Path("gcc-native").with_suffix(_cmake_configure.cmake_suffix)
 
         cmake_configure_args.append("-DCMAKE_TOOLCHAIN_FILE={}".format(str(toolchain_file)))
 
-    if args.coverage:
+    if args.coverage is not None:
         cmake_configure_args.append("-DCETLVAST_ENABLE_COVERAGE:BOOL=ON")
+        cmake_configure_args.append("-DCETLVAST_COVERAGE_REPORT_FORMAT:STRING={}".format(args.coverage))
     else:
         cmake_configure_args.append("-DCETLVAST_ENABLE_COVERAGE:BOOL=OFF")
 
@@ -557,14 +610,7 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
         cmake_configure_args.append("-DCMAKE_BUILD_TYPE={}".format(args.build_flavor))
         cmake_configure_args.append("-DCETL_ENABLE_DEBUG_ASSERT:BOOL=OFF")
 
-    if args.cpp_standard == "base":
-        cmake_configure_args.append("-DCETLVAST_CPP_STANDARD=14")
-    elif args.cpp_standard == "intermediate":
-        cmake_configure_args.append("-DCETLVAST_CPP_STANDARD=17")
-    elif args.cpp_standard == "target":
-        cmake_configure_args.append("-DCETLVAST_CPP_STANDARD=20")
-    else:
-        raise RuntimeError("internal error: illegal cpp-standard choice got through? ({})".format(args.cpp_standard))
+    cmake_configure_args.append("-DCETLVAST_CPP_STANDARD={}".format(_cpp_standard_arg_to_number(args)))
 
     if args.force_ninja:
         cmake_configure_args.append("-DCMAKE_GENERATOR=Ninja")
@@ -573,6 +619,7 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
 
     return _cmake_run(cmake_configure_args, cmake_dir, args.verbose, args.dry_run)
 
+_cmake_configure.cmake_suffix = ".cmake"
 
 # +---------------------------------------------------------------------------+
 
@@ -624,25 +671,14 @@ def _cmake_test(args: argparse.Namespace, cmake_args: typing.List[str], cmake_di
 
         cmake_test_args += ["--build", ".", "--target"]
 
-        if args.suite == "unittest":
-            if args.coverage:
-                cmake_test_args.append("cov_all")
-            else:
-                cmake_test_args.append("test_all")
-        elif args.suite == "docs":
-            cmake_test_args.append("docs")
-        elif args.suite == "lint":
-            cmake_test_args.append("all")
-        elif args.suite == "compile":
-            cmake_test_args.append("test_all")
-        elif args.suite == "ontarget":
+        if args.suite == "ontarget":
             logging.warning("ontarget tests not implemented yet!")
             return -1
         elif args.suite == "none":
             logging.debug("No test suite specified. Nothing to do.")
             return 0
         else:
-            raise RuntimeError("invalid test suite {} got through argparse?".format(args.suite))
+            cmake_test_args.append("suite_all")
 
         return _cmake_run(cmake_test_args, cmake_dir, args.verbose, args.dry_run)
 
@@ -652,7 +688,7 @@ def _cmake_test(args: argparse.Namespace, cmake_args: typing.List[str], cmake_di
 # +---------------------------------------------------------------------------+
 
 
-def _cmake_ctest(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path) -> int:
+def _cmake_ctest(args: argparse.Namespace, _: typing.List[str], cmake_dir: pathlib.Path) -> int:
     """
     run ctest
     """
@@ -661,7 +697,14 @@ def _cmake_ctest(args: argparse.Namespace, cmake_args: typing.List[str], cmake_d
         if args.suite == "compile":
             # we use ctest to run the compile tests so we take a different
             # branch here.
-            return subprocess.run(["ctest"], cwd=cmake_dir).returncode
+            report_path = pathlib.Path("cetlvast") / "suites" / args.suite / "ctest.xml"
+            ctest_run = ["ctest", "--output-junit", str(report_path)]
+            if not args.dry_run:
+                logging.debug("about to run {}".format(str(ctest_run)))
+                return subprocess.run(ctest_run, cwd=cmake_dir).returncode
+            else:
+                logging.info("Is dry-run. Would have run ctest: {}".format(str(ctest_run)))
+                return 0
         else:
             logging.debug("No ctest action defined for {} test suite.".format(args.suite))
 
@@ -697,16 +740,35 @@ _get_version_string._version_string : typing.Optional[typing.Tuple[int, int, int
 # +---------------------------------------------------------------------------+
 
 
-def _handle_special_actions(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path, gitdir: pathlib.Path) -> int:
-    if args.ls_builddir:
-        sys.stdout.write(str(cmake_dir))
-        if args.suite != "none":
-            sys.stdout.write(os.linesep)
+def _handle_special_actions(args: argparse.Namespace, cmake_dir: pathlib.Path, gitdir: pathlib.Path) -> int:
+
     if args.version:
         sys.stdout.write("{}.{}.{}{}".format(*_get_version_string(args, gitdir)))
-        if args.suite != "none":
-            sys.stdout.write(os.linesep)
 
+    elif args.list is not None:
+        if args.list == "builddir":
+            if args.suite == "none":
+                sys.stdout.write(str(cmake_dir))
+            else:
+                sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
+
+        elif args.list == "extdir":
+            sys.stdout.write(str(cmake_dir.parent / pathlib.Path(cmake_dir.stem + "_ext")))
+        elif args.list == "cppstd":
+            sys.stdout.write("{}".format(_cpp_standard_arg_to_number(args)))
+        elif (is_covri := (args.list == "covri")) or args.list == "covrd":
+            if args.coverage is None:
+                raise RuntimeError("cannot list coverage output unless --coverage is specified.")
+            elif args.suite != "none":
+                if args.coverage == "html":
+                    html_dir = cmake_dir / "cetlvast" / "suites" / args.suite / "gcovr_html"
+                    sys.stdout.write( str(html_dir / "coverage.html") if is_covri else str(html_dir) )
+                elif args.coverage == "sonarqube":
+                    suitedir = cmake_dir / "cetlvast" / "suites" / args.suite
+                    sys.stdout.write( str(suitedir / "coverage.xml") )
+
+        else:
+            raise RuntimeError("invalid ls value {} got through argparse?".format(args.list))
     return 0
 
 
@@ -748,24 +810,16 @@ def main() -> int:
         ).format(os.path.basename(__file__), str(args), _get_version_string(args, verification_dir))
     )
 
-    if args.ls_builddir_suite:
-        sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
-        return 0
+    special_action_result = _handle_special_actions(args, cmake_dir, verification_dir)
 
-    if args.ls_extdir:
-        sys.stdout.write(str(cmake_dir.parent / pathlib.Path(cmake_dir.stem + "_ext")))
+    if special_action_result != 0:
+        return special_action_result
+    elif args.list is not None:
         return 0
 
     _remove_build_dir_action(args, cmake_dir)
 
-    if args.builddir_only:
-        return 0
-
-    special_action_result = _handle_special_actions(args, cmake_args, cmake_dir, verification_dir)
-
-    if special_action_result != 0:
-        return special_action_result
-    elif args.suite == "none":
+    if args.builddir_only or args.suite == "none":
         return 0
 
     _create_build_dir_action(args, cmake_dir)

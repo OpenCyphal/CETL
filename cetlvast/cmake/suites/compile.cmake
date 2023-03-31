@@ -69,7 +69,7 @@ set(ALL_TESTS_BUILD "")
 set(ALL_TESTS "")
 
 foreach(COMPILE_TEST ${COMPILE_TESTS})
-    get_filename_component(COMPILE_TEST_NAME ${COMPILE_TEST} NAME_WE)
+    cmake_path(GET COMPILE_TEST STEM COMPILE_TEST_NAME)
     define_compile_failure_test(${COMPILE_TEST_NAME} ${COMPILE_TEST})
     list(APPEND ALL_TESTS_BUILD "${COMPILE_TEST_NAME}_precheck")
     list(APPEND ALL_TESTS "run_${COMPILE_TEST_NAME}_precheck")
