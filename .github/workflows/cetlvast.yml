@@ -49,11 +49,9 @@ jobs:
     - uses: actions/checkout@v3
     - name: verify
       run: ./cetlvast/verify.py -cd ./cetlvast docs
-    - name: upload
-      if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
-      run: |
-        gh-pages \
-          --dotfiles \
-          --message "Doc upload for release ${{ steps.process_event.outputs.tag }}" \
-          --user "${{ env. GITHUB_ACTOR }}" \
-          --dist "$(./cetlvast/verify.py -cd ./cetlvast -lssd docs)/html"
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: github-pages
+        path: "$(./cetlvast/verify.py -cd ./cetlvast -lssd docs)/html.gz"
+        if-no-files-found: error
