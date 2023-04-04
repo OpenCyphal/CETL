@@ -10,16 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts22.4.3
-    steps:
-    - uses: actions/checkout@v3
-    - name: Check Style
-      run: |
-        ./cetlvast/verify.py -cd ./cetlvast lint
   verification:
-    needs: lint
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     strategy:
@@ -63,7 +54,6 @@ jobs:
           ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/${{ matrix.suite }}
         if-no-files-found: error
   docs:
-    needs: lint
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
@@ -80,6 +70,9 @@ jobs:
       with:
         path: ${{ env.CETLVAST_EXT_PATH }}
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+    - name: Check Style
+      run: |
+        ./cetlvast/verify.py -cd ./cetlvast lint
     - name: verify
       run: ./cetlvast/verify.py -cd ./cetlvast docs
     - name: Setup Pages
