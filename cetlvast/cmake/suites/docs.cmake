@@ -69,7 +69,7 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
 endforeach()
 
 add_custom_target(
-     build_all_examples
+     build_all
      DEPENDS
           ${ALL_EXAMPLES}
 )

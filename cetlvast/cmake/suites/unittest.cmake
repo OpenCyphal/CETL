@@ -49,7 +49,7 @@ endfunction()
 function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAME OUTARG_TESTRESULT)
 
      cmake_path(GET ARG_TEST_SOURCE STEM LOCAL_TEST_NAME)
-     set(LOCAL_TESTRESULT ${ARG_OUTDIR}/${LOCAL_TEST_NAME}-gtest.json)
+     set(LOCAL_TESTRESULT ${ARG_OUTDIR}/${LOCAL_TEST_NAME}-gtest.xml)
 
      message(STATUS "Defining googletest binary ${LOCAL_TEST_NAME} for source file ${ARG_TEST_SOURCE}")
 
@@ -67,7 +67,7 @@ function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAM
 
      add_custom_command(
           OUTPUT ${LOCAL_TESTRESULT}
-          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME} --gtest_output=json:${LOCAL_TESTRESULT}
+          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME} --gtest_output=xml:${LOCAL_TESTRESULT}
           DEPENDS ${ARG_OUTDIR}/${LOCAL_TEST_NAME}
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
      )
@@ -96,9 +96,9 @@ function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAM
 
      add_custom_target(
           run_${LOCAL_TEST_NAME}
-          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME}
+          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME} --gtest_output=xml:${LOCAL_TESTRESULT}
           DEPENDS ${ARG_OUTDIR}/${LOCAL_TEST_NAME}
-          BYPRODUCTS ${LOCAL_BYPRODUCTS}
+          BYPRODUCTS ${LOCAL_BYPRODUCTS} ${LOCAL_TESTRESULT}
      )
 
      set(${OUTARG_TESTNAME} ${LOCAL_TEST_NAME} PARENT_SCOPE)
@@ -156,7 +156,7 @@ function(define_gcovr_tracefile_for_test ARG_TEST_SOURCE ARG_OUT_TRACEFILE)
 
      set(LOCAL_TRACEFILE_NAME "${LOCAL_TEST_NAME}-gcovr.json")
      set(LOCAL_TRACEFILE_PATH "${CETLVAST_NATIVE_TEST_BINARY_DIR}/${LOCAL_TRACEFILE_NAME}")
-     set(LOCAL_TESTRESULT "${CETLVAST_NATIVE_TEST_BINARY_DIR}/${LOCAL_TEST_NAME}-gtest.json")
+     set(LOCAL_TESTRESULT "${CETLVAST_NATIVE_TEST_BINARY_DIR}/${LOCAL_TEST_NAME}-gtest.xml")
 
      add_custom_command(
           COMMAND # Generate tracefile from tests.
@@ -170,7 +170,7 @@ function(define_gcovr_tracefile_for_test ARG_TEST_SOURCE ARG_OUT_TRACEFILE)
                     ${LOCAL_OBJLIB_REL_FOLDER}
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
           OUTPUT ${LOCAL_TRACEFILE_PATH}
-          DEPENDS ${LOCAL_TESTRESULT}
+          DEPENDS ${LOCAL_TEST_NAME}
      )
 
      message(DEBUG "Will generate tracefile \"${LOCAL_TRACEFILE_PATH}\" for instrumentation found under \"${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_OBJLIB_REL_FOLDER}\"")

@@ -23,6 +23,9 @@ import sys
 import textwrap
 import typing
 
+import xml.etree.ElementTree as ET
+import json
+
 # +---------------------------------------------------------------------------+
 
 
@@ -75,7 +78,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
     kit_args.add_argument(
         "suite",
-        choices=["none", "unittest", "compile", "lint", "docs", "ontarget"],
+        choices=["none", "clean", "unittest", "compile", "lint", "docs", "ontarget"],
         default="none",
         help=textwrap.dedent(
             """
@@ -245,7 +248,7 @@ def _make_parser() -> argparse.ArgumentParser:
     action_args.add_argument(
         "-ls",
         "--list",
-        choices=["builddir", "extdir", "cppstd", "covri", "covrd"],
+        choices=["builddir", "extdir", "cppstd", "covri", "covrd", "tests"],
         help=textwrap.dedent(
             """
 
@@ -290,6 +293,10 @@ def _make_parser() -> argparse.ArgumentParser:
 
                         tar -vzcf report.gz $(./verify.py --coverage html -ls covrd unittest)
 
+        tests       If --generate-test-report is set this will return a path to the output file.
+
+                        ./verify.py -gtr tests.xml -ls tests unittest | xargs cat
+
         All ls actions happen before the build directory action so -rm will be
         ignored.
 
@@ -297,18 +304,16 @@ def _make_parser() -> argparse.ArgumentParser:
     )
 
     action_args.add_argument(
-        "-lsstd",
-        "--ls-cpp-standard",
-        action="store_true",
+        "-gtr",
+        "--generate-test-report",
+        type=pathlib.Path,
+        metavar="{output_file}",
         help=textwrap.dedent(
             """
-        Emits an integer value for the cpp standard defined by default or by a
-        --cpp-standard argument provided to this script. For example:
+        Writes a test execution report in the sonarqube generic test execution
+        format after test execution.
 
-            echo "-std=c++$(./verify.py --cpp-standard base -lsstd docs)"
-
-        This action happens before the build directory action so -rm will be
-        ignored.
+            ./verify.py --generate-test-report path/to/write/sonarqube.xml unittest
 
     """[1:])
     )
@@ -353,6 +358,20 @@ def _make_parser() -> argparse.ArgumentParser:
         help=textwrap.dedent(
             """
         Only try to run tests. Don't configure or build.
+    """[1:])
+    )
+
+    action_args.add_argument(
+        "-co",
+        "--clean-only",
+        action="store_true",
+        help=textwrap.dedent(
+            """
+        If specified, this will only run the cmake generated clean target for
+        the provided suite and configuration then exit.
+
+            ./verify.py --clean-only unittest
+
     """[1:])
     )
 
@@ -436,6 +455,72 @@ def _make_parser() -> argparse.ArgumentParser:
 # +---------------------------------------------------------------------------+
 
 
+def _gtest_to_sonarqube_generic_execution_format(gtest_report: pathlib.Path, test_executions: ET.Element) -> None:
+    """Append googletest testsuite data to sonarqube testExecutions data.
+
+    Input Format: http://google.github.io/googletest/advanced.html#generating-an-xml-report
+    Output Format: https://docs.sonarqube.org/8.9/analyzing-source-code/generic-test-data/#generic-execution
+
+    """
+    sq_files: typing.Dict[str, ET.Element] = dict()
+    gtest_report = ET.parse(gtest_report)
+    for testsuite in gtest_report.findall("testsuite"):
+        for testcase in testsuite.findall("testcase"):
+            testcase_file = testcase.get("file")
+            try:
+                sq_file = sq_files[testcase_file]
+            except KeyError:
+                sq_file = ET.Element("file", attrib={"path": testcase_file})
+                test_executions.append(sq_file)
+                sq_files[testcase_file] = sq_file
+            testcase_name = testcase.get("name")
+            if (type_param := testcase.get("type_param", None)) != None:
+                testcase_name = testcase_name + " " + type_param
+
+            sq_testcase_attrib: typing.Dict[str, str] = dict()
+            sq_testcase_attrib["name"] = testcase_name
+            sq_testcase_attrib["duration"] = str(float(testcase.get("time")) * 1000.00)
+
+            sq_test_case = ET.Element("testCase", attrib=sq_testcase_attrib)
+            sq_file.append(sq_test_case)
+
+            skipped = testcase.find("skipped")
+            if skipped is not None:
+                sq_skipped = ET.Element("skipped", attrib={"message": skipped.get("message").rstrip()})
+                sq_skipped.text = skipped.text.rstrip()
+                sq_test_case.append(sq_skipped)
+            failures = testcase.findall("failure")
+            if failures is not None and len(failures) > 0:
+                sq_failure = ET.Element("failure", attrib={"message": "failed"})
+                sq_test_case.append(sq_failure)
+                sq_failure_text = []
+                for failure in failures:
+                    for failure_line in failure.get("message").split("\n"):
+                        sq_failure_text.append(failure_line)
+                sq_failure.set("message", sq_failure_text[0])
+                if len(sq_failure_text) > 1:
+                    sq_failure.text = "\n".join(sq_failure_text[1:])
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _is_pseudo_suite(suite_name: str) -> bool:
+    return (suite_name in ["none"])
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _suite_dir(args: argparse.Namespace, cmake_dir: pathlib.Path) -> pathlib.Path:
+    if _is_pseudo_suite(args.suite):
+        raise RuntimeError("Cannot create path to a psedo-suite.")
+    return cmake_dir / "cetlvast" / "suites" / args.suite
+
+
+# +---------------------------------------------------------------------------+
+
+
 def _cpp_standard_arg_to_number(args: argparse.Namespace, ) -> int:
     if args.cpp_standard == "base":
         return 14
@@ -493,7 +578,7 @@ def _cmake_run(
 # +---------------------------------------------------------------------------+
 
 
-def _remove_build_dir_action(args: argparse.Namespace, cmake_dir: pathlib.Path) -> None:
+def _remove_build_dir_action(args: argparse.Namespace, cmake_dir: pathlib.Path) -> int:
     """
     Handle all the logic, user input, logging, and file-system operations needed to
     remove the cmake build directory ahead of invoking cmake.
@@ -523,6 +608,9 @@ def _remove_build_dir_action(args: argparse.Namespace, cmake_dir: pathlib.Path) 
                     cmake_dir
                 )
             )
+        return 0
+    else:
+        return 1
 
 
 # +---------------------------------------------------------------------------+
@@ -564,7 +652,7 @@ def _to_cmake_logging_level(verbose: int) -> str:
 # +---------------------------------------------------------------------------+
 
 
-def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path) -> int:
+def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path, skip: bool = False) -> int:
     """
     Format and execute cmake configure command. This also include the cmake build directory (re)creation
     logic.
@@ -582,7 +670,7 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
 
     cmake_configure_args.append("-DCETLVAST_FLAG_SET={}".format(str(flagset_file)))
 
-    if args.suite != "none":
+    if not _is_pseudo_suite(args.suite):
         test_suite_dir = pathlib.Path("cmake") / pathlib.Path("suites")
         test_suite_dir = (test_suite_dir / pathlib.Path(args.suite)).with_suffix(_cmake_configure.cmake_suffix)
         cmake_configure_args.append("-DCETLVAST_TEST_SUITE={}".format(str(test_suite_dir)))
@@ -617,7 +705,10 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
 
     cmake_configure_args.append("..")
 
-    return _cmake_run(cmake_configure_args, cmake_dir, args.verbose, args.dry_run)
+    if skip:
+        return 0
+    else:
+        return _cmake_run(cmake_configure_args, cmake_dir, args.verbose, args.dry_run)
 
 _cmake_configure.cmake_suffix = ".cmake"
 
@@ -634,23 +725,19 @@ def _cmake_build(args: argparse.Namespace, cmake_args: typing.List[str], cmake_d
 
         cmake_build_args += ["--build", ".", "--target"]
 
-        if args.suite == "unittest":
-            cmake_build_args.append("build_all")
-        elif args.suite == "docs":
-            cmake_build_args.append("build_all_examples")
-        elif args.suite == "compile":
-            cmake_build_args.append("build_all")
+        if _is_pseudo_suite(args.suite):
+            logging.debug("no concrete test suite specified. Nothing to do.")
+            return 0
         elif args.suite == "lint":
             logging.debug("lint target doesn't currently have a build step")
             return 0
         elif args.suite == "ontarget":
             logging.warning("ontarget tests not implemented yet!")
             return -1
-        elif args.suite == "none":
-            logging.debug("no test suite specified. Nothing to do.")
-            return 0
+        elif args.clean_only:
+            cmake_build_args.append("clean")
         else:
-            raise RuntimeError("invalid test suite {} got through argparse?".format(args.suite))
+            cmake_build_args.append("build_all")
 
         return _cmake_run(cmake_build_args, cmake_dir, args.verbose, args.dry_run)
 
@@ -674,7 +761,7 @@ def _cmake_test(args: argparse.Namespace, cmake_args: typing.List[str], cmake_di
         if args.suite == "ontarget":
             logging.warning("ontarget tests not implemented yet!")
             return -1
-        elif args.suite == "none":
+        elif _is_pseudo_suite(args.suite):
             logging.debug("No test suite specified. Nothing to do.")
             return 0
         else:
@@ -697,7 +784,7 @@ def _cmake_ctest(args: argparse.Namespace, _: typing.List[str], cmake_dir: pathl
         if args.suite == "compile":
             # we use ctest to run the compile tests so we take a different
             # branch here.
-            report_path = pathlib.Path("cetlvast") / "suites" / args.suite / "ctest.xml"
+            report_path = _suite_dir(args, cmake_dir) / "ctest.xml"
             ctest_run = ["ctest", "--output-junit", str(report_path)]
             if not args.dry_run:
                 logging.debug("about to run {}".format(str(ctest_run)))
@@ -747,29 +834,57 @@ def _handle_special_actions(args: argparse.Namespace, cmake_dir: pathlib.Path, g
 
     elif args.list is not None:
         if args.list == "builddir":
-            if args.suite == "none":
+            if _is_pseudo_suite(args.suite):
                 sys.stdout.write(str(cmake_dir))
             else:
-                sys.stdout.write(str(cmake_dir / "cetlvast" / "suites" / args.suite))
+                sys.stdout.write(str(_suite_dir(args, cmake_dir)))
 
         elif args.list == "extdir":
             sys.stdout.write(str(cmake_dir.parent / pathlib.Path(cmake_dir.stem + "_ext")))
         elif args.list == "cppstd":
             sys.stdout.write("{}".format(_cpp_standard_arg_to_number(args)))
+        elif args.list == "tests":
+            if args.generate_test_report is None:
+                logging.error("Cannot list the test report unless --generate-test-report is also specified.")
+                return -1
+            sys.stdout.write(str(_suite_dir(args, cmake_dir) / args.generate_test_report))
         elif (is_covri := (args.list == "covri")) or args.list == "covrd":
             if args.coverage is None:
                 raise RuntimeError("cannot list coverage output unless --coverage is specified.")
-            elif args.suite != "none":
+            elif not _is_pseudo_suite(args.suite):
                 if args.coverage == "html":
-                    html_dir = cmake_dir / "cetlvast" / "suites" / args.suite / "gcovr_html"
+                    html_dir = _suite_dir(args, cmake_dir) / "gcovr_html"
                     sys.stdout.write( str(html_dir / "coverage.html") if is_covri else str(html_dir) )
                 elif args.coverage == "sonarqube":
-                    suitedir = cmake_dir / "cetlvast" / "suites" / args.suite
+                    suitedir = _suite_dir(args, cmake_dir) / args.suite
                     sys.stdout.write( str(suitedir / "coverage.xml") )
 
         else:
             raise RuntimeError("invalid ls value {} got through argparse?".format(args.list))
     return 0
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _handle_generate_test_report(args: argparse.Namespace, cmake_dir: pathlib.Path, test_result: int) -> int:
+    if (output_file := args.generate_test_report) is None:
+        return 0
+
+    output_path = _suite_dir(args, cmake_dir) / output_file
+    test_executions = ET.Element("testExecutions", attrib={"version": "1"})
+    sq_report = ET.ElementTree(test_executions)
+
+    for gtest_report in _suite_dir(args, cmake_dir).glob("*-gtest.xml"):
+        _gtest_to_sonarqube_generic_execution_format(gtest_report, sq_report.getroot())
+
+    if args.dry_run:
+        logging.debug("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
+    else:
+        logging.debug("About to write a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
+        ET.indent(sq_report)
+        sq_report.write(output_path, encoding="UTF-8")
+    return test_result
 
 
 # +---------------------------------------------------------------------------+
@@ -789,7 +904,7 @@ def main() -> int:
 
     if args.verbose == 2:
         logging_level = logging.INFO
-    elif args.verbose > 3:
+    elif args.verbose >= 3:
         logging_level = logging.DEBUG
 
     logging.basicConfig(format="%(levelname)s: %(message)s", level=logging_level)
@@ -817,14 +932,19 @@ def main() -> int:
     elif args.list is not None:
         return 0
 
-    _remove_build_dir_action(args, cmake_dir)
+    remove_build_dir_result = _remove_build_dir_action(args, cmake_dir)
+    if (0 == remove_build_dir_result) and args.clean_only:
+        logging.debug("Since we deleted the build directory there's no point in running the clean target.")
+        return 0
+    elif remove_build_dir_result != 1: # 1 means there wasn't a request to remove the build directory.
+        return remove_build_dir_result
 
-    if args.builddir_only or args.suite == "none":
+    if args.builddir_only or _is_pseudo_suite(args.suite):
         return 0
 
     _create_build_dir_action(args, cmake_dir)
 
-    configure_result = _cmake_configure(args, cmake_args, cmake_dir)
+    configure_result = _cmake_configure(args, cmake_args, cmake_dir, args.builddir_only | args.clean_only)
 
     if configure_result != 0:
         return configure_result
@@ -835,16 +955,16 @@ def main() -> int:
 
     if build_result != 0:
         return build_result
-    elif args.build_only:
+    elif args.build_only or args.clean_only:
         return 0
 
-    if not args.configure_only and not args.build_only:
+    if not args.configure_only and not args.build_only and not args.clean_only:
         test_result = _cmake_test(args, cmake_args, cmake_dir)
 
-        if test_result != 0:
-            return test_result
-        else:
-            return _cmake_ctest(args, cmake_args, cmake_dir)
+        if test_result == 0:
+            test_result = _cmake_ctest(args, cmake_args, cmake_dir)
+
+        return _handle_generate_test_report(args, cmake_dir, test_result)
 
     raise RuntimeError("Internal logic error: only_do_x flags resulted in no action.")
 
