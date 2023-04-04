@@ -72,6 +72,8 @@ function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAM
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
      )
 
+     message(DEBUG "Using --getst_output=xml: expecting test to generate: ${LOCAL_TESTRESULT}")
+
      set(LOCAL_BYPRODUCTS "")
 
      if (CETLVAST_ENABLE_COVERAGE)
@@ -96,9 +98,9 @@ function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAM
 
      add_custom_target(
           run_${LOCAL_TEST_NAME}
-          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME} --gtest_output=xml:${LOCAL_TESTRESULT}
+          COMMAND ${ARG_OUTDIR}/${LOCAL_TEST_NAME}
           DEPENDS ${ARG_OUTDIR}/${LOCAL_TEST_NAME}
-          BYPRODUCTS ${LOCAL_BYPRODUCTS} ${LOCAL_TESTRESULT}
+          BYPRODUCTS ${LOCAL_BYPRODUCTS}
      )
 
      set(${OUTARG_TESTNAME} ${LOCAL_TEST_NAME} PARENT_SCOPE)
@@ -170,7 +172,7 @@ function(define_gcovr_tracefile_for_test ARG_TEST_SOURCE ARG_OUT_TRACEFILE)
                     ${LOCAL_OBJLIB_REL_FOLDER}
           WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
           OUTPUT ${LOCAL_TRACEFILE_PATH}
-          DEPENDS ${LOCAL_TEST_NAME}
+          DEPENDS ${LOCAL_TESTRESULT}
      )
 
      message(DEBUG "Will generate tracefile \"${LOCAL_TRACEFILE_PATH}\" for instrumentation found under \"${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_OBJLIB_REL_FOLDER}\"")
@@ -236,7 +238,7 @@ else()
      list(APPEND ALL_TESTS "${CETLVAST_NATIVE_TEST_BINARY_DIR}/coverage.xml")
 endif()
 
-endif()
+endif() # endif coverage is enabled
 
 # +---------------------------------------------------------------------------+
 
@@ -251,7 +253,7 @@ add_custom_target(
      COMMENT
         "All CETL suites define this target as a default action scripts can rely on."
      DEPENDS
-        test_all
+          ${ALL_TESTS}
 )
 
 # Write a README to create the tests folder.

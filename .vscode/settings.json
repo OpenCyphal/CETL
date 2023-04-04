@@ -47,7 +47,7 @@
     "cmake.generator": "Ninja",
     "cmake.configureArgs": [
         "-DCETLVAST_EXT_FOLDER=${workspaceFolder}/cetlvast/build_vscode/ext",
-        "--warn-unused-vars"
+        "--warn-uninitialized"
     ],
     "editor.wordWrapColumn": 120,
     "editor.rulers": [

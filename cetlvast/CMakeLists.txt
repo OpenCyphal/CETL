@@ -88,6 +88,7 @@ message(STATUS
     EXTERNAL_PROJECT_DIRECTORY: ${EXTERNAL_PROJECT_DIRECTORY}\n\
     CMAKE_SOURCE_DIR:           ${CMAKE_SOURCE_DIR}\n\
     CMAKE_CURRENT_BINARY_DIR:   ${CMAKE_CURRENT_BINARY_DIR}\n\
+    CMAKE_MESSAGE_LOG_LEVEL:    ${CMAKE_MESSAGE_LOG_LEVEL}\n\
 -----------------------------------------------------------\n\
 ")
 

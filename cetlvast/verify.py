@@ -24,7 +24,6 @@ import textwrap
 import typing
 
 import xml.etree.ElementTree as ET
-import json
 
 # +---------------------------------------------------------------------------+
 
@@ -54,16 +53,18 @@ def _make_parser() -> argparse.ArgumentParser:
         default=0,
         help=textwrap.dedent(
             """
-        Used to form --log-level value passed into cmake as well as the
-        verbosity of this script.
+        Used to form -DCMAKE_MESSAGE_LOG_LEVEL and other options passed into
+        cmake as well as the verbosity of this script.
 
-        #      | cmake   | verify.py
-        ----------------------------
-        (none) : NOTICE  : warning
-             1 : STATUS  : warning
-             2 : VERBOSE : info
-             3 : DEBUG   : debug
-            4+ : TRACE   : debug
+        #      | cmake log-level | verify.py | cmake options
+        ----------------------------------------------------
+        (none) : NOTICE          : warning   :
+             1 : STATUS          : warning   : --warn-uninitialized
+             2 : VERBOSE         : info      : --warn-uninitialized
+             3 : DEBUG           : debug     : --warn-uninitialized
+             4 : TRACE           : debug     : --warn-uninitialized
+             5 : TRACE           : debug     : --trace --warn-uninitialized
+            6+ : TRACE           : debug     : --trace-expand --warn-uninitialized
 
     """[1:])
     )
@@ -455,31 +456,61 @@ def _make_parser() -> argparse.ArgumentParser:
 # +---------------------------------------------------------------------------+
 
 
-def _gtest_to_sonarqube_generic_execution_format(gtest_report: pathlib.Path, test_executions: ET.Element) -> None:
-    """Append googletest testsuite data to sonarqube testExecutions data.
+def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, test_executions: ET.Element) -> None:
+    """Append junit testsuite data to sonarqube testExecutions data.
 
     Input Format: http://google.github.io/googletest/advanced.html#generating-an-xml-report
     Output Format: https://docs.sonarqube.org/8.9/analyzing-source-code/generic-test-data/#generic-execution
 
     """
     sq_files: typing.Dict[str, ET.Element] = dict()
-    gtest_report = ET.parse(gtest_report)
-    for testsuite in gtest_report.findall("testsuite"):
-        for testcase in testsuite.findall("testcase"):
+    junit_report = ET.parse(junit_report)
+
+    testsuite_or_testsuites = junit_report.getroot()
+
+    if testsuite_or_testsuites.tag == "testsuite":
+        testsuites = [testsuite_or_testsuites]
+    else:
+        testsuites = testsuite_or_testsuites.findall("testsuite")
+
+    for testsuite in testsuites:
+        logging.info("junit2sonarqube: parsing junit testsuite: {} name=\"{}\" tests=\"{}\""
+            .format(testsuite.tag,
+                    testsuite.get("name"),
+                    testsuite.get("tests")))
+
+        for testcase in testsuite:
+
             testcase_file = testcase.get("file")
+            if testcase_file is not None:
+                quirksmode = "gtest"
+            else:
+                quirksmode = "ctest"
+                testcase_file = testcase.get("classname")
+                if testcase_file is None:
+                    logging.warn("junit2sonarqube: Unknown tag {} (skipping)".format(testcase.tag))
+                    continue
+
+            testcase_name = testcase.get("name")
+            if (type_param := testcase.get("type_param", None)) != None:
+                testcase_name = testcase_name + " " + type_param
+
+            logging.debug("junit2sonarqube: found testcase \"{}\" (quirks={})".format(testcase_name, quirksmode))
+
             try:
                 sq_file = sq_files[testcase_file]
             except KeyError:
                 sq_file = ET.Element("file", attrib={"path": testcase_file})
                 test_executions.append(sq_file)
                 sq_files[testcase_file] = sq_file
-            testcase_name = testcase.get("name")
-            if (type_param := testcase.get("type_param", None)) != None:
-                testcase_name = testcase_name + " " + type_param
 
             sq_testcase_attrib: typing.Dict[str, str] = dict()
             sq_testcase_attrib["name"] = testcase_name
-            sq_testcase_attrib["duration"] = str(float(testcase.get("time")) * 1000.00)
+            test_duration = float(testcase.get("time"))
+            if quirksmode == 'gtest':
+                # gtest decided this was seconds for some reason.
+                test_duration = test_duration * 1000.00
+            sq_testcase_attrib["duration"] = str(test_duration)
 
             sq_test_case = ET.Element("testCase", attrib=sq_testcase_attrib)
             sq_file.append(sq_test_case)
@@ -530,6 +561,24 @@ def _cpp_standard_arg_to_number(args: argparse.Namespace, ) -> int:
         return 20
     else:
         raise RuntimeError("internal error: illegal cpp-standard choice got through? ({})".format(args.cpp_standard))
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _to_cmake_logging_level(verbose: int) -> str:
+    if verbose == 1:
+        cmake_logging_level = "STATUS"
+    elif verbose == 2:
+        cmake_logging_level = "VERBOSE"
+    elif verbose == 3:
+        cmake_logging_level = "DEBUG"
+    elif verbose > 3:
+        cmake_logging_level = "TRACE"
+    else:
+        cmake_logging_level = "NOTICE"
+
+    return cmake_logging_level
 
 
 # +---------------------------------------------------------------------------+
@@ -634,24 +683,6 @@ def _create_build_dir_action(args: argparse.Namespace, cmake_dir: pathlib.Path) 
 # +---------------------------------------------------------------------------+
 
 
-def _to_cmake_logging_level(verbose: int) -> str:
-    if verbose == 1:
-        cmake_logging_level = "STATUS"
-    elif verbose == 2:
-        cmake_logging_level = "VERBOSE"
-    elif verbose == 3:
-        cmake_logging_level = "DEBUG"
-    elif verbose > 3:
-        cmake_logging_level = "TRACE"
-    else:
-        cmake_logging_level = "NOTICE"
-
-    return cmake_logging_level
-
-
-# +---------------------------------------------------------------------------+
-
-
 def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cmake_dir: pathlib.Path, skip: bool = False) -> int:
     """
     Format and execute cmake configure command. This also include the cmake build directory (re)creation
@@ -663,7 +694,14 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str], cma
 
     cmake_configure_args = cmake_args.copy()
 
-    cmake_configure_args.append("--log-level={}".format(_to_cmake_logging_level(args.verbose)))
+    cmake_configure_args.append("-DCMAKE_MESSAGE_LOG_LEVEL:STRING={}".format(_to_cmake_logging_level(args.verbose)))
+
+    if args.verbose >= 1:
+        cmake_configure_args.append("--warn-uninitialized")
+        if args.verbose == 5:
+            cmake_configure_args.append("--trace")
+        elif args.verbose >= 6:
+            cmake_configure_args.append("--trace-expand")
 
     flag_set_dir = pathlib.Path("cmake") / pathlib.Path("compiler_flag_sets")
     flagset_file = (flag_set_dir / pathlib.Path("native")).with_suffix(_cmake_configure.cmake_suffix)
@@ -784,8 +822,8 @@ def _cmake_ctest(args: argparse.Namespace, _: typing.List[str], cmake_dir: pathl
         if args.suite == "compile":
             # we use ctest to run the compile tests so we take a different
             # branch here.
-            report_path = _suite_dir(args, cmake_dir) / "ctest.xml"
-            ctest_run = ["ctest", "--output-junit", str(report_path)]
+            report_path = pathlib.Path.cwd().joinpath(_suite_dir(args, cmake_dir) / "ctest.xml")
+            ctest_run = ["ctest", "-DCTEST_FULL_OUTPUT", "--output-junit", str(report_path)]
             if not args.dry_run:
                 logging.debug("about to run {}".format(str(ctest_run)))
                 return subprocess.run(ctest_run, cwd=cmake_dir).returncode
@@ -871,18 +909,24 @@ def _handle_generate_test_report(args: argparse.Namespace, cmake_dir: pathlib.Pa
     if (output_file := args.generate_test_report) is None:
         return 0
 
-    output_path = _suite_dir(args, cmake_dir) / output_file
+    output_path = pathlib.Path.cwd().joinpath(_suite_dir(args, cmake_dir) / output_file)
     test_executions = ET.Element("testExecutions", attrib={"version": "1"})
     sq_report = ET.ElementTree(test_executions)
 
     for gtest_report in _suite_dir(args, cmake_dir).glob("*-gtest.xml"):
-        _gtest_to_sonarqube_generic_execution_format(gtest_report, sq_report.getroot())
+        logging.debug("Found gtest report {}. Will combine into sonarqube report.".format(gtest_report))
+        _junit_to_sonarqube_generic_execution_format(gtest_report, sq_report.getroot())
+
+    for ctest_report in _suite_dir(args, cmake_dir).glob("*ctest.xml"):
+        logging.debug("Found ctest report {}. Will combine into sonarqube report.".format(ctest_report))
+        _junit_to_sonarqube_generic_execution_format(ctest_report, sq_report.getroot())
 
     if args.dry_run:
         logging.debug("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
     else:
         logging.debug("About to write a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
         ET.indent(sq_report)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         sq_report.write(output_path, encoding="UTF-8")
     return test_result
 
@@ -936,7 +980,7 @@ def main() -> int:
     if (0 == remove_build_dir_result) and args.clean_only:
         logging.debug("Since we deleted the build directory there's no point in running the clean target.")
         return 0
-    elif remove_build_dir_result != 1: # 1 means there wasn't a request to remove the build directory.
+    elif remove_build_dir_result < 0 and remove_build_dir_result > 1: # 1 means there wasn't a request to remove the build directory.
         return remove_build_dir_result
 
     if args.builddir_only or _is_pseudo_suite(args.suite):

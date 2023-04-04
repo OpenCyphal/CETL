@@ -42,7 +42,7 @@ jobs:
         --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
         --build-flavor Debug
         --asserts
-        --generate-test-report tests.xml
+        --generate-test-report testExecutions.xml
         --cpp-standard ${{ matrix.std }}
         --toolchain ${{ matrix.toolchain }}
         ${{ matrix.suite }}
@@ -103,7 +103,7 @@ jobs:
         echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
         echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
         echo "CETLVAST_COVERAGE_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls covri --coverage sonarqube unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_TEST_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls tests -gtr tests.xml unittest)" >> $GITHUB_ENV;
+        echo "CETLVAST_TEST_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls tests -gtr testExecutions.xml unittest)" >> $GITHUB_ENV;
         echo "CETLVAST_CPP_BASE=c++$(./cetlvast/verify.py -cd ./cetlvast -ls cppstd --cpp-standard base docs)" >> $GITHUB_ENV
 
     - name: Cache ext modules
