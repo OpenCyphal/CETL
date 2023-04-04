@@ -894,7 +894,7 @@ def _handle_special_actions(args: argparse.Namespace, cmake_dir: pathlib.Path, g
                     html_dir = _suite_dir(args, cmake_dir) / "gcovr_html"
                     sys.stdout.write( str(html_dir / "coverage.html") if is_covri else str(html_dir) )
                 elif args.coverage == "sonarqube":
-                    suitedir = _suite_dir(args, cmake_dir) / args.suite
+                    suitedir = _suite_dir(args, cmake_dir)
                     sys.stdout.write( str(suitedir / "coverage.xml") )
 
         else:
