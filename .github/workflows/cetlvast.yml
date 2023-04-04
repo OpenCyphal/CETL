@@ -38,14 +38,14 @@ jobs:
     - name: run tests
       run: >
         ./cetlvast/verify.py -cd ./cetlvast
-                             --force-ninja
-                             --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
-                             --build-flavor Debug
-                             --asserts
-                             --generate-test-report tests.xml
-                             --cpp-standard ${{ matrix.std }}
-                             --toolchain ${{ matrix.toolchain }}
-                             ${{ matrix.suite }}
+        --force-ninja
+        --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
+        --build-flavor Debug
+        --asserts
+        --generate-test-report tests.xml
+        --cpp-standard ${{ matrix.std }}
+        --toolchain ${{ matrix.toolchain }}
+        ${{ matrix.suite }}
     - name: upload-artifacts
       uses: actions/upload-artifact@v3
       with:
@@ -126,20 +126,20 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       run: >
           sonar-scanner
-            --define sonar.organization=opencyphal
-            --define sonar.projectKey=OpenCyphal_CETL
-            --define sonar.projectName=CETLVaSt
-            --define sonar.projectVersion=1.0
-            --define sonar.sources=include,cetlvast/suites/unittest
-            --define sonar.sourceEncoding=UTF-8
-            --define sonar.host.url=https://sonarcloud.io
-            --define sonar.cfamily.ignoreHeaderComments=false
-            --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*"
-            --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*"
-            --define sonar.cfamily.compile-commands=${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
-            --define sonar.cfamily.reportingCppStandardOverride=${{ env.CETLVAST_CPP_BASE }}
-            --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}
-            --define sonar.testExecutionReportPaths=${{ env.CETLVAST_TEST_REPORT }}
+          --define sonar.organization=opencyphal
+          --define sonar.projectKey=OpenCyphal_CETL
+          --define sonar.projectName=CETLVaSt
+          --define sonar.projectVersion=1.0
+          --define sonar.sources=include,cetlvast/suites/unittest
+          --define sonar.sourceEncoding=UTF-8
+          --define sonar.host.url=https://sonarcloud.io
+          --define sonar.cfamily.ignoreHeaderComments=false
+          --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*"
+          --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*"
+          --define sonar.cfamily.compile-commands=${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
+          --define sonar.cfamily.reportingCppStandardOverride=${{ env.CETLVAST_CPP_BASE }}
+          --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}
+          --define sonar.testExecutionReportPaths=${{ env.CETLVAST_TEST_REPORT }}
 
   deploy-docs:
     if: ${{ (github.event_name == 'release' && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch' }}
