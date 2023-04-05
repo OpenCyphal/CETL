@@ -507,9 +507,6 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
             sq_testcase_attrib: typing.Dict[str, str] = dict()
             sq_testcase_attrib["name"] = testcase_name
             test_duration = float(testcase.get("time"))
-            if quirksmode == 'gtest':
-                # gtest decided this was seconds for some reason.
-                test_duration = test_duration * 1000.00
             sq_testcase_attrib["duration"] = str(test_duration)
 
             sq_test_case = ET.Element("testCase", attrib=sq_testcase_attrib)
