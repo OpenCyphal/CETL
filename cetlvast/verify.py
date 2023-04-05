@@ -13,6 +13,7 @@
 """
 
 import argparse
+import functools
 import logging
 import os
 import pathlib
@@ -462,14 +463,17 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
     Input Format: http://google.github.io/googletest/advanced.html#generating-an-xml-report
     Output Format: https://docs.sonarqube.org/8.9/analyzing-source-code/generic-test-data/#generic-execution
 
+    TODO: move this out into a standalone Python file (or, hell, even a Pypi package) and hook it up properly
+          to cmake as a target.
+
     """
     sq_files: typing.Dict[str, ET.Element] = dict()
-    junit_report = ET.parse(junit_report)
+    junit_xml = ET.parse(junit_report)
 
-    testsuite_or_testsuites = junit_report.getroot()
+    testsuite_or_testsuites = junit_xml.getroot()
 
     if testsuite_or_testsuites.tag == "testsuite":
-        testsuites = [testsuite_or_testsuites]
+        testsuites: typing.Iterable[ET.Element] = [testsuite_or_testsuites]
     else:
         testsuites = testsuite_or_testsuites.findall("testsuite")
 
@@ -491,9 +495,10 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
                     logging.warn("junit2sonarqube: Unknown tag {} (skipping)".format(testcase.tag))
                     continue
 
-            testcase_name = testcase.get("name")
+            testcase_name: str = testcase.get("name", "")
             if (type_param := testcase.get("type_param", None)) != None:
-                testcase_name = testcase_name + " " + type_param
+                # mypy is not able to parse assignment expressions, aparently.
+                testcase_name = testcase_name + " " + type_param # type: ignore
 
             logging.debug("junit2sonarqube: found testcase \"{}\" (quirks={})".format(testcase_name, quirksmode))
 
@@ -506,16 +511,16 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
 
             sq_testcase_attrib: typing.Dict[str, str] = dict()
             sq_testcase_attrib["name"] = testcase_name
-            test_duration = float(testcase.get("time"))
+            test_duration = float(testcase.get("time", 0.0))
             sq_testcase_attrib["duration"] = str(test_duration)
 
             sq_test_case = ET.Element("testCase", attrib=sq_testcase_attrib)
             sq_file.append(sq_test_case)
 
-            skipped = testcase.find("skipped")
+            skipped: typing.Optional[ET.Element] = testcase.find("skipped")
             if skipped is not None:
-                sq_skipped = ET.Element("skipped", attrib={"message": skipped.get("message").rstrip()})
-                sq_skipped.text = skipped.text.rstrip()
+                sq_skipped = ET.Element("skipped", attrib={"message": skipped.get("message", "").rstrip()})
+                sq_skipped.text = skipped.text.rstrip()  # type: ignore
                 sq_test_case.append(sq_skipped)
             failures = testcase.findall("failure")
             if failures is not None and len(failures) > 0:
@@ -523,7 +528,7 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
                 sq_test_case.append(sq_failure)
                 sq_failure_text = []
                 for failure in failures:
-                    for failure_line in failure.get("message").split("\n"):
+                    for failure_line in failure.get("message", "").split("\n"):
                         sq_failure_text.append(failure_line)
                 sq_failure.set("message", sq_failure_text[0])
                 if len(sq_failure_text) > 1:
@@ -843,20 +848,18 @@ def _create_build_dir_name(args: argparse.Namespace) -> str:
 # +---------------------------------------------------------------------------+
 
 
-def _get_version_string(args: argparse.Namespace, gitdir: pathlib.Path) -> typing.Tuple[int, int, int, str]:
-    if _get_version_string._version_string is None:
-        git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
-        if (match_obj := re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)) is not None:
-            _get_version_string._version_string = (match_obj.group(1),
-                                                   match_obj.group(2),
-                                                   match_obj.group(3),
-                                                   qualifier if (qualifier:=match_obj.group(4)) else "")
-        else:
-            _get_version_string._version_string = (0,0,0,"")
+@functools.cache
+def _get_version_string(gitdir: pathlib.Path) -> typing.Tuple[int, int, int, str]:
+    git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
+    if (match_obj := re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)) is not None:
+        _version_string = (int(match_obj.group(1)),
+                           int(match_obj.group(2)),
+                           int(match_obj.group(3)),
+                           qualifier if (qualifier:=match_obj.group(4)) else "")
+    else:
+       _version_string = (0,0,0,"")
 
-    return _get_version_string._version_string
-
-_get_version_string._version_string : typing.Optional[typing.Tuple[int, int, int, str]] = None
+    return _version_string
 
 
 # +---------------------------------------------------------------------------+
@@ -865,7 +868,7 @@ _get_version_string._version_string : typing.Optional[typing.Tuple[int, int, int
 def _handle_special_actions(args: argparse.Namespace, cmake_dir: pathlib.Path, gitdir: pathlib.Path) -> int:
 
     if args.version:
-        sys.stdout.write("{}.{}.{}{}".format(*_get_version_string(args, gitdir)))
+        sys.stdout.write("{}.{}.{}{}".format(*_get_version_string(gitdir)))
 
     elif args.list is not None:
         if args.list == "builddir":
@@ -950,7 +953,7 @@ def main() -> int:
 
     logging.basicConfig(format="%(levelname)s: %(message)s", level=logging_level)
 
-    logging.debug(
+    logging.info(
         textwrap.dedent(
             """
 
@@ -963,7 +966,7 @@ def main() -> int:
     *****************************************************************
 
     """
-        ).format(os.path.basename(__file__), str(args), _get_version_string(args, verification_dir))
+        ).format(os.path.basename(__file__), str(args), _get_version_string(verification_dir))
     )
 
     special_action_result = _handle_special_actions(args, cmake_dir, verification_dir)

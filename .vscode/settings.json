@@ -67,4 +67,6 @@
         "cpp"
     ],
     "sonarlint.pathToCompileCommands": "${workspaceFolder}/cetlvast/build_vscode/build/compile_commands.json",
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true,
 }
