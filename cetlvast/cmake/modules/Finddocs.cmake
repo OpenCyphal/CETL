@@ -16,7 +16,8 @@ find_program(TAR tar)
 # +---------------------------------------------------------------------------+
 # | DOXYGEN
 # +---------------------------------------------------------------------------+
-
+# TODO: all of this is really test-suite specific and should be refactored to
+#       make it more reusable.
 #
 # :function: create_docs_target
 # Create a target that generates documentation.
@@ -63,12 +64,13 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     set(DOXYGEN_HTML_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/stylesheet.css)
     set(DOXYGEN_HTML_HEADER ${DOXYGEN_OUTPUT_DIRECTORY}/header.html)
     set(DOXYGEN_HTML_FOOTER ${DOXYGEN_OUTPUT_DIRECTORY}/footer.html)
-    set(DOXYGEN_IMAGE_PATH ${DOXYGEN_OUTPUT_DIRECTORY}/images)
-    set(DOXYGEN_LOGO ${DOXYGEN_OUTPUT_DIRECTORY}/images/html/opencyphal_logo.svg)
-    set(DOXYGEN_TAGFILES "${DOXYGEN_OUTPUT_DIRECTORY}/cppreference-doxygen-web.tag.xml=http://en.cppreference.com/w/")
+    set(DOXYGEN_IMAGE_PATH ${DOXYGEN_SOURCE}/images)
+    set(DOXYGEN_LOGO ${DOXYGEN_SOURCE}/images/html/opencyphal_logo.svg)
+    set(DOXYGEN_TAGFILES "${DOXYGEN_SOURCE}/cppreference-doxygen-web.tag.xml=http://en.cppreference.com/w/")
 
-    file(COPY ${DOXYGEN_SOURCE}/cppreference-doxygen-web.tag.xml DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY})
-    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY})
+    # a bit of a hack, but we copy all the images to the output to allow us to serve them
+    # for anything other that the docs that wants them.
+    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY}/html)
 
     configure_file(${DOXYGEN_SOURCE}/header.html
                     ${DOXYGEN_OUTPUT_DIRECTORY}/header.html
@@ -92,23 +94,38 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
                         COMMENT "Generating intermediate documentation."
                     )
 
-    add_custom_target(${ARG_DOCS_TARGET_NAME}-html DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html)
+    add_custom_target(${ARG_DOCS_TARGET_NAME} DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html)
 
-    add_custom_command(OUTPUT ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz
-                        COMMAND ${TAR} -vzcf ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz ${DOXYGEN_OUTPUT_DIRECTORY}/html/
-                        DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html
-                        WORKING_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}
-                        COMMENT "Creating html tarball."
-                    )
 
-    if (ARG_ADD_TO_ALL)
-        add_custom_target(${ARG_DOCS_TARGET_NAME} ALL DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
-    else()
-        add_custom_target(${ARG_DOCS_TARGET_NAME} DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
-    endif()
 
 endfunction(create_docs_target)
 
+#
+# :function: create_docs_tarball_target
+# Create a target that uses the tar utility to package up all docs output.
+#
+# :param str ARG_DOCS_TARBALL_TARGET_NAME:  The name to give the target created by this function.
+# :param bool ARG_ADD_TO_ALL:               If true the target is added to the default build target.
+#
+function (create_docs_tarball_target ARG_DOCS_TARBALL_TARGET_NAME ARG_ADD_TO_ALL)
+
+    set(DOXYGEN_OUTPUT_DIRECTORY_PARENT ${CMAKE_BINARY_DIR})
+    set(DOXYGEN_OUTPUT_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}/cetlvast/suites/docs)
+
+    add_custom_command(OUTPUT ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz
+                       COMMAND ${TAR} -vzcf html.gz ./html
+                       DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html/index.html
+                       WORKING_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY}
+                       COMMENT "Creating html tarball."
+                    )
+
+    if (ARG_ADD_TO_ALL)
+        add_custom_target(${ARG_DOCS_TARBALL_TARGET_NAME} ALL DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
+    else()
+        add_custom_target(${ARG_DOCS_TARBALL_TARGET_NAME} DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
+    endif()
+
+endfunction(create_docs_tarball_target)
 
 include(FindPackageHandleStandardArgs)
 

@@ -35,7 +35,8 @@
         "/__cplusplus/",
         "/<cassert>/",
         "/godbolt/i",
-        "/cppreference/"
+        "/cppreference/",
+        "/doxygen/i"
     ],
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cmake.configureOnOpen": false,
@@ -43,10 +44,10 @@
     "cmake.buildDirectory": "${workspaceFolder}/cetlvast/build_vscode/build",
     "cmake.sourceDirectory": "${workspaceFolder}/cetlvast",
     "cmake.buildBeforeRun": true,
-    "cmake.copyCompileCommands": "${workspaceFolder}/cetlvast/build_vscode/compile_commands.json",
     "cmake.generator": "Ninja",
     "cmake.configureArgs": [
-        "-DCETLVAST_EXT_FOLDER=${workspaceFolder}/cetlvast/build_vscode/ext"
+        "-DCETLVAST_EXT_FOLDER=${workspaceFolder}/cetlvast/build_vscode/ext",
+        "--warn-uninitialized"
     ],
     "editor.wordWrapColumn": 120,
     "editor.rulers": [
@@ -65,4 +66,7 @@
         "plaintext",
         "cpp"
     ],
+    "sonarlint.pathToCompileCommands": "${workspaceFolder}/cetlvast/build_vscode/build/compile_commands.json",
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true,
 }
