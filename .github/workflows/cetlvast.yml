@@ -85,8 +85,6 @@ jobs:
         path: "${{ env.CETLVAST_SUITE_DOCS_PATH }}/html/"
 
   sonarqube:
-    # Don't try to scan for forks since this will fail.
-    if: github.event.pull_request.head.repo.full_name == github.repository
     needs:
     - verification
     - docs
