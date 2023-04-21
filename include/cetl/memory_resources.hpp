@@ -45,6 +45,12 @@ public:
     UnsynchronizedArrayMemoryResource(UnsynchronizedArrayMemoryResource&&)                 = delete;
     UnsynchronizedArrayMemoryResource& operator=(UnsynchronizedArrayMemoryResource&&)      = delete;
 
+    //  +--[public methods]---------------------------------------------------+
+    memory_resource* upstream_resource() const
+    {
+        return upstream_;
+    }
+
 protected:
     void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
     {

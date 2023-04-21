@@ -29,6 +29,8 @@ namespace pf17
 namespace pmr
 {
 
+//  +--[mem.res]--------------------------------------------------------------+
+
 /// Interface to a class that manages memory resources.
 /// This implementation Adheres to memory_resource as defined by the C++17 specification. It does not
 /// incorporate changes made to this type in C++20.
@@ -130,6 +132,8 @@ inline bool operator!=(const memory_resource& lhs, const memory_resource& rhs) n
     return !(lhs == rhs);
 }
 
+//  +--[mem.res.global]-------------------------------------------------------+
+
 /// Adheres to the null_memory_resource specification.
 /// Note that the C++ specification [dcl.inline] allows non-static inline functions in headers to define function-scoped
 /// static variables since 1, the inline specifier has no effect on the linkage of the function and 2, the ODR requires
@@ -180,7 +184,7 @@ inline memory_resource* null_memory_resource() noexcept
     return &singleton;
 }
 
-/// [mem.poly.allocator.class]
+//  +--[mem.poly.allocator.class]---------------------------------------------+
 /// @tparam T
 template <typename T>
 class polymorphic_allocator

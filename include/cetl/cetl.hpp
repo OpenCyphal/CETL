@@ -8,7 +8,7 @@
 ///
 /// @note
 /// Keep this very spare. CETL's desire is to adapt to future C++ standards and too many CETL-specific definitions makes
-/// it difficult for users to switch off of CETL in thefuture.
+/// it difficult for users to switch off of CETL in the future.
 ///
 /// @def CETL_H_ERASE
 /// If `CETL_H_ERASE` is defined then all CETL types will exclude all cetl headers which removes all common
