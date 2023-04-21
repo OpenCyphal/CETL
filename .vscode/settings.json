@@ -34,7 +34,9 @@
         "tparam",
         "unsynchronized",
         "copydoc",
-        "trimleft"
+        "trimleft",
+        "Pavel",
+        "Kirienko"
     ],
     "files.associations": {
         "memory_resource": "cpp",
@@ -122,6 +124,8 @@
         "__verbose_abort": "cpp",
         "ios": "cpp",
         "locale": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "future": "cpp",
+        "regex": "cpp"
     },
 }

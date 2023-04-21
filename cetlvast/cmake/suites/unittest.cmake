@@ -55,6 +55,17 @@ function(define_native_gtest_unit_test ARG_TEST_SOURCE ARG_OUTDIR OUTARG_TESTNAM
 
      # Create explicit object file target so we can find it.
      add_library(${LOCAL_TEST_NAME}_objlib OBJECT ${ARG_TEST_SOURCE})
+
+     if (${LOCAL_TEST_NAME} MATCHES "o1heap")
+          # CETL has a specal relationship to o1heap which is why we don't have a more generalized solution
+          # to this type of external dependency. Specifcally, besides a standard library, CETL does not
+          # provide type with any other external dependendies other than o1heap and only a few CETL headers
+          # have this dependency.
+          message(STATUS "${LOCAL_TEST_NAME} contains the token \"o1heap\" so we'll build o1heap.c into it.")
+          target_sources(${LOCAL_TEST_NAME}_objlib PUBLIC "${CETL_O1HEAP_SOURCE_PATH}/o1heap.c")
+          target_include_directories(${LOCAL_TEST_NAME}_objlib PUBLIC ${CETL_O1HEAP_SOURCE_PATH})
+     endif()
+
      # This gets the includes from the gmock_main interface library.
      target_link_libraries(${LOCAL_TEST_NAME}_objlib gmock_main)
 

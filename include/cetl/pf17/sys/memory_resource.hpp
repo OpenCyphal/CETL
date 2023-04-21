@@ -150,129 +150,23 @@ inline memory_resource* get_default_resource() noexcept
 
 //  +--[mem.res.monotonic.buffer]---------------------------------------------+
 
-class monotonic_buffer_resource : public memory_resource
+class monotonic_buffer_resource : public deviant::basic_monotonic_buffer_resource
 {
 public:
-    monotonic_buffer_resource(void* buffer, size_t buffer_size, memory_resource* upstream)
-        : first_buffer_control_{buffer, buffer_size, 0, buffer_size, nullptr}
-        , upstream_{upstream}
-        , current_buffer_{&first_buffer_control_}
-    {
-    }
-
-    monotonic_buffer_resource(std::size_t initial_size, memory_resource* upstream)
-        : monotonic_buffer_resource(nullptr, initial_size, upstream)
-    {
-    }
-
-    explicit monotonic_buffer_resource(memory_resource* upstream)
-        : monotonic_buffer_resource(0, upstream)
-    {
-    }
-
     monotonic_buffer_resource()
-        : monotonic_buffer_resource(get_default_resource())
+        : deviant::basic_monotonic_buffer_resource(get_default_resource())
     {
     }
 
     explicit monotonic_buffer_resource(size_t initial_size)
-        : monotonic_buffer_resource(initial_size, get_default_resource())
+        : deviant::basic_monotonic_buffer_resource(initial_size, get_default_resource())
     {
     }
 
     monotonic_buffer_resource(void* buffer, size_t buffer_size)
-        : monotonic_buffer_resource(buffer, buffer_size, get_default_resource())
+        : deviant::basic_monotonic_buffer_resource(buffer, buffer_size, get_default_resource())
     {
     }
-
-    virtual ~monotonic_buffer_resource()
-    {
-        release();
-    }
-
-    monotonic_buffer_resource(const monotonic_buffer_resource&)            = delete;
-    monotonic_buffer_resource& operator=(const monotonic_buffer_resource&) = delete;
-
-    //  +--[public methods]---------------------------------------------------+
-    void release()
-    {
-        BufferControl* head = current_buffer_;
-        while (head != &first_buffer_control_)
-        {
-            BufferControl* previous = head->previous;
-            upstream_->deallocate(head, sizeof(BufferControl) + head->buffer_size, head->buffer_align);
-            head = previous;
-        }
-        current_buffer_                             = &first_buffer_control_;
-        first_buffer_control_.remaining_buffer_size = first_buffer_control_.buffer_size;
-    }
-
-    memory_resource* upstream_resource() const
-    {
-        return upstream_;
-    }
-
-protected:
-    void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
-    {
-        void* result = nullptr;
-        do
-        {
-            if (current_buffer_->buffer && current_buffer_->remaining_buffer_size >= size_bytes)
-            {
-                void*       buffer      = current_buffer_->buffer;
-                std::size_t buffer_size = current_buffer_->remaining_buffer_size;
-                result                  = std::align(alignment, size_bytes, buffer, buffer_size);
-                if (result)
-                {
-                    current_buffer_->remaining_buffer_size = buffer_size - size_bytes;
-                    break;
-                }
-            }
-            const std::size_t previous_buffer_size =
-                std::max({static_cast<std::size_t>(4), current_buffer_->buffer_size, size_bytes + alignment});
-
-            // Simple geometric progression of buffer size growth.
-            const std::size_t next_buffer_size = previous_buffer_size + (previous_buffer_size / 2U);
-
-            void* raw = upstream_->allocate(sizeof(BufferControl) + next_buffer_size, alignment);
-            if (nullptr == raw)
-            {
-                // out-of-memory with no exceptions.
-                break;
-            }
-            void* buffer = &reinterpret_cast<BufferControl*>(raw)[1];
-            current_buffer_ =
-                new (raw) BufferControl{buffer, next_buffer_size, alignment, next_buffer_size, current_buffer_};
-        } while (true);
-        return result;
-    }
-
-    void do_deallocate(void* p, std::size_t size_bytes, std::size_t alignment) override
-    {
-        (void) p;
-        (void) size_bytes;
-        (void) alignment;
-    }
-
-    bool do_is_equal(const memory_resource& rhs) const noexcept override
-    {
-        return (&rhs == this);
-    }
-
-private:
-    struct BufferControl
-    {
-        void*          buffer;
-        std::size_t    buffer_size;
-        std::size_t    buffer_align;
-        std::size_t    remaining_buffer_size;
-        BufferControl* previous;
-    };
-
-    BufferControl    first_buffer_control_;
-    memory_resource* upstream_;
-    BufferControl*   current_buffer_;
 };
 
 }  // namespace pmr

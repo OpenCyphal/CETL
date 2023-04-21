@@ -37,7 +37,7 @@ namespace cetlvast
 template <typename T>
 constexpr bool is_power_of_two(const T& value)
 {
-    return (value && !(value & (value - 1)));
+    return (value && !static_cast<bool>(value & (value - 1)));
 }
 
 template<typename T>

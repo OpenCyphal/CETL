@@ -1,13 +1,11 @@
 /// @file
 /// Defines memory_resource types specific to CETL but adhering to the C++17 std::pmr::memory_resource interface
-/// contract.
-/// This header requires the following definitions be available in the cetl::pmr namespace:
+/// contract that are backed by simple contiguous blocks of memory.
 ///
-
-/// @code
-/// #include "cetl/pf17/cetlpf.hpp"
-/// #include "cetl/memory_resources.hpp"
-/// @endcode
+/// If including this file you will need to either first include cetl/pf17/cetlpf.hpp or provide the memory_resource
+/// definition you want this class to use.
+///
+/// TODO: examples
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -15,12 +13,11 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef CETL_MEMORY_RESOURCES_H_INCLUDED
-#define CETL_MEMORY_RESOURCES_H_INCLUDED
+#ifndef CETL_ARRAY_MEMORY_RESOURCE_H_INCLUDED
+#define CETL_ARRAY_MEMORY_RESOURCE_H_INCLUDED
 
 #ifndef CETL_H_ERASE
 #    include "cetl/cetl.hpp"
-#    include "cetl/pf17/memory_resource.hpp"
 #endif
 
 namespace cetl
@@ -28,6 +25,10 @@ namespace cetl
 namespace pmr
 {
 
+/// std::pmr::memory_resource that supports a single allocation request within a single, contiguous block of memory.
+/// Without any memory barriers or other synchronization primitives this is one of the simplest possible implementations
+/// of the std::prm::memory_resource interface with the one feature of supporting an, optional, upstream allocator
+/// that this class defers to if its array is already in use.
 class UnsynchronizedArrayMemoryResource : public memory_resource
 {
 public:
@@ -108,4 +109,4 @@ private:
 }  // namespace pmr
 }  // namespace cetl
 
-#endif  // CETL_MEMORY_RESOURCES_H_INCLUDED
+#endif  // CETL_ARRAY_MEMORY_RESOURCE_H_INCLUDED

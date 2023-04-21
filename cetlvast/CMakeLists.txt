@@ -20,7 +20,7 @@ cmake_minimum_required(VERSION 3.22.0)
 # | PROJECT
 # +---------------------------------------------------------------------------+
 
-project(cetlvast CXX)
+project(cetlvast C CXX)
 
 if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
     set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
@@ -65,6 +65,9 @@ message(DEBUG "Ensuring EXTERNAL_PROJECT_DIRECTORY=${EXTERNAL_PROJECT_DIRECTORY}
 file(MAKE_DIRECTORY ${EXTERNAL_PROJECT_DIRECTORY})
 
 cmake_path(APPEND CETL_ROOT "include" OUTPUT_VARIABLE CETL_INCLUDE)
+cmake_path(APPEND CETL_ROOT "submodules" "o1heap" "o1heap" OUTPUT_VARIABLE CETL_DEFAULT_O1HEAP_PATH)
+
+set(CETL_O1HEAP_SOURCE_PATH "${CETL_DEFAULT_O1HEAP_PATH}" CACHE STRING "Location of o1heap.h and o1heap.c.")
 
 include_directories(
     ${CETL_INCLUDE}
@@ -93,6 +96,7 @@ message(STATUS
     CMAKE_SOURCE_DIR:           ${CMAKE_SOURCE_DIR}\n\
     CMAKE_CURRENT_BINARY_DIR:   ${CMAKE_CURRENT_BINARY_DIR}\n\
     CMAKE_MESSAGE_LOG_LEVEL:    ${CMAKE_MESSAGE_LOG_LEVEL}\n\
+    CETL_O1HEAP_SOURCE_PATH:    ${CETL_O1HEAP_SOURCE_PATH}\n\
 -----------------------------------------------------------\n\
 ")
 
