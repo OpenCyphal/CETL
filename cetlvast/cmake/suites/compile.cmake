@@ -25,6 +25,8 @@ function(define_compile_failure_test ARG_TEST_NAME ARG_TEST_SOURCE)
 
     target_compile_definitions(${ARG_TEST_NAME}_precheck PRIVATE CETLVAST_COMPILETEST_PRECHECK=1)
 
+    add_o1heap_to_target_if_needed(${ARG_TEST_NAME}_precheck)
+
     add_custom_target(
           "run_${ARG_TEST_NAME}_precheck"
           COMMAND
@@ -41,6 +43,8 @@ function(define_compile_failure_test ARG_TEST_NAME ARG_TEST_SOURCE)
         PROPERTIES
             EXCLUDE_FROM_ALL ON
     )
+
+    add_o1heap_to_target_if_needed(${ARG_TEST_NAME})
 
     add_test(
         NAME ct_${ARG_TEST_NAME}

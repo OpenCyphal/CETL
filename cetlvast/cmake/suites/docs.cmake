@@ -28,6 +28,9 @@ function(define_native_example_build ARG_EXAMPLE_NAME ARG_EXAMPLE_SOURCE ARG_OUT
                            RUNTIME_OUTPUT_DIRECTORY "${ARG_OUTDIR}"
      )
 
+     add_o1heap_to_target_if_needed(${ARG_EXAMPLE_NAME})
+
+
 endfunction()
 
 

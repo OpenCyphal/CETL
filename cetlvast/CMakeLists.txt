@@ -134,6 +134,46 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # +---------------------------------------------------------------------------+
+# | O1Heap
+# +---------------------------------------------------------------------------+
+#
+# function: add_o1heap_to_target - Add o1heap source and include path to a target.
+#                                  A FATAL_ERROR will be logged if the o1heap source is not found.
+#
+# param: ARG_TARGET string       - The name of a target for use in calls to functions like target_sources
+#                                  and target_include_directories.
+#
+function (add_o1heap_to_target ARG_TARGET)
+    set(LOCAL_O1HEAP_C_SOURCE "${CETL_O1HEAP_SOURCE_PATH}/o1heap.c")
+    if (NOT EXISTS ${LOCAL_O1HEAP_C_SOURCE})
+        message(FATAL_ERROR "When trying to add o1heap to ${ARG_TARGET}: \n"
+                            "CETL_O1HEAP_SOURCE_PATH is set to ${CETL_O1HEAP_SOURCE_PATH} but it "
+                            "does not contain o1heap.c. Did you forget to clone the o1heap submodule? "
+                            "Try running \"git submodule update --init --recursive\"\n")
+    endif()
+    target_sources(${ARG_TARGET} PUBLIC "${LOCAL_O1HEAP_C_SOURCE}")
+    target_include_directories(${ARG_TARGET} PUBLIC ${CETL_O1HEAP_SOURCE_PATH})
+endfunction()
+
+#
+# function: add_o1heap_to_target_if_needed - Will call add_o1heap_to_target(${ARG_TARGET) if the target
+#                                            name contains the token "o1heap".
+#
+# param: ARG_TARGET string       - The name of a target for use in calls to functions like target_sources
+#                                  and target_include_directories.
+#
+# CETL has a specal relationship to o1heap which is why we don't have a more generalized solution
+# to this type of external dependency. Specifcally, besides a standard library, CETL does not
+# have any other external dependendies beyond o1heap and only a few CETL headers have this dependency.
+#
+function (add_o1heap_to_target_if_needed ARG_TARGET)
+    if (${ARG_TARGET} MATCHES "o1heap")
+        message(STATUS "${ARG_TARGET} contains the token \"o1heap\" so we'll build o1heap.c into it.")
+        add_o1heap_to_target(${ARG_TARGET})
+    endif()
+endfunction()
+
+# +---------------------------------------------------------------------------+
 # | KITS
 # +---------------------------------------------------------------------------+
 
