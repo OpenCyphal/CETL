@@ -1,8 +1,6 @@
 /// @file
 /// Defines a safe smart pointer idiom when obtaining memory directly from a memory_resource.
 ///
-/// TODO: examples
-///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -45,6 +43,8 @@ private:
     }
 
 public:
+    MemoryResourcePointer() noexcept = default;
+
     ~MemoryResourcePointer()
     {
         reset();
@@ -95,6 +95,16 @@ public:
         return get();
     }
 
+    std::size_t size() const noexcept
+    {
+        return data_.mem_size;
+    }
+
+    std::size_t alignment() const noexcept
+    {
+        return data_.mem_align;
+    }
+
     void reset()
     {
         Data old_data = std::exchange(data_, Data{nullptr, 0, 0, data_.mem_resource});
@@ -138,6 +148,9 @@ bool operator<=(const MemoryResourcePointer& lhs, const MemoryResourcePointer& r
 
 /// Decorator for a std::memory_resource or cetl::pf17::pmr::memory_resource that vends a
 /// cetl::pmr::MemoryResourcePointer from a raii_allocate method.
+///
+/// @snippet{trimleft} example_06_memory_resource_manager.cpp example_usage
+///
 class MemoryResourceManager : public memory_resource
 {
 public:
@@ -179,5 +192,18 @@ private:
 
 }  // namespace pmr
 }  // namespace cetl
+
+namespace std
+{
+template <>
+struct hash<cetl::pmr::MemoryResourcePointer>
+{
+    size_t operator()(const cetl::pmr::MemoryResourcePointer& ptr) const noexcept
+    {
+        return std::hash<void*>()(ptr.get());
+    }
+};
+}  // namespace std
+
 
 #endif  // CETL_MEMORY_RESOURCE_PTR_H_INCLUDED

@@ -137,4 +137,5 @@ static_assert(__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STA
 
 /// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering
 ///                 to target C++ specifications.
+/// @namespace cetl::pmr CETL extensions to the standard Polymorphic Memory Resource (PMR) namespace, `std::pmr`.
 #endif  // CETL_H_INCLUDED
