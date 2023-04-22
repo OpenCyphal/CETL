@@ -1,13 +1,12 @@
-![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo.svg#gh-light-mode-only) \
-![OpenCyphal](cetlvast/suites/docs/images/html/cetl_logo_dark.svg#gh-dark-mode-only) \
+![OpenCyphal](https://opencyphal.github.io/CETL/images/html/cetl_logo_dark.svg) \
 Cyphal Embedded Template Library
 ===================
 
 > We like to pronounce CETL as "settle"
 
-[![Forum](https://img.shields.io/discourse/https/forum.opencyphal.org/users.svg)](https://forum.opencyphal.org)
-[![Documentation](https://opencyphal.github.io/CETL/docs-ok-green.svg)](https://opencyphal.github.io/CETL/)
+[![Forum](https://img.shields.io/discourse/https/forum.opencyphal.org/users.svg?label=forum&logo=discourse)](https://forum.opencyphal.org)
 
+[![Documentation](https://img.shields.io/badge/docs-doxygen%20%28html%29-green?logo=github)](https://opencyphal.github.io/CETL/)
 [![CodeQL](https://github.com/OpenCyphal/CETL/actions/workflows/codeql.yml/badge.svg)](https://github.com/OpenCyphal/CETL/actions/workflows/codeql.yml)
 [![CETLVaSt](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml/badge.svg)](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml)
 [![Open Bugs](https://img.shields.io/github/issues/OpenCyphal/CETL/bug?label=bugs&logo=github)](https://github.com/OpenCyphal/CETL/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
@@ -86,5 +85,4 @@ as practical and users that want to copy and paste one of the CETL headers into 
 with minimal effort.
 
 
-![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo_dark.svg#gh-dark-mode-only)\
-![OpenCyphal](cetlvast/suites/docs/images/html/opencyphal_logo.svg#gh-light-mode-only)
+![OpenCyphal](https://opencyphal.github.io/CETL/images/html/opencyphal_logo_dark.svg)

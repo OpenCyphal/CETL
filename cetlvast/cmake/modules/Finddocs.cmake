@@ -35,7 +35,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     set(DOXYGEN_RDOMAIN org.opencyphal)
     set(DOXYGEN_RDOMAIN_W_PROJECT org.opencyphal.cetl)
     set(DOXYGEN_PROJECT_NAME "CETL")
-    set(DOXYGEN_PROJECT_BRIEF "Cyphal Embedded Template Library is a C++ shim library used by C++ Cyphal projects.")
+    set(DOXYGEN_PROJECT_BRIEF "Cyphal Embedded Template Library")
     set(DOXYGEN_OUTPUT_DIRECTORY_PARENT ${CMAKE_BINARY_DIR})
     set(DOXYGEN_OUTPUT_DIRECTORY ${DOXYGEN_OUTPUT_DIRECTORY_PARENT}/cetlvast/suites/docs)
     set(DOXYGEN_CONFIG_FILE ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen.config)
@@ -51,7 +51,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     list(APPEND DOXYGEN_INPUT_LIST "${CETL_ROOT}/SECURITY.md")
     list(JOIN DOXYGEN_INPUT_LIST "\\\n    " DOXYGEN_INPUT )
     set(DOXYGEN_MAINPAGE "\"${CETL_ROOT}/README.md\"")
-    set(DOXYGEN_CETLVAST_VERSION $ENV{GITHUB_SHA})
+    set(DOXYGEN_CETLVAST_VERSION ${CETL_VERSION})
     set(DOXYGEN_CETLVAST_INCLUDE_PREFIX_STRIP "\"${CETL_ROOT}/include\"")
     set(DOXYGEN_OUTPUT_TAGFILE "${DOXYGEN_OUTPUT_DIRECTORY}/cetl.tag.xml")
     set(DOXYGEN_COMPILE_COMMANDS_DIR ${CMAKE_BINARY_DIR})
@@ -62,6 +62,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
     # +-----------------------------------------------------------------------+
     set(DOXYGEN_HTML_EXTRA_FILES "${DOXYGEN_SOURCE}/.nojekyll")
     set(DOXYGEN_HTML_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/stylesheet.css)
+    set(DOXYGEN_HTML_EXTRA_STYLESHEET ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen-flat-style.css)
     set(DOXYGEN_HTML_HEADER ${DOXYGEN_OUTPUT_DIRECTORY}/header.html)
     set(DOXYGEN_HTML_FOOTER ${DOXYGEN_OUTPUT_DIRECTORY}/footer.html)
     set(DOXYGEN_IMAGE_PATH ${DOXYGEN_SOURCE}/images)
@@ -70,7 +71,7 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
 
     # a bit of a hack, but we copy all the images to the output to allow us to serve them
     # for anything other that the docs that wants them.
-    file(COPY ${DOXYGEN_SOURCE}/images DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY}/html)
+    file(COPY ${DOXYGEN_SOURCE}/images/html DESTINATION ${DOXYGEN_OUTPUT_DIRECTORY})
 
     configure_file(${DOXYGEN_SOURCE}/header.html
                     ${DOXYGEN_OUTPUT_DIRECTORY}/header.html
@@ -80,6 +81,9 @@ function (create_docs_target ARG_DOCS_TARGET_NAME ARG_ADD_TO_ALL ARG_EXAMPLES_PA
                 )
     configure_file(${DOXYGEN_SOURCE}/stylesheet.css
                     ${DOXYGEN_OUTPUT_DIRECTORY}/stylesheet.css
+                )
+    configure_file(${DOXYGEN_SOURCE}/doxygen-flat-style.css
+                    ${DOXYGEN_OUTPUT_DIRECTORY}/doxygen-flat-style.css
                 )
     configure_file(${DOXYGEN_SOURCE}/doxygen.ini
                     ${DOXYGEN_CONFIG_FILE}

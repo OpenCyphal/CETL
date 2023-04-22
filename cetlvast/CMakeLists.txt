@@ -26,6 +26,11 @@ if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
     set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 endif()
 
+if (NOT DEFINED CETL_VERSION)
+    message(WARNING "CETL_VERSION was not set. Defaulting to 0.0.0.")
+    set(CETL_VERSION "0.0.0")
+endif()
+
 if (NOT DEFINED CETL_ROOT)
     set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
     cmake_path(ABSOLUTE_PATH LOCAL_PARENT_OF_SOURCE_PATH
@@ -90,6 +95,7 @@ message(STATUS
 "[ globals ]-----------------------------------------------\n\
     CETL_ROOT:                  ${CETL_ROOT}\n\
     CETL_INCLUDE:               ${CETL_INCLUDE}\n\
+    CETL_VERSION:               ${CETL_VERSION}\n\
     CMAKE_MODULE_PATH:          ${CMAKE_MODULE_PATH}\n\
     CETLVAST_PROJECT_ROOT:      ${CETLVAST_PROJECT_ROOT}\n\
     EXTERNAL_PROJECT_DIRECTORY: ${EXTERNAL_PROJECT_DIRECTORY}\n\
