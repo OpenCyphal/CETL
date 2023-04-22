@@ -32,7 +32,7 @@ template <std::size_t StorageSizeBytes>
 struct O1HeapAlignedStorage
 {
     static constexpr std::size_t size_bytes = StorageSizeBytes;
-    static constexpr std::size_t alignment = O1HEAP_ALIGNMENT;
+    static constexpr std::size_t alignment  = O1HEAP_ALIGNMENT;
 
     static_assert(O1HEAP_ALIGNMENT >= alignof(std::max_align_t), "O1HEAP_ALIGNMENT is too small for this platform.");
 
@@ -50,7 +50,7 @@ public:
     }
 
     template <typename AlignedStorageType>
-    UnsynchronizedO1HeapMemoryResource(AlignedStorageType& aligned_storage)
+    explicit UnsynchronizedO1HeapMemoryResource(AlignedStorageType& aligned_storage)
         : UnsynchronizedO1HeapMemoryResource(aligned_storage.storage, AlignedStorageType::size_bytes)
     {
     }

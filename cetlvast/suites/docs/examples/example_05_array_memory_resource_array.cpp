@@ -1,5 +1,5 @@
 /// @file
-/// Example of using the cetl::pmr::UnsynchronizedArrayMemoryResource in cetl/array_memory_resource.hpp.
+/// Example of using the cetl::pmr::UnsynchronizedArrayMemoryResource in cetl/pmr/array_memory_resource.hpp.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -9,7 +9,7 @@
 
 //![example_include]
 #include "cetl/pf17/cetlpf.hpp"
-#include "cetl/array_memory_resource.hpp"
+#include "cetl/pmr/array_memory_resource.hpp"
 //![example_include]
 
 #include <vector>

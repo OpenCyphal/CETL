@@ -27,8 +27,7 @@ namespace pmr
 
 /// std::pmr::memory_resource that supports a single allocation request within a single, contiguous block of memory.
 /// Without any memory barriers or other synchronization primitives this is one of the simplest possible implementations
-/// of the std::prm::memory_resource interface with the one feature of supporting an, optional, upstream allocator
-/// that this class defers to if its array is already in use.
+/// of the std::prm::memory_resource interface with the one feature of supporting an, optional, upstream allocator.
 class UnsynchronizedArrayMemoryResource : public memory_resource
 {
 public:

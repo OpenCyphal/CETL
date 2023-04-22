@@ -34,7 +34,7 @@ using memory_resource = ::cetl::pf17::pmr::memory_resource;
 }  // namespace cetl
 #endif
 
-#include "cetl/o1heap_memory_resource.hpp"
+#include "cetl/pmr/o1heap_memory_resource.hpp"
 
 constexpr std::size_t                                  TestBufferSize = 0x100000;
 static cetl::pmr::O1HeapAlignedStorage<TestBufferSize> large_buffer{};

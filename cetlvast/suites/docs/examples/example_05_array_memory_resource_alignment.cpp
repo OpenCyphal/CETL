@@ -1,6 +1,6 @@
 /// @file
 /// Demonstration of memory alignment when using the cetl::pmr::UnsynchronizedArrayMemoryResource in
-/// cetl/array_memory_resource.hpp.
+/// cetl/pmr/array_memory_resource.hpp.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -18,7 +18,7 @@ namespace pmr
 using memory_resource = pf17::pmr::memory_resource;
 }  // namespace pmr
 }  // namespace cetl
-#include "cetl/array_memory_resource.hpp"
+#include "cetl/pmr/array_memory_resource.hpp"
 //![example_include]
 
 #include <iostream>
