@@ -8,7 +8,7 @@
 ///
 
 #include "cetl/cetl.hpp"
-#include "cetlvast/helpers.hpp"
+#include "cetlvast/helpers_gtest.hpp"
 #include "cetl/pf20/span.hpp"
 
 namespace

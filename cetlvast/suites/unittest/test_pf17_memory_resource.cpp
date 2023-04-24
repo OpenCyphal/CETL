@@ -8,53 +8,13 @@
 ///
 
 #include "cetl/cetl.hpp"
-#include "cetlvast/helpers.hpp"
-
-#include "cetl/pf17/memory_resource.hpp"
-#if (__cplusplus >= CETL_CPP_STANDARD_17)
-#    include <memory_resource>
-#endif
+#include "cetlvast/helpers_gtest_memory_resource.hpp"
 
 using ::testing::Return;
 using ::testing::Sequence;
 using ::testing::Ref;
 using ::testing::_;
 using ::testing::NiceMock;
-
-// +----------------------------------------------------------------------+
-// | Test Fixture(s)
-// +----------------------------------------------------------------------+
-class MockPf17MemoryResource : public cetl::pf17::pmr::memory_resource
-{
-public:
-    MOCK_METHOD(void*, do_allocate, (std::size_t size_bytes, std::size_t alignment));
-    MOCK_METHOD(void, do_deallocate, (void* p, std::size_t size_bytes, std::size_t alignment));
-    MOCK_METHOD(bool, do_is_equal, (const cetl::pf17::pmr::memory_resource& rhs), (const, noexcept));
-
-    static constexpr bool ReturnsNullWhenFNoExceptions = true;
-
-    static cetl::pf17::pmr::memory_resource* get()
-    {
-        return cetl::pf17::pmr::null_memory_resource();
-    }
-};
-
-#if (__cplusplus >= CETL_CPP_STANDARD_17)
-class MockStdMemoryResource : public std::pmr::memory_resource
-{
-public:
-    MOCK_METHOD(void*, do_allocate, (std::size_t size_bytes, std::size_t alignment));
-    MOCK_METHOD(void, do_deallocate, (void* p, std::size_t size_bytes, std::size_t alignment));
-    MOCK_METHOD(bool, do_is_equal, (const std::pmr::memory_resource& rhs), (const, noexcept));
-
-    static constexpr bool ReturnsNullWhenFNoExceptions = false;
-
-    static std::pmr::memory_resource* get()
-    {
-        return std::pmr::null_memory_resource();
-    }
-};
-#endif
 
 // +----------------------------------------------------------------------+
 // | Test Suite :: TestMemoryResourceABC
@@ -69,9 +29,9 @@ class TestMemoryResourceABC : public ::testing::Test
 
 // clang-format off
 using MemoryResourceMocks = ::testing::Types<
-      MockPf17MemoryResource
+      cetlvast::MockPf17MemoryResource
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
-    , MockStdMemoryResource
+    , cetlvast::MockStdMemoryResource
 #endif
 >;
 // clang-format on

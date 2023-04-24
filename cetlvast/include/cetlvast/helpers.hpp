@@ -14,9 +14,6 @@
 #include <utility>
 #include <memory>
 
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
-
 #if defined(__clang__)
 #    if __has_feature(cxx_rtti)
 #        define CETLVAST_RTTI_ENABLED

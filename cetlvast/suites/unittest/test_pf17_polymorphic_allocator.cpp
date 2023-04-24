@@ -8,7 +8,7 @@
 ///
 
 #include "cetl/cetl.hpp"
-#include "cetlvast/helpers.hpp"
+#include "cetlvast/helpers_gtest.hpp"
 
 #include "cetl/pf17/memory_resource.hpp"
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
@@ -155,7 +155,7 @@ struct TrailingAllocType
     {
     }
 
-    TrailingAllocType(const Alloc& alloc)
+    explicit TrailingAllocType(const Alloc& alloc)
         : alloc_(alloc)
         , data_(0)
     {
@@ -184,7 +184,7 @@ struct NoAllocType
     {
     }
 
-    NoAllocType(int data)
+    explicit NoAllocType(int data)
         : data_(data)
     {
     }
@@ -212,7 +212,7 @@ class TestPolymorphicAllocatorProtocols : public ::testing::Test
 protected:
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
     template <typename U>
-    static typename std::enable_if<std::is_constructible<U, std::pmr::memory_resource*>::value, U>::type
+    static typename std::enable_if_t<std::is_constructible<U, std::pmr::memory_resource*>::value, U>
     make_default_allocator()
     {
         return U(std::pmr::new_delete_resource());
@@ -220,7 +220,7 @@ protected:
 #endif
 
     template <typename U>
-    static typename std::enable_if<std::is_constructible<U, cetl::pf17::pmr::memory_resource*>::value, U>::type
+    static typename std::enable_if_t<std::is_constructible<U, cetl::pf17::pmr::memory_resource*>::value, U>
     make_default_allocator()
     {
         static MaxAlignMemoryResource default_resource{};

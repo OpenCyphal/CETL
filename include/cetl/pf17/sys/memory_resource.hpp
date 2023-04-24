@@ -153,6 +153,13 @@ inline memory_resource* get_default_resource() noexcept
 class monotonic_buffer_resource : public deviant::basic_monotonic_buffer_resource
 {
 public:
+    using basic_monotonic_buffer_resource::basic_monotonic_buffer_resource;
+
+    monotonic_buffer_resource(std::size_t initial_size, memory_resource* upstream)
+        : deviant::basic_monotonic_buffer_resource(nullptr, initial_size, upstream)
+    {
+    }
+
     monotonic_buffer_resource()
         : deviant::basic_monotonic_buffer_resource(get_default_resource())
     {
@@ -167,6 +174,7 @@ public:
         : deviant::basic_monotonic_buffer_resource(buffer, buffer_size, get_default_resource())
     {
     }
+
 };
 
 }  // namespace pmr

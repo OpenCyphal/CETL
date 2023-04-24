@@ -220,22 +220,21 @@ class polymorphic_allocator
     };
 
     template <typename U>
-    struct EnableIfNotPair<
-        U,
-        typename std::enable_if<
-            std::is_base_of<std::pair<typename U::first_type, typename U::second_type>, U>::value>::type>
+    struct EnableIfNotPair<U,
+                           typename std::enable_if_t<
+                               std::is_base_of<std::pair<typename U::first_type, typename U::second_type>, U>::value>>
     {};
 
     template <typename PairType, typename... PTArgsT>
-    typename std::enable_if<is_not_allocator_constructable<PairType, PTArgsT...>::value, std::tuple<PTArgsT&&...>>::type
+    typename std::enable_if_t<is_not_allocator_constructable<PairType, PTArgsT...>::value, std::tuple<PTArgsT&&...>>
     make_pair_member_args(std::tuple<PTArgsT...>& pmArgs)
     {
         return {std::move(pmArgs)};
     }
 
     template <typename PairType, typename... PTArgsT>
-    typename std::enable_if<is_leading_allocator_constructible<PairType, PTArgsT...>::value,
-                            std::tuple<std::allocator_arg_t, polymorphic_allocator, PTArgsT&&...>>::type
+    typename std::enable_if_t<is_leading_allocator_constructible<PairType, PTArgsT...>::value,
+                              std::tuple<std::allocator_arg_t, polymorphic_allocator, PTArgsT&&...>>
     make_pair_member_args(std::tuple<PTArgsT...>& pmArgs)
     {
         // https://cplusplus.github.io/LWG/issue2969
@@ -243,8 +242,8 @@ class polymorphic_allocator
     }
 
     template <typename PairType, typename... PTArgsT>
-    typename std::enable_if<is_trailing_allocator_constructible<PairType, PTArgsT...>::value,
-                            std::tuple<PTArgsT&&..., polymorphic_allocator>>::type
+    typename std::enable_if_t<is_trailing_allocator_constructible<PairType, PTArgsT...>::value,
+                              std::tuple<PTArgsT&&..., polymorphic_allocator>>
     make_pair_member_args(std::tuple<PTArgsT...>& pmArgs)
     {
         // https://cplusplus.github.io/LWG/issue2969
@@ -252,7 +251,7 @@ class polymorphic_allocator
     }
 
     template <typename U, typename... UArgsT>
-    typename std::enable_if<is_not_allocator_constructable<U, UArgsT...>::value>::type construct_not_pair_impl(
+    typename std::enable_if_t<is_not_allocator_constructable<U, UArgsT...>::value> construct_not_pair_impl(
         U* p,
         UArgsT&&... uArgs)
     {
@@ -260,7 +259,7 @@ class polymorphic_allocator
     }
 
     template <typename U, typename... UArgsT>
-    typename std::enable_if<is_leading_allocator_constructible<U, UArgsT...>::value>::type construct_not_pair_impl(
+    typename std::enable_if_t<is_leading_allocator_constructible<U, UArgsT...>::value> construct_not_pair_impl(
         U* p,
         UArgsT&&... uArgs)
     {
@@ -269,7 +268,7 @@ class polymorphic_allocator
     }
 
     template <typename U, typename... UArgsT>
-    typename std::enable_if<is_trailing_allocator_constructible<U, UArgsT...>::value>::type construct_not_pair_impl(
+    typename std::enable_if_t<is_trailing_allocator_constructible<U, UArgsT...>::value> construct_not_pair_impl(
         U* p,
         UArgsT&&... uArgs)
     {
@@ -456,7 +455,7 @@ public:
     {
     }
 
-    virtual ~basic_monotonic_buffer_resource()
+    ~basic_monotonic_buffer_resource() override
     {
         release();
     }
@@ -486,25 +485,17 @@ public:
 protected:
     void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
     {
-        void* result = nullptr;
-        do
+        void* result = do_allocate_from_current_buffer(size_bytes, alignment);
+
+        while(nullptr == result)
         {
-            if (current_buffer_->buffer && current_buffer_->remaining_buffer_size >= size_bytes)
-            {
-                void*       buffer      = current_buffer_->buffer;
-                std::size_t buffer_size = current_buffer_->remaining_buffer_size;
-                result                  = std::align(alignment, size_bytes, buffer, buffer_size);
-                if (result)
-                {
-                    current_buffer_->remaining_buffer_size = buffer_size - size_bytes;
-                    break;
-                }
-            }
-            const std::size_t previous_buffer_size =
+            // Grow the buffer starting with, at minimum 4 bytes, the current buffer size, or the requested size
+            // plus alignment, whichever is larger.
+            const std::size_t grow_from_size =
                 std::max({static_cast<std::size_t>(4), current_buffer_->buffer_size, size_bytes + alignment});
 
             // Simple geometric progression of buffer size growth.
-            const std::size_t next_buffer_size = previous_buffer_size + (previous_buffer_size / 2U);
+            const std::size_t next_buffer_size = grow_from_size + (grow_from_size / 2U);
 
             void* raw = upstream_->allocate(sizeof(BufferControl) + next_buffer_size, alignment);
             if (nullptr == raw)
@@ -512,10 +503,12 @@ protected:
                 // out-of-memory with no exceptions.
                 break;
             }
-            void* buffer = &reinterpret_cast<BufferControl*>(raw)[1];
+            void* buffer = &static_cast<BufferControl*>(raw)[1];
             current_buffer_ =
                 new (raw) BufferControl{buffer, next_buffer_size, alignment, next_buffer_size, current_buffer_};
-        } while (true);
+
+            result = do_allocate_from_current_buffer(size_bytes, alignment);
+        }
         return result;
     }
 
@@ -532,6 +525,22 @@ protected:
     }
 
 private:
+    void* do_allocate_from_current_buffer(std::size_t size_bytes, std::size_t alignment)
+    {
+        void* result = nullptr;
+        if (current_buffer_->buffer && current_buffer_->remaining_buffer_size >= size_bytes)
+        {
+            void*       buffer      = current_buffer_->buffer;
+            std::size_t buffer_size = current_buffer_->remaining_buffer_size;
+            result                  = std::align(alignment, size_bytes, buffer, buffer_size);
+            if (result)
+            {
+                current_buffer_->remaining_buffer_size = buffer_size - size_bytes;
+            }
+        }
+        return result;
+    }
+
     struct BufferControl
     {
         void*          buffer;

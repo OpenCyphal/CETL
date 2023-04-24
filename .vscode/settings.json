@@ -24,6 +24,9 @@
         "projectKey": "OpenCyphal_CETL"
     },
     "testMate.cpp.test.executables": "${workspaceFolder}/cetlvast/build_vscode/build/cetlvast/suites/**/test_*",
+    "sonarlint.analyzerProperties": {
+        "sonar.cfamily.reportingCppStandardOverride": "c++14"
+    },
     "cSpell.words": [
         "cetl",
         "cetlvast",
@@ -36,7 +39,9 @@
         "copydoc",
         "trimleft",
         "Pavel",
-        "Kirienko"
+        "Kirienko",
+        "gtest",
+        "gmock"
     ],
     "files.associations": {
         "memory_resource": "cpp",

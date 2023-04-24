@@ -8,7 +8,7 @@
 ///
 
 #include "cetl/cetl.hpp"
-#include "cetlvast/helpers.hpp"
+#include "cetlvast/helpers_gtest.hpp"
 
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
 #    include <memory_resource>
