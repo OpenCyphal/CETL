@@ -286,9 +286,9 @@ public:
     /// Instead, CETL declines to provide default resources and requires explicit resources are provided
     /// in types that would otherwise use a silent default.
     ///
-    polymorphic_allocator() = delete;
+    polymorphic_allocator() noexcept = delete;
 
-    polymorphic_allocator(memory_resource* r)
+    polymorphic_allocator(memory_resource* r) noexcept
         : memory_resource_(r)
     {
         CETL_DEBUG_ASSERT(nullptr != r,
@@ -320,12 +320,12 @@ public:
         return static_cast<T*>(memory_resource_->allocate(object_count * sizeof(T), alignof(T)));
     }
 
-    void deallocate(T* p, size_t object_count)
+    void deallocate(T* p, size_t object_count) noexcept
     {
         memory_resource_->deallocate(p, sizeof(T) * object_count, alignof(T));
     }
 
-    memory_resource* resource() const
+    memory_resource* resource() const noexcept
     {
         return memory_resource_;
     }
@@ -465,7 +465,7 @@ public:
     basic_monotonic_buffer_resource& operator=(const basic_monotonic_buffer_resource&) = delete;
 
     //  +--[public methods]---------------------------------------------------+
-    void release()
+    void release() noexcept
     {
         BufferControl* head = current_buffer_;
         while (head != &first_buffer_control_)
