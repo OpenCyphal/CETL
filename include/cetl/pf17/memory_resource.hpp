@@ -181,8 +181,9 @@ inline memory_resource* null_memory_resource() noexcept
         }
     };
 
-    static cetl_null_memory_resource_impl singleton;
-    return &singleton;
+    alignas(cetl_null_memory_resource_impl) static char singleton_storage[sizeof(cetl_null_memory_resource_impl)];
+    static cetl_null_memory_resource_impl* singleton = new (singleton_storage) cetl_null_memory_resource_impl;
+    return singleton;
 }
 
 //  +--[mem.poly.allocator.class]---------------------------------------------+
@@ -300,7 +301,7 @@ public:
 
     template <class U>
     polymorphic_allocator(const polymorphic_allocator<U>& rhs) noexcept
-        : memory_resource_(rhs.memory_resource_)
+        : memory_resource_(rhs.resource())
     {
     }
 
@@ -439,7 +440,7 @@ class basic_monotonic_buffer_resource : public memory_resource
 {
 public:
     basic_monotonic_buffer_resource(void* buffer, size_t buffer_size, memory_resource* upstream)
-        : first_buffer_control_{buffer, buffer_size, 0, buffer_size, nullptr}
+        : first_buffer_control_{buffer, buffer_size, alignof(basic_monotonic_buffer_resource), buffer_size, nullptr}
         , upstream_{upstream}
         , current_buffer_{&first_buffer_control_}
     {
@@ -487,7 +488,7 @@ protected:
     {
         void* result = do_allocate_from_current_buffer(size_bytes, alignment);
 
-        while(nullptr == result)
+        while (nullptr == result)
         {
             // Grow the buffer starting with, at minimum 4 bytes, the current buffer size, or the requested size
             // plus alignment, whichever is larger.

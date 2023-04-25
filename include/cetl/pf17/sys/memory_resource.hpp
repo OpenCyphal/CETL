@@ -69,8 +69,10 @@ namespace _detail
 
 inline deviant::MaxAlignNewDeleteResource* get_max_align_new_delete_resource_singleton() noexcept
 {
-    static deviant::MaxAlignNewDeleteResource singleton{};
-    return &singleton;
+    alignas(
+        deviant::MaxAlignNewDeleteResource) static char singleton_storage[sizeof(deviant::MaxAlignNewDeleteResource)];
+    static deviant::MaxAlignNewDeleteResource* singleton = new (singleton_storage) deviant::MaxAlignNewDeleteResource();
+    return singleton;
 }
 
 inline std::atomic<memory_resource*>& get_new_delete_resource_singleton() noexcept
@@ -104,7 +106,7 @@ namespace deviant
 ///             a static-duration instance of cetl::pf17::pmr::MaxAlignNewDeleteResource otherwise
 ///             cetl::pf17::pmr::new_delete_resource() is set to r.
 /// @return The previous value returned by cetl::pf17::pmr::new_delete_resource().
-constexpr memory_resource* set_new_delete_resource(memory_resource* r) noexcept
+inline memory_resource* set_new_delete_resource(memory_resource* r) noexcept
 {
     if (nullptr == r)
     {
@@ -123,8 +125,10 @@ namespace _detail
 {
 inline std::atomic<memory_resource*>& get_default_resource_singleton() noexcept
 {
-    static std::atomic<memory_resource*> singleton{new_delete_resource()};
-    return singleton;
+    alignas(std::atomic<memory_resource*>) static char singleton_storage[sizeof(std::atomic<memory_resource*>)];
+    static std::atomic<memory_resource*>*              singleton =
+        new (singleton_storage) std::atomic<memory_resource*>{new_delete_resource()};
+    return *singleton;
 }
 
 }  // namespace _detail
@@ -153,7 +157,7 @@ inline memory_resource* get_default_resource() noexcept
 class monotonic_buffer_resource : public deviant::basic_monotonic_buffer_resource
 {
 public:
-    using basic_monotonic_buffer_resource::basic_monotonic_buffer_resource;
+    using deviant::basic_monotonic_buffer_resource::basic_monotonic_buffer_resource;
 
     monotonic_buffer_resource(std::size_t initial_size, memory_resource* upstream)
         : deviant::basic_monotonic_buffer_resource(nullptr, initial_size, upstream)
@@ -174,7 +178,6 @@ public:
         : deviant::basic_monotonic_buffer_resource(buffer, buffer_size, get_default_resource())
     {
     }
-
 };
 
 }  // namespace pmr

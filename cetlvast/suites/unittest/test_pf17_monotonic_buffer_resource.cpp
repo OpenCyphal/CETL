@@ -51,11 +51,9 @@ TYPED_TEST(TestMonotonicBufferResource, TestDeallocateHasNoEffect)
 {
     static_assert(alignof(cetl::byte) <= alignof(std::max_align_t),
                   "Assumptions about the alignment of cetl::byte are wrong");
-    constexpr std::size_t              size_bytes = 1024;
-    std::array<cetl::byte, size_bytes> buffer{};
-    TypeParam                          subject = cetlvast::MRH::construct<TypeParam>(buffer.data(),
-                                                            buffer.size(),
-                                                            cetlvast::MRH::null_memory_resource<TypeParam>());
+    constexpr std::size_t                   size_bytes = 1024;
+    std::array<cetl::byte, size_bytes>      buffer{};
+    TypeParam subject{buffer.data(), buffer.size(), cetlvast::MRH::null_memory_resource<TypeParam>()};
     ASSERT_NE(nullptr, subject.upstream_resource());
     void* memory = subject.allocate(size_bytes / 2);
     ASSERT_NE(nullptr, memory);
@@ -87,15 +85,15 @@ TYPED_TEST(TestMonotonicBufferResource, TestAllocationOrder)
 {
     static_assert(alignof(cetl::byte) <= alignof(std::max_align_t),
                   "Assumptions about the alignment of cetl::byte are wrong");
-    constexpr std::size_t                  size_bytes = 1024;
-    std::array<cetl::byte, size_bytes>     buffer{};
-    std::array<cetl::byte, size_bytes * 2> upstream_buffer{};
-    auto                                   mock = cetlvast::MRH::mock_memory_resource<TypeParam>();
-    Sequence                               s1;
+    constexpr std::size_t                            size_bytes = 1024;
+    std::array<cetl::byte, size_bytes>               buffer{};
+    std::array<cetl::byte, size_bytes * 2>           upstream_buffer{};
+    cetlvast::MRH::MockMemoryResourceType<TypeParam> mock{};
+    Sequence                                         s1;
     EXPECT_CALL(mock, do_allocate(Ge(size_bytes), _)).Times(1).InSequence(s1).WillOnce(Return(upstream_buffer.data()));
     EXPECT_CALL(mock, do_deallocate(upstream_buffer.data(), Ge(size_bytes), _)).Times(1).InSequence(s1);
 
-    TypeParam subject = cetlvast::MRH::construct<TypeParam>(buffer.data(), buffer.size(), &mock);
+    TypeParam subject{buffer.data(), buffer.size(), &mock};
     ASSERT_EQ(&mock, subject.upstream_resource());
     void* memory = subject.allocate(size_bytes / 2);
     ASSERT_NE(nullptr, memory);

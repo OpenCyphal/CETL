@@ -61,49 +61,35 @@ public:
 /// Support for parameterized tests that use both std::pmr::memory_resource and cetl::pf17::pmr::memory_resource.
 struct MRH final
 {
-    template <typename T, typename... Args>
-    static std::enable_if_t<std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value, T> construct(Args&&... args)
-    {
-        return T(std::forward<Args>(args)...);
-    }
-
-    template <typename T>
-    static std::enable_if_t<std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value,
-                            cetl::pf17::pmr::memory_resource*>
-    null_memory_resource()
-    {
-        return cetl::pf17::pmr::null_memory_resource();
-    }
-
-    template <typename T>
-    static std::enable_if_t<std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value, MockPf17MemoryResource>
-    mock_memory_resource()
-    {
-        return MockPf17MemoryResource();
-    }
-
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
-    template <typename T, typename... Args>
-    static std::enable_if_t<std::is_base_of<std::pmr::memory_resource, T>::value, T> construct(Args&&... args)
-    {
-        return T(std::forward<Args>(args)...);
-    }
 
     template <typename T>
-    static std::enable_if_t<std::is_base_of<std::pmr::memory_resource, T>::value, std::pmr::memory_resource*>
-    null_memory_resource()
+    constexpr static std::enable_if_t<std::is_base_of<std::pmr::memory_resource, T>::value, std::pmr::memory_resource*>
+    null_memory_resource() noexcept
     {
         return std::pmr::null_memory_resource();
     }
 
     template <typename T>
-    static std::enable_if_t<std::is_base_of<std::pmr::memory_resource, T>::value, MockStdMemoryResource>
-    mock_memory_resource()
+    using MockMemoryResourceType = std::conditional_t<
+        std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value,
+        MockPf17MemoryResource,
+        std::conditional_t<std::is_base_of<std::pmr::memory_resource, T>::value, MockStdMemoryResource, void>>;
+
+#else
+    template <typename T>
+    using MockMemoryResourceType =
+        std::conditional_t<std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value, MockPf17MemoryResource, void>;
+#endif
+
+    template <typename T>
+    constexpr static std::enable_if_t<std::is_base_of<cetl::pf17::pmr::memory_resource, T>::value,
+                                      cetl::pf17::pmr::memory_resource*>
+    null_memory_resource() noexcept
     {
-        return MockStdMemoryResource();
+        return cetl::pf17::pmr::null_memory_resource();
     }
 
-#endif
     MRH() = delete;
 };
 

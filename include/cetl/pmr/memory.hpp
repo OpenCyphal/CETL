@@ -109,7 +109,7 @@ public:
     PolymorphicAllocatorDeleter() noexcept = delete;
 
     PolymorphicAllocatorDeleter(const PolymorphicAllocatorType& alloc, std::size_t mem_size) noexcept(
-        std::is_nothrow_copy_constructible_v<PolymorphicAllocatorType>)
+        std::is_nothrow_copy_constructible<PolymorphicAllocatorType>::value)
         : alloc_{alloc}
         , obj_count_{mem_size}
     {
@@ -118,14 +118,14 @@ public:
     ~PolymorphicAllocatorDeleter() = default;
 
     PolymorphicAllocatorDeleter(PolymorphicAllocatorDeleter&& rhs) noexcept(
-        std::is_nothrow_move_constructible_v<PolymorphicAllocatorType>)
+        std::is_nothrow_move_constructible<PolymorphicAllocatorType>::value)
         : alloc_{rhs.alloc_}
         , obj_count_{rhs.obj_count_}
     {
     }
 
     PolymorphicAllocatorDeleter& operator=(PolymorphicAllocatorDeleter&& rhs) noexcept(
-        std::is_nothrow_move_assignable_v<PolymorphicAllocatorType>)
+        std::is_nothrow_move_assignable<PolymorphicAllocatorType>::value)
     {
         alloc_     = rhs.alloc_;
         obj_count_ = rhs.obj_count_;
@@ -133,13 +133,13 @@ public:
     }
 
     PolymorphicAllocatorDeleter(const PolymorphicAllocatorDeleter& rhs) noexcept(
-        std::is_nothrow_copy_constructible_v<PolymorphicAllocatorType>)
+        std::is_nothrow_copy_constructible<PolymorphicAllocatorType>::value)
         : alloc_{rhs.alloc_}
         , obj_count_{rhs.obj_count_}
     {
     }
     PolymorphicAllocatorDeleter& operator=(const PolymorphicAllocatorDeleter& rhs) noexcept(
-        std::is_nothrow_copy_assignable_v<PolymorphicAllocatorType>)
+        std::is_nothrow_copy_assignable<PolymorphicAllocatorType>::value)
     {
         alloc_     = rhs.alloc_;
         obj_count_ = rhs.obj_count_;
@@ -164,7 +164,7 @@ public:
         {
             alloc.construct(p.get(), std::forward<Args>(args)...);
         }
-        return std::move(p);
+        return p;
     }
 
 private:

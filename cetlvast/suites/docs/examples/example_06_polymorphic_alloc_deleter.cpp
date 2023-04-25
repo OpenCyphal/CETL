@@ -72,18 +72,18 @@ int main()
     std::unordered_map<std::string, PMRDeleter<MyObject>::unique_ptr> objects;
     objects.reserve(3);
 
-    auto object_0 = PMRDeleter<MyObject>::make_unique(alloc, "object_0", 8);
+    auto object_0 = PMRDeleter<MyObject>::make_unique(alloc, "object_0", 8U);
     objects.emplace(object_0->name(), std::move(object_0));
 
-    auto object_1 = PMRDeleter<MyObject>::make_unique(alloc, "object_1", 8);
+    auto object_1 = PMRDeleter<MyObject>::make_unique(alloc, "object_1", 8U);
     objects.emplace(object_1->name(), std::move(object_1));
 
-    auto object_2 = PMRDeleter<MyObject>::make_unique(alloc, "object_2", 8);
+    auto object_2 = PMRDeleter<MyObject>::make_unique(alloc, "object_2", 8U);
     objects.emplace(object_2->name(), std::move(object_2));
 
-    for (const auto& [name, object] : objects)
+    for (const auto& pair : objects)
     {
-        std::cout << "Object name: " << name << std::endl;
+        std::cout << "Object name: " << pair.first << std::endl;
     }
     // Now as long as the map "objects" is in scope, the MyObject instances will be valid. When the map is destroyed,
     // the objects will be deconstructed using the correct allocator.
