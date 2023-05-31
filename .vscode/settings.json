@@ -6,9 +6,9 @@
     "cmake.buildBeforeRun": true,
     "cmake.configureSettings": {
         "FETCHCONTENT_UPDATES_DISCONNECTED": true,
-        "FETCHCONTENT_FULLY_DISCONNECTED": false,
+        "FETCHCONTENT_FULLY_DISCONNECTED": true,
         "CMAKE_MESSAGE_LOG_LEVEL": "STATUS",
-        "CETL_VERSION": "0.0.0"
+        "CYPHAL_PROJECT_VERSION": "0.0.0"
     },
     "cmake.buildArgs": [
         "--verbose"
@@ -44,6 +44,7 @@
         "DCETL_",
         "cetlvast",
         "DCETLVAST_",
+        "DCYPHAL",
         "cyphal",
         "opencyphal",
         "cetlpf",
@@ -73,6 +74,7 @@
         "gcovr",
         "devcontainer",
         "DFETCHCONTENT_FULLY_DISCONNECTED",
+        "COMPILETEST_PRECHECK",
         "arity"
     ],
     "files.associations": {
@@ -174,6 +176,7 @@
         "stack": "cpp",
         "strstream": "cpp",
         "typeindex": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "csignal": "cpp"
     }
 }

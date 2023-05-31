@@ -59,7 +59,7 @@ function(define_compile_failure_test)
         NAME run_${LOCAL_TEST_NAME}
         COMMAND
             ${CMAKE_COMMAND}
-            --build ${CMAKE_CURRENT_BINARY_DIR}
+            --build ${CMAKE_BINARY_DIR}
             --target ${LOCAL_TEST_NAME}
             --config $<CONFIGURATION>
     )

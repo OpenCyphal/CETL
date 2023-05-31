@@ -13,6 +13,7 @@ __pycache__
 .mypy*
 .pyenv
 .dockerup
+.scannerwork
 
 # Eclipse
 .metadata

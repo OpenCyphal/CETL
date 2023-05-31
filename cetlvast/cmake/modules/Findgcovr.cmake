@@ -21,6 +21,32 @@ define_property(DIRECTORY
     FULL_DOCS "private collection used by gcovr module."
 )
 
+# function: enable_instrumentation
+# Sets well-known compiler flags for gcc and/or clang to insert intrumentations
+# into binaries that generate coverage data.
+#
+# param: TARGET target - The target to set compile and link options on.
+#
+function(enable_instrumentation)
+    #+-[input]----------------------------------------------------------------+
+    set(options)
+    set(singleValueArgs TARGET)
+    set(multiValueArgs)
+    cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
+
+    #+-[body]-----------------------------------------------------------------+
+    target_compile_options(${ARG_TARGET}
+        PRIVATE
+            "--coverage"
+            "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fprofile-instr-generate>"
+            "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fcoverage-mapping>"
+    )
+    target_link_options(${ARG_TARGET}
+        PRIVATE
+            "--coverage"
+    )
+endfunction(enable_instrumentation)
+
 #
 # function: define_gcovr_tracefile_target
 #
@@ -28,26 +54,36 @@ define_property(DIRECTORY
 #                             While TARGET_EXECUTION_DEPENDS is used as the dependency of
 #                             the tracefile target created by this function the target itself
 #                             is queried for properties that help filter the coverage data.
-#
+# param: ROOT_DIRECTORY string              - The root directory of the source to be covered.
 # param: TARGET_EXECUTION_DEPENDS target    - A target that will be a dependency of the tracefile
 #                                             target defined by this function.
 # param: EXCLUDES list[target]              - A list of targets to exclude from the coverage data.
+# param: OBJECT_LIBRARY target              - An object library annotated with gcno and gcda paths
+#                                             as a POST_BUILD_INSTRUMENTATION_BYPRODUCTS property.
 # option: EXCLUDE_TARGET                    - If set the target itself will be excluded from the
 #                                             coverage data.
 # option: EXCLUDE_TEST_FRAMEWORKS           - If set the test frameworks will be excluded from the
 #                                             coverage data. This uses the custome TEST_FRAMEWORK_LINK_LIBRARIES
 #                                             property to determine the test frameworks.
+# options: ENABLE_INSTRUMENTATION           - If specified the target and object library will have necessary
+#                                             compile and link options added to enable coverage data instrumentation.
+#                                             If not set the assumption is that the target and object library
+#                                             have already been configured to generate coverage data by some other
+#                                             means.
 # param: OUT_TRACEFILE_VARIABLE string      - The name of a variable to set to the tracefile
 #                                             that the custom command defined by this function
 #                                             will generate.
 #
 function(define_gcovr_tracefile_target)
     #+-[input]----------------------------------------------------------------+
-    set(options EXCLUDE_TARGET EXCLUDE_TEST_FRAMEWORKS)
-    set(singleValueArgs TARGET TARGET_EXECUTION_DEPENDS OUT_TRACEFILE_VARIABLE)
+    set(options EXCLUDE_TARGET EXCLUDE_TEST_FRAMEWORKS ENABLE_INSTRUMENTATION)
+    set(singleValueArgs ROOT_DIRECTORY TARGET TARGET_EXECUTION_DEPENDS OBJECT_LIBRARY OUT_TRACEFILE_VARIABLE)
     set(multiValueArgs EXCLUDES)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
+    if (NOT ARG_ROOT_DIRECTORY)
+        set(ARG_ROOT_DIRECTORY ${CMAKE_SOURCE_DIR})
+    endif()
     #+-[body]-----------------------------------------------------------------+
     get_target_property(LOCAL_TARGET_RUNTIME_DIR ${ARG_TARGET} RUNTIME_OUTPUT_DIRECTORY)
 
@@ -100,25 +136,45 @@ function(define_gcovr_tracefile_target)
 
     cmake_path(APPEND LOCAL_TARGET_RUNTIME_DIR "${ARG_TARGET}.json" OUTPUT_VARIABLE LOCAL_TRACEFILE_PATH)
 
+    list(APPEND LOCAL_GCOV_EXE_ARGS "--gcov-executable")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(LOCAL_C_COVERAGE_PROCESSOR "llvm-cov gcov")
+        list(APPEND LOCAL_GCOV_EXE_ARGS "llvm-cov gcov")
     else()
-        set(LOCAL_C_COVERAGE_PROCESSOR "gcov")
+        list(APPEND LOCAL_GCOV_EXE_ARGS "gcov")
+    endif()
+
+    set(LOCAL_OBJDIR_ARGS )
+    if (ARG_OBJECT_LIBRARY)
+        get_target_property(LOCAL_OBJECT_LIB_POST_BUILD_INSTRUMENTATION_BYPRODUCTS ${ARG_OBJECT_LIBRARY} POST_BUILD_INSTRUMENTATION_BYPRODUCTS)
+
+        if (NOT LOCAL_OBJECT_LIB_POST_BUILD_INSTRUMENTATION_BYPRODUCTS MATCHES ".*-NOTFOUND$")
+            list(POP_FRONT LOCAL_OBJECT_LIB_POST_BUILD_INSTRUMENTATION_BYPRODUCTS LOCAL_OBJLIB_FILE)
+            cmake_path(GET LOCAL_OBJLIB_FILE PARENT_PATH LOCAL_OBJLIB_DIR)
+            list(APPEND LOCAL_OBJDIR_ARGS "--object-directory")
+            list(APPEND LOCAL_OBJDIR_ARGS "\"${LOCAL_OBJLIB_DIR}\"")
+            set(LOCAL_TARGET_RUNTIME_DIR ${LOCAL_OBJLIB_DIR})
+        endif()
     endif()
 
     add_custom_command(
         COMMAND # Generate tracefile from tests.
             ${GCOVR}
-                --gcov-executable ${LOCAL_C_COVERAGE_PROCESSOR}
-                --r ${CMAKE_SOURCE_DIR}
+                ${LOCAL_GCOV_EXE_ARGS}
+                --root ${ARG_ROOT_DIRECTORY}
                 --json
                 --output ${LOCAL_TRACEFILE_PATH}
                 ${LOCAL_EXCLUDE_ARGUMENTS}
+                ${LOCAL_OBJDIR_ARGS}
                 ${LOCAL_TARGET_RUNTIME_DIR}
         WORKING_DIRECTORY ${LOCAL_TARGET_RUNTIME_DIR}
         OUTPUT ${LOCAL_TRACEFILE_PATH}
         DEPENDS ${ARG_TARGET_EXECUTION_DEPENDS}
     )
+
+    if (${ARG_ENABLE_INSTRUMENTATION})
+        enable_instrumentation(TARGET ${ARG_TARGET})
+        enable_instrumentation(TARGET ${ARG_OBJECT_LIBRARY})
+    endif()
 
     message(DEBUG "${GCOVR} will run under ${LOCAL_TARGET_RUNTIME_DIR} if ${ARG_TARGET_EXECUTION_DEPENDS}.")
 
@@ -137,20 +193,26 @@ function(define_gcovr_tracefile_target)
 endfunction(define_gcovr_tracefile_target)
 
 #
-# function: enable_html_report - Creates a custom target that will generate a html report using gcovr
+# function: enable_coverage_report - Creates a custom target that will generate a html report using gcovr
 # for the current directory. Be sure to call this only after all calls to define_gcovr_tracefile_target
 # have been made.
 #
-# param: OUT_REPORT_INDEX string - The name of a variable to set to the index file of the html report.
+# param: COVERAGE_REPORT_FORMATS - Supports html or sonarqube
+# param: ROOT_DIRECTORY string - The root directory of the source to be covered.
+# param: OUT_REPORT_INDICIES list[string] - The name of a variable to set to a list of index files of the reports.
 #
-function (enable_html_report)
+function (enable_coverage_report)
     #+-[input]----------------------------------------------------------------+
     set(options "")
-    set(singleValueArgs OUT_REPORT_INDEX)
-    set(multiValueArgs "")
+    set(singleValueArgs OUT_REPORT_INDICIES ROOT_DIRECTORY)
+    set(multiValueArgs COVERAGE_REPORT_FORMATS)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     get_property(LOCAL_TRACEFILES DIRECTORY ${CMAKE_CURRENT_BINARY_DIR} PROPERTY GCOV_TRACE_FILES)
+
+    if (NOT ARG_ROOT_DIRECTORY)
+        set(ARG_ROOT_DIRECTORY ${CMAKE_SOURCE_DIR})
+    endif()
     #+-[body]-----------------------------------------------------------------+
 
     cmake_path(GET CMAKE_CURRENT_SOURCE_DIR STEM LOCAL_DIRECTORY_NAME)
@@ -166,28 +228,43 @@ function (enable_html_report)
         endforeach()
     endif()
 
-    set(LOCAL_REPORT_INDEX "gcovr_html/coverage.html")
+    foreach(LOCAL_REPORT_FORMAT ${ARG_COVERAGE_REPORT_FORMATS})
+        set(LOCAL_FORMAT_ARGS)
+        if (LOCAL_REPORT_FORMAT STREQUAL "html")
+            set(LOCAL_REPORT_INDEX "gcovr_html/coverage.html")
+            list(APPEND LOCAL_FORMAT_ARGS "--html-details")
+            list(APPEND LOCAL_FORMAT_ARGS "${LOCAL_REPORT_INDEX}")
+        elseif (LOCAL_REPORT_FORMAT STREQUAL "sonarqube")
+            set(LOCAL_REPORT_INDEX "coverage.xml")
+            list(APPEND LOCAL_FORMAT_ARGS "--sonarqube")
+            list(APPEND LOCAL_FORMAT_ARGS "${LOCAL_REPORT_INDEX}")
+        else()
+            message(FATAL_ERROR "${LOCAL_REPORT_FORMAT} is not a supported coverage report format.")
+        endif()
+        list(APPEND LOCAL_REPORT_INDICIES ${LOCAL_REPORT_INDEX})
 
-    add_custom_command(
-        OUTPUT ${LOCAL_REPORT_INDEX}
-        COMMAND
-            ${GCOVR}
-                ${LOCAL_ALL_GCOV_ARGS}
-                --r ${CMAKE_SOURCE_DIR}
-                --html-details ${LOCAL_REPORT_INDEX}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        DEPENDS ${LOCAL_ALL_TRACEFILES}
-    )
+        add_custom_command(
+            OUTPUT ${LOCAL_REPORT_INDEX}
+            COMMAND
+                ${GCOVR}
+                    ${LOCAL_ALL_GCOV_ARGS}
+                    --root ${ARG_ROOT_DIRECTORY}
+                    ${LOCAL_FORMAT_ARGS}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            DEPENDS ${LOCAL_ALL_TRACEFILES}
+        )
 
-    add_custom_target(
-        gcovr_html_report_for_${LOCAL_DIRECTORY_NAME}
-        DEPENDS ${LOCAL_REPORT_INDEX}
-    )
+        add_custom_target(
+            gcovr_${LOCAL_REPORT_FORMAT}_report_for_${LOCAL_DIRECTORY_NAME}
+            DEPENDS ${LOCAL_REPORT_INDEX}
+        )
+
+    endforeach()
 
     #+-[output]---------------------------------------------------------------+
 
-    if (NOT ARG_OUT_REPORT_INDEX STREQUAL "")
-        set(${ARG_OUT_REPORT_INDEX} "${LOCAL_REPORT_INDEX}" PARENT_SCOPE)
+    if (NOT ARG_OUT_REPORT_INDICIES STREQUAL "")
+        set(${ARG_OUT_REPORT_INDICIES} "${LOCAL_REPORT_INDICIES}" PARENT_SCOPE)
     endif()
 
-endfunction(enable_html_report)
+endfunction(enable_coverage_report)

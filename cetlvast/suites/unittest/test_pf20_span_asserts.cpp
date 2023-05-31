@@ -18,8 +18,10 @@ namespace
 // +----------------------------------------------------------------------+
 #if CETL_ENABLE_DEBUG_ASSERT
 
+
 static void TestStaticSpanWithWrongSize()
 {
+    flush_coverage_on_death();
     const char* hello_world = "Hello World";
     (void) cetl::pf20::span<const char, 11>(hello_world, 10);
 }
@@ -33,6 +35,7 @@ TEST(DeathTestSpanAssertions, TestStaticSpanWithWrongSize)
 
 static void TestStaticSpanWithWrongDistance()
 {
+    flush_coverage_on_death();
     const char* hello_world = "Hello World";
     (void) cetl::pf20::span<const char, 10>(hello_world, &hello_world[11]);
 }
@@ -46,6 +49,7 @@ TEST(DeathTestSpanAssertions, TestStaticSpanWithWrongDistance)
 
 static void TestDynamicSpanWithNegativeDistance()
 {
+    flush_coverage_on_death();
     const char* hello_world = "Hello World";
     (void) cetl::pf20::span<const char>(&hello_world[11], hello_world);
 }
@@ -59,6 +63,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSpanWithNegativeDistance)
 
 static void TestStaticSpanFromDynamicOfWrongSize()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello World";
     cetl::pf20::span<const char> hello_span(hello_world, 11);
     (void) cetl::pf20::span<const char, 10>(hello_span);
@@ -73,6 +78,7 @@ TEST(DeathTestSpanAssertions, TestStaticSpanFromDynamicOfWrongSize)
 
 static void TestStaticSpanIndexPastEnd()
 {
+    flush_coverage_on_death();
     const char*                hello_world = "Hello World";
     cetl::pf20::span<const char, 11> subject(hello_world, 11);
     (void) subject[11];
@@ -87,6 +93,7 @@ TEST(DeathTestSpanAssertions, TestStaticSpanIndexPastEnd)
 
 static void TestDynamicSpanIndexPastEnd()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello World";
     cetl::pf20::span<const char> subject(hello_world, 11);
     (void) subject[11];
@@ -101,6 +108,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSpanIndexPastEnd)
 
 static void TestStaticIndexOfNull()
 {
+    flush_coverage_on_death();
     const char*                hello_world = nullptr;
     cetl::pf20::span<const char, 11> subject(hello_world, 11);
     (void) subject[0];
@@ -115,6 +123,7 @@ TEST(DeathTestSpanAssertions, TestStaticIndexOfNull)
 
 static void TestDynamicIndexOfNull()
 {
+    flush_coverage_on_death();
     const char*            hello_world = nullptr;
     cetl::pf20::span<const char> subject(hello_world, 1);
     (void) subject[0];
@@ -129,6 +138,7 @@ TEST(DeathTestSpanAssertions, TestDynamicIndexOfNull)
 
 static void TestStaticFrontOfZeroSize()
 {
+    flush_coverage_on_death();
     const char*               hello_world = "Hello world";
     cetl::pf20::span<const char, 0> subject(hello_world, 0);
     (void) subject.front();
@@ -143,6 +153,7 @@ TEST(DeathTestSpanAssertions, TestStaticFrontOfZeroSize)
 
 static void TestDynamicFrontOfZeroSize()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 0);
     (void) subject.front();
@@ -157,6 +168,7 @@ TEST(DeathTestSpanAssertions, TestDynamicFrontOfZeroSize)
 
 static void TestStaticBackOfZeroSize()
 {
+    flush_coverage_on_death();
     const char*               hello_world = "Hello world";
     cetl::pf20::span<const char, 0> subject(hello_world, 0);
     (void) subject.back();
@@ -171,6 +183,7 @@ TEST(DeathTestSpanAssertions, TestStaticBackOfZeroSize)
 
 static void TestDynamicBackOfZeroSize()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 0);
     (void) subject.back();
@@ -185,6 +198,7 @@ TEST(DeathTestSpanAssertions, TestDynamicBackOfZeroSize)
 
 static void TestDynamicSubviewToStaticFirstTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.first<11>();
@@ -199,6 +213,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubviewToStaticFirstTooLarge)
 
 static void TestStaticSubviewFirstTooLarge()
 {
+    flush_coverage_on_death();
     const char*                hello_world = "Hello world";
     cetl::pf20::span<const char, 10> subject(hello_world, 10);
     (void) subject.first(11);
@@ -213,6 +228,7 @@ TEST(DeathTestSpanAssertions, TestStaticSubviewFirstTooLarge)
 
 static void TestDynamicSubviewFirstTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.first(11);
@@ -227,6 +243,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubviewFirstTooLarge)
 
 static void TestDynamicSubviewToStaticLastTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.last<11>();
@@ -241,6 +258,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubviewToStaticLastTooLarge)
 
 static void TestStaticSubviewLastTooLarge()
 {
+    flush_coverage_on_death();
     const char*                hello_world = "Hello world";
     cetl::pf20::span<const char, 10> subject(hello_world, 10);
     (void) subject.last(11);
@@ -255,6 +273,7 @@ TEST(DeathTestSpanAssertions, TestStaticSubviewLastTooLarge)
 
 static void TestDynamicSubviewLastTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.last(11);
@@ -269,6 +288,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubviewLastTooLarge)
 
 static void TestDynamicSubspanToStaticOffsetTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.subspan<11>();
@@ -282,6 +302,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubspanToStaticOffsetTooLarge)
 // +----------------------------------------------------------------------+
 static void TestDynamicSubspanToStaticOffsetAndSizeTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.subspan<1, 11>();
@@ -289,6 +310,7 @@ static void TestDynamicSubspanToStaticOffsetAndSizeTooLarge()
 
 static void TestDynamicSubspanToStaticOffsetAndSizeTooLargeHappy()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.subspan<1>();
@@ -306,6 +328,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubspanToStaticOffsetAndSizeTooLarge)
 
 static void TestStaticSubspanOffsetTooLarge()
 {
+    flush_coverage_on_death();
     const char*                hello_world = "Hello world";
     cetl::pf20::span<const char, 10> subject(hello_world, 10);
     (void) subject.subspan(11, cetl::pf20::dynamic_extent);
@@ -320,6 +343,7 @@ TEST(DeathTestSpanAssertions, TestStaticSubspanOffsetTooLarge)
 
 static void TestDynamicSubspanOffsetTooLarge()
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.subspan(11, cetl::pf20::dynamic_extent);
@@ -334,6 +358,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubspanOffsetTooLarge)
 
 static void TestDynamicSubspanOffsetAndSizeTooLarge(std::size_t offset, std::size_t count)
 {
+    flush_coverage_on_death();
     const char*            hello_world = "Hello world";
     cetl::pf20::span<const char> subject(hello_world, 10);
     (void) subject.subspan(offset, count);
@@ -357,6 +382,7 @@ TEST(DeathTestSpanAssertions, TestDynamicSubspanOffsetAndSizeTooLarge)
 
 static void TestStaticSubspanCountIsWrong()
 {
+    flush_coverage_on_death();
     const char*                hello_world = "Hello world";
     cetl::pf20::span<const char, 10> subject(hello_world, 10);
     (void) subject.subspan(10, 1);

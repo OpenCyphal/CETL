@@ -66,7 +66,12 @@ public:
     SpanData(std::initializer_list<typename SpanType::value_type> l)
         : data_{}
     {
-        memcpy(data_, std::begin(l), sizeof(typename SpanType::value_type) * data_len);
+        // some sort of crazy c++20 optimization was breaking here when using
+        // memcpy. This is a workaround.
+        for(std::size_t i = 0; i < std::min(l.size(), data_len); ++i)
+        {
+            data_[i] = *(l.begin() + i);
+        }
     }
 
     element_type (&data())[data_len]

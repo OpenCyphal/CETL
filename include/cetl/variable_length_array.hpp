@@ -100,7 +100,8 @@ protected:
     // adapted from https://en.cppreference.com/w/cpp/experimental/is_detected
     // implements a C++14-compatible detection idiom.
 
-    template<typename...> using _void_t = void;
+    template <typename...>
+    using _void_t = void;
 
     template <class AlwaysVoid, template <class...> class Op, class... Args>
     struct detector
@@ -164,7 +165,7 @@ protected:
         static_assert(std::is_nothrow_move_assignable<allocator_type>::value,
                       "The C++ standard requires anything adhering to propagate_on_container_move_assignment to copy "
                       "without throwing.");
-        alloc_ = std::move(rhs);
+        alloc_ = std::forward<UAlloc>(rhs);
         return true;
     }
 
@@ -585,7 +586,23 @@ protected:
 
         // can't move the allocator and they aren't always the same. we have to
         // move assign into new memory.
-        if (alloc_ != rhs.alloc_)
+        if (alloc_ == rhs.alloc_)
+        {
+            // Even though the two allocators aren't always the same they are this time. We can simply take ownership
+            // of the incoming memory even if we don't adopt the rhs allocator (SFINAE takes care of that in the
+            // move_assign_alloc method).
+            fast_deallocate(data_, size_, capacity_, alloc_);
+            move_assign_alloc(rhs.alloc_);
+
+            max_size_max_ = rhs.max_size_max_;
+            capacity_     = rhs.capacity_;
+            size_         = rhs.size_;
+            data_         = rhs.data_;
+            rhs.size_     = 0;
+            rhs.data_     = nullptr;
+            rhs.capacity_ = 0;
+        }
+        else
         {
             if (rhs.size_ <= capacity_)
             {
@@ -636,22 +653,6 @@ protected:
                 rhs.resize(0, rhs_max_size);
             }
         }
-        else
-        {
-            // Even though the two allocators aren't always the same they are this time. We can simply take ownership
-            // of the incoming memory even if we don't adopt the rhs allocator (SFINAE takes care of that in the
-            // move_assign_alloc method).
-            fast_deallocate(data_, size_, capacity_, alloc_);
-            move_assign_alloc(rhs.alloc_);
-
-            max_size_max_ = rhs.max_size_max_;
-            capacity_     = rhs.capacity_;
-            size_         = rhs.size_;
-            data_         = rhs.data_;
-            rhs.size_     = 0;
-            rhs.data_     = nullptr;
-            rhs.capacity_ = 0;
-        }
     }
 
     // +----------------------------------------------------------------------+
@@ -661,6 +662,7 @@ protected:
     /// Ensure enough memory is allocated to store at least the `desired_capacity` number of elements.
     ///
     /// @param  desired_capacity The number of elements to allocate, but not initialize, memory for.
+    /// @param  max_size         The maximum number of elements that can be stored in this container.
     ///
     constexpr void reserve(const size_type desired_capacity, const size_type max_size)
     {
@@ -1120,11 +1122,21 @@ public:
         return alloc_;
     }
 
-#if __cpp_exceptions
+#if __cpp_exceptions || defined(CETL_DOXYGEN)
 
+    // *************************************************************************
     // we refuse to implement these with exceptions disabled since there is
     // no good use for then in that context.
+    // *************************************************************************
 
+    /// Returns a reference to the element at specified location pos, with bounds checking.
+    ///
+    /// @note
+    /// This function is only available if exceptions are enabled since there is no
+    /// valid way to implement it without exceptions.
+    ///
+    /// @param  pos Position of the element to return.
+    /// @return Reference to the requested element.
     constexpr reference at(size_type pos)
     {
         if (pos >= size())
@@ -1134,6 +1146,14 @@ public:
         return this->operator[][pos];
     }
 
+    /// Returns a const reference to the element at specified location pos, with bounds checking.
+    ///
+    /// @note
+    /// This function is only available if exceptions are enabled since there is no
+    /// valid way to implement it without exceptions.
+    ///
+    /// @param  pos Position of the element to return.
+    /// @return Const reference to the requested element.
     constexpr const_reference at(size_type pos) const
     {
         if (pos >= size())
@@ -1149,27 +1169,34 @@ public:
     // | CAPACITY
     // +----------------------------------------------------------------------+
 
+    /// Query if the container has any elements in it at all.
+    /// @return `true` if the container is empty, `false` otherwise.
+    ///
     constexpr bool empty() const noexcept
     {
         return (size_ == 0);
     }
 
-#if __cpp_exceptions
+    /// Reduce the amount of memory held by this object to the minimum required
+    /// based on size. This method may not actually deallocate any memory if
+    /// if there is not enough memory to allocate a smaller buffer before
+    /// moving the existing elements and freeing the larger buffer.
+    /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
+#if __cpp_exceptions
         try
         {
+#endif
             Base::shrink_to_fit();
-        }
-        catch(const std::bad_alloc&)
+#if __cpp_exceptions
+        } catch (const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
             // shrink.
         }
-    }
-#else
-    using Base::shrink_to_fit;
 #endif
+    }
 
     ///
     /// The number of elements that can be stored in the array without further
@@ -1203,6 +1230,13 @@ public:
         Base::reserve(desired_capacity, max_size());
     }
 
+    /// Returns the, theoretical, maximum number of elements that can be stored in this container.
+    /// It does not take into account the current state of the allocator. That is, if the allocator
+    /// is out of memory this method will still return the maximum number of elements that could
+    /// be stored if the allocator had enough memory, however, it will always return the maximum
+    /// size passed into the constructor if that value is less than the allocator's max_size.
+    ///
+    /// @return The maximum number of elements that could be stored in this container.
     constexpr size_type max_size() const noexcept
     {
         const size_type max_diff = std::numeric_limits<ptrdiff_t>::max() / sizeof(value_type);
@@ -1363,9 +1397,8 @@ private:
 // | SPECIALIZATIONS
 // +-------------------------------------------------------------------------------------------------------------------+
 ///
-/// A memory-optimized specialization for bool storing 8 bits per byte;
-/// the internal bit ordering follows the Cyphal DSDL specification.
-/// Some features are not supported.
+/// A memory-optimized specialization for bool storing 8 bits per byte.
+/// The internal bit ordering is little-endian.
 /// @tparam Allocator The allocator type to use.
 template <typename Allocator>
 class VariableLengthArray<bool, Allocator> : protected VariableLengthArrayBase<unsigned char, Allocator>
@@ -1792,11 +1825,21 @@ public:
         return alloc_;
     }
 
-#if __cpp_exceptions
+#if __cpp_exceptions || defined(CETL_DOXYGEN)
 
+    // *************************************************************************
     // we refuse to implement these with exceptions disabled since there is
     // no good use for then in that context.
+    // *************************************************************************
 
+    /// Returns a reference to the element at specified location pos, with bounds checking.
+    ///
+    /// @note
+    /// This function is only available if exceptions are enabled since there is no
+    /// valid way to implement it without exceptions.
+    ///
+    /// @param  pos Position of the element to return.
+    /// @return Reference to the requested element.
     constexpr reference at(size_type pos)
     {
         if (pos >= size())
@@ -1806,6 +1849,14 @@ public:
         return this->operator[](pos);
     }
 
+    /// Returns a const reference to the element at specified location pos, with bounds checking.
+    ///
+    /// @note
+    /// This function is only available if exceptions are enabled since there is no
+    /// valid way to implement it without exceptions.
+    ///
+    /// @param  pos Position of the element to return.
+    /// @return Const reference to the requested element.
     constexpr const_reference at(size_type pos) const
     {
         if (pos >= size())
@@ -1821,11 +1872,21 @@ public:
     // | CAPACITY
     // +----------------------------------------------------------------------+
 
+    /// Query if the container has any elements in it at all.
+    /// @return `true` if the container is empty, `false` otherwise.
+    ///
     constexpr bool empty() const noexcept
     {
         return (last_byte_bit_fill_ == 0);
     }
 
+    /// Returns the, theoretical, maximum number of elements that can be stored in this container.
+    /// It does not take into account the current state of the allocator. That is, if the allocator
+    /// is out of memory this method will still return the maximum number of elements that could
+    /// be stored if the allocator had enough memory, however, it will always return the maximum
+    /// size passed into the constructor if that value is less than the allocator's max_size.
+    ///
+    /// @return The maximum number of elements that could be stored in this container.
     constexpr size_type max_size() const noexcept
     {
         const size_type max_diff = std::numeric_limits<ptrdiff_t>::max() / sizeof(bool);
@@ -1834,22 +1895,26 @@ public:
         return max_size_bytes * 8;
     }
 
-#if __cpp_exceptions
+    /// Reduce the amount of memory held by this object to the minimum required
+    /// based on size. This method may not actually deallocate any memory if
+    /// if there is not enough memory to allocate a smaller buffer before
+    /// moving the existing elements and freeing the larger buffer.
+    /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
+#if __cpp_exceptions
         try
         {
+#endif
             Base::shrink_to_fit();
-        }
-        catch(const std::bad_alloc&)
+#if __cpp_exceptions
+        } catch (const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
             // shrink.
         }
-    }
-#else
-    using Base::shrink_to_fit;
 #endif
+    }
 
     ///
     /// The number of elements that can be stored in the array without further
@@ -2030,8 +2095,10 @@ private:
 
     constexpr size_type size_bits() const noexcept
     {
-        CETL_DEBUG_ASSERT(last_byte_bit_fill_ <= 8, "last_byte_bit_fill_ is out of range.");
-        CETL_DEBUG_ASSERT(size_ <= capacity_, "size_ is out of range.");
+        CETL_DEBUG_ASSERT(last_byte_bit_fill_ <= 8, "CDE_vla_001: last_byte_bit_fill_ is out of range.");
+        CETL_DEBUG_ASSERT(size_ <= capacity_, "CDE_vla_002: size_ is out of range.");
+        CETL_DEBUG_ASSERT(size_ == 0 || last_byte_bit_fill_ > 0,
+                          "CDE_vla_003: last_byte_bit_fill_ cannot be zero unless size_ is.");
         return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + last_byte_bit_fill_;
     }
 

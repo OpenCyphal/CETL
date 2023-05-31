@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2014 Pavel Kirienko <pavel.kirienko@gmail.com>
+# Copyright (C) 2014 Pavel Kirienko <pavel@opencyphal.org>
 # Copyright Amazon.com Inc. or its affiliates.
 # SPDX-License-Identifier: MIT
 #
@@ -26,10 +26,14 @@ if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
     set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 endif()
 
-if (NOT DEFINED CETL_VERSION)
-    message(WARNING "CETL_VERSION was not set. Defaulting to 0.0.0.")
-    set(CETL_VERSION "0.0.0")
+if (NOT DEFINED CYPHAL_PROJECT_VERSION)
+    message(WARNING "CYPHAL_PROJECT_VERSION was not set. Setting CYPHAL_VERSION to default of 0.0.0.")
+    set(CYPHAL_VERSION "0.0.0")
+else()
+    set(CYPHAL_VERSION ${CYPHAL_PROJECT_VERSION})
 endif()
+
+add_compile_definitions("CYPHAL_VERSION=\"${CYPHAL_VERSION}\"")
 
 if (NOT DEFINED CETL_ROOT)
     set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
@@ -45,6 +49,12 @@ endif()
 include_directories(
     "${CMAKE_SOURCE_DIR}/include"
 )
+
+if(NOT DEFINED FETCHCONTENT_FULLY_DISCONNECTED)
+    message(WARNING "FETCHCONTENT_FULLY_DISCONNECTED was not defined. Setting to \"OFF\" as a default but the build "
+                    "will fail if you haven't previously downloaded the external dependencies.")
+    set(FETCHCONTENT_FULLY_DISCONNECTED OFF)
+endif()
 
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)
     message(DEBUG "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
@@ -94,6 +104,10 @@ option(CETLVAST_DISABLE_CPP_EXCEPTIONS "Attempt to disable C++ exceptions for th
 
 if (CETL_ENABLE_DEBUG_ASSERT)
 add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=1")
+endif()
+
+if (LIBCXX_ENABLE_ASSERTIONS)
+add_compile_definitions("LIBCXX_ENABLE_ASSERTIONS=1")
 endif()
 
 message(STATUS "[ Build Options ]--------------------------------------\n\
@@ -149,8 +163,18 @@ cmake_path(APPEND CETL_ROOT "include" OUTPUT_VARIABLE CETL_INCLUDE)
 add_library(cetl INTERFACE)
 target_include_directories(cetl INTERFACE ${CETL_INCLUDE})
 
-enable_clang_format_check_for_directory(DIRECTORY ${CETL_INCLUDE} GLOB_PATTERN "**/*.hpp")
-enable_clang_format_in_place_for_directory(DIRECTORY ${CETL_INCLUDE} GLOB_PATTERN "**/*.hpp")
+# define a dry-run version that we always run.
+enable_clang_format_check_for_directory(
+    DIRECTORY ${CETL_INCLUDE}
+    GLOB_PATTERN "**/*.hpp"
+    ADD_TO_ALL
+    OUT_TARGET_NAME LOCAL_FORMAT_CHECK_TARGET_NAME)
+
+# provide an in-place format version as a helper that must be manually run.
+enable_clang_format_check_for_directory(
+    DIRECTORY ${CETL_INCLUDE}
+    GLOB_PATTERN "**/*.hpp"
+    FORMAT_IN_PLACE)
 
 # +---------------------------------------------------------------------------+
 # | TEST SUITES
@@ -160,21 +184,20 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/suites/unittest)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/docs)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
 
-
 # +---------------------------------------------------------------------------+
 # | BUILD TARGET ALIASES
 # +---------------------------------------------------------------------------+
+add_custom_target(
+    lint
+    DEPENDS
+        ${LOCAL_FORMAT_CHECK_TARGET_NAME}
+)
 
 add_custom_target(
     docs
     DEPENDS
+        lint
         generate_CETL_docs
-)
-
-add_custom_target(
-    lint
-    DEPENDS
-        cetlvast_clang_format_check
 )
 
 add_custom_target(
@@ -182,6 +205,7 @@ add_custom_target(
     DEPENDS
         build_unittests
         build_examples
+        build_compile_tests
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
@@ -189,9 +213,12 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         unittest
         DEPENDS
             run_unittests
+            gcovr_sonarqube_report_for_unittest
             gcovr_html_report_for_unittest
             run_examples
+            gcovr_sonarqube_report_for_examples
             gcovr_html_report_for_examples
+            run_compile_precheck_tests
     )
 else()
     add_custom_target(
@@ -199,6 +226,7 @@ else()
         DEPENDS
             run_unittests
             run_examples
+            run_compile_precheck_tests
     )
 endif()
 

@@ -7,6 +7,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
+// cSpell: words soccc
 
 #include "cetl/variable_length_array.hpp"
 
@@ -74,7 +75,7 @@ struct InstrumentedType
         ++total_instances_move_constructed;
     }
 
-    ~InstrumentedType()
+    ~InstrumentedType() noexcept
     {
         EXPECT_GT(instance_counter, 0) << "Attempted to destroy more instances than were created." << std::endl;
         --instance_counter;
@@ -163,10 +164,22 @@ protected:
         return cetlvast::InstrumentedAllocatorStatistics::get().outstanding_allocated_memory;
     }
 
-    template <typename ContainerT0, typename ContainerT1>
-    void account_for_all_memory(const ContainerT0& c0, const ContainerT1& c1) const
+    template <typename ContainerT>
+    static std::size_t sum_memory_used_by(std::size_t add_to, const ContainerT& c)
     {
-        const std::size_t expected_outstanding_memory = (c0.capacity() + c1.capacity()) * ItemSize;
+        return add_to + c.capacity() * ItemSize;
+    }
+
+    template <typename FirstContainerType, typename ...ContainerT>
+    static std::size_t sum_memory_used_by(std::size_t add_to, const FirstContainerType& first, const ContainerT& ...remaining)
+    {
+        return add_to + sum_memory_used_by(first.capacity() * ItemSize, remaining...);
+    }
+
+    template <typename ...ContainerT>
+    void account_for_all_memory(const ContainerT& ... args) const
+    {
+        std::size_t expected_outstanding_memory = sum_memory_used_by(0, args...);
         EXPECT_EQ(expected_outstanding_memory, this->outstanding_memory());
     }
 };
@@ -253,9 +266,8 @@ TYPED_TEST(VLADetailedAllocationTests, AllocatorDefaultState)
     ASSERT_FALSE(test_subject.get_allocator().was_from_soccc);
 
     test_subject.pop_back();
-    test_subject.shrink_to_fit();
-
-    ASSERT_EQ(0, this->outstanding_memory());
+    ASSERT_EQ(0, test_subject.size());
+    this->account_for_all_memory(test_subject);
 
     TypeParam sequence_one_to_four_a{{1, 2, 3, 4}, typename TypeParam::allocator_type{}};
     TypeParam sequence_one_to_four_b{{1, 2, 3, 4}, typename TypeParam::allocator_type{}};
@@ -475,12 +487,14 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignSameSize)
         !AreAllocatorsEqual<TypeParam>::value)
     {
         // we didn't actually move the allocator.
-        test_source.clear();
-        test_source.shrink_to_fit();
+        this->account_for_all_memory(test_subject, copy_of_source, test_source);
+    }
+    else
+    {
+        this->account_for_all_memory(test_subject, copy_of_source);
     }
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(4, test_subject.size());
-    this->account_for_all_memory(test_subject, copy_of_source);
 
     // For creating the initial values from integers and copying the source
     // array.
@@ -525,12 +539,14 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignLargeToSmall)
         !AreAllocatorsEqual<TypeParam>::value)
     {
         // we didn't actually move the allocator.
-        test_source.clear();
-        test_source.shrink_to_fit();
+        this->account_for_all_memory(test_subject, copy_of_source, test_source);
+    }
+    else
+    {
+        this->account_for_all_memory(test_subject, copy_of_source);
     }
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(7, test_subject.size());
-    this->account_for_all_memory(test_subject, copy_of_source);
 
     // For creating the initial values from integers and for copying the source
     // container.
@@ -568,13 +584,15 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignSmallToLarge)
     if (!TypeParam::allocator_type::propagate_on_container_move_assignment::value &&
         !AreAllocatorsEqual<TypeParam>::value)
     {
-        // we didn't actually move the allocator.
-        test_source.clear();
-        test_source.shrink_to_fit();
+         // we didn't actually move the allocator.
+        this->account_for_all_memory(test_subject, copy_of_source, test_source);
+    }
+    else
+    {
+        this->account_for_all_memory(test_subject, copy_of_source);
     }
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(2, test_subject.size());
-    this->account_for_all_memory(test_subject, copy_of_source);
 
     // For creating the initial values from integers and for copying the source
     // container.
@@ -604,13 +622,15 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignVeryLargeToEmpty)
     if (!TypeParam::allocator_type::propagate_on_container_move_assignment::value &&
         !AreAllocatorsEqual<TypeParam>::value)
     {
-        // we didn't actually move the allocator.
-        test_source.clear();
-        test_source.shrink_to_fit();
+         // we didn't actually move the allocator.
+        this->account_for_all_memory(test_subject, copy_of_source, test_source);
+    }
+    else
+    {
+        this->account_for_all_memory(test_subject, copy_of_source);
     }
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(cetlvast::large_array_of_integers_size, test_subject.size());
-    this->account_for_all_memory(test_subject, copy_of_source);
 
     // For creating the initial values from integers and for copying the source
     // container.
@@ -648,13 +668,15 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignFromEmpty)
     if (!TypeParam::allocator_type::propagate_on_container_move_assignment::value &&
         !AreAllocatorsEqual<TypeParam>::value)
     {
-        // we didn't actually move the allocator.
-        test_source.clear();
-        test_source.shrink_to_fit();
+         // we didn't actually move the allocator.
+        this->account_for_all_memory(test_subject, copy_of_source, test_source);
+    }
+    else
+    {
+        this->account_for_all_memory(test_subject, copy_of_source);
     }
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(0, test_subject.size());
-    this->account_for_all_memory(test_subject, copy_of_source);
 
     // For creating the initial values from integers
     EXPECT_EQ(3, TestFixture::ItemT::total_instances_implicit_int_constructed);

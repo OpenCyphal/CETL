@@ -16,43 +16,59 @@ add_subdirectory(examples)
 # | DOXYGEN
 # +---------------------------------------------------------------------------+
 
-find_package(Doxygen REQUIRED)
+find_package(Doxygen)
 find_program(TAR tar)
 
 # :function: create_docs_target
 # Create a target that generates documentation.
 #
-# :param str ARG_DOCS_DOXY_ROOT:            The folder under which all doxygen configuration, templates,
-#                                           styles, and examples can be found.
-# :param str ARG_OPEN_CYPHAL_PROJECT_NAME:  The name of the org.opencyphal project this documentation is for.
-# :param str ARG_PROJECT_VERSION            A string that contains the version of the cyphal project to display
-#                                           in the generated documentation.
-# :param str ARG_OPEN_CYPHAL_PROJECT_BRIEF: A one-line description of the project to be included in the generated
-#                                           documents.
-# :param bool ARG_W_ERROR                   If true then warnings are treated as errors.
-# :param path ARG_EXAMPLES_PATH:            A path to example code to be included in the docs.
-# :param path ARG_MAIN_PAGE_PATH:           A file to use as the main page (e.g. ${PROJECT_ROOT}/README.md).
-# :param list[path] ARG_INPUT_LIST          A list of source files to generate documentation for.
-# :param list[str] ARG_DEPENDS:             A list of dependencies the docs build should take.
+# :param str        DOCS_DOXY_ROOT:             The folder under which all doxygen configuration, templates,
+#                                               styles, and examples can be found.
+# :param str        OPEN_CYPHAL_PROJECT_NAME:   The name of the org.opencyphal project this documentation is for.
+# :param str        OPEN_CYPHAL_PROJECT_VERSION A string that contains the version of the cyphal project to display
+#                                               in the generated documentation.
+# :param str        OPEN_CYPHAL_PROJECT_BRIEF:  A one-line description of the project to be included in the generated
+#                                               documents.
+# :param path       EXAMPLES_PATH:              A path to example code to be included in the docs.
+# :param path       MAIN_PAGE_PATH:             A file to use as the main page (e.g. ${PROJECT_ROOT}/README.md).
+# :param path       INCLUDE_PREFIX_STRIP:       A path to strip from the beginning of all include paths.
+# :param list[path] INPUT_LIST                  A list of source files to generate documentation for.
+# :param list[str]  DEPENDS:                    A list of dependencies the docs build should take.
+# :option W_ERROR                               If specified then warnings are treated as errors.
 #
-# :return : A build target named ${ARG_OPEN_CYPHAL_PROJECT_NAME}_docs is defined.
-#
-function (create_docs_target ARG_DOCS_DOXY_ROOT
-                             ARG_OPEN_CYPHAL_PROJECT_NAME
-                             ARG_PROJECT_VERSION
-                             ARG_OPEN_CYPHAL_PROJECT_BRIEF
-                             ARG_W_ERROR
-                             ARG_EXAMPLES_PATH
-                             ARG_MAIN_PAGE_PATH
-                             ARG_INPUT_LIST
-                             ARG_DEPENDS)
+# :param[out] target: OUT_DOC_BUILD_TARGET:     Set to the name of a variable, in the parent scope, to a build target
+#                                               that will generate the docs.
+# :param[out] target: OUT_DOC_TAR_TARGET:       Set to the name of a variable, in the parent scope, to a build target
+#                                               that will create a tarball of the docs after they are generated.
+function (create_docs_target)
 
+    #+-[input]----------------------------------------------------------------+
+    set(options W_ERROR)
+    set(singleValueArgs DOCS_DOXY_ROOT
+                        OPEN_CYPHAL_PROJECT_NAME
+                        OPEN_CYPHAL_PROJECT_VERSION
+                        OPEN_CYPHAL_PROJECT_BRIEF
+                        EXAMPLES_PATH
+                        MAIN_PAGE_PATH
+                        INCLUDE_PREFIX_STRIP
+                        OUT_DOC_BUILD_TARGET
+                        OUT_DOC_TAR_TARGET)
+    set(multiValueArgs  INPUT_LIST
+                        DEPENDS)
+    cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
+
+    if (NOT ARG_RUNTIME_OUTPUT_DIRECTORY)
+        set(ARG_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    #+-[body]-----------------------------------------------------------------+
     set(DOXYGEN_SOURCE ${ARG_DOCS_DOXY_ROOT})
     set(DOXYGEN_RDOMAIN org.opencyphal)
     set(DOXYGEN_RDOMAIN_W_PROJECT org.opencyphal.${ARG_OPEN_CYPHAL_PROJECT_NAME})
     set(DOXYGEN_PROJECT_NAME "${ARG_OPEN_CYPHAL_PROJECT_NAME}")
-    set(DOXYGEN_PROJECT_VERSION "${ARG_PROJECT_VERSION}")
+    set(DOXYGEN_PROJECT_VERSION "${ARG_OPEN_CYPHAL_PROJECT_VERSION}")
     set(DOXYGEN_PROJECT_BRIEF "${ARG_OPEN_CYPHAL_PROJECT_BRIEF}")
+    set(DOXYGEN_PROJECT_INCLUDE_PREFIX_STRIP "${ARG_INCLUDE_PREFIX_STRIP}")
     if (${ARG_W_ERROR})
         set(DOXYGEN_WARN_AS_ERROR "YES")
     else()
@@ -121,7 +137,20 @@ function (create_docs_target ARG_DOCS_DOXY_ROOT
         add_custom_target(archive_${ARG_OPEN_CYPHAL_PROJECT_NAME}_docs DEPENDS ${DOXYGEN_OUTPUT_DIRECTORY}/html.gz)
     endif()
 
+     #+-[output]---------------------------------------------------------------+
+
+    if(NOT ARG_OUT_DOC_BUILD_TARGET STREQUAL "")
+        set(${ARG_OUT_DOC_BUILD_TARGET} generate_${ARG_OPEN_CYPHAL_PROJECT_NAME}_docs PARENT_SCOPE)
+    endif()
+
+    if(NOT ARG_OUT_DOC_TAR_TARGET STREQUAL "")
+        set(${ARG_OUT_DOC_TAR_TARGET} archive_${ARG_OPEN_CYPHAL_PROJECT_NAME}_docs PARENT_SCOPE)
+    endif()
+
 endfunction(create_docs_target)
+
+
+if (${Doxygen_FOUND})
 
 file(GLOB_RECURSE DOXYGEN_INPUT_LIST
     LIST_DIRECTORIES false
@@ -133,13 +162,25 @@ get_property(LOCAL_EXAMPLES DIRECTORY "examples" PROPERTY IN_BUILD_TESTS)
 
 list(TRANSFORM LOCAL_EXAMPLES PREPEND "examples/")
 
-create_docs_target( ${CMAKE_CURRENT_SOURCE_DIR}
-                    "CETL"
-                    ${CETL_VERSION}
-                    "Cyphal Embedded Template Library"
-                    OFF
-                    ${CMAKE_CURRENT_SOURCE_DIR}/examples
-                    "${CETL_ROOT}/README.md"
-                    "${DOXYGEN_INPUT_LIST}"
-                    "${LOCAL_EXAMPLES}"
+create_docs_target( DOCS_DOXY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}
+                    OPEN_CYPHAL_PROJECT_NAME "CETL"
+                    OPEN_CYPHAL_PROJECT_VERSION ${CYPHAL_PROJECT_VERSION}
+                    OPEN_CYPHAL_PROJECT_NAME_BRIEF
+                        "Cyphal Embedded Template Library"
+                    EXAMPLES_PATH
+                        ${CMAKE_CURRENT_SOURCE_DIR}/examples
+                    MAIN_PAGE_PATH
+                        "${CETL_ROOT}/README.md"
+                    INCLUDE_PREFIX_STRIP
+                        "\"${CETL_ROOT}/include\""
+                    INPUT_LIST
+                        ${DOXYGEN_INPUT_LIST}
+                    DEPENDS
+                        ${LOCAL_EXAMPLES}
+                    W_ERROR
 )
+
+else()
+message(STATUS "Doxygen was not found. Documentation targets will not be enabled.")
+
+endif()

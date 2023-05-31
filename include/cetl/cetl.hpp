@@ -68,7 +68,11 @@
 /// Define `CETL_ENABLE_DEBUG_ASSERT` as 1 to enable assertions within CETL code. Enabling this
 /// in production code is <em>strongly</em> discouraged.
 ///
-#if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
+#if defined NDEBUG && defined CETL_ENABLE_DEBUG_ASSERT
+#    undef CETL_ENABLE_DEBUG_ASSERT
+#endif
+
+#if defined CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
 #    define CETL_DEBUG_ASSERT(c, m) assert(((void) m, c))
 #else

@@ -42,9 +42,12 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
+            ROOT_DIRECTORY ${CETL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
+            OBJECT_LIBRARY ${LOCAL_TEST_LIB}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
+            ENABLE_INSTRUMENTATION
             OUT_TRACEFILE_VARIABLE LOCAL_TEST_TRACEFILE
         )
     endif()
@@ -58,10 +61,15 @@ add_custom_target(
           ${ALL_EXAMPLES}
 )
 
+define_junit_to_sonarqube_conversion_rule(
+    SOURCE_FILES ${ALL_EXAMPLE_RUNS}
+    OUTPUT "examples-sonarqube.xml"
+)
+
 add_custom_target(
      run_examples
      DEPENDS
-          ${ALL_EXAMPLE_RUNS}
+        "examples-sonarqube.xml"
 )
 
 set_directory_properties(PROPERTIES
@@ -69,5 +77,7 @@ set_directory_properties(PROPERTIES
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_html_report()
+    enable_coverage_report(COVERAGE_REPORT_FORMATS sonarqube html
+                           ROOT_DIRECTORY ${CETL_ROOT}
+    )
 endif()

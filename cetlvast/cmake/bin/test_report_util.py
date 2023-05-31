@@ -15,10 +15,8 @@
 
 import argparse
 import logging
-import os
 import pathlib
 import sys
-import textwrap
 import typing
 import xml.etree.ElementTree as ET
 
@@ -76,7 +74,7 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
             sq_testcase_attrib: typing.Dict[str, str] = dict()
             sq_testcase_attrib["name"] = testcase_name
             test_duration = float(testcase.get("time", 0.0))
-            sq_testcase_attrib["duration"] = str(test_duration)
+            sq_testcase_attrib["duration"] = str(int(test_duration))
 
             sq_test_case = ET.Element("testCase", attrib=sq_testcase_attrib)
             sq_file.append(sq_test_case)
@@ -102,51 +100,48 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
 # +---------------------------------------------------------------------------+
 
 
-def _handle_generate_test_report(args: argparse.Namespace, cmake_dir: pathlib.Path, test_result: int) -> int:
-    if (output_file := args.generate_test_report) is None:
-        return 0
+def _make_parser() -> argparse.ArgumentParser:
 
-    output_path = pathlib.Path.cwd().joinpath(_suite_dir(args, cmake_dir) / output_file)
-    test_executions = ET.Element("testExecutions", attrib={"version": "1"})
-    sq_report = ET.ElementTree(test_executions)
+    parser = argparse.ArgumentParser(
+        description="Utility to convert junit-style test reports into the SonarQube generic test execution format.",
+    )
 
-    for gtest_report in _suite_dir(args, cmake_dir).glob("*-gtest.xml"):
-        logging.debug("Found gtest report {}. Will combine into sonarqube report.".format(gtest_report))
-        _junit_to_sonarqube_generic_execution_format(gtest_report, sq_report.getroot())
+    parser.add_argument("-p",
+                        "--pattern",
+                        default="*.xml",
+                        help="Pattern to match for test suites to run. (default: %(default)s)")
+    parser.add_argument("-v",
+                        "--verbose",
+                        action="count",
+                        default=0,
+                        help="Increase logging verbosity. (default: %(default)s)")
+    parser.add_argument("output",
+                        type=pathlib.Path,
+                        help="Output file to write the test report to. (default: %(default)s)")
+    parser.add_argument("--dry-run",
+                        action="store_true",
+                        help="Do not write the test report to disk.")
+    parser.add_argument("-s",
+                        "--stop-on-failure",
+                        action="store_true",
+                        help="Stop on first test failure.")
+    parser.add_argument("-i",
+                        "--input",
+                        action="append",
+                        help="Input files to convert.")
+    return parser
 
-    for ctest_report in _suite_dir(args, cmake_dir).glob("*ctest.xml"):
-        logging.debug("Found ctest report {}. Will combine into sonarqube report.".format(ctest_report))
-        _junit_to_sonarqube_generic_execution_format(ctest_report, sq_report.getroot())
-
-    if args.dry_run:
-        logging.debug("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
-    else:
-        logging.debug("About to write a test report for {} files to {}".format(len(test_executions.findall("file")), output_path))
-        ET.indent(sq_report)
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        sq_report.write(output_path, encoding="UTF-8")
-    return test_result
 
 # +---------------------------------------------------------------------------+
 
 
-def _make_parser() -> argparse.ArgumentParser:
-
-    epilog = textwrap.dedent(
-        """
-
-        **Example Usage**::
-
-            TODO: (sorry)
-
-    """
-    )
-
-    parser = argparse.ArgumentParser(
-        description="CMake command-line helper for running cetlvast suites.",
-        epilog=epilog,
-        formatter_class=argparse.RawTextHelpFormatter,
-    )
+def append(test_report: pathlib.Path, sq_report: ET.Element) -> int:
+    try:
+        _junit_to_sonarqube_generic_execution_format(test_report, sq_report)
+        return 0
+    except ET.ParseError as err:
+        logging.warning("Failed to parse report {}: {}".format(test_report, err))
+        return 1
 
 
 # +---------------------------------------------------------------------------+
@@ -158,10 +153,6 @@ def main() -> int:
     """
     args = _make_parser().parse_args()
 
-    verification_dir = args.cetlvast_dir
-    cmake_dir = verification_dir / pathlib.Path(_create_build_dir_name(args))
-    cmake_args = ["cmake"]
-
     logging_level = logging.WARN
 
     if args.verbose == 2:
@@ -171,21 +162,29 @@ def main() -> int:
 
     logging.basicConfig(format="%(levelname)s: %(message)s", level=logging_level)
 
-    logging.info(
-        textwrap.dedent(
-            """
+    test_executions = ET.Element("testExecutions", attrib={"version": "1"})
+    sq_report = ET.ElementTree(test_executions)
 
-    *****************************************************************
-    Command-line Arguments to {}:
+    if args.pattern is not None:
+        for test_report in pathlib.Path.cwd().glob(args.pattern):
+            if test_report.suffix == ".xml":
+                logging.info("Found report {}. Trying to combine into sonarqube report.".format(test_report))
+                if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
+                    return 1;
 
-    {}
+    for test_report in args.input:
+        if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
+            return 1;
 
-    For verify version {}
-    *****************************************************************
+    if args.dry_run:
+        logging.info("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), args.output))
+    else:
+        logging.debug("About to write a test report for {} files to {}".format(len(test_executions.findall("file")), args.output))
+        ET.indent(sq_report)
+        with open(args.output, "wb") as sq_report_file:
+            sq_report.write(sq_report_file, encoding="UTF-8")
 
-    """
-        ).format(os.path.basename(__file__), str(args), _get_version_string(verification_dir))
-    )
+    return 0
 
 
 # +---------------------------------------------------------------------------+

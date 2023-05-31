@@ -8,9 +8,29 @@ cmake_minimum_required(VERSION 3.22.0)
 project(cetlvast_unittest CXX)
 
 find_package(googletest REQUIRED)
+find_package(TestReport REQUIRED)
 find_package(o1heap REQUIRED)
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 find_package(gcovr REQUIRED)
+endif()
+
+
+# TODO: submit upstream patch to googletest to make this unnecessary.
+add_library(
+    flush_coverage_on_death
+    STATIC
+        "flush_coverage_on_death.c"
+)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    target_link_options(flush_coverage_on_death
+        PUBLIC
+            "--coverage"
+    )
+    target_compile_definitions(flush_coverage_on_death
+        PUBLIC
+            CETLVAST_COVERAGE
+    )
 endif()
 
 # +---------------------------------------------------------------------------+
@@ -33,6 +53,7 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
         EXTRA_TEST_LIBS
             cetl
             o1heap
+            flush_coverage_on_death
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
@@ -44,9 +65,12 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
+            ROOT_DIRECTORY ${CETL_ROOT}
             TARGET_EXECUTION_DEPENDS ${LOCAL_TEST_REPORT}
+            OBJECT_LIBRARY ${LOCAL_TEST_LIB}
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
+            ENABLE_INSTRUMENTATION
             OUT_TRACEFILE_VARIABLE LOCAL_TEST_TRACEFILE
         )
     endif()
@@ -58,10 +82,15 @@ add_custom_target(
           ${ALL_TESTS_BUILD}
 )
 
+define_junit_to_sonarqube_conversion_rule(
+    SOURCE_FILES ${ALL_TESTS_RUN}
+    OUTPUT "unittest-sonarqube.xml"
+)
+
 add_custom_target(
      run_unittests
      DEPENDS
-          ${ALL_TESTS_RUN}
+        "unittest-sonarqube.xml"
 )
 
 set_directory_properties(PROPERTIES
@@ -69,5 +98,75 @@ set_directory_properties(PROPERTIES
 )
 
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_html_report()
+    enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
+                           ROOT_DIRECTORY ${CETL_ROOT}
+                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
+    )
+endif()
+
+
+# +---------------------------------------------------------------------------+
+# | SONARQUBE
+# +---------------------------------------------------------------------------+
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+
+# we need to build at least one source file to get sonarqube to look at the cetl
+# headers.
+add_executable(cetlvast_sonar
+    "sonar.cpp"
+)
+
+target_link_libraries(cetlvast_sonar
+    PRIVATE cetl
+)
+
+find_package(SonarScanner)
+
+if (${SonarScanner_FOUND})
+
+    # This is allows local debugging of the github action that runs sonarqube.
+    # It's not supposed to be part of the normal development process. To use sonarqube
+    # as part of your normal development process, you should use SonarSource.sonarlint-vscode
+    # in vscode.
+    #
+    # WARNING: If you are a project admin and you have a SONAR_TOKEN, this will upload
+    # the measure to the CETL project on sonarcloud.io. Be sure you are on a branch
+    # if you do this.
+
+    message(STATUS "SonarScanner found. Adding a local Sonar Scanner target.")
+
+    if(NOT DEFINED ENV{SONAR_TOKEN})
+        message(WARNING "SONAR_TOKEN token not found. Set this in the environment upload scan results to "
+                        "${SONARSCANNER_SONARCLOUD_URL}. While the scan will still run, the scanner will return an "
+                        "error which will fail the build.")
+    endif()
+
+    define_sonar_cloud_scan_target_for_c_cpp(
+        ROOT_DIRECTORY ${CETL_ROOT}
+        PROJECT_KEY OpenCyphal_CETL
+        PROJECT_NAME CETLVaSt
+        DEPENDS
+            unittest-sonarqube.xml
+            ${LOCAL_COVERAGE_REPORT_INDICIES}
+            cetlvast_sonar
+        SOURCES
+            "include"
+            "${CMAKE_CURRENT_SOURCE_DIR}/sonar.cpp"
+        TESTS
+            "${CMAKE_CURRENT_SOURCE_DIR}"
+        TEST_INCLUSIONS
+            "test_*.cpp"
+        EXCLUDE_COVERAGE
+            "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
+        EXCLUDE_CPD
+            "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
+        CPP_VERSION ${CETLVAST_CPP_STANDARD}
+        COVERAGE_REPORTS
+            "${CMAKE_CURRENT_BINARY_DIR}/coverage.xml"
+        TEST_REPORTS
+            "${CMAKE_CURRENT_BINARY_DIR}/unittest-sonarqube.xml"
+    )
+else()
+    message(STATUS "SonarScanner not found. Skipping SonarCloud integration.")
+endif()
 endif()

@@ -83,21 +83,21 @@ TEST(example_06_polymorphic_alloc_deleter, example_usage_0)
     std::unique_ptr<MyObject, MyDeleter> object_0{alloc.allocate(1), MyDeleter{alloc, 1}};
     if (nullptr != object_0)
     {
-        alloc.construct(object_0.get(), "object_0", 8U);
+        alloc.construct(object_0.get(), "object_0", 9U);
         objects.emplace(object_0->name(), std::move(object_0));
     } // else, if we're here then exceptions are turned off, but deallocation is always null-safe.
 
     std::unique_ptr<MyObject, MyDeleter> object_1{alloc.allocate(1), MyDeleter{alloc, 1}};
     if (nullptr != object_1)
     {
-        alloc.construct(object_1.get(), "object_1", 8U);
+        alloc.construct(object_1.get(), "object_1", 9U);
         objects.emplace(object_1->name(), std::move(object_1));
     }
 
     std::unique_ptr<MyObject, MyDeleter> object_2{alloc.allocate(1), MyDeleter{alloc, 1}};
     if (nullptr != object_2)
     {
-        alloc.construct(object_2.get(), "object_2", 8U);
+        alloc.construct(object_2.get(), "object_2", 9U);
         objects.emplace(object_2->name(), std::move(object_2));
     }
 
@@ -121,13 +121,13 @@ TEST(example_06_polymorphic_alloc_deleter, example_usage_1)
     std::unordered_map<std::string, cetl::pmr::Factory::unique_ptr_t<decltype(alloc)>> objects;
     objects.reserve(6);
 
-    auto object_0 = cetl::pmr::Factory::make_unique(alloc, "object_0", 8U);
+    auto object_0 = cetl::pmr::Factory::make_unique(alloc, "object_0", 9U);
     objects.emplace(object_0->name(), std::move(object_0));
 
-    auto object_1 = cetl::pmr::Factory::make_unique(alloc, "object_1", 8U);
+    auto object_1 = cetl::pmr::Factory::make_unique(alloc, "object_1", 9U);
     objects.emplace(object_1->name(), std::move(object_1));
 
-    auto object_2 = cetl::pmr::Factory::make_unique(alloc, "object_2", 8U);
+    auto object_2 = cetl::pmr::Factory::make_unique(alloc, "object_2", 9U);
     objects.emplace(object_2->name(), std::move(object_2));
 
     // or even simpler:
@@ -137,9 +137,9 @@ TEST(example_06_polymorphic_alloc_deleter, example_usage_1)
         objects.emplace(object->name(), std::move(object));
     };
 
-    emplacer("object_3", 8U);
-    emplacer("object_4", 8U);
-    emplacer("object_5", 8U);
+    emplacer("object_3", 9U);
+    emplacer("object_4", 9U);
+    emplacer("object_5", 9U);
 
     for (const auto& pair : objects)
     {

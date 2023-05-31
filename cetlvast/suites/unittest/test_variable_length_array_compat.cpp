@@ -471,8 +471,14 @@ public:
     }
 
     // Get the configured maximum number of objects for the allocator.
-    std::size_t get_expected_max_size(std::size_t clamp = std::numeric_limits<std::ptrdiff_t>::max() / sizeof(Value)) const noexcept
+    std::size_t get_expected_max_size() const noexcept
     {
+        // Interestingly enough, GCC and Clang disagree on the default maximum size
+        // for std::vector. Clang says std::numeric_limits<std::ptrdiff_t>::max() and
+        // GCC says std::numeric_limits<std::ptrdiff_t>::max() / sizeof(value_type).
+        // We'll expect the larger of the two but tests should always evaluate max_size
+        // as being <= the expected_max_size() to be portable.
+        const std::size_t clamp = std::numeric_limits<std::ptrdiff_t>::max();
         return std::min(clamp,
                         MemoryResourceFactoryType::template Bind<Allocator, MemoryResourceUpstreamFactoryType>::
                             expected_max_size());
@@ -526,11 +532,11 @@ TYPED_TEST(VLATestsGeneric, TestReserve)
 
     ASSERT_EQ(0U, subject.capacity());
     ASSERT_EQ(0U, subject.size());
-    ASSERT_EQ(this->get_expected_max_size(), subject.max_size());
+    ASSERT_GE(this->get_expected_max_size(), subject.max_size());
     subject.reserve(1);
     ASSERT_LE(1U, subject.capacity());
     ASSERT_EQ(0U, subject.size());
-    ASSERT_EQ(this->get_expected_max_size(), subject.max_size());
+    ASSERT_GE(this->get_expected_max_size(), subject.max_size());
 }
 
 // +-------------------------------------------------------------------------------------------------------------------+

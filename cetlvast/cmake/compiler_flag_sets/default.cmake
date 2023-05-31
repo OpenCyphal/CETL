@@ -56,18 +56,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
     )
 else()
 
-    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-        message(STATUS "Coverage is enabled. Instrumenting the code.")
-        list(APPEND C_FLAG_SET
-                        "--coverage"
-                        "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fprofile-instr-generate>"
-                        "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fcoverage-mapping>"
-        )
-
-        list(APPEND EXE_LINKER_FLAG_SET "--coverage")
-
-    endif()
-
     message(STATUS "Not a Release build. Setting debug flags.")
     list(APPEND C_FLAG_SET
                 "-O0"

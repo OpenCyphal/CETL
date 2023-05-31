@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for cetl::pmr::O1heapResrouce
+/// Unit tests for cetl::pmr::O1heapResource
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>

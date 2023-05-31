@@ -441,9 +441,10 @@ class polymorphic_allocator
 
     // +-----------------------------------------------------------------------+
 public:
+    /// The type of object this allocator constructs.
     using value_type = T;
 
-    /// @brief CETL diverges from the c++ standard here.
+    /// CETL diverges from the c++ standard here.
     /// By default, the C++ standard provides a new_delete_resource. Because C++14 did not provide standardized support
     /// for arbitrary alignment of memory allocations it would inflate CETL significantly to support this functionality.
     /// Instead, CETL declines to provide default resources and requires explicit resources are provided

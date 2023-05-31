@@ -373,13 +373,13 @@ struct InstrumentedNewDeleteAllocator
         return *this;
     }
 
-    bool operator==(const InstrumentedNewDeleteAllocator& rhs)
+    bool operator==(const InstrumentedNewDeleteAllocator& rhs) const
     {
         (void) rhs;
         return (IsAlwaysEqual::value || IsEqual::value);
     }
 
-    bool operator!=(const InstrumentedNewDeleteAllocator& rhs)
+    bool operator!=(const InstrumentedNewDeleteAllocator& rhs) const
     {
         (void) rhs;
         return (!IsAlwaysEqual::value && !IsEqual::value);
