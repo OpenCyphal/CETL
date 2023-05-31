@@ -137,7 +137,7 @@ def _make_parser() -> argparse.ArgumentParser:
 
         **Example Usage**::
 
-            ./verify.py docs
+            TODO: (sorry)
 
     """
     )

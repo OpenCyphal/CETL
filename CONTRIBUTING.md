@@ -15,16 +15,13 @@ form of `preview/{your incubating feature name}`.
 # Running CETLVaSt
 
 ```
-cd cetlvast
-./verify.py unittest
-./verify.py compile
-./verify.py lint
+./build-tools/bin/verify.py
 ```
 
 need help?
 
 ```
-./verify.py -h
+./build-tools/bin/verify.py -h
 ```
 
 # Developer Environment

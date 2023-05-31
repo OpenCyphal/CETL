@@ -52,7 +52,7 @@ jobs:
 
     - run: |
         echo "Building unittests for analysis"
-        ./cetlvast/verify.py -cd ./cetlvast -bf Debug unittest
+        ./build-tools/bin/verify.py test
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2

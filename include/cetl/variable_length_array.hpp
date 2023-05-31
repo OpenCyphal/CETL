@@ -1161,7 +1161,7 @@ public:
         {
             Base::shrink_to_fit();
         }
-        catch(std::bad_alloc)
+        catch(const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
             // shrink.
@@ -1841,7 +1841,7 @@ public:
         {
             Base::shrink_to_fit();
         }
-        catch(std::bad_alloc)
+        catch(const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
             // shrink.

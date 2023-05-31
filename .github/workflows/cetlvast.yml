@@ -17,15 +17,12 @@ jobs:
       matrix:
         std: [base, intermediate, target]
         toolchain: [gcc, clang]
-        suite: [unittest, compile]
     steps:
     - uses: actions/checkout@v3
     - name: setup environment common
       run: >
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_UNITTEST_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_COVERAGE_REPORT_FORMAT=sonarqube" >> $GITHUB_ENV
+        echo "CETLVAST_EXT_PATH=./cetlvast/build_external" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_BUILD_PATH=./build" >> $GITHUB_ENV;
 
     - name: Cache ext modules
       id: cetlvast-ext
@@ -37,22 +34,20 @@ jobs:
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
     - name: run tests
       run: >
-        ./cetlvast/verify.py -cd ./cetlvast
-        --force-ninja
-        --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
-        --build-flavor Debug
+        ./build-tools/bin/verify.py
         --asserts
-        --generate-test-report testExecutions.xml
+        --build-flavor Coverage
         --cpp-standard ${{ matrix.std }}
         --toolchain ${{ matrix.toolchain }}
-        ${{ matrix.suite }}
+        test
     - name: upload-artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.suite }}-${{ matrix.std }}-${{ matrix.toolchain }}
+        name: release-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
           ${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
-          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/${{ matrix.suite }}
+          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/unittest
+          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/compile
         if-no-files-found: error
   docs:
     runs-on: ubuntu-latest
@@ -61,8 +56,8 @@ jobs:
     - uses: actions/checkout@v3
     - name: setup environment
       run: >
-        echo "CETLVAST_SUITE_DOCS_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir docs)" >> $GITHUB_ENV;
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV
+        echo "CETLVAST_EXT_PATH=./cetlvast/build_external" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_BUILD_PATH=./build" >> $GITHUB_ENV;
     - name: Cache ext modules
       id: cetlvast-ext
       uses: actions/cache@v3
@@ -71,18 +66,18 @@ jobs:
       with:
         path: ${{ env.CETLVAST_EXT_PATH }}
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - name: Check Style
-      run: |
-        ./cetlvast/verify.py -cd ./cetlvast lint
-    - name: verify
-      run: ./cetlvast/verify.py -cd ./cetlvast docs
+    - name: configure
+      run: ./build-tools/bin/verify.py configure
+    - name: doc-gen
+      pwd: ${{ env.CETLVAST_SUITE_BUILD_PATH }}
+      run: ninja docs
     - name: Setup Pages
       uses: actions/configure-pages@v3
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' }}
       uses: actions/upload-pages-artifact@v1
       with:
-        path: "${{ env.CETLVAST_SUITE_DOCS_PATH }}/html/"
+        path: "${{ env.CETLVAST_SUITE_BUILD_PATH }}/suits/docs/html/"
 
   sonarqube:
     needs:
@@ -98,11 +93,8 @@ jobs:
       uses: SonarSource/sonarcloud-github-c-cpp@v1
     - name: setup environment
       run: >
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_COVERAGE_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls covri --coverage sonarqube unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_TEST_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls tests -gtr testExecutions.xml unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_CPP_BASE=c++$(./cetlvast/verify.py -cd ./cetlvast -ls cppstd --cpp-standard base docs)" >> $GITHUB_ENV
+        echo "CETLVAST_EXT_PATH=./cetlvast/build_external" >> $GITHUB_ENV;
+        echo "CETLVAST_SUITE_BUILD_PATH=./build" >> $GITHUB_ENV;
 
     - name: Cache ext modules
       id: cetlvast-ext
@@ -135,9 +127,9 @@ jobs:
           --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*"
           --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*"
           --define sonar.cfamily.compile-commands=${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
-          --define sonar.cfamily.reportingCppStandardOverride=${{ env.CETLVAST_CPP_BASE }}
-          --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}
-          --define sonar.testExecutionReportPaths=${{ env.CETLVAST_TEST_REPORT }}
+          --define sonar.cfamily.reportingCppStandardOverride=14
+          --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}/todo.xml
+          --define sonar.testExecutionReportPaths=${{ env.CETLVAST_SUITE_BUILD_PATH }}/todo.xml
 
   deploy-docs:
     if: ${{ (github.event_name == 'release' && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch' }}
