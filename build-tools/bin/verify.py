@@ -111,16 +111,20 @@ class QualifiedAction:
     latter means only the clean action instead of also the clean action.
     """
 
-    ActionPattern = re.compile(r"(?P<action>\w+)(?:-+(?P<suffix>\S+))?")
+    ActionPattern = re.compile(r"^(?:(?P<prefix>clean)-)?(?P<action>configure|build|test|release|clean)(?:-(?P<only>only))?(?:-+(?P<suffix>\S+))?")
 
     def __init__(self, input: str):
         match_obj = self.ActionPattern.match(str(input))
         if match_obj is None:
+            self._prefix = None
             self._name = ""
             self._suffix = None
+            self._only = False
         else:
+            self._prefix = match_obj.group("prefix")
             self._name = match_obj.group("action")
             self._suffix = match_obj.group("suffix")
+            self._only = match_obj.group("only") is not None
 
     @staticmethod
     def __call__(cls, input: typing.Any) -> 'QualifiedAction':
@@ -136,8 +140,20 @@ class QualifiedAction:
             return str(other) == str(self)
 
     @property
+    def prefix(self) -> typing.Optional[str]:
+        return self._prefix
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
     def suffix(self) -> typing.Optional[str]:
         return self._suffix
+
+    @property
+    def only(self) -> bool:
+        return self._only
 
 
 # +---------------------------------------------------------------------------+
@@ -164,14 +180,17 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
         **Example Usage**::
 
             # default configure, build, test, and release
-            ./verify.py
+            ./build-tools/bin/verify.py
 
             # configure, build, and test of a Coverage build.
-            ./bin/verify.py test -bf Coverage
+            ./build-tools/bin/verify.py test -bf Coverage
 
             # verbose clean, configure, build, of a Debug build
             # with runtime asserts enabled.
-            ./bin/verify.py clean-build -bf Debug -cda -vv
+            ./build-tools/bin/verify.py clean-build -bf Debug -cda -vv
+
+            # only run the example tests
+            ./build-tools/bin/verify.py test-only-run_examples
 
     ---
     """
@@ -277,6 +296,12 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
         ... would configure, then build, then run tests but would not execute
         the release phase.
 
+        ONLY
+        -----------------------------------------------------------------------
+        Any action can be modified with the -only suffix to indicate that only
+        that action should be performed. For example:
+
+            ./bin/verify.py build-only
 
         CLEAN
         -----------------------------------------------------------------------
@@ -293,6 +318,15 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
                             ./bin/verify.py clean
 
                         ... would only run clean.
+
+        SUFFIX
+        -----------------------------------------------------------------------
+        The suffix is used to modify the behavior of the action. For example:
+
+            ./bin/verify.py test-build_examples
+
+        ... would run the build target "build_examples" instead of the default
+        for the test phase.
 
         -----------------------------------------------------------------------
         NOTE: the verify script does not expose the full capabilities of the
@@ -501,6 +535,13 @@ def _cmake_run(
             logging.debug("            {} = {}{}".format(key, value, (" (override)" if overridden else "")))
         logging.debug("        *****************************************************************\n")
 
+    if not _build_dir(args).exists():
+        if not args.dry_run:
+            logging.error("Build directory {} does not exist. Did you forget to run configure?".format(_build_dir(args)))
+            return 1
+        else:
+            return 0
+
     if not args.dry_run:
         return subprocess.run(cmake_args, cwd=_build_dir(args), env=copy_of_env).returncode
     else:
@@ -596,14 +637,18 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
 # +---------------------------------------------------------------------------+
 
 
-def _cmake_build(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
+def _cmake_build(args: argparse.Namespace, cmake_args: typing.List[str], build_target: typing.Optional[str] = None) -> int:
     """
     Format and execute cmake build command. This method assumes that the build directory
     is already properly configured.
     """
+
+    if build_target is None:
+        build_target = "build"
+
     cmake_build_args = _clone_cmake_args(args, cmake_args)
 
-    cmake_build_args += ["--build", str(_build_dir(args)), "--target", "build"]
+    cmake_build_args += ["--build", str(_build_dir(args)), "--target", build_target]
 
     return _cmake_run(args, cmake_build_args)
 
@@ -611,16 +656,52 @@ def _cmake_build(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
 # +---------------------------------------------------------------------------+
 
 
-def _cmake_test(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
+def _cmake_test(args: argparse.Namespace, cmake_args: typing.List[str], test_target: typing.Optional[str] = None) -> int:
     """
     Format and execute cmake test command. This method assumes that the build directory
     is already properly configured.
     """
-    cmake_test_args = _clone_cmake_args(args, cmake_args)
+    if test_target is None:
+        test_target = "unittest"
 
-    cmake_test_args += ["--build", str(_build_dir(args)), "--target", "unittest"]
+    return _cmake_build(args, cmake_args, test_target)
 
-    return _cmake_run(args, cmake_test_args)
+
+# +---------------------------------------------------------------------------+
+
+
+def _cmake_release(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
+    """
+    Format and execute cmake release command. This method assumes that build step has already completed
+    successfully.
+    """
+    return _cmake_build(args, cmake_args, "release")
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _cmake_install(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
+    """
+    Format and execute cmake install command. This method assumes that build step has already completed
+    successfully.
+    """
+    return _cmake_build(args, cmake_args, "install")
+
+
+# +---------------------------------------------------------------------------+
+
+
+def _cmake_clean(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
+    """
+    Format and execute cmake clean command. This method assumes that the configure step has already completed
+    successfully.
+    """
+    if not _build_dir(args).exists():
+       logging.info("Build directory {} does not exist. Nothing to clean.".format(_build_dir(args)))
+       return 0
+
+    return _cmake_build(args, cmake_args, "clean")
 
 
 # +---------------------------------------------------------------------------+
@@ -640,51 +721,6 @@ def _cmake_ctest(args: argparse.Namespace, _: typing.List[str]) -> int:
     else:
         logging.info("Is dry-run. Would have run ctest: {}".format(str(ctest_run)))
         return 0
-
-
-# +---------------------------------------------------------------------------+
-
-
-def _cmake_release(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
-    """
-    Format and execute cmake release command. This method assumes that build step has already completed
-    successfully.
-    """
-    cmake_build_args = _clone_cmake_args(args, cmake_args)
-
-    cmake_build_args += ["--build", str(_build_dir(args)), "--target", "release"]
-
-    return _cmake_run(args, cmake_build_args)
-
-
-# +---------------------------------------------------------------------------+
-
-
-def _cmake_install(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
-    """
-    Format and execute cmake install command. This method assumes that build step has already completed
-    successfully.
-    """
-    cmake_build_args = _clone_cmake_args(args, cmake_args)
-
-    cmake_build_args += ["--build", str(_build_dir(args)), "--target", "install"]
-
-    return _cmake_run(args, cmake_build_args)
-
-
-# +---------------------------------------------------------------------------+
-
-
-def _cmake_clean(args: argparse.Namespace, cmake_args: typing.List[str]) -> int:
-    """
-    Format and execute cmake clean command. This method assumes that the configure step has already completed
-    successfully.
-    """
-    cmake_build_args = _clone_cmake_args(args, cmake_args)
-
-    cmake_build_args += ["--build", str(_build_dir(args)), "--target", "clean"]
-
-    return _cmake_run(args, cmake_build_args)
 
 
 # +---------------------------------------------------------------------------+
@@ -726,52 +762,70 @@ def main() -> int:
     )
 
     # --[CLEAN]----------------------------------------------------------------
-    if args.action == "clean":
+    if args.action == "clean" or args.action.prefix == "clean":
         _cmake_clean(args, cmake_args)
-        if args.action.suffix is None or args.action.suffix == "only":
+
+    if args.action == "clean":
             return 0
-        args.action = args.action.suffix
 
     # --[CONFIGURE]------------------------------------------------------------
-    result = _create_build_dir_action(args)
-    if result != 0:
-        return result
+    if args.action.only and args.action != "configure":
+        logging.debug("{}-only specified. Skipping configure step.".format(str(args.action)))
 
-    result = _cmake_configure(args, cmake_args)
-    if result != 0:
-        return result
+    else:
+        result = _create_build_dir_action(args)
+        if result != 0:
+            return result
 
-    if args.action == "configure":
-        return 0
+        result = _cmake_configure(args, cmake_args)
+        if result != 0:
+            return result
+
+        if args.action == "configure":
+            return 0
 
     # --[BUILD]----------------------------------------------------------------
-    result = _cmake_build(args, cmake_args)
-    if result != 0:
-        return result
+    if args.action.only and args.action != "build":
+        logging.debug("{}-only specified. Skipping build step.".format(str(args.action)))
 
-    if args.action == "build":
-        return 0
+    else:
+        result = _cmake_build(args, cmake_args, args.action.suffix)
+        if result != 0:
+            return result
+
+        if args.action == "build":
+            return 0
 
     # --[TEST]-----------------------------------------------------------------
-    result = _cmake_test(args, cmake_args)
-    if result != 0:
-        return result
+    if args.action.only and args.action != "test":
+        logging.debug("{}-only specified. Skipping test step.".format(str(args.action)))
 
-    result = _cmake_ctest(args, cmake_args)
-    if result != 0:
-        return result
+    else:
 
-    if args.action == "test":
-        return 0
+        result = _cmake_test(args, cmake_args, args.action.suffix)
+        if result != 0:
+            return result
+
+        if args.action.suffix is None:
+            result = _cmake_ctest(args, cmake_args)
+            if result != 0:
+                return result
+
+        if args.action == "test":
+            return 0
 
     # --[RELEASE]--------------------------------------------------------------
-    result = _cmake_release(args, cmake_args)
-    if result != 0:
-        return result
+    if args.action.only and args.action != "release":
+        logging.debug("{}-only specified. Skipping release step.".format(str(args.action)))
 
-    result = _cmake_install(args, cmake_args)
-    if result != 0:
-        return result
+    else:
+        result = _cmake_release(args, cmake_args)
+        if result != 0:
+            return result
+
+        result = _cmake_install(args, cmake_args)
+        if result != 0:
+            return result
 
     return 0
 

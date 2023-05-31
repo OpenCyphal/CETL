@@ -69,8 +69,12 @@ jobs:
     - name: configure
       run: ./build-tools/bin/verify.py configure
     - name: doc-gen
-      pwd: ${{ env.CETLVAST_SUITE_BUILD_PATH }}
-      run: ninja docs
+      run: >
+        ./build-tools/bin/verify.py -v
+        --asserts
+        --build-flavor Debug
+        --cpp-standard 14
+        build-docs
     - name: Setup Pages
       uses: actions/configure-pages@v3
     - name: Upload docs

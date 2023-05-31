@@ -44,10 +44,9 @@ docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
 git clone {this repo}
 cd CETL
 docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3
-cd /repo/cetlvast
-./verify.py -vv -c --force-ninja unittest
-pushd $(./verify.py -lsbd none)
-ninja test_all
+./build-tools/bin/verify.py -vv configure
+cd build
+ninja release
 ```
 
 ### Step-by-Step
@@ -67,24 +66,18 @@ git clone {this repo}
 cd CETL
 docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x
 ```
-3. cd into the CETLVaSt test suite directory then run the verify script to
-configure the unittest suite with `--configure-only` and (we suggest)
-`--force-ninja`. This step is important because it pulls test-only dependencies
-from github (i.e. googletest) and configures them for use by CETLVaSt. By
-including `-vv` you can see the exact cmake commands verify.py is executing and
-you and use `--dry-run` if you really hate my python script so much that you
-want to do all the typing yourself (It's not like I spent a ton of time
-documenting all of these options for you. No no. It's fine. Don't try to
-apologize now...):
+3. run the verify script to configure cetlvast. By including `-vv` you can see
+the exact cmake commands verify.py is executing and you and use `--dry-run`
+if you really hate my python script so much that you want to do all the typing
+yourself (It's not like I spent a ton of time documenting all of these options
+for you. No no. It's fine. Don't try to apologize now...):
 ```
-cd cetlvast
-./verify.py -vv --configure-only --force-ninja unittest
+./build-tools/bin/verify.py -vv configure
 ```
 4. Finally, you can cd into the top-level cmake directory you just configured
-and run ninja directly (you did choose `--force-ninja` in step 3, right?). Once
-again, instead of me writing down the name of that directory here where it will
-instantly become wrong, you should ask verify.py what directory it just created:
+and run ninja directly.
 ```
-pushd $(./verify.py -lsbd none)
-ninja test_all
+cd build
+ninja help
+ninja release
 ```
