@@ -35,6 +35,8 @@ jobs:
     - name: run tests
       run: >
         ./build-tools/bin/verify.py
+        -v
+        --online
         --asserts
         --build-flavor Coverage
         --cpp-standard ${{ matrix.std }}
@@ -66,11 +68,11 @@ jobs:
       with:
         path: ${{ env.CETLVAST_EXT_PATH }}
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - name: configure
-      run: ./build-tools/bin/verify.py configure
     - name: doc-gen
       run: >
-        ./build-tools/bin/verify.py -v
+        ./build-tools/bin/verify.py
+        -v
+        --online
         --asserts
         --build-flavor Debug
         --cpp-standard 14

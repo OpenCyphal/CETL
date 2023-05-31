@@ -97,6 +97,12 @@ def _test_suite_dir(args: argparse.Namespace) -> pathlib.Path:
     return _root_dir(args) / args.test_suite_dir
 
 
+# +---------------------------------------------------------------------------+
+
+
+def _ext_dir(args: argparse.Namespace) -> pathlib.Path:
+    return _root_dir(args) / args.ext_dir
+
 
 # +---------------------------------------------------------------------------+
 # | ARGPARSE
@@ -483,6 +489,18 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
     )
 
     other_args.add_argument(
+        "--ext-dir",
+        default=pathlib.Path("cetlvast") / pathlib.Path("build_external"),
+        type=pathlib.Path,
+        help=textwrap.dedent(
+            """
+        The directory under which external cmake projects will be pulled and
+        built.
+
+    """[1:])
+    )
+
+    other_args.add_argument(
         "--dont-force-ninja",
         action="store_true",
         help=textwrap.dedent(
@@ -551,21 +569,44 @@ def _cmake_run(
 # +---------------------------------------------------------------------------+
 
 
+def _create_dir_action(args: argparse.Namespace, directory: pathlib.Path) -> int:
+    """
+    Handle all the logic, user input, logging, and file-system operations needed to
+    create a directory.
+    """
+    if not directory.exists():
+        if not args.dry_run:
+            logging.info("Creating build directory at {}".format(str(directory)))
+            directory.mkdir()
+        else:
+            logging.info("Dry run: Would have created build directory at {}".format(str(directory)))
+    else:
+        logging.info("Using existing build directory at {}".format(str(directory)))
+
+    return 0
+
+
+# +---------------------------------------------------------------------------+
+
+
 def _create_build_dir_action(args: argparse.Namespace) -> int:
     """
     Handle all the logic, user input, logging, and file-system operations needed to
     create the cmake build directory ahead of invoking cmake.
     """
-    if not _build_dir(args).exists():
-        if not args.dry_run:
-            logging.info("Creating build directory at {}".format(_build_dir(args)))
-            _build_dir(args).mkdir()
-        else:
-            logging.info("Dry run: Would have created build directory at {}".format(_build_dir(args)))
-    else:
-        logging.info("Using existing build directory at {}".format(_build_dir(args)))
+    return _create_dir_action(args, _build_dir(args))
 
-    return 0
+
+# +---------------------------------------------------------------------------+
+
+
+def _create_external_dir_action(args: argparse.Namespace) -> int:
+    """
+    Handle all the logic, user input, logging, and file-system operations needed to
+    create the cmake external projects directory ahead of invoking cmake.
+    """
+    return _create_dir_action(args, _ext_dir(args))
+
 
 
 # +---------------------------------------------------------------------------+
@@ -774,6 +815,10 @@ def main() -> int:
 
     else:
         result = _create_build_dir_action(args)
+        if result != 0:
+            return result
+
+        result = _create_external_dir_action(args)
         if result != 0:
             return result
 
