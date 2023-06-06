@@ -79,7 +79,7 @@ public:
     {
     }
 
-    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs ) noexcept
+    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs) noexcept
         : alloc_(std::move(rhs.alloc_))
         , data_(std::move(rhs.data_))
         , capacity_(rhs.capacity_)
@@ -631,6 +631,8 @@ protected:
                                            alloc_);
                 }
                 size_ = rhs.size_;
+                rhs.resize(0, rhs_max_size);
+                // TODO: should we release the rhs capacity too?
             }
             else
             {
@@ -1253,6 +1255,9 @@ public:
     // +----------------------------------------------------------------------+
     // | MODIFIERS
     // +----------------------------------------------------------------------+
+    ///
+    /// Destroys all elements in the list but does not release any capacity.
+    ///
     constexpr void clear() noexcept(std::is_nothrow_destructible<value_type>::value)
     {
         Base::fast_destroy(data_, size_);
@@ -1741,9 +1746,8 @@ public:
         std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
     {
+        last_byte_bit_fill_ = rhs.last_byte_bit_fill_;
         Base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
-        last_byte_bit_fill_     = rhs.last_byte_bit_fill_;
-        rhs.last_byte_bit_fill_ = 0;
         return *this;
     }
 
@@ -1962,6 +1966,9 @@ public:
     // +----------------------------------------------------------------------+
     // | MODIFIERS
     // +----------------------------------------------------------------------+
+    ///
+    /// Destroys all elements in the list but does not release any capacity.
+    ///
     constexpr void clear() noexcept
     {
         size_               = 0;

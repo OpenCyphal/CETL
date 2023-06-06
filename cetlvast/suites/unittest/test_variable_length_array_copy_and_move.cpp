@@ -258,6 +258,21 @@ TYPED_TEST(VLACopyMoveTests, CopyAssignReplaceWithMore)
 }
 
 // +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLACopyMoveTests, CopyAssignReplaceWithMoreWithAdequateCapacity)
+{
+    typename TypeParam::subject_vla_type subject{{0, 1, 0, 1}, TypeParam::make_subject_allocator()};
+    typename TypeParam::source_vla_type  source{{0, 1, 0, 1, 0, 1, 0, 1}, TypeParam::make_source_allocator()};
+    EXPECT_EQ(source.size(), 8);
+    EXPECT_EQ(subject.size(), 4);
+    EXPECT_NE(subject, source);
+    subject.reserve(8);
+    subject = source;
+    EXPECT_EQ(subject.size(), 8);
+    EXPECT_EQ(subject, source);
+}
+
+// +---------------------------------------------------------------------------+
 // | TEST CASES :: Move Construction
 // +---------------------------------------------------------------------------+
 
@@ -282,6 +297,19 @@ TYPED_TEST(VLACopyMoveTests, MoveAssign)
     EXPECT_EQ(source.size(), 9);
     EXPECT_EQ(subject.size(), 0);
     EXPECT_NE(subject, source);
+    subject = std::move(source);
+    EXPECT_EQ(source.size(), 0);
+    EXPECT_EQ(subject.size(), 9);
+}
+
+TYPED_TEST(VLACopyMoveTests, MoveAssignWithAdequateCapacity)
+{
+    typename TypeParam::subject_vla_type subject{TypeParam::make_subject_allocator()};
+    typename TypeParam::source_vla_type  source{{0, 1, 0, 1, 0, 1, 0, 1, 0}, TypeParam::make_source_allocator()};
+    EXPECT_EQ(source.size(), 9);
+    EXPECT_EQ(subject.size(), 0);
+    EXPECT_NE(subject, source);
+    subject.reserve(9);
     subject = std::move(source);
     EXPECT_EQ(source.size(), 0);
     EXPECT_EQ(subject.size(), 9);
