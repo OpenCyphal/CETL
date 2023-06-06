@@ -69,9 +69,9 @@ public:
     {
     }
 
-    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs) noexcept(
+    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& rhs_alloc) noexcept(
         std::is_nothrow_copy_constructible<allocator_type>::value)
-        : alloc_(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.alloc_))
+        : alloc_(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs_alloc))
         , data_(nullptr)
         , capacity_(0)
         , size_(0)
@@ -79,7 +79,7 @@ public:
     {
     }
 
-    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs) noexcept
+    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs ) noexcept
         : alloc_(std::move(rhs.alloc_))
         , data_(std::move(rhs.data_))
         , capacity_(rhs.capacity_)
@@ -955,11 +955,16 @@ public:
     //
     // Rule of Five.
     //
-    VariableLengthArray(const VariableLengthArray& rhs)
-        : Base(rhs)
+    VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
+        : Base(rhs, alloc)
     {
         Base::reserve(rhs.size(), rhs.max_size());
         size_ = Base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
+    }
+
+    VariableLengthArray(const VariableLengthArray& rhs)
+        : VariableLengthArray(rhs, rhs.alloc_)
+    {
     }
 
     VariableLengthArray& operator=(const VariableLengthArray& rhs)
@@ -1705,12 +1710,17 @@ public:
     //
     // Rule of Five.
     //
-    VariableLengthArray(const VariableLengthArray& rhs)
-        : Base(rhs)
+    VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
+        : Base(rhs, alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {
         Base::reserve(rhs.size(), rhs.max_size());
         size_ = Base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
+    }
+
+    VariableLengthArray(const VariableLengthArray& rhs)
+        : VariableLengthArray(rhs, rhs.alloc_)
+    {
     }
 
     VariableLengthArray& operator=(const VariableLengthArray& rhs)

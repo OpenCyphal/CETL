@@ -33,6 +33,7 @@ TEST(UnsynchronizedO1HeapMemoryResourceTest, O1HeapAlignedStorageTest)
 }
 
 // +----------------------------------------------------------------------+
+#if CETL_ENABLE_DEBUG_ASSERT
 
 static void TestNullBufferInCtor()
 {
@@ -44,3 +45,4 @@ TEST(DeathTestUnsynchronizedO1HeapMemoryResourceAssertions, TestNullBufferInCtor
 {
     EXPECT_DEATH(TestNullBufferInCtor(), "CDE_o1h_001");
 }
+#endif
