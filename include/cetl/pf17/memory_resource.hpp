@@ -61,6 +61,8 @@ public:
     /// demonstrate:
     /// @snippet{trimleft} example_03_memory_resource.cpp do_allocate
     ///
+    /// (@ref example_03_memory_resource "See full example here...")
+    ///
     /// @param size_bytes   The number of bytes to allocate. Implementations may allocate additional bytes but shall
     ///                     not allocate fewer. Callers should always assume that a successful call has allocated
     ///                     exactly the requested number of bytes.
@@ -83,6 +85,8 @@ public:
     /// See cetl::pf17::pmr::memory_resource::allocate for the first part of this example and a discussion of the
     /// limitations of CETL's implementations.
     /// @snippet{trimleft} example_03_memory_resource.cpp do_deallocate
+    ///
+    /// (@ref example_03_memory_resource "See full example here...")
     ///
     /// @param p            A pointer returned by cetl::pf17::pmr::memory_resource::allocate.
     /// @param size_bytes   The size passed into cetl::pf17::pmr::memory_resource::allocate.

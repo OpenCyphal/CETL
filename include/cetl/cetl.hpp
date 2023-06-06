@@ -17,6 +17,52 @@
 /// elision of cetl.hpp and dependencies on CETL polyfill types without modifying CETL source code.
 /// Note that CETL polyfill headers cannot be used if CETL_H_ERASE is defined.
 ///
+/// @mainpage Example Code
+/// This area contains a series of examples used to illustrate CETL type usage. Each full example is actually
+/// a set of googletest test cases to allow our build automation to verify their correctness but you can treat
+/// any given example as a stand-alone program.
+/// - @subpage example_01_polyfill_20
+/// - @subpage example_02_span
+/// - @subpage example_03_memory_resource
+/// - @subpage example_04_array_memory_resource_array
+/// - @subpage example_05_array_memory_resource_alignment
+/// - @subpage example_06_memory_resource_deleter
+/// - @subpage example_07_polymorphic_alloc_deleter
+/// - @subpage example_08_variable_length_array_vs_vector
+///
+/// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
+/// Full example for @ref cetl/pf20/cetlpf.hpp
+/// @include example_01_polyfill_20.cpp
+///
+/// @page example_02_span Example 2: CETL span type.
+/// Full example for cetl::pf20::span
+/// @include example_02_span.cpp
+///
+/// @page example_03_memory_resource Example 3: Implementing a CETL Memory Resource
+/// Full example for cetl::pf17::pmr::memory_resource
+/// @include example_03_memory_resource.cpp
+///
+/// @page example_04_array_memory_resource_array Example 4: Using the UnsynchronizedArrayMemoryResourceDelegate class
+/// Full example for cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate
+/// @include example_04_array_memory_resource_array.cpp
+/// Also see @ref example_05_array_memory_resource_alignment
+///
+/// @page example_05_array_memory_resource_alignment Example 5: Using an array memory resource for over-alignment
+/// Also see @ref example_04_array_memory_resource_array
+/// @include example_05_array_memory_resource_alignment.cpp
+///
+/// @page example_06_memory_resource_deleter Example 6: Using the MemoryResourceDeleter class
+/// Full example for cetl::pmr::MemoryResourceDeleter
+/// @include example_06_memory_resource_deleter.cpp
+///
+/// @page example_07_polymorphic_alloc_deleter Example 7: Using the PolymorphicAllocatorDeleter class
+/// Full example for cetl::pmr::Factory
+/// @include example_07_polymorphic_alloc_deleter.cpp
+///
+/// @page example_08_variable_length_array_vs_vector Example 8: Comparing std::vector to CETL's VariableLengthArray
+/// Full example for cetl::VariableLengthArray
+/// @include example_08_variable_length_array_vs_vector.cpp
+///
 
 #ifndef CETL_H_INCLUDED
 #define CETL_H_INCLUDED

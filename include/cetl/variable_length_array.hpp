@@ -93,7 +93,7 @@ public:
         rhs.data_     = nullptr;
     }
 
-protected:
+private:
     // +----------------------------------------------------------------------+
     // | TYPE HELPERS
     // +----------------------------------------------------------------------+
@@ -152,6 +152,7 @@ protected:
                std::allocator_traits<std::remove_reference_t<UAlloc>>::is_always_equal::value)>
     {};
 
+protected:
     // +----------------------------------------------------------------------+
     // | Allocator move assignment
     // +----------------------------------------------------------------------+
@@ -821,16 +822,17 @@ protected:
 /// First, the `max_size_max` maximum bound allows the array to enforce a maximum size whether or not the allocator
 /// properly implements the std::allocator_traits::max_size protocol (std::pmr::polymorphic_allocator, for example).
 /// This allows use of an allocator that is backed by statically allocated memory:
-/// @snippet{trimleft} example_05_variable_length_array_vs_vector.cpp example_exact_fit
+/// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_exact_fit
 ///
 /// Even if cetl::VariableLengthArray::reserve() is not used the implementation will still use less memory then its
 /// STL counterpart:
-/// @snippet{trimleft} example_05_variable_length_array_vs_vector.cpp example_tight_fit_0
-/// @snippet{trimleft} example_05_variable_length_array_vs_vector.cpp example_tight_fit_1
+/// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_tight_fit_0
+/// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_tight_fit_1
 ///
 /// Finally, when exceptions are disabled the cetl::VariableLengthArray will not exhibit undefined behaviour like
 /// std::vector does:
-/// @snippet{trimleft} example_05_variable_length_array_vs_vector.cpp example_no_exceptions
+/// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_no_exceptions
+/// (@ref example_08_variable_length_array_vs_vector "See full example here...")
 ///
 /// @tparam  T           The type of elements in the array.
 /// @tparam Allocator    The allocator type to use for all allocations.

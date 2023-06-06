@@ -47,7 +47,7 @@ void print_container(const T& container)
 
 #if __cpp_exceptions
 
-TEST(example_05_variable_length_array_vs_vector, example_tight_fit_0)
+TEST(example_08_variable_length_array_vs_vector, example_tight_fit_0)
 {
     //! [example_tight_fit_0]
     /// while a VariableLengthArray will attempt to grow its capacity using a geometric sequence it will also fit
@@ -78,7 +78,7 @@ TEST(example_05_variable_length_array_vs_vector, example_tight_fit_0)
     //! [example_tight_fit_0]
 }
 
-TEST(example_05_variable_length_array_vs_vector, example_tight_fit_1)
+TEST(example_08_variable_length_array_vs_vector, example_tight_fit_1)
 {
     //! [example_tight_fit_1]
     // The problem with the C++17 standard is the lack of support for max_size in pmr types.
@@ -102,7 +102,7 @@ TEST(example_05_variable_length_array_vs_vector, example_tight_fit_1)
     //! [example_tight_fit_1]
 }
 
-TEST(example_05_variable_length_array_vs_vector, example_exact_fit)
+TEST(example_08_variable_length_array_vs_vector, example_exact_fit)
 {
     //! [example_exact_fit]
     /// Using the reserve function a VariableLengthArray can be made to fit exactly inside of a given memory
@@ -124,24 +124,14 @@ TEST(example_05_variable_length_array_vs_vector, example_exact_fit)
     //! [example_exact_fit]
 }
 
-TEST(example_05_variable_length_array_vs_vector, example_no_exceptions)
+TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
 {
     // compile with -fno-exceptions to enable this example.
 }
 
 #else
 
-TEST(example_05_variable_length_array_vs_vector, example_tight_fit_0)
-{
-    // compile with exceptions to enable this example.
-}
-
-TEST(example_05_variable_length_array_vs_vector, example_tight_fit_1)
-{
-    // compile with exceptions to enable this example.
-}
-
-TEST(example_05_variable_length_array_vs_vector, example_no_exceptions)
+TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
 {
     //! [example_no_exceptions]
 

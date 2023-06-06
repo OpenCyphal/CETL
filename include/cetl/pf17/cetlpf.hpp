@@ -96,7 +96,7 @@ inline memory_resource* new_delete_resource() noexcept
 }  // namespace cetl
 #endif
 
-#ifdef CETL_PMR_ARRAY_MEMORY_RESOURCE_H_INCLUDED
+#if defined(CETL_PMR_ARRAY_MEMORY_RESOURCE_H_INCLUDED) || defined(CETL_DOXYGEN)
 
 namespace cetl
 {
@@ -106,6 +106,14 @@ namespace pmr
 /// Automatic implementation of cetl::pmr::memory_resource that uses
 /// cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate as the internal implementation.
 /// @tparam UpstreamResourceType The type of any upstream memory resource provided.
+///
+/// To use this polyfill type, include the header file `cetl/pmr/array_memory_resource.hpp`
+/// before including this header. For example:
+///
+/// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_include
+///
+/// (See cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate for more examples)
+///
 template <typename UpstreamResourceType>
 class UnsynchronizedArrayMemoryResource final : public cetl::pmr::memory_resource
 {
@@ -115,7 +123,8 @@ public:
     /// @param buffer_size_bytes The size of the buffer to provide to
     /// cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate
     /// @param upstream The upstream memory resource to provide to cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate.
-    //                  This cannot be null. Use cetl::pmr::null_memory_resource() if you don't want upstream memory.
+    ///                 This cannot be null. Use cetl::pmr::null_memory_resource() if you don't want upstream memory.
+    /// @param upstream_max_size_bytes The maximum size of the upstream memory resource.
     UnsynchronizedArrayMemoryResource(void*                 buffer,
                                       std::size_t           buffer_size_bytes,
                                       UpstreamResourceType* upstream,

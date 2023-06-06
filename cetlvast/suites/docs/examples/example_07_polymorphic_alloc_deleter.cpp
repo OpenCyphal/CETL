@@ -63,7 +63,7 @@ private:
     char* name_;
 };
 
-TEST(example_06_polymorphic_alloc_deleter, example_usage_0)
+TEST(example_07_polymorphic_alloc_deleter, example_usage_0)
 {
     //![example_usage_0]
     // Let's say you wanted to store a bunch of objects in a container of some sort. You can use the
@@ -111,7 +111,7 @@ TEST(example_06_polymorphic_alloc_deleter, example_usage_0)
     //![example_usage_0]
 }
 
-TEST(example_06_polymorphic_alloc_deleter, example_usage_1)
+TEST(example_07_polymorphic_alloc_deleter, example_usage_1)
 {
     //![example_usage_1]
     // By using the cetl::pmr::Factory, you can simplify the code from the previous example:

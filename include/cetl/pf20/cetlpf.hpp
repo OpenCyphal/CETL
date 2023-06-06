@@ -19,21 +19,24 @@
 /// coding standards. As such, for more critical software we recommend not using these headers but including the
 /// types you use from `cetl::pf20` directly.
 ///
-/// For example, using the polyfill header an program like this can be written:
+/// For example, using the polyfill header you can write a program where the code automatically switches to using the
+/// C++ 20 version of span when compiling with that standard enabled:
 ///
-/// @include example_01_polyfill.cpp
+/// @snippet{trimleft} example_01_polyfill_20.cpp example_01_polyfill_20_span
 ///
-/// In that example the code automatically switches to using the C++ 20 version of span when compiling
-/// with that standard enabled. For more critical code you will need to do something like this:
+/// For more critical code you can define a custom span type can be easily redefined later without using the automatic
+/// polyfill header:
 ///
-/// @include example_02_polyfill.cpp
+/// @snippet{trimleft} example_01_polyfill_20.cpp example_01_polyfill_20_span_not_pf_pt1
+/// @snippet{trimleft} example_01_polyfill_20.cpp example_01_polyfill_20_span_not_pf_pt2
 ///
-/// In that example the span type can be easily redefined but it will not be automatically redefined.
-/// In these cases something like this might also be in order:
+/// When doing this you might want to add an assert to ensure you don't forget to redefine your custom type:
 ///
 /// ```
 /// static_assert(__cplusplus < CETL_CPP_STANDARD_20, "Don't use CETL if you are compiling for C++20.");
 /// ```
+///
+/// (@ref example_01_polyfill_20 "See full example here...")
 ///
 
 #ifndef CETL_PF20_H_INCLUDED

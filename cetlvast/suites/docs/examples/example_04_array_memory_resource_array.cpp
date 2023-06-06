@@ -37,7 +37,7 @@ static cetl::byte            small_message_buffer_[SmallMessageSizeBytes];
 
 //![example_setup]
 
-TEST(Example_05_array_memory_resource_array, example_a)
+TEST(example_04_array_memory_resource_array, example_a)
 {
     //![example_a]
     cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
@@ -63,7 +63,7 @@ TEST(Example_05_array_memory_resource_array, example_a)
     //![example_a]
 }
 
-TEST(Example_05_array_memory_resource_array, example_b)
+TEST(example_04_array_memory_resource_array, example_b)
 {
     //![example_b]
     // BUT WAIT! THERE'S MORE! The UnsynchronizedArrayMemoryResource both slices and dices! That is, you can provide
@@ -93,7 +93,7 @@ TEST(Example_05_array_memory_resource_array, example_b)
     //![example_b]
 }
 
-TEST(Example_05_array_memory_resource_array, example_c)
+TEST(example_04_array_memory_resource_array, example_c)
 {
     //![example_c]
     // One more example: by using another UnsynchronizedArrayMemoryResource as an upstream for another
@@ -124,5 +124,12 @@ TEST(Example_05_array_memory_resource_array, example_c)
     }
 
     std::cout << "AFTER  -> data size = " << c.data.size() << ", data capacity : " << c.data.capacity() << std::endl;
+
+    // Essentially, this technique is a double-buffering strategy where the "front" buffer is the
+    // vector data and the "back" buffer is used to move memory ahead of a reallocation (e.g. push_back or
+    // shrink_to_fit) and finally a swap. Of course, this is probably a lot of wasted memory movement but std::vector
+    // doesn't have any other way to do this. CETL's VariableLengthArray, however, is more aware of CETL PMR and can do
+    // much smarter things with array memory resources.
+
     //![example_c]
 }

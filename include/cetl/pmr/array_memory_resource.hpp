@@ -29,27 +29,29 @@ namespace pmr
 /// Without any memory barriers or other synchronization primitives this is one of the simplest possible implementations
 /// of a std::pmr::memory_resource with only one feature of supporting an, optional, upstream allocator.
 ///
-/// This is a delegate class that isn't useful on its own but is used to implement other memory resource types. There
-/// are two ways to use this class:
-///
-/// @par PolyFill
-/// If you are using cetl/pf17/cetlpf.hpp then include this header just before that one and use
-/// cetl::pmr::UnsynchronizedArrayMemoryResource as defined in that header. When compiling for C++17 this type will
-/// implement std::pmr::memory_resource and when compiling for C++14 this type will implement
-/// cetl::pf17::pmr::memory_resource.
-///
 /// @par Delegate Class
-/// Manually build an implementation of memory_resource that uses this class as a delegate. For example:
+/// You will need an implementation of memory_resource that uses this class as a delegate or use the
+/// cetl::pmr::UnsynchronizedArrayMemoryResource polyfill type since this class does not directly rely on any C++17 nor
+/// CETL pf17 types. This allows you to use it with std::pmr::memory_resource or cetl::pf17::pmr::memory_resource
+/// without relying on CETL polyfill headers.
 ///
-/// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_delegate
-///
-/// Also note that this class supports over-alignment. For example:
-///
+/// @par Over-Alignment
+/// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
+/// For example, if the buffer is too small to support the requested alignment then the allocation will fail as this
+/// example demonstrates:
 /// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_0
-///
-/// In that example the buffer is too small to support the requested alignment. In that case you can do this:
-///
+/// By over-provisioning the buffer the same alignment will succeed:
 /// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_1
+/// (@ref example_05_array_memory_resource_alignment "See full example here...")
+///
+/// @par More Examples
+/// Using this class with STL containers:
+/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_a
+/// Creating a small-buffer optimization using this class:
+/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_b
+/// Using two std::pmr::UnsynchronizedArrayMemoryResourceDelegate instances with std::vector:
+/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_c
+/// (@ref example_04_array_memory_resource_array "See full example here...")
 ///
 /// @tparam MemoryResourceType The type of the upstream memory resource to use.
 template <typename UpstreamMemoryResourceType>

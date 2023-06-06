@@ -28,6 +28,7 @@ namespace pmr
 /// Example usage:
 ///
 /// @snippet{trimleft} example_06_memory_resource_deleter.cpp example_usage
+/// (@ref example_06_memory_resource_deleter "See full example here...")
 ///
 class MemoryResourceDeleter final
 {
@@ -207,8 +208,9 @@ private:
 ///
 /// Example usage:
 ///
-/// @snippet{trimleft} example_06_polymorphic_alloc_deleter.cpp example_usage_0
-/// @snippet{trimleft} example_06_polymorphic_alloc_deleter.cpp example_usage_1
+/// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_0
+/// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_1
+/// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
 ///
 class Factory final
 {

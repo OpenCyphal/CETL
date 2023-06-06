@@ -75,7 +75,9 @@
         "devcontainer",
         "DFETCHCONTENT_FULLY_DISCONNECTED",
         "COMPILETEST_PRECHECK",
-        "arity"
+        "arity",
+        "mainpage",
+        "subpage"
     ],
     "files.associations": {
         "memory_resource": "cpp",
