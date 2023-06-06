@@ -63,7 +63,7 @@ endfunction(enable_instrumentation)
 # option: EXCLUDE_TARGET                    - If set the target itself will be excluded from the
 #                                             coverage data.
 # option: EXCLUDE_TEST_FRAMEWORKS           - If set the test frameworks will be excluded from the
-#                                             coverage data. This uses the custome TEST_FRAMEWORK_LINK_LIBRARIES
+#                                             coverage data. This uses the custom TEST_FRAMEWORK_LINK_LIBRARIES
 #                                             property to determine the test frameworks.
 # options: ENABLE_INSTRUMENTATION           - If specified the target and object library will have necessary
 #                                             compile and link options added to enable coverage data instrumentation.

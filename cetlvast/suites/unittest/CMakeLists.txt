@@ -15,24 +15,6 @@ find_package(gcovr REQUIRED)
 endif()
 
 
-# TODO: submit upstream patch to googletest to make this unnecessary.
-add_library(
-    flush_coverage_on_death
-    STATIC
-        "flush_coverage_on_death.c"
-)
-
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    target_link_options(flush_coverage_on_death
-        PUBLIC
-            "--coverage"
-    )
-    target_compile_definitions(flush_coverage_on_death
-        PUBLIC
-            CETLVAST_COVERAGE
-    )
-endif()
-
 # +---------------------------------------------------------------------------+
 #   We generate individual test binaires so we can record which test generated
 #   what coverage. We also allow test authors to generate coverage reports for
@@ -51,13 +33,22 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     define_native_gtest_unittest_targets(
         TEST_SOURCE ${NATIVE_TEST}
         EXTRA_TEST_LIBS
+            cetlvast
             cetl
             o1heap
-            flush_coverage_on_death
         OUT_TEST_LIB_VARIABLE LOCAL_TEST_LIB
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
     )
+
+    # To use cetlvast as the test main we have to annotate the test library
+    # to indicate that cetlvast is a test framework.
+    mark_as_test_framework(
+        TEST_TARGET ${LOCAL_TEST_TARGET}
+        FRAMEWORK_TARGETS cetlvast
+    )
+
+    get_target_property(LOCAL_TEST_LIB_TEST_FRAMEWORK_LINK_LIBRARIES ${LOCAL_TEST_TARGET} TEST_FRAMEWORK_LINK_LIBRARIES)
 
     list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})

@@ -35,6 +35,8 @@ TEST(example_01_polyfill_20, span_static)
     //! [example_01_polyfill_20_span]
 }
 
+#include "cetl/pf20/span.hpp"
+
 namespace
 {
 //! [example_01_polyfill_20_span_not_pf_pt1]

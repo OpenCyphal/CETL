@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: MIT
 #
 
-if(NOT TARGET gtest_main)
+if(NOT TARGET gmock)
 
 enable_testing()
 
@@ -132,6 +132,37 @@ function(_get_internal_output_path_for_source)
     set(${ARG_OUT_INTERNAL_DIRECTORY_VARIABLE} ${LOCAL_RESULT} PARENT_SCOPE)
 endfunction()
 
+
+#
+# function: mark_as_test_framework - Helper function to mark a given test framework
+#           library as a test-framework for a given test library or executable.
+#
+# param: TEST_TARGET target             - The test library or executable to annotate.
+# param: FRAMEWORK_TARGETS list[target] - The test framework libraries to mark on the test target.
+#
+function (mark_as_test_framework)
+    #+-[input]----------------------------------------------------------------+
+    set(options)
+    set(singleValueArgs TEST_TARGET)
+    set(multiValueArgs FRAMEWORK_TARGETS)
+    cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
+
+    #+-[body]-----------------------------------------------------------------+
+    list(APPEND TEST_FRAMEWORK_LINK_LIBRARIES_LIST ${ARG_FRAMEWORK_TARGETS})
+    get_target_property(LOCAL_TFLL ${ARG_TEST_TARGET} TEST_FRAMEWORK_LINK_LIBRARIES)
+
+    if (NOT LOCAL_TFLL MATCHES ".*-NOTFOUND$")
+        list(APPEND TEST_FRAMEWORK_LINK_LIBRARIES_LIST ${LOCAL_TFLL})
+    endif()
+
+    set_target_properties(${ARG_TEST_TARGET}
+        PROPERTIES
+            TEST_FRAMEWORK_LINK_LIBRARIES "${TEST_FRAMEWORK_LINK_LIBRARIES_LIST}"
+    )
+
+endfunction(mark_as_test_framework)
+
+
 #
 # function: define_native_gtest_unittest_library - Creates a target to build a static library
 #
@@ -169,9 +200,11 @@ function(define_native_gtest_unittest_library)
     target_link_libraries(${LOCAL_TEST_LIB_NAME} PUBLIC gmock)
     target_link_libraries(${LOCAL_TEST_LIB_NAME} PUBLIC ${ARG_EXTRA_TEST_LIBS})
 
-    set_target_properties(${LOCAL_TEST_LIB_NAME}
-        PROPERTIES
-        TEST_FRAMEWORK_LINK_LIBRARIES "gmock;gtest"
+    mark_as_test_framework(
+        TEST_TARGET ${LOCAL_TEST_LIB_NAME}
+        FRAMEWORK_TARGETS
+            gmock
+            gtest
     )
 
     if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
@@ -215,11 +248,14 @@ endfunction(define_native_gtest_unittest_library)
 # param: EXTRA_TEST_LIBS targets            - A list of additional test library targets to link with.
 # param: OUT_TEST_EXE_VARIABLE target       - If set, this becomes the name of a variable set, in the parent
 #                                             context, to the executable target name.
+# option: LINK_TO_MAIN                      - If set, the test executable will be linked the googletest main
+#                                             and will be a fully executable binary. If omitted the caller
+#                                             must provide a valid main function.
 #
 function(define_native_gtest_unittest_executable)
 
     #+-[input]----------------------------------------------------------------+
-    set(options "")
+    set(options LINK_TO_MAIN)
     set(singleValueArgs TEST_LIB RUNTIME_OUTPUT_DIRECTORY OUT_TEST_EXE_VARIABLE)
     set(multiValueArgs EXTRA_TEST_LIBS)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
@@ -235,15 +271,17 @@ function(define_native_gtest_unittest_executable)
     message(DEBUG "Defining googletest executable ${LOCAL_TEST_NAME} for source library ${ARG_TEST_LIB}")
 
     add_executable(${LOCAL_TEST_NAME} $<TARGET_OBJECTS:${ARG_TEST_LIB}>)
-    target_link_libraries(${LOCAL_TEST_NAME} PRIVATE gmock_main)
     target_link_libraries(${LOCAL_TEST_NAME} PRIVATE ${ARG_EXTRA_TEST_LIBS})
 
-    set(TEST_FRAMEWORK_LINK_LIBRARIES "gmock_main")
+    if(ARG_LINK_TO_MAIN)
+        target_link_libraries(${LOCAL_TEST_NAME} PRIVATE gmock_main)
+        mark_as_test_framework(TEST_TARGET ${LOCAL_TEST_NAME} FRAMEWORK_TARGETS gmock_main)
+    endif()
 
     get_target_property(LOCAL_TEST_LIB_TEST_FRAMEWORK_LINK_LIBRARIES ${ARG_TEST_LIB} TEST_FRAMEWORK_LINK_LIBRARIES)
 
     if (NOT LOCAL_TEST_LIB_TEST_FRAMEWORK_LINK_LIBRARIES MATCHES ".*-NOTFOUND$")
-        list(APPEND TEST_FRAMEWORK_LINK_LIBRARIES ${LOCAL_TEST_LIB_TEST_FRAMEWORK_LINK_LIBRARIES})
+        mark_as_test_framework(TEST_TARGET ${LOCAL_TEST_NAME} FRAMEWORK_TARGETS ${LOCAL_TEST_LIB_TEST_FRAMEWORK_LINK_LIBRARIES})
     endif()
 
     get_target_property(LOCAL_TEST_LIB_POST_BUILD_INSTRUMENTATION_BYPRODUCTS ${ARG_TEST_LIB} POST_BUILD_INSTRUMENTATION_BYPRODUCTS)
@@ -254,11 +292,6 @@ function(define_native_gtest_unittest_executable)
             POST_BUILD_INSTRUMENTATION_BYPRODUCTS "${LOCAL_TEST_LIB_POST_BUILD_INSTRUMENTATION_BYPRODUCTS}"
         )
     endif()
-
-    set_target_properties(${LOCAL_TEST_NAME}
-        PROPERTIES
-        TEST_FRAMEWORK_LINK_LIBRARIES "${TEST_FRAMEWORK_LINK_LIBRARIES}"
-    )
 
     set_target_properties(${LOCAL_TEST_NAME}
         PROPERTIES
@@ -339,6 +372,9 @@ endfunction(define_native_gtest_unittest_run)
 # param: TEST_SOURCE path                   - A single source file that is the test main.
 # param: RUNTIME_OUTPUT_DIRECTORY path      - A path to output test binaries and coverage data under.
 # param: EXTRA_TEST_LIBS targets            - A list of additional test library targets to link with.
+# option: LINK_TO_MAIN                      - If set, the test executable will be linked the googletest main
+#                                             and will be a fully executable binary. If omitted the caller
+#                                             must provide a valid main function.
 # param: OUT_TEST_LIB_VARIABLE target       - If set, this becomes the name of a variable set, in the parent
 #                                             context, to the test case library build target name.
 # param: OUT_TEST_EXE_VARIABLE target       - If set, this becomes the name of a variable set, in the parent
@@ -349,13 +385,19 @@ endfunction(define_native_gtest_unittest_run)
 function(define_native_gtest_unittest_targets)
 
     #+-[input]----------------------------------------------------------------+
-    set(options "")
+    set(options LINK_TO_MAIN)
     set(singleValueArgs TEST_SOURCE RUNTIME_OUTPUT_DIRECTORY OUT_TEST_LIB_VARIABLE OUT_TEST_EXE_VARIABLE OUT_TEST_REPORT_VARIABLE)
     set(multiValueArgs EXTRA_TEST_LIBS)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     if (NOT ARG_RUNTIME_OUTPUT_DIRECTORY)
         set(ARG_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    if (ARG_LINK_TO_MAIN)
+        set(ARG_LINK_TO_MAIN_FORWARD LINK_TO_MAIN)
+    else()
+        set(ARG_LINK_TO_MAIN_FORWARD)
     endif()
 
     #+-[body]-----------------------------------------------------------------+
@@ -378,6 +420,7 @@ function(define_native_gtest_unittest_targets)
             ${ARG_RUNTIME_OUTPUT_DIRECTORY}
         EXTRA_TEST_LIBS
             ${ARG_EXTRA_TEST_LIBS}
+        ${ARG_LINK_TO_MAIN_FORWARD}
         OUT_TEST_EXE_VARIABLE
             "LOCAL_TEST_EXE"
     )

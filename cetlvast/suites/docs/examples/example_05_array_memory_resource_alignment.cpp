@@ -16,6 +16,8 @@
 #include "cetl/pmr/array_memory_resource.hpp"
 #include "cetl/pf17/cetlpf.hpp"
 //![example_include]
+#include "cetl/pf17/byte.hpp"
+
 
 TEST(example_05_array_memory_resource_alignment, example_0)
 {
@@ -47,6 +49,7 @@ TEST(example_05_array_memory_resource_alignment, example_0)
 
     //![example_0]
 }
+
 TEST(example_05_array_memory_resource_alignment, example_1)
 {
     //![example_1]

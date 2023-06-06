@@ -93,6 +93,7 @@ public:
         , buffer_{buffer}
         , buffer_size_bytes_{buffer_size_bytes}
         , max_size_bytes_{calculate_max_size_bytes(buffer_size_bytes, upstream_max_size_bytes)}
+        , upstream_max_size_bytes_{upstream_max_size_bytes}
         , in_use_{nullptr}
     {
         CETL_DEBUG_ASSERT(nullptr != upstream,
@@ -123,7 +124,7 @@ public:
         {
             in_use_ = result;
         }
-        else if (upstream_)
+        else if (upstream_ && size_bytes <= upstream_max_size_bytes_)
         {
             result = upstream_->allocate(size_bytes, alignment);
         }
@@ -189,6 +190,7 @@ private:
     void*                       buffer_;
     const std::size_t           buffer_size_bytes_;
     const std::size_t           max_size_bytes_;
+    const std::size_t           upstream_max_size_bytes_;
     void*                       in_use_;
 };
 

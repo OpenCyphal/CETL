@@ -1,5 +1,5 @@
 /// @file
-/// CETL VerificAtion SuiTe – Enables coverage data from forked death tests
+/// CETL VerificAtion SuiTe – Test Main
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,6 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
+extern "C"
+{
 #include <signal.h>
 #include <stdlib.h>
 
@@ -50,3 +52,15 @@ void flush_coverage_on_death(void)
 void flush_coverage_on_death(void){}
 
 #endif
+}
+
+#include <iostream>
+
+#include "gmock/gmock.h"
+
+int main(int argc, char **argv)
+{
+    std::cout << "Running main() from gmock_main.cc\n";
+    testing::InitGoogleMock(&argc, argv);
+    return RUN_ALL_TESTS();
+}

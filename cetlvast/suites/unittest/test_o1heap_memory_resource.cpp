@@ -31,3 +31,16 @@ TEST(UnsynchronizedO1HeapMemoryResourceTest, O1HeapAlignedStorageTest)
     ASSERT_NE(nullptr, mem);
     test_subject.deallocate(mem, 16);
 }
+
+// +----------------------------------------------------------------------+
+
+static void TestNullBufferInCtor()
+{
+    flush_coverage_on_death();
+    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{nullptr, 0};
+}
+
+TEST(DeathTestUnsynchronizedO1HeapMemoryResourceAssertions, TestNullBufferInCtor)
+{
+    EXPECT_DEATH(TestNullBufferInCtor(), "CDE_o1h_001");
+}

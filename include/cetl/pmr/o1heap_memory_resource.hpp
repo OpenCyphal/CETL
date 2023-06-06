@@ -47,7 +47,7 @@ public:
         , max_size_bytes_{buffer_size_bytes}
     {
         // TODO: https://github.com/pavel-kirienko/o1heap/issues/17
-        CETL_DEBUG_ASSERT(nullptr != o1heap_, "o1heapInit failed.");
+        CETL_DEBUG_ASSERT(nullptr != o1heap_, "CDE_o1h_001: o1heapInit failed.");
     }
 
     template <typename AlignedStorageType>

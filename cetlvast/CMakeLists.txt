@@ -46,10 +46,6 @@ else()
     message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
 endif()
 
-include_directories(
-    "${CMAKE_SOURCE_DIR}/include"
-)
-
 if(NOT DEFINED FETCHCONTENT_FULLY_DISCONNECTED)
     message(WARNING "FETCHCONTENT_FULLY_DISCONNECTED was not defined. Setting to \"OFF\" as a default but the build "
                     "will fail if you haven't previously downloaded the external dependencies.")
@@ -175,6 +171,20 @@ enable_clang_format_check_for_directory(
     DIRECTORY ${CETL_INCLUDE}
     GLOB_PATTERN "**/*.hpp"
     FORMAT_IN_PLACE)
+
+# +---------------------------------------------------------------------------+
+# | CETLVAST
+# +---------------------------------------------------------------------------+
+add_library(cetlvast STATIC ${CMAKE_SOURCE_DIR}/src/cetlvast.cpp)
+target_include_directories(cetlvast INTERFACE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(cetlvast PUBLIC cetl gmock gtest)
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    # TODO: submit upstream patch to googletest to make this unnecessary.
+    target_compile_definitions(cetlvast
+        PUBLIC
+            CETLVAST_COVERAGE
+    )
+endif()
 
 # +---------------------------------------------------------------------------+
 # | TEST SUITES
