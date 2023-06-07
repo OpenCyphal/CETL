@@ -119,6 +119,9 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
 # Always need this.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Keep it real.
+set(CXX_EXTENSIONS OFF)
+
 # +---------------------------------------------------------------------------+
 # | KITS
 # +---------------------------------------------------------------------------+
