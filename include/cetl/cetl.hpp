@@ -7,19 +7,61 @@
 /// SPDX-License-Identifier: MIT
 ///
 /// @note
-/// Keep this very spare. CETL's desire is to adapt to future C++ standards
-/// and too many CETL-specific definitions makes it difficult for users to switch off of CETL in the
-/// future.
+/// Keep this very spare. CETL's desire is to adapt to future C++ standards and too many CETL-specific definitions makes
+/// it difficult for users to switch off of CETL in the future.
 ///
-/// If `CETL_H_ERASE` is defined then all CETL types will exclude the `cetl/cetl.hpp` header which
-/// removes all common dependencies, other than C++ standard headers, from CETL. The types will not build due to
-/// missing macros but the user can re-define these based on subsequent compiler errors. This allows elision of
-/// cetl.hpp without modifying CETL source code. The CETL types are not guaranteed to work with cetl.hpp removed; you
-/// have been warned.
+/// @def CETL_H_ERASE
+/// If `CETL_H_ERASE` is defined then all CETL types will exclude all cetl headers which removes all common
+/// dependencies, other than C++ standard headers, from CETL. The types will not build due to
+/// missing macros and/or type aliases but the user can re-define these based on subsequent compiler errors. This allows
+/// elision of cetl.hpp and dependencies on CETL polyfill types without modifying CETL source code.
+/// Note that CETL polyfill headers cannot be used if CETL_H_ERASE is defined.
 ///
-/// @warning
-/// polyfill headers cannot be used if CETL_H_ERASE is defined. Presumably, if you really want to minimize your
-/// dependencies, you would not be using the polyfill headers.
+/// @mainpage Example Code
+/// This area contains a series of examples used to illustrate CETL type usage. Each full example is actually
+/// a set of googletest test cases to allow our build automation to verify their correctness but you can treat
+/// any given example as a stand-alone program.
+/// - @subpage example_01_polyfill_20
+/// - @subpage example_02_span
+/// - @subpage example_03_memory_resource
+/// - @subpage example_04_array_memory_resource_array
+/// - @subpage example_05_array_memory_resource_alignment
+/// - @subpage example_06_memory_resource_deleter
+/// - @subpage example_07_polymorphic_alloc_deleter
+/// - @subpage example_08_variable_length_array_vs_vector
+///
+/// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
+/// Full example for @ref cetl/pf20/cetlpf.hpp
+/// @include example_01_polyfill_20.cpp
+///
+/// @page example_02_span Example 2: CETL span type.
+/// Full example for cetl::pf20::span
+/// @include example_02_span.cpp
+///
+/// @page example_03_memory_resource Example 3: Implementing a CETL Memory Resource
+/// Full example for cetl::pf17::pmr::memory_resource
+/// @include example_03_memory_resource.cpp
+///
+/// @page example_04_array_memory_resource_array Example 4: Using the UnsynchronizedArrayMemoryResourceDelegate class
+/// Full example for cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate
+/// @include example_04_array_memory_resource_array.cpp
+/// Also see @ref example_05_array_memory_resource_alignment
+///
+/// @page example_05_array_memory_resource_alignment Example 5: Using an array memory resource for over-alignment
+/// Also see @ref example_04_array_memory_resource_array
+/// @include example_05_array_memory_resource_alignment.cpp
+///
+/// @page example_06_memory_resource_deleter Example 6: Using the MemoryResourceDeleter class
+/// Full example for cetl::pmr::MemoryResourceDeleter
+/// @include example_06_memory_resource_deleter.cpp
+///
+/// @page example_07_polymorphic_alloc_deleter Example 7: Using the PolymorphicAllocatorDeleter class
+/// Full example for cetl::pmr::Factory
+/// @include example_07_polymorphic_alloc_deleter.cpp
+///
+/// @page example_08_variable_length_array_vs_vector Example 8: Comparing std::vector to CETL's VariableLengthArray
+/// Full example for cetl::VariableLengthArray
+/// @include example_08_variable_length_array_vs_vector.cpp
 ///
 
 #ifndef CETL_H_INCLUDED
@@ -27,6 +69,10 @@
 
 #ifdef CETL_H_ERASE
 #    error "CETL_H_ERASE was defined. This header should never be included when the build is trying to erase it!"
+#elif defined(CETL_DOXYGEN)
+// Define then undefine to expose CETL_H_ERASE to doxygen.
+#    define CETL_H_ERASE
+#    undef CETL_H_ERASE
 #endif
 
 /// @defgroup CETL_VERSION The semantic version number of the CETL library.
@@ -68,12 +114,21 @@
 /// Define `CETL_ENABLE_DEBUG_ASSERT` as 1 to enable assertions within CETL code. Enabling this
 /// in production code is <em>strongly</em> discouraged.
 ///
-#if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
+#if defined NDEBUG && defined CETL_ENABLE_DEBUG_ASSERT
+#    undef CETL_ENABLE_DEBUG_ASSERT
+#endif
+
+#if defined CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
 #    define CETL_DEBUG_ASSERT(c, m) assert(((void) m, c))
 #else
 #    define CETL_DEBUG_ASSERT(c, m) ((void) m)
 #endif  // CETL_ENABLE_DEBUG_ASSERT
+
+// Make the standard exceptions available only if exceptions are enabled.
+#if __cpp_exceptions
+#    include <stdexcept>
+#endif
 
 /// @defgroup CETL_CPP_STANDARD Guaranteed CETL c++ standard numbers
 /// These macros are an AUTOSAR-14 Rule A16-0-1 violation but can be used to conditionally include headers which
@@ -130,4 +185,7 @@ static_assert(__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STA
                   __cplusplus >= CETL_CPP_STANDARD_20,
               "Unknown __cplusplus value found?");
 
+/// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering
+///                 to target C++ specifications.
+/// @namespace cetl::pmr CETL extensions to the standard Polymorphic Memory Resource (PMR) namespace, `std::pmr`.
 #endif  // CETL_H_INCLUDED

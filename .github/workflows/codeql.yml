@@ -51,8 +51,7 @@ jobs:
     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
 
     - run: |
-        echo "Building unittests for analysis"
-        ./cetlvast/verify.py -cd ./cetlvast -bf Debug unittest
+        ./build-tools/bin/verify.py -v --dont-force-ninja --online clean-build-build_examples
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v2

@@ -4,18 +4,19 @@
     "customizations": {
         "vscode": {
             "extensions": [
-                "ms-vscode.cpptools",
-                "twxs.cmake",
-                "ms-vscode.cmake-tools",
-                "ban.spellright",
-                "xaver.clang-format"
+                "ms-vscode.cpptools-extension-pack",
+                "streetsidesoftware.code-spell-checker",
+                "xaver.clang-format",
+                "vadimcn.vscode-lldb",
+                "matepek.vscode-catch2-test-adapter",
+                "ms-vscode.hexeditor"
             ]
         }
     },
     "workspaceFolder": "/repo",
     "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
     "mounts": [
-        "source=profile,target=/root,type=volume",
+        "source=profile-cetl,target=/root,type=volume",
         "target=/root/.vscode-server,type=volume"
     ]
 }

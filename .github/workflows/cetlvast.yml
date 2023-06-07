@@ -15,17 +15,22 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     strategy:
       matrix:
-        std: [base, intermediate, target]
+        build_flavor: [Debug, Release]
+        exceptions: [exceptions, no-exceptions]
+        std: [14, 17, 20]
         toolchain: [gcc, clang]
-        suite: [unittest, compile]
+        include:
+          - build_flavor: Coverage
+            exceptions: no-exceptions
+            std: 14
+            toolchain: gcc
+        exclude:
+          - build_flavor: Debug
+            exceptions: no-exceptions
+            std: 14
+            toolchain: gcc
     steps:
     - uses: actions/checkout@v3
-    - name: setup environment common
-      run: >
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_UNITTEST_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_COVERAGE_REPORT_FORMAT=sonarqube" >> $GITHUB_ENV
 
     - name: Cache ext modules
       id: cetlvast-ext
@@ -33,57 +38,69 @@ jobs:
       env:
         cache-name: cetlvast-ext-cache
       with:
-        path: ${{ env.CETLVAST_EXT_PATH }}
+        path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
     - name: run tests
       run: >
-        ./cetlvast/verify.py -cd ./cetlvast
-        --force-ninja
-        --coverage ${{ env.CETLVAST_COVERAGE_REPORT_FORMAT }}
-        --build-flavor Debug
+        ./build-tools/bin/verify.py
+        -v
+        --online
         --asserts
-        --generate-test-report testExecutions.xml
+        --${{ matrix.exceptions }}
+        --build-flavor ${{ matrix.build_flavor }}
         --cpp-standard ${{ matrix.std }}
         --toolchain ${{ matrix.toolchain }}
-        ${{ matrix.suite }}
+        test
+    - name: debug output
+      if: ${{ runner.debug == '1' }}
+      run: ls -lAhR build/
     - name: upload-artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.suite }}-${{ matrix.std }}-${{ matrix.toolchain }}
+        name: ${{ matrix.build_flavor }}-${{ matrix.exceptions }}-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
-          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
-          ${{ env.CETLVAST_SUITE_BUILD_PATH }}/cetlvast/suites/${{ matrix.suite }}
+          build/compile_commands.json
+          build/*/**/coverage.xml
+          build/*/**/*-sonarqube.xml
+          build/*/**/gcovr_html/*.*
         if-no-files-found: error
   docs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
     - uses: actions/checkout@v3
-    - name: setup environment
-      run: >
-        echo "CETLVAST_SUITE_DOCS_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir docs)" >> $GITHUB_ENV;
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV
     - name: Cache ext modules
       id: cetlvast-ext
       uses: actions/cache@v3
       env:
         cache-name: cetlvast-ext-cache
       with:
-        path: ${{ env.CETLVAST_EXT_PATH }}
+        path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - name: Check Style
-      run: |
-        ./cetlvast/verify.py -cd ./cetlvast lint
-    - name: verify
-      run: ./cetlvast/verify.py -cd ./cetlvast docs
+    - name: doc-gen
+      run: >
+        ./build-tools/bin/verify.py
+        -v
+        --online
+        --asserts
+        --build-flavor Debug
+        --cpp-standard 14
+        build-docs
     - name: Setup Pages
+      if: ${{ github.event_name != 'pull_request' }}
       uses: actions/configure-pages@v3
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' }}
       uses: actions/upload-pages-artifact@v1
       with:
-        path: "${{ env.CETLVAST_SUITE_DOCS_PATH }}/html/"
-
+        path: "build/suites/docs/html/"
+    - name: upload-pr-docs
+      if: ${{ github.event_name == 'pull_request' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: pr-docs
+        path: "build/suites/docs/html/"
+        if-no-files-found: error
   sonarqube:
     needs:
     - verification
@@ -96,13 +113,6 @@ jobs:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
     - name: Install sonar-scanner
       uses: SonarSource/sonarcloud-github-c-cpp@v1
-    - name: setup environment
-      run: >
-        echo "CETLVAST_EXT_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls extdir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_SUITE_BUILD_PATH=$(./cetlvast/verify.py -cd ./cetlvast -ls builddir none)" >> $GITHUB_ENV;
-        echo "CETLVAST_COVERAGE_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls covri --coverage sonarqube unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_TEST_REPORT=$(./cetlvast/verify.py -cd ./cetlvast -ls tests -gtr testExecutions.xml unittest)" >> $GITHUB_ENV;
-        echo "CETLVAST_CPP_BASE=c++$(./cetlvast/verify.py -cd ./cetlvast -ls cppstd --cpp-standard base docs)" >> $GITHUB_ENV
 
     - name: Cache ext modules
       id: cetlvast-ext
@@ -110,14 +120,12 @@ jobs:
       env:
         cache-name: cetlvast-ext-cache
       with:
-        path: ${{ env.CETLVAST_EXT_PATH }}
+        path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-
     - uses: actions/download-artifact@v3
       with:
-        name: unittest-base-clang
-        path: ${{ env.CETLVAST_SUITE_BUILD_PATH }}
-
+        name: Coverage-no-exceptions-14-gcc
+        path: build
     - name: Run sonar-scanner
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -128,16 +136,18 @@ jobs:
           --define sonar.projectKey=OpenCyphal_CETL
           --define sonar.projectName=CETLVaSt
           --define sonar.projectVersion=1.0
-          --define sonar.sources=include,cetlvast/suites/unittest
+          --define sonar.sources=include,cetlvast/suites/unittest/sonar.cpp
+          --define sonar.tests=cetlvast/suites/unittest,cetlvast/suites/docs/examples
+          --define sonar.test.inclusions=test_*.cpp,example_*.cpp
           --define sonar.sourceEncoding=UTF-8
           --define sonar.host.url=https://sonarcloud.io
           --define sonar.cfamily.ignoreHeaderComments=false
-          --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*"
-          --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*"
-          --define sonar.cfamily.compile-commands=${{ env.CETLVAST_SUITE_BUILD_PATH }}/compile_commands.json
-          --define sonar.cfamily.reportingCppStandardOverride=${{ env.CETLVAST_CPP_BASE }}
-          --define sonar.coverageReportPaths=${{ env.CETLVAST_COVERAGE_REPORT }}
-          --define sonar.testExecutionReportPaths=${{ env.CETLVAST_TEST_REPORT }}
+          --define sonar.coverage.exclusions="cetlvast/suites/unittest/**/*,cetlvast/suites/docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cpd.exclusions="cetlvast/suites/unittest/**/*,cetlvast/suites/docs/examples/**/*,**/sonar.cpp"
+          --define sonar.cfamily.compile-commands="build/compile_commands.json"
+          --define sonar.cfamily.reportingCppStandardOverride=c++14
+          --define sonar.coverageReportPaths="build/suites/unittest/coverage.xml,build/suites/docs/examples/coverage.xml"
+          --define sonar.testExecutionReportPaths="build/suites/unittest/unittest-sonarqube.xml,build/suites/docs/examples/examples-sonarqube.xml"
 
   deploy-docs:
     if: ${{ (github.event_name == 'release' && !github.event.release.prerelease) || github.event_name == 'workflow_dispatch' }}

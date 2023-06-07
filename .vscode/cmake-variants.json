@@ -5,51 +5,26 @@
         "choices": {
             "debug": {
                 "short": "Debug",
-                "long": "Debug builds, no optimizations.",
-                "buildType": "Debug"
+                "long": "Debug builds with asserts enabled, no optimizations.",
+                "buildType": "Debug",
+                "settings": {
+                    "CETL_ENABLE_DEBUG_ASSERT": true,
+                    "LIBCXX_ENABLE_ASSERTIONS": true
+                }
+            },
+            "coverage": {
+                "short": "Coverage",
+                "long": "Coverage builds with asserts enabled, no optimizations.",
+                "buildType": "Coverage",
+                "settings": {
+                    "CETL_ENABLE_DEBUG_ASSERT": true,
+                    "LIBCXX_ENABLE_ASSERTIONS": true
+                }
             },
             "release": {
                 "short": "Release",
                 "long": "Release builds, some optimizations",
                 "buildType": "Release"
-            }
-        }
-    },
-    "debugAssert":{
-        "default": "off",
-        "choices": {
-            "off": {
-                "short": "no-asserts",
-                "long": "disable intrinsic asserts intended to be used only for testing or verification.",
-                "settings": {
-                    "CETL_ENABLE_DEBUG_ASSERT": false
-                }
-            },
-            "on": {
-                "short": "asserts",
-                "long": "enable intrinsic asserts intended to be used only for testing or verification.",
-                "settings": {
-                    "CETL_ENABLE_DEBUG_ASSERT": true
-                }
-            }
-        }
-    },
-    "coverage":{
-        "default": "disabled",
-        "choices": {
-            "disabled": {
-                "short": "no-coverage",
-                "long": "code coverage generation and reporting is disabled.",
-                "settings": {
-                    "CETLVAST_ENABLE_COVERAGE": false
-                }
-            },
-            "enabled": {
-                "short": "coverage",
-                "long": "code coverage generation and reporting is enabled.",
-                "settings": {
-                    "CETLVAST_ENABLE_COVERAGE": true
-                }
             }
         }
     },
@@ -78,5 +53,24 @@
                 }
             }
         }
-    }
+    },
+    "exceptions":{
+        "default": "enabled",
+        "choices": {
+            "enabled": {
+                "short": "exceptions",
+                "long": "Compile with standard C++ exception handling.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": false
+                }
+            },
+            "disabled": {
+                "short": "no-exceptions",
+                "long": "Disable C++ exceptions where the compiler supports this.",
+                "settings": {
+                    "CETLVAST_DISABLE_CPP_EXCEPTIONS": true
+                }
+            }
+        }
+    },
 }

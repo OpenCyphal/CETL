@@ -42,9 +42,11 @@ class span;
 ///
 /// @par Example
 /// Creating a stream operator for `cetl::span`...
-/// @snippet{trimleft} example_01_span_static.cpp global
+/// @snippet{trimleft} example_02_span.cpp example_02_span_static_pt1
 /// ...enables trivial printing of substrings without allocation of a new buffer.
-/// @snippet{trimleft} example_01_span_static.cpp main
+/// @snippet{trimleft} example_02_span.cpp example_02_span_static_pt2
+///
+/// (@ref example_02_span "See full example here...")
 ///
 /// @tparam T       The element type.
 /// @tparam Extent  The extent type of this span; either dynamic or static.
@@ -86,7 +88,7 @@ public:
 
     /// Default constructor
     /// @tparam DeducedExtent   The Extent deduced by the compiler.
-    /// @tparam type            SFNAE enablement of this constructor only where the extent > 0.
+    /// @tparam type            SFINAE enablement of this constructor only where the extent > 0.
     /// @see std::span::span()
     template <std::size_t DeducedExtent = Extent, typename std::enable_if<(DeducedExtent == 0), bool>::type = true>
     constexpr span() noexcept
@@ -112,7 +114,7 @@ public:
 
     /// Creates a span starting at an element to the element before the given end.
     /// That is, `span == [first, end)`. It is undefined to provide iterators where `end - first != Extent`
-    /// @tparam EndType End iterator type is deduced to support SFNAE pattern.
+    /// @tparam EndType End iterator type is deduced to support SFINAE pattern.
     /// @tparam type Participates in overload resolution only if the EndType cannot be converted to size_type.
     /// @param first    The first element in the span.
     /// @param end      The element after the last element in the span.
@@ -136,7 +138,7 @@ public:
     }
 
     /// Creates a span over an entire `std::array` starting at the array's first element.
-    /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
+    /// @tparam ArrayElementType Deduced array element type to support SFINAE enablement.
     /// @tparam type    Enables this override only if the array's element type is the same as the span's or if the
     ///                 conversion is a simple [qualification
     ///                 conversion](https://en.cppreference.com/w/cpp/language/implicit_conversion#Qualification_conversions).
@@ -150,7 +152,7 @@ public:
     }
 
     /// Creates a span over an entire `const std::array` starting at the array's first element.
-    /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
+    /// @tparam ArrayElementType Deduced array element type to support SFINAE enablement.
     /// @tparam type    Enables this override only if the array's element type is the same as the span's or if the
     ///                 conversion is a simple [qualification
     ///                 conversion](https://en.cppreference.com/w/cpp/language/implicit_conversion#Qualification_conversions).
@@ -279,7 +281,7 @@ public:
     ///    +-----------------------+
     ///
     /// @endcode
-    /// @return reverse iterator from the begining of the span.
+    /// @return reverse iterator from the beginning of the span.
     /// @see std::span::rend
     constexpr reverse_iterator rend() const noexcept
     {
@@ -315,7 +317,7 @@ public:
 
     ///
     /// Provides access to the internal data the span is a view into.
-    /// @return A pointer to the begining of the span sequence.
+    /// @return A pointer to the beginning of the span sequence.
     /// @see std::span::data
     constexpr pointer data() const noexcept
     {
@@ -359,7 +361,7 @@ public:
     }
     ///@}
     // +----------------------------------------------------------------------+
-    ///@{ @name Subviews
+    ///@{ @name sub-views
     // +----------------------------------------------------------------------+
     /// Create a new span from the start of the current span for `Count` elements.
     /// @tparam Count   Number of elements for the sub-span.
@@ -368,7 +370,7 @@ public:
     template <size_type Count>
     constexpr span<element_type, Count> first() const
     {
-        static_assert(Count <= Extent, "subviews beyond the size of the span's view are not allowed.");
+        static_assert(Count <= Extent, "sub-views beyond the size of the span's view are not allowed.");
         return span<element_type, Count>(data_, Count);
     }
 
@@ -380,7 +382,7 @@ public:
     constexpr span<element_type, dynamic_extent> first(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= Extent,
-                          "CDE_span_008: Dynamic subviews beyond the size of the span's view are undefined.");
+                          "CDE_span_008: Dynamic sub-views beyond the size of the span's view are undefined.");
         return span<element_type, dynamic_extent>(data_, count);
     }
 
@@ -391,7 +393,7 @@ public:
     template <size_type Count>
     constexpr span<element_type, Count> last() const
     {
-        static_assert(Count <= extent, "subviews beyond the size of the span's view are not allowed.");
+        static_assert(Count <= extent, "sub-views beyond the size of the span's view are not allowed.");
         return span<element_type, Count>{&data_[extent - Count], Count};
     }
 
@@ -403,7 +405,7 @@ public:
     constexpr span<element_type, dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= extent,
-                          "CDE_span_009: Dynamic subviews beyond the size of the span's view are undefined.");
+                          "CDE_span_009: Dynamic sub-views beyond the size of the span's view are undefined.");
         return span<element_type, dynamic_extent>(&data_[extent - count], count);
     }
 
@@ -458,7 +460,7 @@ template <typename T, std::size_t Extent>
 const std::size_t span<T, Extent>::extent;
 
 /// Specialization of span where the extent is dynamic.
-/// @snippet{trimleft} example_01_span_dynamic.cpp main
+/// @snippet{trimleft} example_02_span.cpp example_02_span_dynamic
 template <typename T>
 class span<T, dynamic_extent>
 {
@@ -516,7 +518,7 @@ public:
 
     /// Creates a span starting at an element to the element before the given end.
     /// That is, `span == [first, end)`. The size of the span becomes end - first.
-    /// @tparam EndType End iterator type is deduced to support SFNAE pattern.
+    /// @tparam EndType End iterator type is deduced to support SFINAE pattern.
     /// @tparam type Participates in overload resolution only if the EndType cannot be converted to size_type.
     /// @param first    The first element in the span.
     /// @param end      The element after the last element in the span.
@@ -546,7 +548,7 @@ public:
 
     /// Creates a span over an entire `std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
-    /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
+    /// @tparam ArrayElementType Deduced array element type to support SFINAE enablement.
     /// @tparam ArrayLen         The length of the array. span::size() is set to this value.
     /// @tparam type    Enables this override only if the array's element type is the same as the span's or if the
     ///                 conversion is a simple [qualification
@@ -564,7 +566,7 @@ public:
 
     /// Creates a span over an entire `const std::array` starting at the array's first element and with a size set to
     /// `ArrayLen`.
-    /// @tparam ArrayElementType Deduced array element type to support SFNAE enablement.
+    /// @tparam ArrayElementType Deduced array element type to support SFINAE enablement.
     /// @tparam ArrayLen         The length of the array. span::size() is set to this value.
     /// @tparam type    Enables this override only if the array's element type is the same as the span's or if the
     ///                 conversion is a simple [qualification
@@ -715,7 +717,7 @@ public:
     }
     ///@}
     // +----------------------------------------------------------------------+
-    ///@{ @name Subviews
+    ///@{ @name sub-views
     // +----------------------------------------------------------------------+
     /// Create a new span from the start of the current span for `Count` elements.
     /// @tparam Count   Number of elements for the sub-span. The behavior of this method and the returned span is
@@ -725,7 +727,7 @@ public:
     template <size_type Count>
     constexpr span<element_type, Count> first() const
     {
-        CETL_DEBUG_ASSERT(Count <= size_, "CDE_span_017: Subviews beyond the size of the span's view are undefined.");
+        CETL_DEBUG_ASSERT(Count <= size_, "CDE_span_017: sub-views beyond the size of the span's view are undefined.");
         return span<element_type, Count>(data_, Count);
     }
 
@@ -734,7 +736,7 @@ public:
     constexpr span<element_type, dynamic_extent> first(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= size_,
-                          "CDE_span_018: Dynamic subviews beyond the size of the span's view are undefined.");
+                          "CDE_span_018: Dynamic sub-views beyond the size of the span's view are undefined.");
         return span<element_type, dynamic_extent>(data_, count);
     }
 
@@ -746,7 +748,7 @@ public:
     template <size_type Count>
     constexpr span<element_type, Count> last() const
     {
-        CETL_DEBUG_ASSERT(Count <= size_, "CDE_span_019: Subviews beyond the size of the span's view are undefined.");
+        CETL_DEBUG_ASSERT(Count <= size_, "CDE_span_019: sub-views beyond the size of the span's view are undefined.");
         return span<element_type, Count>(&data_[size_ - Count], Count);
     }
 
@@ -755,7 +757,7 @@ public:
     constexpr span<element_type, dynamic_extent> last(size_type count) const
     {
         CETL_DEBUG_ASSERT(count <= size_,
-                          "CDE_span_020: Dynamic subviews beyond the size of the span's view are undefined.");
+                          "CDE_span_020: Dynamic sub-views beyond the size of the span's view are undefined.");
         return span<element_type, dynamic_extent>(&data_[size_ - count], count);
     }
 
