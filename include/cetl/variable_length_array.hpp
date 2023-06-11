@@ -797,7 +797,7 @@ protected:
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
-        const UAlloc&     rhs_alloc,
+        const UAlloc&             rhs_alloc,
         typename std::enable_if_t<is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
         : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
         , data_(std::move(rhs.data_))
@@ -815,7 +815,7 @@ protected:
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
-        const UAlloc&     rhs_alloc,
+        const UAlloc&             rhs_alloc,
         typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
         : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
         , data_{nullptr}
