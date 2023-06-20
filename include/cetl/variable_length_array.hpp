@@ -55,44 +55,6 @@ public:
     ///
     using size_type = std::size_t;
 
-    constexpr VariableLengthArrayBase(
-        const allocator_type& alloc,
-        value_type*           data,
-        size_type             initial_capacity,
-        size_type             size,
-        size_type             max_size_max) noexcept(std::is_nothrow_copy_constructible<allocator_type>::value)
-        : alloc_(alloc)
-        , data_(data)
-        , capacity_(initial_capacity)
-        , size_(size)
-        , max_size_max_(max_size_max)
-    {
-    }
-
-    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& rhs_alloc) noexcept(
-        std::is_nothrow_copy_constructible<allocator_type>::value)
-        : alloc_(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs_alloc))
-        , data_(nullptr)
-        , capacity_(0)
-        , size_(0)
-        , max_size_max_(rhs.max_size_max_)
-    {
-    }
-
-    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs) noexcept
-        : alloc_(std::move(rhs.alloc_))
-        , data_(std::move(rhs.data_))
-        , capacity_(rhs.capacity_)
-        , size_(rhs.size_)
-        , max_size_max_(rhs.max_size_max_)
-    {
-        static_assert(std::is_nothrow_move_constructible<allocator_type>::value,
-                      "Allocator must be nothrow move constructible.");
-        rhs.size_     = 0;
-        rhs.capacity_ = 0;
-        rhs.data_     = nullptr;
-    }
-
 private:
     // +----------------------------------------------------------------------+
     // | TYPE HELPERS
@@ -139,19 +101,6 @@ private:
                std::allocator_traits<std::remove_reference_t<UAlloc>>::is_always_equal::value)>
     {};
 
-    // +----------------------------------------------------------------------+
-    // If allocator propagates on copy assignment or is always equal. This
-    // is used to implement parts of the propagate_on_container_copy_assignment
-    // named requirement for allocators.
-    // See https://en.cppreference.com/w/cpp/named_req/Allocator
-    template <typename UAlloc>
-    struct is_pocca_or_is_always_equal
-        : public std::integral_constant<
-              bool,
-              (std::allocator_traits<std::remove_reference_t<UAlloc>>::propagate_on_container_copy_assignment::value ||
-               std::allocator_traits<std::remove_reference_t<UAlloc>>::is_always_equal::value)>
-    {};
-
 protected:
     // +----------------------------------------------------------------------+
     // | Allocator move assignment
@@ -159,8 +108,8 @@ protected:
     template <typename UAlloc>
     constexpr bool move_assign_alloc(
         UAlloc&& rhs,
-        typename std::enable_if<std::allocator_traits<
-            std::remove_reference_t<UAlloc>>::propagate_on_container_move_assignment::value>::type* =
+        typename std::enable_if_t<
+            std::allocator_traits<std::remove_reference_t<UAlloc>>::propagate_on_container_move_assignment::value>* =
             nullptr) noexcept(is_pocma_or_is_always_equal<UAlloc>::value)
     {
         static_assert(std::is_nothrow_move_assignable<allocator_type>::value,
@@ -173,8 +122,8 @@ protected:
     template <typename UAlloc>
     constexpr bool move_assign_alloc(
         UAlloc&& rhs,
-        typename std::enable_if<!std::allocator_traits<
-            std::remove_reference_t<UAlloc>>::propagate_on_container_move_assignment::value>::type* =
+        typename std::enable_if_t<
+            !std::allocator_traits<std::remove_reference_t<UAlloc>>::propagate_on_container_move_assignment::value>* =
             nullptr) noexcept(is_pocma_or_is_always_equal<UAlloc>::value)
     {
         // Cannot move assign so we have to do everything manually.
@@ -188,7 +137,7 @@ protected:
     template <typename UAlloc>
     constexpr bool copy_assign_alloc(
         const UAlloc& rhs,
-        typename std::enable_if<std::allocator_traits<UAlloc>::propagate_on_container_copy_assignment::value>::type* =
+        typename std::enable_if_t<std::allocator_traits<UAlloc>::propagate_on_container_copy_assignment::value>* =
             nullptr) noexcept
     {
         static_assert(std::is_nothrow_copy_assignable<allocator_type>::value,
@@ -201,7 +150,7 @@ protected:
     template <typename UAlloc>
     constexpr bool copy_assign_alloc(
         const UAlloc& rhs,
-        typename std::enable_if<!std::allocator_traits<UAlloc>::propagate_on_container_copy_assignment::value>::type* =
+        typename std::enable_if_t<!std::allocator_traits<UAlloc>::propagate_on_container_copy_assignment::value>* =
             nullptr) noexcept
     {
         (void) rhs;
@@ -217,14 +166,14 @@ protected:
         decltype(std::declval<U>().reallocate(std::declval<value_type*>(), std::size_t(), std::size_t()));
 
     template <typename UAllocator>
-    static constexpr typename std::enable_if<is_detected<reallocate_operation, UAllocator>::value, value_type>::type*
+    static constexpr typename std::enable_if_t<is_detected<reallocate_operation, UAllocator>::value, value_type>*
     reallocate(value_type* data, UAllocator& alloc, std::size_t old_object_count, std::size_t new_object_count)
     {
         return alloc.reallocate(data, old_object_count, new_object_count);
     }
 
     template <typename UAllocator>
-    static constexpr typename std::enable_if<!is_detected<reallocate_operation, UAllocator>::value, value_type>::type*
+    static constexpr typename std::enable_if_t<!is_detected<reallocate_operation, UAllocator>::value, value_type>*
     reallocate(value_type* data, UAllocator& alloc, std::size_t old_object_count, std::size_t new_object_count)
     {
         (void) data;
@@ -553,7 +502,7 @@ protected:
     constexpr void move_assign_from(
         VariableLengthArrayBase&& rhs,
         const size_type           rhs_max_size,
-        typename std::enable_if<is_pocma_or_is_always_equal<UAlloc>::value>::type* = nullptr) noexcept
+        typename std::enable_if_t<is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
     {
         (void) rhs_max_size;
 
@@ -575,10 +524,9 @@ protected:
     }
 
     template <typename UAlloc>
-    constexpr void move_assign_from(
-        VariableLengthArrayBase&& rhs,
-        const size_type           rhs_max_size,
-        typename std::enable_if<!is_pocma_or_is_always_equal<UAlloc>::value>::type* = nullptr)
+    constexpr void move_assign_from(VariableLengthArrayBase&& rhs,
+                                    const size_type           rhs_max_size,
+                                    typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr)
     {
         if (this == &rhs)
         {
@@ -805,6 +753,105 @@ protected:
     }
 
     // +----------------------------------------------------------------------+
+    // | CONSTRUCTORS
+    // +----------------------------------------------------------------------+
+
+    constexpr VariableLengthArrayBase(
+        const allocator_type& alloc,
+        value_type*           data,
+        size_type             initial_capacity,
+        size_type             size,
+        size_type             max_size_max) noexcept(std::is_nothrow_copy_constructible<allocator_type>::value)
+        : alloc_(alloc)
+        , data_(data)
+        , capacity_(initial_capacity)
+        , size_(size)
+        , max_size_max_(max_size_max)
+    {
+    }
+
+    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& rhs_alloc) noexcept(
+        std::is_nothrow_copy_constructible<allocator_type>::value)
+        : alloc_(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs_alloc))
+        , data_(nullptr)
+        , capacity_(0)
+        , size_(0)
+        , max_size_max_(rhs.max_size_max_)
+    {
+    }
+
+    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs) noexcept
+        : alloc_(std::move(rhs.alloc_))
+        , data_(std::move(rhs.data_))
+        , capacity_(rhs.capacity_)
+        , size_(rhs.size_)
+        , max_size_max_(rhs.max_size_max_)
+    {
+        static_assert(std::is_nothrow_move_constructible<allocator_type>::value,
+                      "Allocator must be nothrow move constructible.");
+        rhs.size_     = 0;
+        rhs.capacity_ = 0;
+        rhs.data_     = nullptr;
+    }
+
+    template <typename UAlloc>
+    constexpr VariableLengthArrayBase(
+        VariableLengthArrayBase&& rhs,
+        const UAlloc&             rhs_alloc,
+        typename std::enable_if_t<is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
+        : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
+        , data_(std::move(rhs.data_))
+        , capacity_(rhs.capacity_)
+        , size_(rhs.size_)
+        , max_size_max_(rhs.max_size_max_)
+    {
+        static_assert(std::is_nothrow_copy_constructible<UAlloc>::value,
+                      "Allocator must be nothrow copy constructible.");
+        rhs.size_     = 0;
+        rhs.capacity_ = 0;
+        rhs.data_     = nullptr;
+    }
+
+    template <typename UAlloc>
+    constexpr VariableLengthArrayBase(
+        VariableLengthArrayBase&& rhs,
+        const UAlloc&             rhs_alloc,
+        typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
+        : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
+        , data_{nullptr}
+        , capacity_(0)
+        , size_(0)
+        , max_size_max_(rhs.max_size_max_)
+    {
+        static_assert(std::is_nothrow_copy_constructible<UAlloc>::value,
+                      "Allocator must be nothrow copy constructible.");
+        if (alloc_ == rhs.alloc_)
+        {
+            // The allocators may not always be equal, but they are this time.
+            data_     = std::move(rhs.data_);
+            capacity_ = rhs.capacity_;
+            size_     = rhs.size_;
+        }
+        else
+        {
+            // The allocators are not equal, so we need to move the data over
+            // manually.
+            if (rhs.size_ > 0)
+            {
+                data_ = std::allocator_traits<allocator_type>::allocate(alloc_, rhs.size_);
+                fast_forward_construct(data_, rhs.size_, rhs.data_, rhs.size_, alloc_);
+            }
+            capacity_ = rhs.capacity_;
+            size_     = rhs.size_;
+        }
+        rhs.size_     = 0;
+        rhs.capacity_ = 0;
+        rhs.data_     = nullptr;
+    }
+
+    ~VariableLengthArrayBase() = default;
+
+    // +----------------------------------------------------------------------+
     // | DATA MEMBERS
     // +----------------------------------------------------------------------+
     allocator_type alloc_;
@@ -975,6 +1022,11 @@ public:
         return *this;
     }
 
+    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept
+        : Base(std::move(rhs), alloc)
+    {
+    }
+
     VariableLengthArray(VariableLengthArray&& rhs) noexcept
         : Base(std::move(rhs))
     {
@@ -993,7 +1045,7 @@ public:
         if (nullptr != data_)
         {
             // While deallocation is null-safe, we don't know if the allocator
-            // was move and is now in an invalid state.
+            // was moved and is now in an invalid state.
             Base::fast_deallocate(data_, size_, capacity_, alloc_);
         }
     }
@@ -1737,6 +1789,13 @@ public:
 
     VariableLengthArray(VariableLengthArray&& rhs) noexcept
         : Base(std::move(rhs))
+        , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
+    {
+        rhs.last_byte_bit_fill_ = 0;
+    }
+
+    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept
+        : Base(std::move(rhs), alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {
         rhs.last_byte_bit_fill_ = 0;
