@@ -63,8 +63,24 @@ public:
 
 /// Memory Resource Helper (MRH)
 /// Support for parameterized tests that use both std::pmr::memory_resource and cetl::pf17::pmr::memory_resource.
+/// For example:
+/// ```
+///    typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
+//          cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
+/// ```
 struct MRH final
 {
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    template <typename TagType>
+    using MemoryResourceType = std::conditional_t<std::is_same<cetlvast::CETLTag, TagType>::value,
+                                                  cetl::pf17::pmr::memory_resource,
+                                                  std::pmr::memory_resource>;
+
+#else
+    template <typename TagType>
+    using MemoryResourceType = cetl::pf17::pmr::memory_resource;
+#endif
+
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
 
     template <typename T>
@@ -93,6 +109,22 @@ struct MRH final
     {
         return cetl::pf17::pmr::null_memory_resource();
     }
+
+    template <typename TagType>
+    static typename std::enable_if_t<std::is_same<cetlvast::CETLTag, TagType>::value, cetl::pf17::pmr::memory_resource*>
+    new_delete_resource_by_tag()
+    {
+        return cetl::pf17::pmr::new_delete_resource();
+    }
+
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    template <typename TagType>
+    static typename std::enable_if_t<std::is_same<cetlvast::STLTag, TagType>::value, std::pmr::memory_resource*>
+    new_delete_resource_by_tag()
+    {
+        return std::pmr::new_delete_resource();
+    }
+#endif
 
     MRH() = delete;
 };

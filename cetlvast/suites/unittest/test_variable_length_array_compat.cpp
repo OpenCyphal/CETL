@@ -401,13 +401,6 @@ static_assert(!std::is_trivially_constructible<NotTriviallyConstructable>::value
 // | TYPED TEST PROTOCOL
 // +-------------------------------------------------------------------------------------------------------------------+
 
-struct VectorTag
-{};
-struct VectorSkipReallocTag
-{};
-struct VLATag
-{};
-
 /// The primary test protocol. Each test case will have a single VLA (the subject) with the given value_type and
 /// allocator_type. The allocator_type will be constructed with the given memory_resource_factory_type and that
 /// memory resource will be given the providing memory_resource_upstream_factory_type.
@@ -444,7 +437,7 @@ public:
     using MemoryResourceUpstreamFactoryTypePtr  = typename std::add_pointer<MemoryResourceUpstreamFactoryType>::type;
     using Allocator                             = typename T::allocator_type;
     using Value                                 = typename T::value_type;
-    using SubjectType = typename std::conditional<std::is_same<typename T::container_type, VLATag>::value,
+    using SubjectType = typename std::conditional<std::is_same<typename T::container_type, cetlvast::CETLTag>::value,
                                                   cetl::VariableLengthArray<Value, Allocator>,
                                                   std::vector<Value, Allocator>>::type;
 
@@ -506,16 +499,16 @@ const std::size_t VLATestsGeneric<T>::maximumMaxSize;
 
 using MyTypes = ::testing::Types<
 /*                          container type tag    | allocator type                                                     | primary memory resource factory                                                      */
-/* 0 */   TestAllocatorType<VLATag,                 cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlUnsynchronizedArrayMemoryResourceFactory<24>>
-/* 1 */ , TestAllocatorType<VectorSkipReallocTag,   cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlUnsynchronizedArrayMemoryResourceFactory<24>>
-/* 2 */ , TestAllocatorType<VLATag,                 cetl::pf17::pmr::polymorphic_allocator<NotTriviallyConstructable>,   CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>>
-/* 3 */ , TestAllocatorType<VectorSkipReallocTag,   cetl::pf17::pmr::polymorphic_allocator<NotTriviallyConstructable>,   CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>>
-/* 4 */ , TestAllocatorType<VectorTag,              MaxAllocator<std::uint32_t, 24>,                                     MaxSizeResourceFactory<24>>
-/* 5 */ , TestAllocatorType<VLATag,                 cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
-/* 6 */ , TestAllocatorType<VectorTag,              cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
+/* 0 */   TestAllocatorType<cetlvast::CETLTag,      cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlUnsynchronizedArrayMemoryResourceFactory<24>>
+/* 1 */ , TestAllocatorType<cetlvast::SkipTag,      cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlUnsynchronizedArrayMemoryResourceFactory<24>>
+/* 2 */ , TestAllocatorType<cetlvast::CETLTag,      cetl::pf17::pmr::polymorphic_allocator<NotTriviallyConstructable>,   CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>>
+/* 3 */ , TestAllocatorType<cetlvast::SkipTag,      cetl::pf17::pmr::polymorphic_allocator<NotTriviallyConstructable>,   CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>>
+/* 4 */ , TestAllocatorType<cetlvast::STLTag,       MaxAllocator<std::uint32_t, 24>,                                     MaxSizeResourceFactory<24>>
+/* 5 */ , TestAllocatorType<cetlvast::CETLTag,      cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
+/* 6 */ , TestAllocatorType<cetlvast::STLTag,       cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
-/* 7 */ , TestAllocatorType<VLATag,                 std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
-/* 8 */ , TestAllocatorType<VectorTag,              std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
+/* 7 */ , TestAllocatorType<cetlvast::CETLTag,      std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
+/* 8 */ , TestAllocatorType<cetlvast::STLTag,       std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
 #endif
 >;
 // clang-format on
@@ -609,7 +602,7 @@ TYPED_TEST(VLATestsGeneric, TestShrink)
 
 TYPED_TEST(VLATestsGeneric, TestCopyAssignment)
 {
-    if (std::is_same<typename TypeParam::container_type, VectorSkipReallocTag>::value)
+    if (std::is_same<typename TypeParam::container_type, cetlvast::SkipTag>::value)
     {
         GTEST_SKIP() << "Skipping test that requires CETL reallocation support.";
     }

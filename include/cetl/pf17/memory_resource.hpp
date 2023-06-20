@@ -529,7 +529,7 @@ public:
     template <typename U, typename... Args>
     typename EnableIfNotPair<U>::return_type construct(U* p, Args&&... args)
     {
-        construct_not_pair_impl(p, args...);
+        construct_not_pair_impl(p, std::forward<Args>(args)...);
     }
 
     template <class FirstType, class SecondType, class... FirstTypeConstructorArgs, class... SecondTypeConstructorArgs>
