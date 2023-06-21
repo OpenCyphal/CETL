@@ -41,4 +41,25 @@ inline void flush_coverage_on_death() {}
 
 #endif
 
+namespace cetlvast
+{
+/// Used for typed tests to tag that the CETL version of a fixture should be used.
+struct CETLTag final
+{
+    CETLTag() = delete;
+};
+
+/// Used for typed tests to tag that the STL version of a figure is available and should be used.
+struct STLTag final
+{
+    STLTag() = delete;
+};
+
+/// Used for typed tests to tag that the given test should be skipped for this type.
+struct SkipTag final
+{
+    SkipTag() = delete;
+};
+}  // namespace cetlvast
+
 #endif  // CETLVAST_HELPERS_GTEST_H_INCLUDED

@@ -256,3 +256,109 @@ TYPED_TEST(TestPolymorphicAllocatorProtocols, TestPairConstructionNoAllocator)
     ASSERT_EQ(test_value, test_instance->first);
     ASSERT_EQ(test_value, test_instance->second);
 }
+
+// +----------------------------------------------------------------------+
+// | Test Suite :: TestPolymorphicAllocatorMoveOnlyProtocols
+// +----------------------------------------------------------------------+
+///
+/// Test suite to verify that cetl::pf17::pmr::polymorphic_allocator adheres
+/// to all conventions/protocols required of it by the C++ specification when
+/// using move-only types.
+///
+template <typename T>
+class TestPolymorphicAllocatorMoveOnlyProtocols : public ::testing::Test
+{
+public:
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    template <typename U>
+    using AllocatorType = std::conditional_t<std::is_same<cetlvast::CETLTag, T>::value,
+                                             cetl::pf17::pmr::polymorphic_allocator<U>,
+                                             std::pmr::polymorphic_allocator<U>>;
+
+#else
+    template <typename U>
+    using AllocatorType = cetl::pf17::pmr::polymorphic_allocator<U>;
+
+#endif
+};
+
+// clang-format off
+using TestPolymorphicAllocatorMoveOnlyProtocolsTypes = ::testing::Types<
+      cetlvast::CETLTag
+#if (__cplusplus >= CETL_CPP_STANDARD_17)
+    , cetlvast::STLTag
+#endif
+>;
+// clang-format on
+
+TYPED_TEST_SUITE(TestPolymorphicAllocatorMoveOnlyProtocols, TestPolymorphicAllocatorMoveOnlyProtocolsTypes, );
+
+namespace
+{
+
+struct OnlyMovable
+{
+    OnlyMovable()
+        : value{nullptr}
+    {}
+
+    OnlyMovable(OnlyMovable&& rhs)
+        : value(rhs.value)
+    {
+        rhs.value = nullptr;
+    }
+
+    OnlyMovable& operator=(OnlyMovable&& rhs)
+    {
+        value     = rhs.value;
+        rhs.value = nullptr;
+        return *this;
+    }
+
+    OnlyMovable(const OnlyMovable&) = delete;
+    OnlyMovable& operator=(const OnlyMovable&) = delete;
+
+    OnlyMovable(int* value)
+        : value(value)
+    {
+    }
+
+    int* value;
+};
+
+}  // namespace
+
+// +----------------------------------------------------------------------+
+
+TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestDefaultConstruction)
+{
+    typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
+        cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
+    using AllocatorType = typename TestFixture::template AllocatorType<OnlyMovable>;
+    AllocatorType subject{resource};
+    OnlyMovable*  p = subject.allocate(1);
+    ASSERT_FALSE(nullptr == p);
+    subject.deallocate(p, 1);
+}
+
+// +----------------------------------------------------------------------+
+
+TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestEmplace)
+{
+    int test_data = 0;
+    int other_test_data = 0;
+    typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
+        cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
+    using AllocatorType = typename TestFixture::template AllocatorType<OnlyMovable>;
+    AllocatorType subject{resource};
+    OnlyMovable*  p = subject.allocate(1);
+    ASSERT_FALSE(nullptr == p);
+    subject.construct(p, &test_data);
+    ASSERT_EQ(&test_data, p->value);
+    OnlyMovable other{&other_test_data};
+    // This is where Issue #41 was found
+    subject.construct(p, std::move(other));
+    ASSERT_EQ(&other_test_data, p->value);
+    ASSERT_EQ(nullptr, other.value);
+    subject.deallocate(p, 1);
+}
