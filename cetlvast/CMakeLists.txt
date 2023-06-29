@@ -156,25 +156,27 @@ include(${CETLVAST_FLAG_SET})
 # +---------------------------------------------------------------------------+
 # | CETL
 # +---------------------------------------------------------------------------+
-find_package(clangformat REQUIRED)
 cmake_path(APPEND CETL_ROOT "include" OUTPUT_VARIABLE CETL_INCLUDE)
 
 add_library(cetl INTERFACE)
 target_include_directories(cetl INTERFACE ${CETL_INCLUDE})
 
-# define a dry-run version that we always run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${CETL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    ADD_TO_ALL
-    OUT_TARGET_NAME LOCAL_FORMAT_CHECK_TARGET_NAME)
+find_package(clangformat)
 
-# provide an in-place format version as a helper that must be manually run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${CETL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    FORMAT_IN_PLACE)
+if(clangformat_FOUND)
+    # define a dry-run version that we always run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${CETL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        ADD_TO_ALL
+        OUT_TARGET_NAME LOCAL_FORMAT_CHECK_TARGET_NAME)
 
+    # provide an in-place format version as a helper that must be manually run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${CETL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        FORMAT_IN_PLACE)
+endif()
 # +---------------------------------------------------------------------------+
 # | CETLVAST
 # +---------------------------------------------------------------------------+
@@ -200,11 +202,18 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
 # +---------------------------------------------------------------------------+
 # | BUILD TARGET ALIASES
 # +---------------------------------------------------------------------------+
-add_custom_target(
-    lint
-    DEPENDS
-        ${LOCAL_FORMAT_CHECK_TARGET_NAME}
-)
+if(DEFINED LOCAL_FORMAT_CHECK_TARGET_NAME)
+    add_custom_target(
+        lint
+        DEPENDS
+            ${LOCAL_FORMAT_CHECK_TARGET_NAME}
+    )
+else()
+    # no-op since there was not format target
+    add_custom_target(
+        lint
+    )
+endif()
 
 add_custom_target(
     docs
