@@ -180,7 +180,7 @@ def main() -> int:
         logging.info("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), args.output))
     else:
         logging.debug("About to write a test report for {} files to {}".format(len(test_executions.findall("file")), args.output))
-        ET.indent(sq_report)
+        # ET.indent(sq_report) Not available in Python 3.8
         with open(args.output, "wb") as sq_report_file:
             sq_report.write(sq_report_file, encoding="UTF-8")
 

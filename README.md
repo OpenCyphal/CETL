@@ -1,4 +1,4 @@
-![OpenCyphal](https://opencyphal.github.io/CETL/images/html/cetl_logo_dark.svg) \
+![OpenCyphal](https://opencyphal.github.io/CETL/cetl_logo_dark.svg) \
 Cyphal Embedded Template Library
 ===================
 
@@ -85,4 +85,4 @@ as practical and users that want to copy and paste one of the CETL headers into 
 with minimal effort.
 
 
-![OpenCyphal](https://opencyphal.github.io/CETL/images/html/opencyphal_logo_dark.svg)
+![OpenCyphal](https://opencyphal.github.io/CETL/opencyphal_logo.svg)

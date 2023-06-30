@@ -73,6 +73,7 @@ message(STATUS
     CMAKE_SOURCE_DIR:                ${CMAKE_SOURCE_DIR}\n\
     CMAKE_CURRENT_BINARY_DIR:        ${CMAKE_CURRENT_BINARY_DIR}\n\
     CMAKE_MESSAGE_LOG_LEVEL:         ${CMAKE_MESSAGE_LOG_LEVEL}\n\
+    CMAKE_INSTALL_PREFIX:            ${CMAKE_INSTALL_PREFIX}\n\
     CETLVAST_EXTERNAL_ROOT:          ${CETLVAST_EXTERNAL_ROOT}\n\
     FETCHCONTENT_FULLY_DISCONNECTED: ${FETCHCONTENT_FULLY_DISCONNECTED}\n\
 -----------------------------------------------------------\n\
@@ -156,25 +157,34 @@ include(${CETLVAST_FLAG_SET})
 # +---------------------------------------------------------------------------+
 # | CETL
 # +---------------------------------------------------------------------------+
-find_package(clangformat REQUIRED)
 cmake_path(APPEND CETL_ROOT "include" OUTPUT_VARIABLE CETL_INCLUDE)
 
-add_library(cetl INTERFACE)
-target_include_directories(cetl INTERFACE ${CETL_INCLUDE})
+include(ProjectLibrary)
 
-# define a dry-run version that we always run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${CETL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    ADD_TO_ALL
-    OUT_TARGET_NAME LOCAL_FORMAT_CHECK_TARGET_NAME)
+add_project_library(
+    NAME cetl
+    HEADER_PATH
+        ${CETL_INCLUDE}/
+    HEADER_INCLUDE_PATTERNS
+        *.hpp
+)
 
-# provide an in-place format version as a helper that must be manually run.
-enable_clang_format_check_for_directory(
-    DIRECTORY ${CETL_INCLUDE}
-    GLOB_PATTERN "**/*.hpp"
-    FORMAT_IN_PLACE)
+find_package(clangformat)
 
+if(clangformat_FOUND)
+    # define a dry-run version that we always run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${CETL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        ADD_TO_ALL
+        OUT_TARGET_NAME LOCAL_FORMAT_CHECK_TARGET_NAME)
+
+    # provide an in-place format version as a helper that must be manually run.
+    enable_clang_format_check_for_directory(
+        DIRECTORY ${CETL_INCLUDE}
+        GLOB_PATTERN "**/*.hpp"
+        FORMAT_IN_PLACE)
+endif()
 # +---------------------------------------------------------------------------+
 # | CETLVAST
 # +---------------------------------------------------------------------------+
@@ -200,11 +210,18 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
 # +---------------------------------------------------------------------------+
 # | BUILD TARGET ALIASES
 # +---------------------------------------------------------------------------+
-add_custom_target(
-    lint
-    DEPENDS
-        ${LOCAL_FORMAT_CHECK_TARGET_NAME}
-)
+if(DEFINED LOCAL_FORMAT_CHECK_TARGET_NAME)
+    add_custom_target(
+        lint
+        DEPENDS
+            ${LOCAL_FORMAT_CHECK_TARGET_NAME}
+    )
+else()
+    # no-op since there was no format target
+    add_custom_target(
+        lint
+    )
+endif()
 
 add_custom_target(
     docs
@@ -243,10 +260,12 @@ else()
     )
 endif()
 
+# "release" is a legacy target supported for older build systems that use this
+# as a default. It actually doesn't build the docs which is part of a CETL
+# release.
 add_custom_target(
     release
     DEPENDS
         build
         unittest
-        docs
 )

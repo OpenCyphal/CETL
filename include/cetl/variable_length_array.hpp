@@ -1838,7 +1838,7 @@ public:
         {
             return true;
         }
-        const Storage last_byte_mask = static_cast<Storage>((1 << last_byte_bit_fill_) - 1U);
+        const Storage last_byte_mask = static_cast<Storage>((1U << last_byte_bit_fill_) - 1U);
         return (data_[size_ - 1] & last_byte_mask) == (rhs.data_[size_ - 1] & last_byte_mask);
     }
 
