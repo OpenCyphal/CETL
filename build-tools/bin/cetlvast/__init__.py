@@ -698,6 +698,9 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
     if not args.dont_force_ninja:
         cmake_configure_args.append("-DCMAKE_GENERATOR=Ninja")
 
+    # --[INSTALL SUPPORT]----------------------------------
+    cmake_configure_args.append("-DCMAKE_INSTALL_PREFIX={}".format(_build_dir(args)))
+
     # --[CMAKE IS GO!]-------------------------------------
     cmake_configure_args.append(str(_test_suite_dir(args)))
 

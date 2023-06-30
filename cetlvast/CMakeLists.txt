@@ -257,5 +257,4 @@ add_custom_target(
     DEPENDS
         build
         unittest
-        docs
 )
