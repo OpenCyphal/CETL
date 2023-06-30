@@ -6,6 +6,43 @@
 
 if(NOT TARGET gmock)
 
+#
+# Googletest uses CMAKE_BINARY_DIR to determine where to put its output files.
+# This changes this to a specified directory for each library provided.
+# param GTEST_LIBS ...              The list of google test libraries to fix.
+# param GTEST_COMPILE_OPTIONS ...   A list of compile options to apply to each google test library.
+# param OUTPUT_DIRECTORY            The directory under which all google test build outputs will reside.
+#
+function (_fix_gtest_library_properties)
+    #+-[input]----------------------------------------------------------------+
+    set(options "")
+    set(singleValueArgs OUTPUT_DIRECTORY)
+    set(multiValueArgs GTEST_LIBS GTEST_COMPILE_OPTIONS)
+    cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
+
+    if (NOT ARG_OUTPUT_DIRECTORY)
+        set(ARG_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    #+-[body]-----------------------------------------------------------------+
+    foreach(LOCAL_GTEST_LIB ${ARG_GTEST_LIBS})
+        set_target_properties(${LOCAL_GTEST_LIB}
+            PROPERTIES
+                ARCHIVE_OUTPUT_DIRECTORY "${ARG_OUTPUT_DIRECTORY}/lib"
+                LIBRARY_OUTPUT_DIRECTORY "${ARG_OUTPUT_DIRECTORY}/lib"
+                RUNTIME_OUTPUT_DIRECTORY "${ARG_OUTPUT_DIRECTORY}/bin"
+                PDB_OUTPUT_DIRECTORY "${ARG_OUTPUT_DIRECTORY}/bin"
+                COMPILE_PDB_OUTPUT_DIRECTORY "${ARG_OUTPUT_DIRECTORY}/lib"
+        )
+
+        target_compile_options(${LOCAL_GTEST_LIB}
+            PRIVATE
+                ${ARG_GTEST_COMPILE_OPTIONS}
+        )
+    endforeach()
+
+endfunction()
+
 enable_testing()
 
 include(FetchContent)
@@ -49,39 +86,26 @@ if(NOT googletest_POPULATED)
         REQUIRED_VARS googletest_SOURCE_DIR
     )
 
-    set(INSTALL_GTEST OFF)
+    set(INSTALL_GTEST OFF CACHE BOOL "We don't want to install googletest; just use it locally.")
 
     add_subdirectory(${googletest_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/googletest)
 
-    # Aparently Google doesn't care much about compiler warnings?
-    set(LOCAL_GTEST_COMPILE_OPTIONS
-        "-Wno-sign-conversion"
-        "-Wno-zero-as-null-pointer-constant"
-        "-Wno-switch-enum"
-        "-Wno-float-equal"
-        "-Wno-double-promotion"
-        "-Wno-conversion"
-        "-Wno-missing-declarations"
-    )
-
-    target_compile_options(gmock
-        PRIVATE
-            ${LOCAL_GTEST_COMPILE_OPTIONS}
-    )
-
-    target_compile_options(gmock_main
-        PRIVATE
-            ${LOCAL_GTEST_COMPILE_OPTIONS}
-    )
-
-    target_compile_options(gtest
-        PRIVATE
-            ${LOCAL_GTEST_COMPILE_OPTIONS}
-    )
-
-    target_compile_options(gtest_main
-        PRIVATE
-            ${LOCAL_GTEST_COMPILE_OPTIONS}
+    _fix_gtest_library_properties(
+        GTEST_LIBS
+            gmock
+            gmock_main
+            gtest
+            gtest_main
+        GTEST_COMPILE_OPTIONS
+            "-Wno-sign-conversion"
+            "-Wno-zero-as-null-pointer-constant"
+            "-Wno-switch-enum"
+            "-Wno-float-equal"
+            "-Wno-double-promotion"
+            "-Wno-conversion"
+            "-Wno-missing-declarations"
+        OUTPUT_DIRECTORY
+            ${CMAKE_BINARY_DIR}/googletest
     )
 
 endif()

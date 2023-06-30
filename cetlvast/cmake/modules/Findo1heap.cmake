@@ -6,7 +6,6 @@
 if(NOT TARGET o1heap)
 include(FetchContent)
 include(FindPackageHandleStandardArgs)
-include(ProjectLibrary)
 
 set(o1heap_GIT_REPOSITORY "https://github.com/pavel-kirienko/o1heap.git")
 set(o1heap_GIT_TAG "aa3c253923db36eee7d73a4a5e30884a5fe7a6eb")
@@ -46,17 +45,8 @@ if(NOT o1heap_POPULATED)
         REQUIRED_VARS o1heap_SOURCE_DIR
     )
 
-    add_project_library(
-        NAME o1heap
-        SOURCES
-            ${o1heap_SOURCE_DIR}/o1heap/o1heap.c
-        HEADER_PATH
-            ${o1heap_SOURCE_DIR}/o1heap/
-        HEADER_INCLUDE_PATTERNS
-            *.h
-        STATIC
-        FPIC
-    )
+    add_library(o1heap STATIC ${o1heap_SOURCE_DIR}/o1heap/o1heap.c)
+    target_include_directories(o1heap PUBLIC ${o1heap_SOURCE_DIR}/o1heap)
 
 endif()
 endif()
