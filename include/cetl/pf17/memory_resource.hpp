@@ -742,12 +742,23 @@ private:
         void* result = nullptr;
         if (current_buffer_->buffer && current_buffer_->remaining_buffer_size >= size_bytes)
         {
-            void*       buffer      = current_buffer_->buffer;
-            std::size_t buffer_size = current_buffer_->remaining_buffer_size;
-            result                  = std::align(alignment, size_bytes, buffer, buffer_size);
+            CETL_DEBUG_ASSERT(current_buffer_->buffer_size >= current_buffer_->remaining_buffer_size,
+                              "remaining_buffer_size exceeded total buffer size? We have corrupt internal logic.");
+            const std::size_t current_buffer_size =
+                current_buffer_->buffer_size - current_buffer_->remaining_buffer_size;
+            void*       buffer = &static_cast<unsigned char*>(current_buffer_->buffer)[current_buffer_size];
+            std::size_t remaining_aligned_size = current_buffer_->remaining_buffer_size;
+            result                             = std::align(alignment, size_bytes, buffer, remaining_aligned_size);
             if (result)
             {
-                current_buffer_->remaining_buffer_size = buffer_size - size_bytes;
+                CETL_DEBUG_ASSERT(remaining_aligned_size <= current_buffer_->remaining_buffer_size,
+                                  "std::align must never increase the space parameter");
+                const std::size_t buffer_used =
+                    size_bytes + (current_buffer_->remaining_buffer_size - remaining_aligned_size);
+                CETL_DEBUG_ASSERT(buffer_used <= current_buffer_->remaining_buffer_size,
+                                  "std::align must never return non-null if there isn't enough buffer remaining to "
+                                  "align the pointer.");
+                current_buffer_->remaining_buffer_size -= buffer_used;
             }
         }
         return result;
