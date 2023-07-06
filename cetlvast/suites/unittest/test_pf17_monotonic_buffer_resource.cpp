@@ -103,3 +103,24 @@ TYPED_TEST(TestMonotonicBufferResource, TestAllocationOrder)
     void* upstream_memory = subject.allocate(size_bytes);
     ASSERT_NE(nullptr, upstream_memory);
 }
+
+// +----------------------------------------------------------------------+
+
+/// Verify fix for issue #45
+TYPED_TEST(TestMonotonicBufferResource, TestIssue45)
+{
+    constexpr std::size_t                   size_bytes = 1024;
+    std::array<cetl::byte, size_bytes>      buffer{};
+    TypeParam subject{buffer.data(), buffer.size(), cetlvast::MRH::null_memory_resource<TypeParam>()};
+    for(std::size_t i = 0; i < 1024 / (2 * alignof(cetl::byte)); ++i)
+    {
+        void*     memory0 = subject.allocate(1, alignof(cetl::byte));
+        ASSERT_NE(nullptr, memory0);
+        void*     memory1 = subject.allocate(1, alignof(cetl::byte));
+        ASSERT_NE(memory0, memory1);
+        ASSERT_LT(memory0, memory1);
+        std::ptrdiff_t range = static_cast<unsigned char*>(memory1) - static_cast<unsigned char*>(memory0);
+        ASSERT_GE(range, sizeof(cetl::byte));
+    }
+    subject.release();
+}
