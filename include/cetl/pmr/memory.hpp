@@ -16,7 +16,7 @@
 
 #include <memory>
 #include <utility>
-#include <cstddef> // for std::max_align_t
+#include <cstddef>  // for std::max_align_t
 
 namespace cetl
 {
