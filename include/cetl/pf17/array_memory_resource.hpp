@@ -1,5 +1,5 @@
 /// @file
-/// Defines memory_resource types for that are backed by simple contiguous blocks of memory and use cetl::pf17 types.
+/// Defines a memory_resource type backed by an array data member and using cetl::pf17 types.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -28,21 +28,22 @@ namespace pmr
 {
 
 /// Implementation of cetl::pf17::pmr::memory_resource that uses
-/// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate as the internal implementation.
+/// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate as the internal implementation backed by an std::array
+/// data member using `array_size * sizeof(cetl::pf17::byte)`s of memory.
 ///
-/// @par Over-Alignment
-/// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
-/// For example, if the buffer is too small to support the requested alignment then the allocation will fail as this
-/// example demonstrates:
+/// @par Example Usage
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_0
 /// By over-provisioning the buffer the same alignment will succeed:
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_1
 /// (@ref example_05_array_memory_resource "See full example here...")
-///
 template <std::size_t array_size>
 class UnsynchronizedArrayMemoryResource final : public cetl::pf17::pmr::memory_resource
 {
 public:
+    /// See cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate for details.
+    /// @param upstream The upstream memory resource to provide to
+    /// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate. This cannot be null.
+    /// @param upstream_max_size_bytes The maximum size of the upstream memory resource.
     UnsynchronizedArrayMemoryResource(cetl::pf17::pmr::memory_resource* upstream,
                                       std::size_t                       upstream_max_size_bytes) noexcept
         : array_{}
@@ -50,6 +51,7 @@ public:
     {
     }
 
+    /// Constructor version that uses cetl::pf17::pmr::null_memory_resource as the upstream resource.
     UnsynchronizedArrayMemoryResource() noexcept
         : array_{}
         , delegate_{array_.data(), sizeof(cetl::pf17::byte) * array_size, cetl::pf17::pmr::null_memory_resource(), 0}
@@ -62,22 +64,29 @@ public:
     UnsynchronizedArrayMemoryResource(UnsynchronizedArrayMemoryResource&&)                 = delete;
     UnsynchronizedArrayMemoryResource& operator=(UnsynchronizedArrayMemoryResource&&)      = delete;
 
+    /// Direct access to the internal data. It is generally not safe to use this memory directly.
     cetl::pf17::byte* data() noexcept
     {
         return array_.data();
     }
 
+    /// Direct access to the internal data. It is generally not safe to use this memory directly.
     const cetl::pf17::byte* data() const noexcept
     {
         return array_.data();
     }
 
+    /// The number of cetl::pf17::byte elements in the array returned by data().
     std::size_t size() const noexcept
     {
         return array_.size();
     }
 
 private:
+    // +-----------------------------------------------------------------------+
+    // | cetl::pf17::pmr::memory_resource
+    // +-----------------------------------------------------------------------+
+
     void* do_allocate(std::size_t bytes, std::size_t alignment) override
     {
         return delegate_.allocate(bytes, alignment);

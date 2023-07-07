@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-// cSpell: words pocca pocma soccc
+// cSpell: words soccc
 
 #ifndef CETLVAST_HELPERS_GTEST_MEMORY_RESOURCE_H_INCLUDED
 #define CETLVAST_HELPERS_GTEST_MEMORY_RESOURCE_H_INCLUDED
@@ -32,6 +32,9 @@ public:
     MOCK_METHOD(void*, do_allocate, (std::size_t size_bytes, std::size_t alignment));
     MOCK_METHOD(void, do_deallocate, (void* p, std::size_t size_bytes, std::size_t alignment));
     MOCK_METHOD(bool, do_is_equal, (const cetl::pf17::pmr::memory_resource& rhs), (const, noexcept));
+    MOCK_METHOD(void*,
+                do_reallocate,
+                (void* p, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t new_alignment));
 
     static constexpr bool ReturnsNullWhenFNoExceptions = true;
 
@@ -39,6 +42,15 @@ public:
     {
         return cetl::pf17::pmr::null_memory_resource();
     }
+};
+
+/// No-type memory resource that looks like std::pmr::memory_resource.
+class MockMemoryResource
+{
+public:
+    MOCK_METHOD(void*, allocate, (std::size_t size_bytes, std::size_t alignment));
+    MOCK_METHOD(void, deallocate, (void* p, std::size_t size_bytes, std::size_t alignment));
+    MOCK_METHOD(bool, is_equal, (const MockMemoryResource& rhs), (const, noexcept));
 };
 
 #if (__cplusplus >= CETL_CPP_STANDARD_17)

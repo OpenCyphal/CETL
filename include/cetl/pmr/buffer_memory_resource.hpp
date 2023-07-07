@@ -7,6 +7,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
+// cSpell: words CDE_ubmrd
 
 #ifndef CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
 #define CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
@@ -32,14 +33,48 @@ namespace pmr
 /// @par Delegate Class
 /// You will need an implementation of memory_resource that uses this class as a delegate or use the
 /// cetl::pmr::UnsynchronizedArrayMemoryResource polyfill type since this class does not directly rely on any C++17 nor
-/// CETL pf17 types. This allows you to use it with std::pmr::memory_resource or cetl::pf17::pmr::memory_resource
-/// without relying on CETL polyfill headers.
+/// CETL pf17 types. This allows you to use it with std::pmr::memory_resource or cetl::pf17::pmr::memory_resource.
+///
+/// @par Over-Alignment
+/// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
+/// For example, if the buffer is too small to support the requested alignment then the allocation will fail as this
+/// example, using the delegate via cetl::pf17::pmr::UnsynchronizedArrayMemoryResource, demonstrates:
+///
+/// @snippet{trimleft} example_05_array_memory_resource.cpp example_0
+/// By over-provisioning the buffer the same alignment will succeed:
+/// @snippet{trimleft} example_05_array_memory_resource.cpp example_1
+/// (@ref example_05_array_memory_resource "See full example here...")
 ///
 /// @tparam MemoryResourceType The type of the upstream memory resource to use.
 template <typename UpstreamMemoryResourceType>
 class UnsynchronizedBufferMemoryResourceDelegate final
 {
 private:
+    // adapted from https://en.cppreference.com/w/cpp/experimental/is_detected
+    // implements a C++14-compatible detection idiom.
+
+    template <typename...>
+    using _void_t = void;
+
+    template <class AlwaysVoid, template <class...> class Op, class... Args>
+    struct detector
+    {
+        using value_t = std::false_type;
+    };
+
+    template <template <class...> class Op, class... Args>
+    struct detector<_void_t<Op<Args...>>, Op, Args...>
+    {
+        using value_t = std::true_type;
+    };
+
+    template <template <class...> class Op, class... Args>
+    using is_detected = typename detector<void, Op, Args...>::value_t;
+
+    template <typename U>
+    using reallocate_operation =
+        decltype(std::declval<U>().reallocate(nullptr, std::size_t(), std::size_t(), std::size_t()));
+
     /// Saturating add of two max size values clamped to the maximum value for the pointer difference type
     /// for the current architecture.
     static constexpr std::size_t calculate_max_size_bytes(std::size_t max_size_left, std::size_t max_size_right)
@@ -61,6 +96,47 @@ private:
         }
     }
 
+    template <typename UpstreamResourceType>
+    constexpr typename std::enable_if_t<!is_detected<reallocate_operation, UpstreamResourceType>::value>*
+    reallocate_internal(UpstreamResourceType& upstream,
+                        void*                 data,
+                        std::size_t           old_object_count,
+                        std::size_t           new_object_count,
+                        std::size_t           new_align)
+    {
+        (void) old_object_count;
+        (void) upstream;
+        if (data == in_use_)
+        {
+            return allocate_internal_buffer(new_object_count, new_align);
+        }
+        else
+        {
+            return nullptr;
+        }
+        return nullptr;
+    }
+
+    template <typename UpstreamResourceType>
+    constexpr typename std::enable_if_t<is_detected<reallocate_operation, UpstreamResourceType>::value>*
+    reallocate_internal(UpstreamResourceType& upstream,
+                        void*                 data,
+                        std::size_t           old_object_count,
+                        std::size_t           new_object_count,
+                        std::size_t           new_align)
+    {
+        (void) old_object_count;
+        if (data == in_use_)
+        {
+            return allocate_internal_buffer(new_object_count, new_align);
+        }
+        else
+        {
+            return upstream.reallocate(data, old_object_count, new_object_count, new_align);
+        }
+        return nullptr;
+    }
+
 public:
     /// Designated constructor that initializes the object with a fixed buffer and an optional upstream memory resource.
     /// @param buffer                   The buffer that is used to satisfy allocation requests.
@@ -79,8 +155,8 @@ public:
         , in_use_{nullptr}
     {
         CETL_DEBUG_ASSERT(nullptr != upstream,
-                          "Upstream memory resource cannot be null. Use std::pmr::null_memory_resource or "
-                          "cetl::pmr::null_memory_resource if you don't want an upstream memory resource.");
+                          "CDE_ubmrd_001: Upstream memory resource cannot be null. Use std::pmr::null_memory_resource "
+                          "or cetl::pmr::null_memory_resource if you don't want an upstream memory resource.");
     }
 
     ~UnsynchronizedBufferMemoryResourceDelegate()                                                            = default;
@@ -100,13 +176,10 @@ public:
         void* result = nullptr;
         if (!in_use_)
         {
-            result = allocate_internal_buffer(size_bytes, alignment);
-        }
-        if (nullptr != result)
-        {
+            result  = allocate_internal_buffer(size_bytes, alignment);
             in_use_ = result;
         }
-        else if (upstream_ && size_bytes <= upstream_max_size_bytes_)
+        if (nullptr == result && size_bytes <= upstream_max_size_bytes_)
         {
             result = upstream_->allocate(size_bytes, alignment);
         }
@@ -120,31 +193,21 @@ public:
         return result;
     }
 
-    constexpr void* reallocate(void* p, std::size_t old_size_bytes, std::size_t new_size_bytes, std::size_t new_align)
+    constexpr void* reallocate(void*       p,
+                               std::size_t old_size_bytes,
+                               std::size_t new_size_bytes,
+                               std::size_t new_align = alignof(std::max_align_t))
     {
-        (void) old_size_bytes;
-        CETL_DEBUG_ASSERT(nullptr == p || in_use_ == p || nullptr != upstream_,
-                          "Unknown pointer passed into reallocate.");
-        if (p == in_use_)
-        {
-            return allocate_internal_buffer(new_size_bytes, new_align);
-        }
-        else
-        {
-            return nullptr;
-        }
-        return nullptr;
+        return reallocate_internal(*upstream_, p, old_size_bytes, new_size_bytes, new_align);
     }
 
     constexpr void deallocate(void* p, std::size_t size_bytes, std::size_t alignment = alignof(std::max_align_t))
     {
-        CETL_DEBUG_ASSERT(nullptr == p || in_use_ == p || nullptr != upstream_,
-                          "Unknown pointer passed into deallocate.");
         if (p == in_use_)
         {
             in_use_ = nullptr;
         }
-        else if (nullptr != upstream_)
+        else
         {
             upstream_->deallocate(p, size_bytes, alignment);
         }

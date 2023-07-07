@@ -33,7 +33,7 @@ TEST(VLAAllocatorAwarenessTest, UsesPMAForItems)
 
     ASSERT_EQ(3, vla.size());
 
-    // Verify that the strings created within the array is using the buffer.
+    // Verify that the strings created within the array are using the buffer.
     for(const std::string& item : vla)
     {
         ASSERT_GE(item.c_str(), buffer);

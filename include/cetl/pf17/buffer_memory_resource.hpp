@@ -72,6 +72,10 @@ public:
     UnsynchronizedBufferMemoryResource& operator=(UnsynchronizedBufferMemoryResource&&)      = delete;
 
 private:
+    // +-----------------------------------------------------------------------+
+    // | cetl::pf17::pmr::memory_resource
+    // +-----------------------------------------------------------------------+
+
     void* do_allocate(std::size_t bytes, std::size_t alignment) override
     {
         return delegate_.allocate(bytes, alignment);
