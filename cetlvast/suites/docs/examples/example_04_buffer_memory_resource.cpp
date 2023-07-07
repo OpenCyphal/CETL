@@ -1,5 +1,5 @@
 /// @file
-/// Example of using the cetl::pmr::UnsynchronizedArrayMemoryResource in cetl/pmr/array_memory_resource.hpp.
+/// Example of using the cetl::pf17::pmr::UnsynchronizedArrayMemoryResource in cetl/pf17/array_memory_resource.hpp.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,10 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-//![example_include]
-#include "cetl/pmr/array_memory_resource.hpp"
-#include "cetl/pf17/cetlpf.hpp"
-//![example_include]
+#include "cetl/pf17/sys/memory_resource.hpp"
+#include "cetl/pf17/buffer_memory_resource.hpp"
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -18,14 +16,13 @@
 #include <vector>
 #include <iostream>
 
-//![example_setup]
 struct Message
 {
-    explicit Message(const cetl::pmr::polymorphic_allocator<std::uint64_t>& allocator)
+    explicit Message(const cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>& allocator)
         : data{allocator}
     {
     }
-    std::vector<std::uint64_t, cetl::pmr::polymorphic_allocator<std::uint64_t>> data;
+    std::vector<std::uint64_t, cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>> data;
 };
 
 // Let's say we have a data structure that contains a Message with variable-length data in it.
@@ -33,17 +30,14 @@ struct Message
 // but if there is less data the std::vector in the message will return the size() of that data (i.e. where an
 // std::array would not).
 static constexpr std::size_t SmallMessageSizeBytes = 64 * 8;
-static cetl::byte            small_message_buffer_[SmallMessageSizeBytes];
+static cetl::pf17::byte      small_message_buffer_[SmallMessageSizeBytes];
 
-//![example_setup]
-
-TEST(example_04_array_memory_resource_array, example_a)
+TEST(example_04_buffer_memory_resource, example_a)
 {
     //![example_a]
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        aResource{small_message_buffer_, SmallMessageSizeBytes, cetl::pmr::null_memory_resource(), 0};
-    cetl::pmr::polymorphic_allocator<std::uint64_t> aAlloc{&aResource};
-    Message                                         a{aAlloc};
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   aResource{small_message_buffer_, SmallMessageSizeBytes};
+    cetl::pf17::pmr::polymorphic_allocator<std::uint64_t> aAlloc{&aResource};
+    Message                                               a{aAlloc};
 
     // The big "gotcha" when using UnsynchronizedArrayMemoryResource with STL containers is that you must reserve
     // the size needed before you insert data into them. This is because UnsynchronizedArrayMemoryResource only
@@ -63,21 +57,20 @@ TEST(example_04_array_memory_resource_array, example_a)
     //![example_a]
 }
 
-TEST(example_04_array_memory_resource_array, example_b)
+TEST(example_04_buffer_memory_resource, example_b)
 {
     //![example_b]
     // BUT WAIT! THERE'S MORE! The UnsynchronizedArrayMemoryResource both slices and dices! That is, you can provide
     // an upstream allocator to turn this into a "small buffer optimization" resource where the internal allocation
     // is the small buffer and the upstream allocator becomes the larger allocator.
 
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        bResource{small_message_buffer_,
-                  SmallMessageSizeBytes,
-                  cetl::pmr::new_delete_resource(),
-                  std::numeric_limits<std::size_t>::max()};
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource bResource{small_message_buffer_,
+                                                                  SmallMessageSizeBytes,
+                                                                  cetl::pf17::pmr::new_delete_resource(),
+                                                                  std::numeric_limits<std::size_t>::max()};
 
-    cetl::pmr::polymorphic_allocator<std::uint64_t> bAlloc{&bResource};
-    Message                                         b{bAlloc};
+    cetl::pf17::pmr::polymorphic_allocator<std::uint64_t> bAlloc{&bResource};
+    Message                                               b{bAlloc};
 
     // This time we won't reserve which should cause vector to do multiple allocations. We'll also insert
     // a bunch more items than there is space in the small message buffer.
@@ -93,22 +86,20 @@ TEST(example_04_array_memory_resource_array, example_b)
     //![example_b]
 }
 
-TEST(example_04_array_memory_resource_array, example_c)
+TEST(example_04_buffer_memory_resource, example_c)
 {
     //![example_c]
     // One more example: by using another UnsynchronizedArrayMemoryResource as an upstream for another
     // UnsynchronizedArrayMemoryResource with the same-sized buffer you can use vector push_back without reserve up
     // to the size of these buffers.
-    static cetl::byte upstream_buffer[SmallMessageSizeBytes];
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        cUpstreamResource{&upstream_buffer, SmallMessageSizeBytes, cetl::pmr::null_memory_resource(), 0};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-                                                    cResource{small_message_buffer_,
-                  SmallMessageSizeBytes,
-                  &cUpstreamResource,
-                  std::numeric_limits<std::size_t>::max()};
-    cetl::pmr::polymorphic_allocator<std::uint64_t> cAlloc{&cResource};
-    Message                                         c{cAlloc};
+    static cetl::pf17::byte                               upstream_buffer[SmallMessageSizeBytes];
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cUpstreamResource{&upstream_buffer, SmallMessageSizeBytes};
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cResource{small_message_buffer_,
+                                                                  SmallMessageSizeBytes,
+                                                                  &cUpstreamResource,
+                                                                  std::numeric_limits<std::size_t>::max()};
+    cetl::pf17::pmr::polymorphic_allocator<std::uint64_t> cAlloc{&cResource};
+    Message                                               c{cAlloc};
 
     // We also won't reserve in this example which should cause vector to do multiple allocations. We'll insert
     // exactly the number of items that will fit in the small message buffer. Because containers like vector use a

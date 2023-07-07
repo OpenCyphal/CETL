@@ -24,8 +24,8 @@
 /// - @subpage example_01_polyfill_20
 /// - @subpage example_02_span
 /// - @subpage example_03_memory_resource
-/// - @subpage example_04_array_memory_resource_array
-/// - @subpage example_05_array_memory_resource_alignment
+/// - @subpage example_04_buffer_memory_resource
+/// - @subpage example_05_array_memory_resource
 /// - @subpage example_06_memory_resource_deleter
 /// - @subpage example_07_polymorphic_alloc_deleter
 /// - @subpage example_08_variable_length_array_vs_vector
@@ -42,14 +42,14 @@
 /// Full example for cetl::pf17::pmr::memory_resource
 /// @include example_03_memory_resource.cpp
 ///
-/// @page example_04_array_memory_resource_array Example 4: Using the UnsynchronizedArrayMemoryResourceDelegate class
-/// Full example for cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate
-/// @include example_04_array_memory_resource_array.cpp
-/// Also see @ref example_05_array_memory_resource_alignment
+/// @page example_04_buffer_memory_resource Example 4: Using the UnsynchronizedBufferMemoryResource class
+/// Full example for cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate
+/// @include example_04_buffer_memory_resource.cpp
+/// Also see @ref example_05_array_memory_resource
 ///
-/// @page example_05_array_memory_resource_alignment Example 5: Using an array memory resource for over-alignment
-/// Also see @ref example_04_array_memory_resource_array
-/// @include example_05_array_memory_resource_alignment.cpp
+/// @page example_05_array_memory_resource Example 5: Using the UnsynchronizedBArrayMemoryResource class
+/// Also see @ref example_04_buffer_memory_resource
+/// @include example_05_array_memory_resource.cpp
 ///
 /// @page example_06_memory_resource_deleter Example 6: Using the MemoryResourceDeleter class
 /// Full example for cetl::pmr::MemoryResourceDeleter

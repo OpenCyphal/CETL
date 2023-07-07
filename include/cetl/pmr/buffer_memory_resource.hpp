@@ -8,8 +8,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef CETL_PMR_ARRAY_MEMORY_RESOURCE_H_INCLUDED
-#define CETL_PMR_ARRAY_MEMORY_RESOURCE_H_INCLUDED
+#ifndef CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
+#define CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
 
 #ifndef CETL_H_ERASE
 #    include "cetl/cetl.hpp"
@@ -35,27 +35,9 @@ namespace pmr
 /// CETL pf17 types. This allows you to use it with std::pmr::memory_resource or cetl::pf17::pmr::memory_resource
 /// without relying on CETL polyfill headers.
 ///
-/// @par Over-Alignment
-/// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
-/// For example, if the buffer is too small to support the requested alignment then the allocation will fail as this
-/// example demonstrates:
-/// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_0
-/// By over-provisioning the buffer the same alignment will succeed:
-/// @snippet{trimleft} example_05_array_memory_resource_alignment.cpp example_1
-/// (@ref example_05_array_memory_resource_alignment "See full example here...")
-///
-/// @par More Examples
-/// Using this class with STL containers:
-/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_a
-/// Creating a small-buffer optimization using this class:
-/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_b
-/// Using two std::pmr::UnsynchronizedArrayMemoryResourceDelegate instances with std::vector:
-/// @snippet{trimleft} example_04_array_memory_resource_array.cpp example_c
-/// (@ref example_04_array_memory_resource_array "See full example here...")
-///
 /// @tparam MemoryResourceType The type of the upstream memory resource to use.
 template <typename UpstreamMemoryResourceType>
-class UnsynchronizedArrayMemoryResourceDelegate final
+class UnsynchronizedBufferMemoryResourceDelegate final
 {
 private:
     /// Saturating add of two max size values clamped to the maximum value for the pointer difference type
@@ -85,10 +67,10 @@ public:
     /// @param buffer_size_bytes        The size, in bytes, of the buffer.
     /// @param upstream                 An optional upstream memory resource to use if the buffer is already in use.
     /// @param upstream_max_size_bytes  The maximum size of the upstream buffer.
-    UnsynchronizedArrayMemoryResourceDelegate(void*                       buffer,
-                                              std::size_t                 buffer_size_bytes,
-                                              UpstreamMemoryResourceType* upstream,
-                                              std::size_t                 upstream_max_size_bytes) noexcept
+    UnsynchronizedBufferMemoryResourceDelegate(void*                       buffer,
+                                               std::size_t                 buffer_size_bytes,
+                                               UpstreamMemoryResourceType* upstream,
+                                               std::size_t                 upstream_max_size_bytes) noexcept
         : upstream_{upstream}
         , buffer_{buffer}
         , buffer_size_bytes_{buffer_size_bytes}
@@ -101,11 +83,11 @@ public:
                           "cetl::pmr::null_memory_resource if you don't want an upstream memory resource.");
     }
 
-    ~UnsynchronizedArrayMemoryResourceDelegate()                                                           = default;
-    UnsynchronizedArrayMemoryResourceDelegate(const UnsynchronizedArrayMemoryResourceDelegate&)            = delete;
-    UnsynchronizedArrayMemoryResourceDelegate& operator=(const UnsynchronizedArrayMemoryResourceDelegate&) = delete;
-    UnsynchronizedArrayMemoryResourceDelegate(UnsynchronizedArrayMemoryResourceDelegate&&)                 = delete;
-    UnsynchronizedArrayMemoryResourceDelegate& operator=(UnsynchronizedArrayMemoryResourceDelegate&&)      = delete;
+    ~UnsynchronizedBufferMemoryResourceDelegate()                                                            = default;
+    UnsynchronizedBufferMemoryResourceDelegate(const UnsynchronizedBufferMemoryResourceDelegate&)            = delete;
+    UnsynchronizedBufferMemoryResourceDelegate& operator=(const UnsynchronizedBufferMemoryResourceDelegate&) = delete;
+    UnsynchronizedBufferMemoryResourceDelegate(UnsynchronizedBufferMemoryResourceDelegate&&)                 = delete;
+    UnsynchronizedBufferMemoryResourceDelegate& operator=(UnsynchronizedBufferMemoryResourceDelegate&&)      = delete;
 
     //  +--[public methods]---------------------------------------------------+
     constexpr UpstreamMemoryResourceType* upstream_resource() const
@@ -197,4 +179,4 @@ private:
 }  // namespace pmr
 }  // namespace cetl
 
-#endif  // CETL_PMR_ARRAY_MEMORY_RESOURCE_H_INCLUDED
+#endif  // CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED

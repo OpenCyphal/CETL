@@ -11,7 +11,7 @@
 #include "cetl/variable_length_array.hpp"
 
 #include "cetl/pf17/sys/memory_resource.hpp"
-#include "cetl/pmr/array_memory_resource.hpp"
+#include "cetl/pmr/buffer_memory_resource.hpp"
 #include "cetl/pf17/byte.hpp"
 
 #include "cetlvast/helpers_gtest.hpp"
@@ -207,7 +207,7 @@ struct CetlNewDeleteResourceFactory
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
-/// Creates a polymorphic allocator that uses an UnsynchronizedArrayMemoryResourceDelegate-based memory resource.
+/// Creates a polymorphic allocator that uses an UnsynchronizedBufferMemoryResourceDelegate-based memory resource.
 template <std::size_t ArraySizeBytes = 24>
 class CetlUnsynchronizedArrayMemoryResourceFactory
 {
@@ -256,7 +256,7 @@ private:
         }
 
         std::array<cetl::pf17::byte, ImplArraySizeBytes>                                       memory_;
-        cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
+        cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
     };
 
 public:

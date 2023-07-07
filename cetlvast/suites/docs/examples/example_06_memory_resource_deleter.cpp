@@ -7,10 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-//![example_include]
 #include "cetl/pf17/cetlpf.hpp"
 #include "cetl/pmr/memory.hpp"
-//![example_include]
 
 #include <vector>
 #include <algorithm>
