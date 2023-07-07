@@ -13,22 +13,17 @@
 #include <gtest/gtest.h>
 
 //![example_include]
-#include "cetl/pmr/array_memory_resource.hpp"
-#include "cetl/pf17/cetlpf.hpp"
+#include "cetl/pf17/array_memory_resource.hpp"
 //![example_include]
 #include "cetl/pf17/byte.hpp"
-
 
 TEST(example_05_array_memory_resource_alignment, example_0)
 {
     static_assert(alignof(std::max_align_t) < 128, "Wow, what hardware are you running on?");
     //![example_0]
-    constexpr std::size_t                                                    BufferSizeBytes = 64;
-    cetl::pf17::byte                                                         buffer[BufferSizeBytes];
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource> resource{buffer,
-                                                                                      BufferSizeBytes,
-                                                                                      cetl::pmr::null_memory_resource(),
-                                                                                      0};
+    constexpr std::size_t                               BufferSizeBytes = 64;
+    cetl::pf17::byte                                    buffer[BufferSizeBytes];
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource resource{buffer, BufferSizeBytes};
 
     // let's say we have a buffer that must be aligned to a 128-byte (1024-bit) boundary. If we tried to use
     // UnsynchronizedArrayMemoryResource with a 64-byte buffer, on a typical system, the allocation would fail.
@@ -54,12 +49,9 @@ TEST(example_05_array_memory_resource_alignment, example_1)
 {
     //![example_1]
     // By over-provisioning the buffer you can now get the alignment you want:
-    constexpr std::size_t                                                    BufferSizeBytes = 64 + 128;
-    cetl::pf17::byte                                                         buffer[BufferSizeBytes];
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource> resource{buffer,
-                                                                                      BufferSizeBytes,
-                                                                                      cetl::pmr::null_memory_resource(),
-                                                                                      0};
+    constexpr std::size_t                               BufferSizeBytes = 64 + 128;
+    cetl::pf17::byte                                    buffer[BufferSizeBytes];
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource resource{buffer, BufferSizeBytes};
 
     void* r = resource.allocate(64, 128);
 
@@ -67,4 +59,21 @@ TEST(example_05_array_memory_resource_alignment, example_1)
 
     resource.deallocate(r, 64, 128);
     //![example_1]
+}
+
+TEST(example_05_array_memory_resource_alignment, example_2)
+{
+    //![example_2]
+    // You can also use the UnsynchronizedArrayMemoryResource type to use
+    // the default, internal buffer built into this type instead of providing
+    // and external buffer:
+    constexpr std::size_t                                               BufferSizeBytes = 64 + 128;
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<BufferSizeBytes> resource{};
+
+    void* r = resource.allocate(64, 128);
+
+    std::cout << "Over-aligned address at: " << r << std::endl;
+
+    resource.deallocate(r, 64, 128);
+    //![example_2]
 }
