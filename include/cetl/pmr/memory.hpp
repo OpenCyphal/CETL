@@ -16,28 +16,32 @@
 
 #include <memory>
 #include <utility>
+#include <cstddef> // for std::max_align_t
 
 namespace cetl
 {
 namespace pmr
 {
 
-/// RAII helper for memory_resource::allocate() and memory_resource::deallocate(). This type is designed to work with
-/// std::unique_ptr.
+/// RAII helper for MemoryResourceType::allocate() and MemoryResourceType::deallocate(). This type is designed to work
+/// with std::unique_ptr.
+///
+/// @tparam MemoryResourceType The memory resource type.
 ///
 /// Example usage:
 ///
 /// @snippet{trimleft} example_06_memory_resource_deleter.cpp example_usage
 /// (@ref example_06_memory_resource_deleter "See full example here...")
 ///
+template <typename MemoryResourceType>
 class MemoryResourceDeleter final
 {
 private:
     struct MemoryResourceData
     {
-        memory_resource* mem_resource;
-        std::size_t      mem_size;
-        std::size_t      mem_align;
+        MemoryResourceType* mem_resource;
+        std::size_t         mem_size;
+        std::size_t         mem_align;
     };
 
 public:
@@ -45,9 +49,9 @@ public:
     /// @param mem_resource The memory resource to use for deallocation.
     /// @param mem_size     The size of the memory to deallocate.
     /// @param mem_align    The alignment of the memory to deallocate.
-    MemoryResourceDeleter(memory_resource* mem_resource,
-                          std::size_t      mem_size,
-                          std::size_t      mem_align = alignof(std::max_align_t)) noexcept
+    MemoryResourceDeleter(MemoryResourceType* mem_resource,
+                          std::size_t         mem_size,
+                          std::size_t         mem_align = alignof(std::max_align_t)) noexcept
         : data_{mem_resource, mem_size, mem_align}
     {
     }
@@ -102,7 +106,7 @@ public:
 
     /// The memory resource this deleter will or did use to deallocate memory.
     /// @return The memory resource or nullptr if this deleter was moved from and is now invalid.
-    memory_resource* resource() const noexcept
+    MemoryResourceType* resource() const noexcept
     {
         return data_.mem_resource;
     }

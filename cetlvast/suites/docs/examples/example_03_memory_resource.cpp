@@ -10,11 +10,10 @@
 /// SPDX-License-Identifier: MIT
 ///
 #include "cetl/cetl.hpp"
+#include "cetl/pmr/memory.hpp"
 #include "cetl/pf17/sys/memory_resource.hpp"
-
-#if (__cplusplus >= CETL_CPP_STANDARD_17 && !defined(CETL_DOXYGEN))
-#include <memory_resource>
 #include "cetl/pf17/byte.hpp"
+
 #include <iostream>
 #include <memory>
 #include <algorithm>
@@ -23,7 +22,6 @@
 
 #include <gtest/gtest.h>
 
-
 namespace cetl
 {
 namespace pf17
@@ -31,7 +29,7 @@ namespace pf17
 
 /// Implements a memory resource that over-allocates memory from an upstream memory resource to support
 /// over-aligning allocations without C++17 or platform-specific system calls.
-class OverAlignedMemoryResource : public pmr::memory_resource
+class OverAlignedMemoryResource : public cetl::pf17::pmr::memory_resource
 {
     /// A control-block, of sorts.
     /// The MemoryBlock provides a map between the system aligned memory returned by the
@@ -321,37 +319,19 @@ private:
 };
 
 template <typename T>
-struct MemoryResourceDeleter
+std::unique_ptr<T, cetl::pmr::MemoryResourceDeleter<cetl::pf17::pmr::memory_resource>> allocate_buffer(
+    pmr::memory_resource& allocator,
+    std::size_t           buffer_size,
+    std::size_t           buffer_alignment)
 {
-    MemoryResourceDeleter(pmr::memory_resource* resource, std::size_t allocation_size, std::size_t buffer_alignment)
-        : resource_(resource)
-        , allocation_size_(allocation_size)
-        , buffer_alignment_(buffer_alignment)
-    {
-    }
-
-    void operator()(T* p)
-    {
-        CETL_DEBUG_ASSERT(nullptr != resource_, "null memory_resource stored in MemoryResourceDeleter!");
-        resource_->deallocate(p, allocation_size_, buffer_alignment_);
-    };
-
-private:
-    pmr::memory_resource* resource_;
-    std::size_t           allocation_size_;
-    std::size_t           buffer_alignment_;
-};
-
-template <typename T>
-std::unique_ptr<T, MemoryResourceDeleter<T>> allocate_buffer(pmr::memory_resource& allocator,
-                                                             std::size_t           buffer_size,
-                                                             std::size_t           buffer_alignment)
-{
-    return std::unique_ptr<T, MemoryResourceDeleter<T>>{static_cast<T*>(
-                                                            allocator.allocate(buffer_size, buffer_alignment)),
-                                                        MemoryResourceDeleter<T>{&allocator,
-                                                                                 buffer_size,
-                                                                                 buffer_alignment}};
+    return std::unique_ptr<
+        T,
+        cetl::pmr::MemoryResourceDeleter<
+            cetl::pf17::pmr::memory_resource>>{static_cast<T*>(allocator.allocate(buffer_size, buffer_alignment)),
+                                               cetl::pmr::MemoryResourceDeleter<
+                                                   cetl::pf17::pmr::memory_resource>{&allocator,
+                                                                                     buffer_size,
+                                                                                     buffer_alignment}};
 }
 
 // +--------------------------------------------------------------------------+
@@ -360,7 +340,7 @@ std::unique_ptr<T, MemoryResourceDeleter<T>> allocate_buffer(pmr::memory_resourc
 
 TEST(example_03_memory_resource, main)
 {
-//! [main]
+    //! [main]
     cetl::pf17::OverAlignedMemoryResource over_aligned_new_delete_resource{};
 
     // let's pretend we have dma that must be aligned to a 128-byte (1024-bit) boundary:
@@ -386,7 +366,5 @@ TEST(example_03_memory_resource, main)
     // Do remember that memory_resource does not construct and delete objects. That is the job of allocators like
     // cetl::pf17::pmr::polymorphic_allocator. Because this example only used trivially constructable, copyable, and
     // destructible types we didn't have to build that machinery.
-//! [main]
+    //! [main]
 }
-
-#endif
