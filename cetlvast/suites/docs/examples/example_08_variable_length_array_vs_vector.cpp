@@ -44,7 +44,7 @@ void print_container(const T& container)
     std::cout << std::endl;
 }
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
 
 TEST(example_08_variable_length_array_vs_vector, example_tight_fit_0)
 {

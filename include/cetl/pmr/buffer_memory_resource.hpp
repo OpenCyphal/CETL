@@ -184,7 +184,7 @@ public:
             result = upstream_->allocate(size_bytes, alignment);
         }
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         if (nullptr == result)
         {
             throw std::bad_alloc();
@@ -237,6 +237,11 @@ private:
     const std::size_t           max_size_bytes_;
     const std::size_t           upstream_max_size_bytes_;
     void*                       in_use_;
+};
+
+template <typename MemoryResourceType, typename UpstreamMemoryResourceType>
+class DelegatingUnsynchronizedBufferMemoryResource : public MemoryResourceType
+{
 };
 
 }  // namespace pmr

@@ -26,12 +26,12 @@ TEST(example_05_array_memory_resource, example_0)
     // UnsynchronizedArrayMemoryResource with a 64-byte internal array, on a typical system, the allocation would fail.
 
     void* r = nullptr;
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     try
     {
 #endif
         r = resource.allocate(64, 128);
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     } catch (const std::bad_alloc&)
     {
         // This is expected.

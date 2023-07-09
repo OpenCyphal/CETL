@@ -126,7 +126,7 @@
 #endif  // CETL_ENABLE_DEBUG_ASSERT
 
 // Make the standard exceptions available only if exceptions are enabled.
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
 #    include <stdexcept>
 #endif
 

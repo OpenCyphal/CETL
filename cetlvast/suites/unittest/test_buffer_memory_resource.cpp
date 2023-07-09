@@ -28,7 +28,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
                                                                                                          10,
                                                                                                          &mock_upstream,
                                                                                                          0};
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_THROW(test_subject.allocate(1, 1), std::bad_alloc);
 #else
     ASSERT_EQ(nullptr, test_subject.allocate(200));
@@ -59,7 +59,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLocalReallocate)
                                                                                                      0};
     void*                                                                               mem = test_subject.allocate(1);
     ASSERT_NE(nullptr, mem);
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_THROW(test_subject.allocate(200), std::bad_alloc);
 #else
     ASSERT_EQ(nullptr, test_subject.allocate(200));
@@ -217,7 +217,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestAllocateAllocateDealloc
     ASSERT_NE(nullptr, upstream);
     ASSERT_NE(upstream, internal);
     ASSERT_EQ(upstream, upstream_buffer);
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_THROW(test_subject.allocate(20, 1), std::bad_alloc);
 #else
     ASSERT_EQ(nullptr, test_subject.allocate(20, 1));

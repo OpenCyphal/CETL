@@ -61,7 +61,7 @@ TYPED_TEST(TestMonotonicBufferResource, TestDeallocateHasNoEffect)
     // cause the resource to try using the null_memory_resource, which will
     // throw an exception or return null (depending on __cpp_exceptions).
     // TODO: test helper that is expect-throw-if-except-else-nullptr-if-cetl-else-dont-do-test.
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     EXPECT_THROW((void) subject.allocate(size_bytes), std::bad_alloc);
 #elif (__cplusplus == CETL_CPP_STANDARD_14)
     ASSERT_EQ(nullptr, subject.allocate(size_bytes));
@@ -70,7 +70,7 @@ TYPED_TEST(TestMonotonicBufferResource, TestDeallocateHasNoEffect)
 #endif
     // now we deallocate the memory we allocated. This should have no effect.
     subject.deallocate(memory, size_bytes / 2);
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     EXPECT_THROW((void) subject.allocate(size_bytes), std::bad_alloc);
 #else
     ASSERT_EQ(nullptr, subject.allocate(size_bytes));

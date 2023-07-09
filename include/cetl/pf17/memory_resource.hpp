@@ -309,7 +309,7 @@ inline memory_resource* null_memory_resource() noexcept
         {
             (void) size_bytes;
             (void) alignment;
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::bad_alloc();
 #endif
             // This is not defined by the specification but should be reasonably
@@ -477,7 +477,7 @@ public:
     {
         if (std::numeric_limits<std::size_t>::max() / sizeof(T) < object_count)
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             // Per the specification, if memory needed to create object_count objects exceeds
             // the ability to address this memory using std::size_t then throw bad_array_new_length;
             throw std::bad_array_new_length();

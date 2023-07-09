@@ -650,14 +650,14 @@ TYPED_TEST(VLATestsGeneric, TestOverMaxSize)
     }
 
     ASSERT_EQ(MaxSize, subject.capacity());
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_THROW(subject.reserve(MaxSize + 1), std::length_error);
     ASSERT_EQ(MaxSize, subject.capacity());
 #endif
 
     ASSERT_EQ(MaxSize, subject.size());
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_THROW(subject.push_back(0), std::length_error);
 #endif
 }

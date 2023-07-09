@@ -68,7 +68,7 @@ public:
         // TODO: https://github.com/pavel-kirienko/o1heap/issues/13
         void* result = o1heapAllocate(o1heap_, size_bytes);
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         if (nullptr == result)
         {
             throw std::bad_alloc();

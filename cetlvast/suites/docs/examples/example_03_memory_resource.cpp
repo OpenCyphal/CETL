@@ -111,7 +111,7 @@ protected:
         // std::pmr::monotonic_buffer_resource.
         if (nullptr == upstream_)
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::bad_alloc();
 #endif
             return nullptr;
@@ -163,7 +163,7 @@ protected:
         // is just example code we haven't rigorously proven that it will always be correct. UMMV.
         if (nullptr == aligned_memory || max_aligned_memory_size < size_bytes)
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::bad_alloc();
 #endif
             return nullptr;
