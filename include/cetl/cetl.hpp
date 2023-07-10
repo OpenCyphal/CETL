@@ -120,9 +120,9 @@
 
 #if defined CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
-#    define CETL_DEBUG_ASSERT(c, m) assert(((void) m, c))
+#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))
 #else
-#    define CETL_DEBUG_ASSERT(c, m) ((void) m)
+#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))
 #endif  // CETL_ENABLE_DEBUG_ASSERT
 
 // Make the standard exceptions available only if exceptions are enabled.
@@ -181,8 +181,8 @@ static_assert(__cplusplus >= CETL_CPP_STANDARD_14,
               "Unsupported language: ISO C14, C++14, or a newer version of either is required to use this type.");
 
 // Detect weird versions
-static_assert(__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STANDARD_17 ||
-                  __cplusplus >= CETL_CPP_STANDARD_20,
+static_assert((__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STANDARD_17 ||
+               __cplusplus >= CETL_CPP_STANDARD_20),
               "Unknown __cplusplus value found?");
 
 /// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering
