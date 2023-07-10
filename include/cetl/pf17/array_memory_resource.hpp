@@ -16,7 +16,7 @@
 
 #include "cetl/pf17/memory_resource.hpp"
 #include "cetl/pf17/byte.hpp"
-#include "cetl/pmr/buffer_memory_resource.hpp"
+#include "cetl/pmr/buffer_memory_resource_delegate.hpp"
 
 #include <array>
 
@@ -30,6 +30,10 @@ namespace pmr
 /// Implementation of cetl::pf17::pmr::memory_resource that uses
 /// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate as the internal implementation backed by an std::array
 /// data member using `array_size * sizeof(cetl::pf17::byte)`s of memory.
+///
+/// @note
+/// This object cannot be moved since there may be outstanding pointers to the internal memory store. If you need a
+/// movable memory resource with similar semantics see cetl::pf17::pmr::UnsynchronizedBufferMemoryResource.
 ///
 /// @par Example Usage
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_0
@@ -61,25 +65,28 @@ public:
     ~UnsynchronizedArrayMemoryResource() override                                          = default;
     UnsynchronizedArrayMemoryResource(const UnsynchronizedArrayMemoryResource&)            = delete;
     UnsynchronizedArrayMemoryResource& operator=(const UnsynchronizedArrayMemoryResource&) = delete;
-    UnsynchronizedArrayMemoryResource(UnsynchronizedArrayMemoryResource&&)                 = delete;
+    UnsynchronizedArrayMemoryResource(UnsynchronizedArrayMemoryResource&&) noexcept        = delete;
     UnsynchronizedArrayMemoryResource& operator=(UnsynchronizedArrayMemoryResource&&)      = delete;
 
-    /// Direct access to the internal data. It is generally not safe to use this memory directly.
-    cetl::pf17::byte* data() noexcept
+    // +-----------------------------------------------------------------------+
+    // | cetl::UnsynchronizedBufferMemoryResourceDelegate
+    // +-----------------------------------------------------------------------+
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    void* data() noexcept
     {
-        return array_.data();
+        return delegate_.data();
     }
 
-    /// Direct access to the internal data. It is generally not safe to use this memory directly.
-    const cetl::pf17::byte* data() const noexcept
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    const void* data() const noexcept
     {
-        return array_.data();
+        return delegate_.data();
     }
 
-    /// The number of cetl::pf17::byte elements in the array returned by data().
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::size()
     std::size_t size() const noexcept
     {
-        return array_.size();
+        return delegate_.size();
     }
 
 private:

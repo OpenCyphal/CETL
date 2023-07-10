@@ -16,7 +16,7 @@
 
 #include "cetl/pf17/memory_resource.hpp"
 #include "cetl/pf17/byte.hpp"
-#include "cetl/pmr/buffer_memory_resource.hpp"
+#include "cetl/pmr/buffer_memory_resource_delegate.hpp"
 
 namespace cetl
 {
@@ -68,8 +68,29 @@ public:
     ~UnsynchronizedBufferMemoryResource() override                                           = default;
     UnsynchronizedBufferMemoryResource(const UnsynchronizedBufferMemoryResource&)            = delete;
     UnsynchronizedBufferMemoryResource& operator=(const UnsynchronizedBufferMemoryResource&) = delete;
-    UnsynchronizedBufferMemoryResource(UnsynchronizedBufferMemoryResource&&)                 = delete;
+    UnsynchronizedBufferMemoryResource(UnsynchronizedBufferMemoryResource&&) noexcept        = default;
     UnsynchronizedBufferMemoryResource& operator=(UnsynchronizedBufferMemoryResource&&)      = delete;
+
+    // +-----------------------------------------------------------------------+
+    // | cetl::UnsynchronizedBufferMemoryResourceDelegate
+    // +-----------------------------------------------------------------------+
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    void* data() noexcept
+    {
+        return delegate_.data();
+    }
+
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    const void* data() const noexcept
+    {
+        return delegate_.data();
+    }
+
+    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::size()
+    std::size_t size() const noexcept
+    {
+        return delegate_.size();
+    }
 
 private:
     // +-----------------------------------------------------------------------+
@@ -101,6 +122,7 @@ private:
         return delegate_.reallocate(p, old_size_bytes, new_size_bytes, alignment);
     }
 
+    // +-----------------------------------------------------------------------+
     cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
 };
 

@@ -9,7 +9,7 @@
 
 #include "cetl/variable_length_array.hpp"
 #include "cetl/pf17/sys/memory_resource.hpp"
-#include "cetl/pmr/buffer_memory_resource.hpp"
+#include "cetl/pmr/buffer_memory_resource_delegate.hpp"
 #include "cetl/pf17/byte.hpp"
 
 #include "cetlvast/helpers_gtest.hpp"

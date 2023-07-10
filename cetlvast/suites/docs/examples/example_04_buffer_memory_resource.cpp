@@ -8,7 +8,7 @@
 ///
 
 #include "cetl/pf17/sys/memory_resource.hpp"
-#include "cetl/pf17/buffer_memory_resource.hpp"
+#include "cetl/pf17/buffer_memory_resource_delegate.hpp"
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>

@@ -13,7 +13,7 @@
 #include "cetlvast/helpers_gtest_memory_resource.hpp"
 #include "cetl/pf17/byte.hpp"
 
-#include "cetl/pmr/buffer_memory_resource.hpp"
+#include "cetl/pmr/buffer_memory_resource_delegate.hpp"
 
 using ::testing::Return;
 using ::testing::Expectation;
@@ -25,9 +25,10 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
 {
     cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
     cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
-                                                                                                         10,
+                                                                                                         0,
                                                                                                          &mock_upstream,
                                                                                                          0};
+    ASSERT_EQ(nullptr, test_subject.data());
 #if defined(__cpp_exceptions)
     ASSERT_THROW(test_subject.allocate(1, 1), std::bad_alloc);
 #else
@@ -48,6 +49,20 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLargeBuffer)
     ASSERT_NE(nullptr, mem);
     ASSERT_EQ(TestBufferSize * sizeof(cetl::pf17::byte), test_subject.max_size());
     test_subject.deallocate(mem, TestBufferSize);
+}
+
+TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestDataAccess)
+{
+    cetlvast::MockPf17MemoryResource mock_upstream{};
+    cetl::pf17::byte                 small_buffer[4];
+    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+        test_subject0{small_buffer, 2, &mock_upstream, 0};
+    ASSERT_EQ(small_buffer, test_subject0.data());
+    ASSERT_EQ(2, test_subject0.size());
+    const cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+        test_subject1{small_buffer, 4, &mock_upstream, 0};
+    ASSERT_EQ(small_buffer, test_subject1.data());
+    ASSERT_EQ(4, test_subject1.size());
 }
 
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLocalReallocate)
@@ -240,7 +255,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestAllocateAllocateDealloc
 // +----------------------------------------------------------------------+
 #if CETL_ENABLE_DEBUG_ASSERT
 
-static void TestNullBufferInCtor()
+static void TestNullUpstreamInCtor()
 {
     flush_coverage_on_death();
     cetl::pf17::byte small_buffer[255];
@@ -248,9 +263,24 @@ static void TestNullBufferInCtor()
         test_subject{small_buffer, sizeof(cetl::pf17::byte) * 255, nullptr, 0};
 }
 
+TEST(DeathTestUnsynchronizedBufferMemoryResourceDelegateAssertions, TestNullUpstreamInCtor)
+{
+    EXPECT_DEATH(TestNullUpstreamInCtor(), "CDE_ubmrd_001");
+}
+
+static void TestNullBufferInCtor()
+{
+    flush_coverage_on_death();
+    cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
+    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
+                                                                                                         1,
+                                                                                                         &mock_upstream,
+                                                                                                         0};
+}
+
 TEST(DeathTestUnsynchronizedBufferMemoryResourceDelegateAssertions, TestNullBufferInCtor)
 {
-    EXPECT_DEATH(TestNullBufferInCtor(), "CDE_ubmrd_001");
+    EXPECT_DEATH(TestNullBufferInCtor(), "CDE_ubmrd_002");
 }
 
 #endif

@@ -9,8 +9,8 @@
 ///
 // cSpell: words CDE_ubmrd
 
-#ifndef CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
-#define CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
+#ifndef CETL_PMR_BUFFER_MEMORY_RESOURCE_DELEGATE_H_INCLUDED
+#define CETL_PMR_BUFFER_MEMORY_RESOURCE_DELEGATE_H_INCLUDED
 
 #ifndef CETL_H_ERASE
 #    include "cetl/cetl.hpp"
@@ -31,9 +31,9 @@ namespace pmr
 /// of a std::pmr::memory_resource with only one feature of supporting an, optional, upstream allocator.
 ///
 /// @par Delegate Class
-/// You will need an implementation of memory_resource that uses this class as a delegate or use the
-/// cetl::pmr::UnsynchronizedArrayMemoryResource polyfill type since this class does not directly rely on any C++17 nor
-/// CETL pf17 types. This allows you to use it with std::pmr::memory_resource or cetl::pf17::pmr::memory_resource.
+/// You will need an implementation of memory_resource that uses this class as a delegate since this class does not
+/// directly rely on any C++17 nor CETL pf17 types. This allows you to use it with std::pmr::memory_resource or
+/// cetl::pf17::pmr::memory_resource.
 ///
 /// @par Over-Alignment
 /// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
@@ -51,7 +51,8 @@ class UnsynchronizedBufferMemoryResourceDelegate final
 {
 private:
     // adapted from https://en.cppreference.com/w/cpp/experimental/is_detected
-    // implements a C++14-compatible detection idiom.
+    // implements a C++14-compatible detection idiom. This code may be copy-and-pasted in a few places within CETL types
+    // to avoid creating dependency coupling.
 
     template <typename...>
     using _void_t = void;
@@ -106,15 +107,13 @@ private:
     {
         (void) old_object_count;
         (void) upstream;
+        void* result = nullptr;
         if (data == in_use_)
         {
-            return allocate_internal_buffer(new_object_count, new_align);
+            result  = allocate_internal_buffer(new_object_count, new_align);
+            in_use_ = result;
         }
-        else
-        {
-            return nullptr;
-        }
-        return nullptr;
+        return result;
     }
 
     template <typename UpstreamResourceType>
@@ -126,15 +125,17 @@ private:
                         std::size_t           new_align)
     {
         (void) old_object_count;
+        void* result = nullptr;
         if (data == in_use_)
         {
-            return allocate_internal_buffer(new_object_count, new_align);
+            result  = allocate_internal_buffer(new_object_count, new_align);
+            in_use_ = result;
         }
         else
         {
-            return upstream.reallocate(data, old_object_count, new_object_count, new_align);
+            result = upstream.reallocate(data, old_object_count, new_object_count, new_align);
         }
-        return nullptr;
+        return result;
     }
 
 public:
@@ -157,12 +158,14 @@ public:
         CETL_DEBUG_ASSERT(nullptr != upstream,
                           "CDE_ubmrd_001: Upstream memory resource cannot be null. Use std::pmr::null_memory_resource "
                           "or cetl::pmr::null_memory_resource if you don't want an upstream memory resource.");
+        CETL_DEBUG_ASSERT(nullptr != buffer || buffer_size_bytes == 0,
+                          "CDE_ubmrd_002: Nullptr buffer provided with a buffer size > 0.");
     }
 
     ~UnsynchronizedBufferMemoryResourceDelegate()                                                            = default;
     UnsynchronizedBufferMemoryResourceDelegate(const UnsynchronizedBufferMemoryResourceDelegate&)            = delete;
     UnsynchronizedBufferMemoryResourceDelegate& operator=(const UnsynchronizedBufferMemoryResourceDelegate&) = delete;
-    UnsynchronizedBufferMemoryResourceDelegate(UnsynchronizedBufferMemoryResourceDelegate&&)                 = delete;
+    UnsynchronizedBufferMemoryResourceDelegate(UnsynchronizedBufferMemoryResourceDelegate&&) noexcept        = default;
     UnsynchronizedBufferMemoryResourceDelegate& operator=(UnsynchronizedBufferMemoryResourceDelegate&&)      = delete;
 
     //  +--[public methods]---------------------------------------------------+
@@ -218,11 +221,29 @@ public:
         return max_size_bytes_;
     }
 
+    /// Direct access to the internal data. It is generally not safe to use this memory directly.
+    void* data() noexcept
+    {
+        return buffer_;
+    }
+
+    /// Direct access to the internal data. It is generally not safe to use this memory directly.
+    const void* data() const noexcept
+    {
+        return buffer_;
+    }
+
+    /// The size in bytes of the internal buffer.
+    std::size_t size() const noexcept
+    {
+        return buffer_size_bytes_;
+    }
+
 private:
     constexpr void* allocate_internal_buffer(std::size_t size_bytes, std::size_t alignment = alignof(std::max_align_t))
     {
         void* result = nullptr;
-        if (nullptr != buffer_ && size_bytes <= buffer_size_bytes_)
+        if (size_bytes <= buffer_size_bytes_)
         {
             void*       storage_ptr  = buffer_;
             std::size_t storage_size = buffer_size_bytes_;
@@ -239,12 +260,7 @@ private:
     void*                       in_use_;
 };
 
-template <typename MemoryResourceType, typename UpstreamMemoryResourceType>
-class DelegatingUnsynchronizedBufferMemoryResource : public MemoryResourceType
-{
-};
-
 }  // namespace pmr
 }  // namespace cetl
 
-#endif  // CETL_PMR_BUFFER_MEMORY_RESOURCE_H_INCLUDED
+#endif  // CETL_PMR_BUFFER_MEMORY_RESOURCE_DELEGATE_H_INCLUDED
