@@ -6,16 +6,15 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-// CSpell: ignore sayin
+// CSpell: words sayin
 
-#include "cetl/pmr/array_memory_resource.hpp"
-#include "cetl/pf17/cetlpf.hpp"
+#include "cetl/pf17/sys/memory_resource.hpp"
+#include "cetl/pf17/array_memory_resource.hpp"
 #include "cetl/variable_length_array.hpp"
 #include <iostream>
 #include <vector>
 
 #include <gtest/gtest.h>
-
 
 template <typename T>
 void add_hello_world(T& container)
@@ -45,7 +44,7 @@ void print_container(const T& container)
     std::cout << std::endl;
 }
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
 
 TEST(example_08_variable_length_array_vs_vector, example_tight_fit_0)
 {
@@ -56,13 +55,10 @@ TEST(example_08_variable_length_array_vs_vector, example_tight_fit_0)
     /// 8, 16, 32, then 64 bytes. This last allocation, obviously, will fail. A VariableLengthArray allocation
     /// may start with a similar sequence but would never attempt to allocate more than max_size; 8, 16, 32, 56.
 
-    std::array<char, 56> storage_0{};
-    std::array<char, 56> storage_1{};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        array_storage_1{storage_1.data(), storage_1.size(), cetl::pmr::null_memory_resource(), 0U};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        array_storage_0{storage_0.data(), storage_0.size(), &array_storage_1, array_storage_1.max_size()};
-    std::vector<char, cetl::pmr::polymorphic_allocator<char>> space_waster{{&array_storage_0}};
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>          array_storage_1{};
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>          array_storage_0{&array_storage_1,
+                                                                           array_storage_1.max_size()};
+    std::vector<char, cetl::pf17::pmr::polymorphic_allocator<char>> space_waster{{&array_storage_0}};
 
     try
     {
@@ -84,14 +80,11 @@ TEST(example_08_variable_length_array_vs_vector, example_tight_fit_1)
     // The problem with the C++17 standard is the lack of support for max_size in pmr types.
     // VariableLengthArray provides the "max_size_max" argument that lets the user limit the amount of memory
     // the container will use.
-    std::array<char, 56> storage_0{};
-    std::array<char, 56> storage_1{};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        array_storage_1{storage_1.data(), storage_1.size(), cetl::pmr::null_memory_resource(), 0};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        array_storage_0{storage_0.data(), storage_0.size(), &array_storage_1, array_storage_1.max_size()};
-    cetl::VariableLengthArray<char, cetl::pmr::polymorphic_allocator<char>> tight_fit{{&array_storage_0},
-                                                                                        storage_0.size()};
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_1{};
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{&array_storage_1,
+                                                                           array_storage_1.max_size()};
+    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> tight_fit{{&array_storage_0},
+                                                                                            array_storage_0.size()};
     for (std::size_t i = 0; i < 56; ++i)
     {
         std::cout << i << ", ";
@@ -108,11 +101,9 @@ TEST(example_08_variable_length_array_vs_vector, example_exact_fit)
     /// Using the reserve function a VariableLengthArray can be made to fit exactly inside of a given memory
     /// resource.
 
-    std::array<char, 56> storage_0{};
-    cetl::pmr::UnsynchronizedArrayMemoryResource<cetl::pmr::memory_resource>
-        array_storage_0{storage_0.data(), storage_0.size(), cetl::pmr::null_memory_resource(), 0};
-    cetl::VariableLengthArray<char, cetl::pmr::polymorphic_allocator<char>> exact_fit{{&array_storage_0},
-                                                                                        storage_0.size()};
+    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{};
+    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> exact_fit{{&array_storage_0},
+                                                                                            array_storage_0.size()};
     exact_fit.reserve(56);
     for (std::size_t i = 0; i < 56; ++i)
     {
@@ -138,11 +129,11 @@ TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
     // Using the cetlpf.hpp header we can create a polymorphic allocator that is aliased to
     // std::pmr::polymorphic_allocator when compiling with C++17 or newer and cetl::pf17::pmr::polymorphic_allocator
     // when compiling with C++14.
-    cetl::pmr::polymorphic_allocator<char> alloc{cetl::pmr::new_delete_resource()};
+    cetl::pf17::pmr::polymorphic_allocator<char> alloc{cetl::pf17::pmr::new_delete_resource()};
 
     // This allows us to demonstrate that the cetl::variable_length_array behaves like a std::vector...
-    std::vector<char, cetl::pmr::polymorphic_allocator<char>>               a{alloc};
-    cetl::VariableLengthArray<char, cetl::pmr::polymorphic_allocator<char>> b{alloc};
+    std::vector<char, cetl::pf17::pmr::polymorphic_allocator<char>>               a{alloc};
+    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> b{alloc};
 
     add_hello_world(a);
     add_hello_world(b);
@@ -177,10 +168,9 @@ TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
     {
         if (size_before == bad_b.max_size())
         {
-            std::cout
-                << "bad_b was not able to allocate memory because it reached its max_size. You probably should "
-                    "have checked this first? Just sayin'."
-                << std::endl;
+            std::cout << "bad_b was not able to allocate memory because it reached its max_size. You probably should "
+                         "have checked this first? Just sayin'."
+                      << std::endl;
         }
         else
         {

@@ -97,7 +97,7 @@ TYPED_TEST(TestMemoryResourceABC, TestNullMemoryResourceAllocation)
     ASSERT_NE(nullptr, subject);
     int dummy = 1;
     void* dummy_memory = &dummy;
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     EXPECT_THROW((void)subject->allocate(1), std::bad_alloc);
 #else
     if(TypeParam::ReturnsNullWhenFNoExceptions)

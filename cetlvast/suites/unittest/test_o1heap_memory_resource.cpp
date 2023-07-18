@@ -10,7 +10,7 @@
 #include "cetl/cetl.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
-#include "cetl/pmr/o1heap_memory_resource.hpp"
+#include "cetl/pmr/o1heap_memory_resource_delegate.hpp"
 
 constexpr std::size_t                                  TestBufferSize = 0x100000;
 static cetl::pmr::O1HeapAlignedStorage<TestBufferSize> large_buffer{};

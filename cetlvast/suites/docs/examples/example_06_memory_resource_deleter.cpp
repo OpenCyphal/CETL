@@ -7,10 +7,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-//![example_include]
 #include "cetl/pf17/cetlpf.hpp"
 #include "cetl/pmr/memory.hpp"
-//![example_include]
 
 #include <vector>
 #include <algorithm>
@@ -18,14 +16,13 @@
 
 #include <gtest/gtest.h>
 
-
 TEST(example_06_memory_resource_deleter, example_usage)
 {
     //![example_usage]
     // Let's say you wanted to store a bunch of buffers in a heap so you can get the largest one quickly.
     // You could do something like this:
 
-    using MemoryResourcePointer = std::unique_ptr<void, cetl::pmr::MemoryResourceDeleter>;
+    using MemoryResourcePointer = std::unique_ptr<void, cetl::pmr::MemoryResourceDeleter<cetl::pmr::memory_resource>>;
 
     struct ByteBuffer
     {

@@ -12,8 +12,8 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#ifndef CETL_PMR_O1HEAP_MEMORY_RESOURCE_H_INCLUDED
-#define CETL_PMR_O1HEAP_MEMORY_RESOURCE_H_INCLUDED
+#ifndef CETL_PMR_O1HEAP_MEMORY_RESOURCE_DELEGATE_H_INCLUDED
+#define CETL_PMR_O1HEAP_MEMORY_RESOURCE_DELEGATE_H_INCLUDED
 
 #ifndef CETL_H_ERASE
 #    include "cetl/cetl.hpp"
@@ -68,7 +68,7 @@ public:
         // TODO: https://github.com/pavel-kirienko/o1heap/issues/13
         void* result = o1heapAllocate(o1heap_, size_bytes);
 
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         if (nullptr == result)
         {
             throw std::bad_alloc();
@@ -100,4 +100,4 @@ private:
 }  // namespace pmr
 }  // namespace cetl
 
-#endif  // CETL_PMR_O1HEAP_MEMORY_RESOURCE_H_INCLUDED
+#endif  // CETL_PMR_O1HEAP_MEMORY_RESOURCE_DELEGATE_H_INCLUDED

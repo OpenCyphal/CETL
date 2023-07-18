@@ -204,7 +204,7 @@ TYPED_TEST(VLABoolTests, TestBoolIterator)
     // Check the final state.
     ASSERT_EQ(10, foo.size());
     ASSERT_LE(10, foo.capacity());
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
     ASSERT_EQ(false, foo.at(0));
     ASSERT_EQ(true, foo.at(1));
     ASSERT_EQ(true, foo.at(2));

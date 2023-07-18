@@ -625,7 +625,7 @@ protected:
         size_type clamped_capacity = desired_capacity;
         if (clamped_capacity > max_size)
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("Requested capacity exceeds maximum size.");
 #else
             // deviation from the standard: instead of undefined behaviour we clamp the capacity to the maximum size
@@ -1183,7 +1183,7 @@ public:
         return alloc_;
     }
 
-#if __cpp_exceptions || defined(CETL_DOXYGEN)
+#if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
     // *************************************************************************
     // we refuse to implement these with exceptions disabled since there is
@@ -1245,12 +1245,12 @@ public:
     /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         try
         {
 #endif
             Base::shrink_to_fit();
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
@@ -1350,7 +1350,7 @@ public:
 
         if (nullptr == push_back_impl(value))
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("size is at capacity. Use reserve to grow the capacity.");
 #endif
         }
@@ -1369,7 +1369,7 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("size is at capacity and we cannot grow the capacity.");
 #endif
             return;
@@ -1377,7 +1377,7 @@ public:
 
         if (nullptr == push_back_impl(std::move(value)))
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("size is at capacity. Use reserve to grow the capacity.");
 #endif
         }
@@ -1405,7 +1405,7 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("size is at capacity and we cannot grow the capacity.");
 #endif
             return;
@@ -1900,7 +1900,7 @@ public:
         return alloc_;
     }
 
-#if __cpp_exceptions || defined(CETL_DOXYGEN)
+#if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
     // *************************************************************************
     // we refuse to implement these with exceptions disabled since there is
@@ -1977,12 +1977,12 @@ public:
     /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         try
         {
 #endif
             Base::shrink_to_fit();
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
             // per-spec. Any exceptions thrown have no effects. We simply don't
@@ -2065,14 +2065,14 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("max_size is reached, the array cannot grow further");
 #endif
             return;
         }
         if (!emplace_back_impl(value))
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("max_size is reached, the array cannot grow further");
 #endif
         }
@@ -2104,14 +2104,14 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("max_size is reached, the array cannot grow further");
 #endif
             return;
         }
         if (!emplace_back_impl(value))
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::length_error("max_size is reached, the array cannot grow further");
 #endif
         }

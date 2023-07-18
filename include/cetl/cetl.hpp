@@ -24,8 +24,8 @@
 /// - @subpage example_01_polyfill_20
 /// - @subpage example_02_span
 /// - @subpage example_03_memory_resource
-/// - @subpage example_04_array_memory_resource_array
-/// - @subpage example_05_array_memory_resource_alignment
+/// - @subpage example_04_buffer_memory_resource
+/// - @subpage example_05_array_memory_resource
 /// - @subpage example_06_memory_resource_deleter
 /// - @subpage example_07_polymorphic_alloc_deleter
 /// - @subpage example_08_variable_length_array_vs_vector
@@ -42,14 +42,14 @@
 /// Full example for cetl::pf17::pmr::memory_resource
 /// @include example_03_memory_resource.cpp
 ///
-/// @page example_04_array_memory_resource_array Example 4: Using the UnsynchronizedArrayMemoryResourceDelegate class
-/// Full example for cetl::pmr::UnsynchronizedArrayMemoryResourceDelegate
-/// @include example_04_array_memory_resource_array.cpp
-/// Also see @ref example_05_array_memory_resource_alignment
+/// @page example_04_buffer_memory_resource Example 4: Using the UnsynchronizedBufferMemoryResource class
+/// Full example for cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate
+/// @include example_04_buffer_memory_resource.cpp
+/// Also see @ref example_05_array_memory_resource
 ///
-/// @page example_05_array_memory_resource_alignment Example 5: Using an array memory resource for over-alignment
-/// Also see @ref example_04_array_memory_resource_array
-/// @include example_05_array_memory_resource_alignment.cpp
+/// @page example_05_array_memory_resource Example 5: Using the UnsynchronizedBArrayMemoryResource class
+/// Also see @ref example_04_buffer_memory_resource
+/// @include example_05_array_memory_resource.cpp
 ///
 /// @page example_06_memory_resource_deleter Example 6: Using the MemoryResourceDeleter class
 /// Full example for cetl::pmr::MemoryResourceDeleter
@@ -120,13 +120,13 @@
 
 #if defined CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
-#    define CETL_DEBUG_ASSERT(c, m) assert(((void) m, c))
+#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))
 #else
-#    define CETL_DEBUG_ASSERT(c, m) ((void) m)
+#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))
 #endif  // CETL_ENABLE_DEBUG_ASSERT
 
 // Make the standard exceptions available only if exceptions are enabled.
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
 #    include <stdexcept>
 #endif
 
@@ -181,8 +181,8 @@ static_assert(__cplusplus >= CETL_CPP_STANDARD_14,
               "Unsupported language: ISO C14, C++14, or a newer version of either is required to use this type.");
 
 // Detect weird versions
-static_assert(__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STANDARD_17 ||
-                  __cplusplus >= CETL_CPP_STANDARD_20,
+static_assert((__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STANDARD_17 ||
+               __cplusplus >= CETL_CPP_STANDARD_20),
               "Unknown __cplusplus value found?");
 
 /// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering

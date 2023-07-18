@@ -39,7 +39,7 @@ protected:
     {
         if (alignment > alignof(std::max_align_t))
         {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
             throw std::bad_alloc();
 #endif
             return nullptr;

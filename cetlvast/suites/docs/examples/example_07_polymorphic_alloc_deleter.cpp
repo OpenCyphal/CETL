@@ -8,10 +8,8 @@
 ///
 /// cSpell: words emplacer
 
-//![example_include]
 #include "cetl/pf17/cetlpf.hpp"
 #include "cetl/pmr/memory.hpp"
-//![example_include]
 
 #include <unordered_map>
 #include <iostream>
