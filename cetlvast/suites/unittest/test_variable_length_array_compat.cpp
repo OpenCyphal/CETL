@@ -255,7 +255,7 @@ private:
             return delegate_.reallocate(p, old_size_bytes, new_size_bytes, alignment);
         }
 
-        std::array<cetl::pf17::byte, ImplArraySizeBytes>                                       memory_;
+        std::array<cetl::pf17::byte, ImplArraySizeBytes>                                        memory_;
         cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
     };
 
@@ -662,6 +662,96 @@ TYPED_TEST(VLATestsGeneric, TestOverMaxSize)
 #endif
 }
 
+// +-------------------------------------------------------------------------------------------------------------------+
+
+TYPED_TEST(VLATestsGeneric, TestResize)
+{
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+
+    std::size_t clamped_max = std::min(this->get_expected_max_size(), 10UL);
+    ASSERT_GT(this->get_expected_max_size(), 0) << "This test is only valid if get_expected_max_size() > 0";
+    ASSERT_GT(clamped_max, subject.size());
+    subject.resize(clamped_max);
+    ASSERT_EQ(clamped_max, subject.size());
+
+    typename TestFixture::SubjectType::value_type default_constructed_value{};
+    ASSERT_EQ(subject[subject.size() - 1], default_constructed_value);
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+TYPED_TEST(VLATestsGeneric, TestResizeToZero)
+{
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+
+    std::size_t clamped_max = std::min(this->get_expected_max_size(), 10UL);
+    ASSERT_GT(this->get_expected_max_size(), 0) << "This test is only valid if get_expected_max_size() > 0";
+    ASSERT_GT(clamped_max, subject.size());
+    subject.resize(clamped_max);
+    ASSERT_EQ(clamped_max, subject.size());
+    std::size_t capacity_before = subject.capacity();
+
+    subject.resize(0);
+    ASSERT_EQ(0, subject.size());
+    ASSERT_EQ(capacity_before, subject.capacity());
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+TYPED_TEST(VLATestsGeneric, TestResizeWithCopy)
+{
+    if (std::is_same<typename TypeParam::container_type, cetlvast::SkipTag>::value)
+    {
+        GTEST_SKIP() << "Skipping test that requires CETL reallocation support.";
+    }
+
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+
+    std::size_t clamped_max = std::min(this->get_expected_max_size(), 10UL);
+    ASSERT_GT(this->get_expected_max_size(), 1) << "This test is only valid if get_expected_max_size() > 1";
+    ASSERT_GT(clamped_max, subject.size());
+
+    subject.push_back(1);
+
+    const typename TestFixture::SubjectType::value_type copy_from_value{2};
+    subject.resize(clamped_max, copy_from_value);
+    ASSERT_EQ(clamped_max, subject.size());
+    ASSERT_EQ(1, subject[0]);
+
+    for (std::size_t i = 1; i < subject.size(); ++i)
+    {
+        ASSERT_EQ(subject[i], copy_from_value);
+    }
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+TYPED_TEST(VLATestsGeneric, TestFrontAndBack)
+{
+    using const_ref_value_type = typename std::add_lvalue_reference<typename std::add_const<typename TypeParam::value_type>::type>::type;
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+    subject.reserve(2);
+    subject.push_back(static_cast<typename TypeParam::value_type>(1));
+    subject.push_back(static_cast<typename TypeParam::value_type>(2));
+    ASSERT_EQ(static_cast<typename TypeParam::value_type>(1), subject.front());
+    ASSERT_EQ(static_cast<const_ref_value_type>(1), subject.front());
+    ASSERT_EQ(static_cast<typename TypeParam::value_type>(2), subject.back());
+    ASSERT_EQ(static_cast<const_ref_value_type>(2), subject.back());
+}
+
+
+// +----------------------------------------------------------------------+
+
+#ifdef __cpp_exceptions
+
+TYPED_TEST(VLATestsGeneric, TestResizeExceptionLengthError)
+{
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+    ASSERT_THROW(subject.resize(subject.max_size() + 1), std::length_error);
+}
+
+#endif  // __cpp_exceptions
+
 // +----------------------------------------------------------------------+
 /**
  * Test suite to ensure non-trivial objects are properly handled. This one is both for bool and non-bool spec.
@@ -1036,3 +1126,69 @@ TEST(VLATestsNonTrivialSpecific, TestMoveAssignment)
     ASSERT_NE(lhs, rhs);
     ASSERT_EQ(std::string("three"), lhs[0]);
 }
+
+struct NoDefault
+{
+    ~NoDefault() = default;
+    NoDefault()  = delete;
+    NoDefault(int value)
+        : data_{value} {};
+    NoDefault(const NoDefault&)                = default;
+    NoDefault(NoDefault&&) noexcept            = default;
+    NoDefault& operator=(const NoDefault&)     = default;
+    NoDefault& operator=(NoDefault&&) noexcept = default;
+
+    int data() const noexcept
+    {
+        return data_;
+    }
+
+private:
+    int data_;
+};
+
+TEST(VLATestsNonTrivialSpecific, TestResizeWithNoDefaultCtorData)
+{
+    std::allocator<NoDefault>                                       allocator{};
+    cetl::VariableLengthArray<NoDefault, std::allocator<NoDefault>> subject{{NoDefault{1}}, allocator};
+    ASSERT_EQ(1, subject.size());
+    subject.resize(10, NoDefault{2});
+    ASSERT_EQ(10, subject.size());
+    ASSERT_EQ(1, subject[0].data());
+    for (std::size_t i = 1; i < subject.size(); ++i)
+    {
+        ASSERT_EQ(2, subject[i].data());
+    }
+}
+
+#ifdef __cpp_exceptions
+
+struct GrenadeError : public std::runtime_error
+{
+    GrenadeError(const char* message)
+        : std::runtime_error(message)
+    {
+
+    }
+};
+
+struct Grenade
+{
+    Grenade(int value)
+    {
+        if (value == 2)
+        {
+            throw GrenadeError("");
+        }
+    }
+};
+
+TYPED_TEST(VLATestsGeneric, TestResizeExceptionFromCtorOnResize)
+{
+    std::allocator<Grenade>                                     allocator{};
+    cetl::VariableLengthArray<Grenade, std::allocator<Grenade>> subject{{Grenade{1}}, allocator};
+    ASSERT_EQ(1, subject.size());
+    ASSERT_THROW(subject.resize(2, Grenade{2}), GrenadeError);
+}
+
+#endif  // __cpp_exceptions

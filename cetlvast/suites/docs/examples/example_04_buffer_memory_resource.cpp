@@ -30,12 +30,15 @@ struct Message
 // but if there is less data the std::vector in the message will return the size() of that data (i.e. where an
 // std::array would not).
 static constexpr std::size_t SmallMessageSizeBytes = 64 * 8;
-static cetl::pf17::byte      small_message_buffer_[SmallMessageSizeBytes];
+static struct alignas(std::max_align_t)
+{
+    cetl::pf17::byte      data[SmallMessageSizeBytes];
+} small_message_buffer_;
 
 TEST(example_04_buffer_memory_resource, example_a)
 {
     //![example_a]
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   aResource{small_message_buffer_, SmallMessageSizeBytes};
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   aResource{small_message_buffer_.data, SmallMessageSizeBytes};
     cetl::pf17::pmr::polymorphic_allocator<std::uint64_t> aAlloc{&aResource};
     Message                                               a{aAlloc};
 
@@ -64,7 +67,7 @@ TEST(example_04_buffer_memory_resource, example_b)
     // an upstream allocator to turn this into a "small buffer optimization" resource where the internal allocation
     // is the small buffer and the upstream allocator becomes the larger allocator.
 
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource bResource{small_message_buffer_,
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource bResource{small_message_buffer_.data,
                                                                   SmallMessageSizeBytes,
                                                                   cetl::pf17::pmr::new_delete_resource(),
                                                                   std::numeric_limits<std::size_t>::max()};
@@ -94,7 +97,7 @@ TEST(example_04_buffer_memory_resource, example_c)
     // to the size of these buffers.
     static cetl::pf17::byte                               upstream_buffer[SmallMessageSizeBytes];
     cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cUpstreamResource{&upstream_buffer, SmallMessageSizeBytes};
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cResource{small_message_buffer_,
+    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cResource{small_message_buffer_.data,
                                                                   SmallMessageSizeBytes,
                                                                   &cUpstreamResource,
                                                                   std::numeric_limits<std::size_t>::max()};

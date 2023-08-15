@@ -77,10 +77,9 @@ static void TestBoolSpecLastByteFillZeroWhenSizeIs()
 {
     flush_coverage_on_death();
     cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
-    vla.push_back(true);
-    if (vla.size() == 1)
+    if (vla.size() == 0)
     {
-        vla.last_byte_bit_fill_ = 0;
+        vla.last_byte_bit_fill_ = 1;
         (void)vla.size();
     }
 }
@@ -90,6 +89,132 @@ TEST(DeathTestVLAAssertions, TestBoolSpecLastByteFillZeroWhenSizeIs)
     EXPECT_DEATH(TestBoolSpecLastByteFillZeroWhenSizeIs(), "CDE_vla_003");
 }
 
+// +----------------------------------------------------------------------+
+
+
+static void TestFrontOnEmpty()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    (void)vla.front();
+}
+
+TEST(DeathTestVLAAssertions, TestFrontOnEmpty)
+{
+    EXPECT_DEATH(TestFrontOnEmpty(), "CDE_vla_004");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestConstFrontOnEmpty()
+{
+    flush_coverage_on_death();
+    const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    (void)vla.front();
+}
+
+TEST(DeathTestVLAAssertions, TestConstFrontOnEmpty)
+{
+    EXPECT_DEATH(TestConstFrontOnEmpty(), "CDE_vla_005");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestFrontOnEmptyBool()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    (void)vla.front();
+}
+
+TEST(DeathTestVLAAssertions, TestFrontOnEmptyBool)
+{
+    EXPECT_DEATH(TestFrontOnEmptyBool(), "CDE_vla_006");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestConstFrontOnEmptyBool()
+{
+    flush_coverage_on_death();
+    const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    (void)vla.front();
+}
+
+TEST(DeathTestVLAAssertions, TestConstFrontOnEmptyBool)
+{
+    EXPECT_DEATH(TestConstFrontOnEmptyBool(), "CDE_vla_007");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestBackOnEmpty()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    (void)vla.back();
+}
+
+TEST(DeathTestVLAAssertions, TestBackOnEmpty)
+{
+    EXPECT_DEATH(TestBackOnEmpty(), "CDE_vla_004");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestConstBackOnEmpty()
+{
+    flush_coverage_on_death();
+    const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    (void)vla.back();
+}
+
+TEST(DeathTestVLAAssertions, TestConstBackOnEmpty)
+{
+    EXPECT_DEATH(TestConstBackOnEmpty(), "CDE_vla_005");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestBackOnEmptyBool()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    (void)vla.back();
+}
+
+TEST(DeathTestVLAAssertions, TestBackOnEmptyBool)
+{
+    EXPECT_DEATH(TestBackOnEmptyBool(), "CDE_vla_006");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestConstBackOnEmptyBool()
+{
+    flush_coverage_on_death();
+    const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    (void)vla.back();
+}
+
+TEST(DeathTestVLAAssertions, TestConstBackOnEmptyBool)
+{
+    EXPECT_DEATH(TestConstBackOnEmptyBool(), "CDE_vla_007");
+}
 
 #endif // CETL_ENABLE_DEBUG_ASSERT
 } // namespace

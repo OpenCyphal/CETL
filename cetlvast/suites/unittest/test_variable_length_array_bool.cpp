@@ -232,3 +232,90 @@ TYPED_TEST(VLABoolTests, TestBoolIterator)
     ASSERT_EQ(true, *(foo.cend() - 1));
     ASSERT_EQ(true, foo.cbegin()[2]);
 }
+
+TYPED_TEST(VLABoolTests, TestBoolPopBack)
+{
+    auto test_subject = TypeParam::make_bool_container(
+        std::initializer_list<bool>{true, false, true, false, true, false, true, false, true});
+    std::size_t starting_size = test_subject.size();
+    ASSERT_EQ(9, starting_size);
+    while(starting_size > 0)
+    {
+        ASSERT_EQ((starting_size % 2), test_subject[starting_size - 1]);
+        test_subject.pop_back();
+        --starting_size;
+        ASSERT_EQ(starting_size, test_subject.size());
+    }
+}
+
+TYPED_TEST(VLABoolTests, TestBoolResize)
+{
+    auto array = TypeParam::make_bool_container();
+    ASSERT_EQ(0, array.size());
+    for(std::size_t i = 1; i <= 64; ++i)
+    {
+        array.resize(i, false);
+        ASSERT_EQ(i, array.size());
+        ASSERT_EQ(false, array[i-1]);
+    }
+}
+
+TYPED_TEST(VLABoolTests, TestBoolResizeWithDefault)
+{
+    auto array = TypeParam::make_bool_container(std::initializer_list<bool>{false});
+    array.resize(22, true);
+    ASSERT_EQ(22, array.size());
+    ASSERT_EQ(false, array[0]);
+    for(std::size_t i = 1; i < array.size(); ++i)
+    {
+        ASSERT_EQ(true, array[i]);
+    }
+    // Remember that, if we resize down, the default argument is not used for anything.
+    array.resize(9, false);
+    ASSERT_EQ(9, array.size());
+    ASSERT_EQ(false, array[0]);
+    for(std::size_t i = 2; i < array.size(); ++i)
+    {
+        ASSERT_EQ(true, array[i-1]);
+    }
+}
+
+TYPED_TEST(VLABoolTests, TestBoolResizeOneBit)
+{
+    auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});
+    ASSERT_EQ(3, array.size());
+    ASSERT_EQ(1, array[0]);
+    ASSERT_EQ(0, array[1]);
+    ASSERT_EQ(1, array[2]);
+    array.resize(4, 1);
+    ASSERT_EQ(4, array.size());
+    ASSERT_EQ(1, array[0]);
+    ASSERT_EQ(0, array[1]);
+    ASSERT_EQ(1, array[2]);
+    ASSERT_EQ(1, array[3]);
+    array.resize(5);
+    ASSERT_EQ(5, array.size());
+    ASSERT_EQ(1, array[0]);
+    ASSERT_EQ(0, array[1]);
+    ASSERT_EQ(1, array[2]);
+    ASSERT_EQ(1, array[3]);
+    ASSERT_EQ(0, array[4]);
+}
+
+TYPED_TEST(VLABoolTests, TestBoolFront)
+{
+    auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});
+    ASSERT_TRUE(array.front());
+
+    typename decltype(array)::const_reference value = array.front();
+    ASSERT_TRUE(value);
+}
+
+TYPED_TEST(VLABoolTests, TestBoolBack)
+{
+    auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});
+    ASSERT_TRUE(array.back());
+
+    typename decltype(array)::const_reference value = array.back();
+    ASSERT_TRUE(value);
+}
