@@ -81,11 +81,16 @@ private:
     using is_detected = typename detector<void, Op, Args...>::value_t;
 
     // +----------------------------------------------------------------------+
-    /// Check if one type can be trivially coped from another.
+    /// Check if an array of one type can be trivially coped to another. This
+    /// is different from std::is_trivially_assignable in that it ensures a
+    /// memcpy of arrays of the types will line up based on the object representation
+    /// and alignment of the types involved.
     template <typename DstType, typename SrcType>
-    struct is_trivially_copyable_from
+    struct is_array_of_type_trivially_copyable
         : std::integral_constant<bool,
-                                 std::is_trivially_copyable<DstType>::value && std::is_same<DstType, SrcType>::value>
+                                 std::is_trivially_copyable<DstType>::value &&
+                                     std::is_trivially_assignable<SrcType, DstType>::value &&
+                                     (sizeof(DstType) == sizeof(SrcType)) && (alignof(DstType) == alignof(SrcType))>
     {};
 
     // +----------------------------------------------------------------------+
@@ -256,22 +261,16 @@ protected:
     ///
     template <typename DstType, typename SrcType>
     static constexpr size_type fast_copy_assign(
-        DstType* const       dst,
-        size_type            dst_capacity_count,
-        const SrcType* const src,
-        size_type            src_len_count,
-        typename std::enable_if_t<is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr) noexcept
+        DstType* const dst,
+        size_type      dst_capacity_count,
+        const SrcType& src) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
     {
-        if (nullptr == dst || nullptr == src)
+        if (nullptr == dst)
         {
             return 0;
         }
-        const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
-        if (max_copy_size > 0)
-        {
-            (void) std::memcpy(dst, src, max_copy_size * sizeof(DstType));
-        }
-        return max_copy_size;
+        (void) std::fill_n(dst, dst_capacity_count, src);
+        return dst_capacity_count;
     }
 
     ///
@@ -283,22 +282,14 @@ protected:
         DstType* const       dst,
         size_type            dst_capacity_count,
         const SrcType* const src,
-        size_type            src_len_count,
-        typename std::enable_if_t<!is_trivially_copyable_from<DstType, SrcType>::value>* =
-            nullptr) noexcept(noexcept(std::allocator_traits<allocator_type>::
-                                           construct(std::declval<std::add_lvalue_reference_t<allocator_type>>(),
-                                                     std::declval<std::add_pointer_t<DstType>>(),
-                                                     std::declval<std::add_lvalue_reference_t<const SrcType>>())))
+        size_type            src_len_count) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
     {
         if (nullptr == dst || nullptr == src)
         {
             return 0;
         }
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
-        for (size_type i = 0; i < max_copy_size; ++i)
-        {
-            dst[i] = src[i];
-        }
+        (void) std::copy_n(src, max_copy_size, dst);
         return max_copy_size;
     }
 
@@ -317,7 +308,7 @@ protected:
         const SrcType* const src,
         size_type            src_len_count,
         allocator_type&      alloc,
-        typename std::enable_if_t<is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr) noexcept
+        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr) noexcept
     {
         (void) alloc;
         // for trivial copyable assignment is the same as construction:
@@ -335,7 +326,7 @@ protected:
         const SrcType* const src,
         size_type            src_len_count,
         allocator_type&      alloc,
-        typename std::enable_if_t<!is_trivially_copyable_from<DstType, SrcType>::value>* =
+        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* =
             nullptr) noexcept(noexcept(std::allocator_traits<allocator_type>::
                                            construct(std::declval<std::add_lvalue_reference_t<allocator_type>>(),
                                                      std::declval<std::add_pointer_t<DstType>>(),
@@ -363,7 +354,7 @@ protected:
         SrcType* const  src,
         size_type       src_len_count,
         allocator_type& alloc,
-        typename std::enable_if_t<is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr)
+        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
     {
         (void) alloc;
         // for trivial copyable assignment move is the same as copy:
@@ -377,7 +368,7 @@ protected:
         SrcType* const  src,
         size_type       src_len_count,
         allocator_type& alloc,
-        typename std::enable_if_t<!is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr)
+        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
     {
         if (nullptr == dst || nullptr == src)
         {
@@ -400,7 +391,7 @@ protected:
         size_type      dst_capacity_count,
         SrcType* const src,
         size_type      src_len_count,
-        typename std::enable_if_t<is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr)
+        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
     {
         // for trivial copyable move and copy is the same.
         return fast_copy_assign(dst, dst_capacity_count, src, src_len_count);
@@ -412,7 +403,7 @@ protected:
         size_type      dst_capacity_count,
         SrcType* const src,
         size_type      src_len_count,
-        typename std::enable_if_t<!is_trivially_copyable_from<DstType, SrcType>::value>* = nullptr)
+        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
     {
         if (nullptr == dst || nullptr == src)
         {
@@ -943,6 +934,9 @@ public:
     ///
     using const_reference = typename std::add_const_t<std::add_lvalue_reference_t<value_type>>;
 
+    // +----------------------------------------------------------------------+
+    // | CONSTRUCTORS
+    // +----------------------------------------------------------------------+
     /// Required constructor for std::uses_allocator protocol.
     /// @param alloc Allocator to use for all allocations.
     explicit VariableLengthArray(const allocator_type& alloc) noexcept
@@ -951,43 +945,46 @@ public:
     }
 
     /// Required constructor for std::uses_allocator protocol.
-    /// @param alloc Allocator to use for all allocations.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return
-    /// `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
-    explicit VariableLengthArray(const allocator_type& alloc, size_type max_size_max) noexcept
+    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc Allocator to use for all allocations.
+    explicit VariableLengthArray(size_type max_size_max, const allocator_type& alloc) noexcept
         : Base(alloc, nullptr, 0, 0, max_size_max)
     {
     }
 
-    /// Initializer syntax constructor.
+    /// Initializer syntax constructor with maximum max size.
     /// @param l Initializer list of elements to copy into the array.
-    /// @param alloc Allocator to use for all allocations.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return
-    /// `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
-    VariableLengthArray(std::initializer_list<value_type> l,
-                        const allocator_type&             alloc,
-                        size_type                         max_size_max = std::numeric_limits<size_type>::max())
+    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc Allocator to use for all allocations.
+    VariableLengthArray(std::initializer_list<value_type> l, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
     {
         reserve(l.size());
         size_ = Base::fast_copy_construct(data_, capacity_, l.begin(), l.size(), alloc_);
     }
 
-    /// Range constructor.
+    /// Initializer syntax constructor.
+    /// @param l Initializer list of elements to copy into the array.
+    /// @param alloc Allocator to use for all allocations.
+    VariableLengthArray(std::initializer_list<value_type> l, const allocator_type& alloc)
+        : VariableLengthArray(l, std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
+    /// Range constructor with maximum max size.
     /// @tparam InputIt The type of the range's iterators.
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
-    /// @param alloc    Allocator to use for all allocations.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
-    /// std::allocator_traits<allocator_type>::max_size(alloc))`
+    ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
+    ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc    Allocator to use for all allocations.
     template <class InputIt>
-    VariableLengthArray(InputIt               first,
-                        InputIt               last,
-                        const allocator_type& alloc,
-                        size_type             max_size_max = std::numeric_limits<size_type>::max())
+    VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
     {
         if (last >= first)
@@ -1001,9 +998,20 @@ public:
         }
     }
 
-    //
-    // Rule of Five.
-    //
+    /// Range constructor.
+    /// @tparam InputIt The type of the range's iterators.
+    /// @param first    The beginning of the range.
+    /// @param last     The end of the range.
+    /// @param alloc    Allocator to use for all allocations.
+    template <class InputIt>
+    VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
+        : VariableLengthArray(first, last, std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
+    // +----------------------------------------------------------------------+
+    // | RULE OF FIVE
+    // +----------------------------------------------------------------------+
     VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
         : Base(rhs, alloc)
     {
@@ -1050,6 +1058,9 @@ public:
         }
     }
 
+    // +----------------------------------------------------------------------+
+    // | COMPARATORS
+    // +----------------------------------------------------------------------+
     constexpr bool operator==(const VariableLengthArray& rhs) const noexcept
     {
         if (data_ == rhs.data_)
@@ -1490,6 +1501,20 @@ public:
         Base::resize(count, max_size(), value);
     }
 
+    /// Set count elements to the given value. Grow the array if needed else
+    /// set the size to count without reducing capacity.
+    /// @param count    Number of elements, starting from 0, to set.
+    /// @param value    The value to set.
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void assign(size_type count, const value_type& value)
+    {
+        const size_type size_before = size_;
+        resize(count, value);
+        const size_type back_fill_count = (size_ > size_before) ? size_before : size_;
+        Base::fast_copy_assign(data_, back_fill_count, value);
+    }
+
 private:
     // +----------------------------------------------------------------------+
 
@@ -1773,34 +1798,35 @@ public:
     using iterator       = IteratorImpl<VariableLengthArray>;
     using const_iterator = IteratorImpl<const VariableLengthArray>;
 
-    /// Required constructor for std::uses_allocator protocol.
-    /// @param alloc Allocator to use for all allocations.
-    explicit constexpr VariableLengthArray(const allocator_type& alloc) noexcept
-        : Base(alloc, nullptr, 0, 0, std::numeric_limits<size_type>::max())
-        , last_byte_bit_fill_{0}
-    {
-    }
+    // +----------------------------------------------------------------------+
+    // | CONSTRUCTORS
+    // +----------------------------------------------------------------------+
 
-    /// Required constructor for std::uses_allocator protocol.
-    /// @param alloc Allocator to use for all allocations.
+    /// Required constructor for std::uses_allocator protocol with maximum max size.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return
-    /// `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
-    explicit constexpr VariableLengthArray(const allocator_type& alloc, size_type max_size_max) noexcept
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    ///                     cetl::VariableLengthArray::max_size() will return
+    /// @param alloc Allocator to use for all allocations.
+    explicit constexpr VariableLengthArray(size_type max_size_max, const allocator_type& alloc) noexcept
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
     }
 
-    /// Initializer syntax constructor.
-    /// @param l Initializer list of elements to copy into the array.
+    /// Required constructor for std::uses_allocator protocol.
     /// @param alloc Allocator to use for all allocations.
+    explicit constexpr VariableLengthArray(const allocator_type& alloc) noexcept
+        : VariableLengthArray(std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
+    /// Initializer syntax constructor with maximum max size.
+    /// @param l Initializer list of elements to copy into the array.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return
-    /// `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
-    VariableLengthArray(std::initializer_list<bool> l,
-                        const allocator_type&       alloc,
-                        size_type                   max_size_max = std::numeric_limits<size_type>::max())
+    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc Allocator to use for all allocations.
+    VariableLengthArray(std::initializer_list<bool> l, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
@@ -1811,21 +1837,29 @@ public:
         }
     }
 
-    /// Range constructor.
+    /// Initializer syntax constructor.
+    /// @param l Initializer list of elements to copy into the array.
+    /// @param alloc Allocator to use for all allocations.
+    VariableLengthArray(std::initializer_list<bool> l, const allocator_type& alloc)
+        : VariableLengthArray(l, std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
+    /// Range constructor with maximum max size.
     /// @tparam InputIt The type of the range's iterators.
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
     /// @param length   The number of elements to copy from the range.
-    /// @param alloc    Allocator to use for all allocations.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    /// cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
-    /// std::allocator_traits<allocator_type>::max_size(alloc))`
+    ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
+    ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc    Allocator to use for all allocations.
     template <class InputIt>
     VariableLengthArray(InputIt               first,
                         InputIt               last,
                         const size_type       length,
-                        const allocator_type& alloc        = std::declval<allocator_type>(),
-                        size_type             max_size_max = std::numeric_limits<size_type>::max())
+                        size_type             max_size_max,
+                        const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
@@ -1839,9 +1873,21 @@ public:
         }
     }
 
-    //
-    // Rule of Five.
-    //
+    /// Range constructor.
+    /// @tparam InputIt The type of the range's iterators.
+    /// @param first    The beginning of the range.
+    /// @param last     The end of the range.
+    /// @param length   The number of elements to copy from the range.
+    /// @param alloc    Allocator to use for all allocations.
+    template <class InputIt>
+    VariableLengthArray(InputIt first, InputIt last, const size_type length, const allocator_type& alloc)
+        : VariableLengthArray(first, last, length, std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
+    // +----------------------------------------------------------------------+
+    // | RULE OF FIVE
+    // +----------------------------------------------------------------------+
     VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
         : Base(rhs, alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
@@ -1895,6 +1941,9 @@ public:
         }
     }
 
+    // +----------------------------------------------------------------------+
+    // | COMPARATORS
+    // +----------------------------------------------------------------------+
     constexpr bool operator==(const VariableLengthArray& rhs) const noexcept
     {
         if (data_ == rhs.data_)
@@ -2310,6 +2359,19 @@ public:
             (void) value;
         }
         // else no change
+    }
+
+    /// Set count elements to the given value. Grow the array if needed else
+    /// set the size to count without reducing capacity.
+    /// @param count    Number of elements, starting from 0, to set.
+    /// @param value    The value to set.
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void assign(size_type count, const bool& value)
+    {
+        const size_type size_before = size_;
+        resize(count, value);
+        (void) memset(data_, (value) ? 0xFF : 0, (size_ > size_before) ? size_before : size_);
     }
 
 private:

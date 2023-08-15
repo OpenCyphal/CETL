@@ -340,3 +340,27 @@ TYPED_TEST(VLABoolTests, TestBoolBack)
         const_cast<typename std::add_pointer<typename std::add_const<decltype(array)>::type>::type>(&array)->back();
     ASSERT_TRUE(value);
 }
+
+TYPED_TEST(VLABoolTests, TestAssignCountAndValue)
+{
+    auto array = TypeParam::make_bool_container();
+    array.assign(0, true);
+    ASSERT_EQ(0, array.size());
+    array.assign(1, false);
+    ASSERT_EQ(1, array.size());
+    ASSERT_FALSE(array[0]);
+    array.resize(9, false);
+    ASSERT_EQ(9, array.size());
+    array.assign(3, false);
+    ASSERT_EQ(3, array.size());
+    for(auto i = array.begin(), e = array.end(); i != e; ++i)
+    {
+        ASSERT_FALSE(*i);
+    }
+    array.assign(17, true);
+    ASSERT_EQ(17, array.size());
+    for(auto i = array.begin(), e = array.end(); i != e; ++i)
+    {
+        ASSERT_TRUE(*i);
+    }
+}
