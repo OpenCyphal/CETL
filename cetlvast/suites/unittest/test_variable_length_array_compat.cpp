@@ -207,6 +207,43 @@ struct CetlNewDeleteResourceFactory
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
+/// Creates a polymorphic allocator that uses a new_delete_resource that does not implement realloc.
+struct CetlNoReallocNewDeleteResourceFactory
+{
+    template <typename Allocator, typename UpstreamResourceFactoryType>
+    struct Bind
+    {};
+
+    template <typename Allocator>
+    struct Bind<Allocator, NullResourceFactory>
+    {
+        static constexpr std::size_t expected_max_size() noexcept
+        {
+            return std::numeric_limits<std::size_t>::max() / sizeof(typename Allocator::value_type);
+        }
+
+        static constexpr typename std::add_pointer<cetl::pf17::pmr::memory_resource>::type resource(
+            CetlNoReallocNewDeleteResourceFactory& resource_factory,
+            NullResourceFactory&                   upstream)
+        {
+            (void) upstream;
+            (void) resource_factory;
+            return &resource_factory.memory_resoure_;
+        }
+
+        static constexpr Allocator make_allocator(CetlNoReallocNewDeleteResourceFactory& resource_factory,
+                                                  NullResourceFactory&                   upstream)
+        {
+            return Allocator{resource(resource_factory, upstream)};
+        }
+    };
+
+private:
+    cetlvast::MaxAlignNewDeleteResourceWithoutRealloc memory_resoure_{};
+};
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
 /// Creates a polymorphic allocator that uses an UnsynchronizedBufferMemoryResourceDelegate-based memory resource.
 template <std::size_t ArraySizeBytes = 24>
 class CetlUnsynchronizedArrayMemoryResourceFactory
@@ -506,9 +543,11 @@ using MyTypes = ::testing::Types<
 /* 4 */ , TestAllocatorType<cetlvast::STLTag,       MaxAllocator<std::uint32_t, 24>,                                     MaxSizeResourceFactory<24>>
 /* 5 */ , TestAllocatorType<cetlvast::CETLTag,      cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
 /* 6 */ , TestAllocatorType<cetlvast::STLTag,       cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNewDeleteResourceFactory>
+/* 7 */ , TestAllocatorType<cetlvast::CETLTag,      cetl::pf17::pmr::polymorphic_allocator<std::uint64_t>,               CetlNoReallocNewDeleteResourceFactory>
+
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
-/* 7 */ , TestAllocatorType<cetlvast::CETLTag,      std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
-/* 8 */ , TestAllocatorType<cetlvast::STLTag,       std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
+/* 8 */ , TestAllocatorType<cetlvast::CETLTag,      std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
+/* 9 */ , TestAllocatorType<cetlvast::STLTag,       std::pmr::polymorphic_allocator<std::uint64_t>,                      StdNewDeleteResourceFactory>
 #endif
 >;
 // clang-format on
@@ -596,6 +635,21 @@ TYPED_TEST(VLATestsGeneric, TestShrink)
     // shrink_to_fit implementations are not required to exactly match the size of the container, but they can't grow
     // the size.
     ASSERT_LE(subject.capacity(), clamped_max);
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
+TYPED_TEST(VLATestsGeneric, TestShrinkToSameSize)
+{
+    typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
+
+    subject.reserve(1);
+    ASSERT_LE(1U, subject.capacity());
+    subject.push_back(1);
+    ASSERT_EQ(1U, subject.size());
+    subject.shrink_to_fit();
+    ASSERT_EQ(1U, subject.size());
+    ASSERT_EQ(1U, subject.capacity());
 }
 
 // +-------------------------------------------------------------------------------------------------------------------+
@@ -728,17 +782,26 @@ TYPED_TEST(VLATestsGeneric, TestResizeWithCopy)
 
 TYPED_TEST(VLATestsGeneric, TestFrontAndBack)
 {
-    using const_ref_value_type = typename std::add_lvalue_reference<typename std::add_const<typename TypeParam::value_type>::type>::type;
+    using const_ref_value_type =
+        typename std::add_lvalue_reference<typename std::add_const<typename TypeParam::value_type>::type>::type;
     typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
     subject.reserve(2);
     subject.push_back(static_cast<typename TypeParam::value_type>(1));
     subject.push_back(static_cast<typename TypeParam::value_type>(2));
     ASSERT_EQ(static_cast<typename TypeParam::value_type>(1), subject.front());
-    ASSERT_EQ(static_cast<const_ref_value_type>(1), subject.front());
-    ASSERT_EQ(static_cast<typename TypeParam::value_type>(2), subject.back());
-    ASSERT_EQ(static_cast<const_ref_value_type>(2), subject.back());
-}
+    typename TestFixture::SubjectType::const_reference const_front_ref =
+        const_cast<typename std::add_pointer<typename std::add_const<typename TestFixture::SubjectType>::type>::type>(
+            &subject)
+            ->front();
+    ASSERT_EQ(static_cast<const_ref_value_type>(1), const_front_ref);
 
+    typename TestFixture::SubjectType::const_reference const_back_ref =
+        const_cast<typename std::add_pointer<typename std::add_const<typename TestFixture::SubjectType>::type>::type>(
+            &subject)
+            ->back();
+    ASSERT_EQ(static_cast<typename TypeParam::value_type>(2), subject.back());
+    ASSERT_EQ(static_cast<const_ref_value_type>(2), const_back_ref);
+}
 
 // +----------------------------------------------------------------------+
 
@@ -805,7 +868,7 @@ TYPED_TEST(VLATestsNonTrivialCommon, TestForEachConstIterators)
     static constexpr std::size_t MaxSize = 9;
     cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
           subject{cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource()), MaxSize};
-    auto& const_subject = subject;
+    const auto& const_subject = subject;
     ASSERT_EQ(0U, const_subject.size());
     ASSERT_EQ(0U, const_subject.capacity());
     for (const auto& item : const_subject)  // Requires begin() const, end() const.
@@ -1168,7 +1231,6 @@ struct GrenadeError : public std::runtime_error
     GrenadeError(const char* message)
         : std::runtime_error(message)
     {
-
     }
 };
 
