@@ -293,9 +293,9 @@ TYPED_TEST(VLABoolTests, TestBoolResizeWithDefault)
     array.resize(9, false);
     ASSERT_EQ(9, array.size());
     ASSERT_EQ(false, array[0]);
-    for (std::size_t i = 2; i < array.size(); ++i)
+    for (std::size_t i = 1; i < array.size(); ++i)
     {
-        ASSERT_EQ(true, array[i - 1]);
+        ASSERT_EQ(true, array[i]);
     }
 }
 

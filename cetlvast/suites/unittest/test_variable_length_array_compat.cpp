@@ -1237,12 +1237,20 @@ struct GrenadeError : public std::runtime_error
 struct Grenade
 {
     Grenade(int value)
+        : value_{value}
     {
-        if (value == 2)
+    }
+
+    Grenade(const Grenade& rhs)
+        : value_{rhs.value_}
+    {
+        if (value_ == 2)
         {
-            throw GrenadeError("");
+            throw GrenadeError("Kaboom!");
         }
     }
+private:
+    int value_;
 };
 
 TYPED_TEST(VLATestsGeneric, TestResizeExceptionFromCtorOnResize)
