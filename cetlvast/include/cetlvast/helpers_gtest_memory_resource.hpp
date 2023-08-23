@@ -25,6 +25,47 @@
 namespace cetlvast
 {
 
+/// PF17 memory resource that does _not_ implement realloc.
+class MaxAlignNewDeleteResourceWithoutRealloc : public cetl::pf17::pmr::memory_resource
+{
+protected:
+    void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
+    {
+        if (alignment > alignof(std::max_align_t))
+        {
+#if defined(__cpp_exceptions)
+            throw std::bad_alloc();
+#endif
+            return nullptr;
+        }
+        return ::operator new(size_bytes);
+    }
+
+    void do_deallocate(void* p, std::size_t size_bytes, std::size_t alignment) override
+    {
+        (void) size_bytes;
+        (void) alignment;
+        ::operator delete(p);
+    }
+
+    void* do_reallocate(void*       ptr,
+                        std::size_t old_size_bytes,
+                        std::size_t new_size_bytes,
+                        std::size_t alignment) override
+    {
+        (void) ptr;
+        (void) old_size_bytes;
+        (void) new_size_bytes;
+        (void) alignment;
+        return nullptr;
+    }
+
+    bool do_is_equal(const memory_resource& rhs) const noexcept override
+    {
+        return (&rhs == this);
+    }
+};
+
 /// Pf17 Mock of memory_resource.
 class MockPf17MemoryResource : public cetl::pf17::pmr::memory_resource
 {

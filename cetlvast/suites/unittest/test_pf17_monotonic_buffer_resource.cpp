@@ -9,6 +9,7 @@
 
 #include "cetlvast/helpers_gtest_memory_resource.hpp"
 #include "cetl/pf17/cetlpf.hpp"
+#include <array>
 
 using ::testing::_;
 using ::testing::Return;

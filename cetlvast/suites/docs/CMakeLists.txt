@@ -169,8 +169,6 @@ create_docs_target( DOCS_DOXY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}
                         "Cyphal Embedded Template Library"
                     EXAMPLES_PATH
                         ${CMAKE_CURRENT_SOURCE_DIR}/examples
-                    MAIN_PAGE_PATH
-                        "${CETL_ROOT}/README.md"
                     INCLUDE_PREFIX_STRIP
                         "\"${CETL_ROOT}/include\""
                     INPUT_LIST

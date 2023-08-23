@@ -179,6 +179,8 @@
         "strstream": "cpp",
         "typeindex": "cpp",
         "charconv": "cpp",
-        "csignal": "cpp"
-    }
+        "csignal": "cpp",
+        "format": "cpp"
+    },
+    "git-blame.gitWebUrl": ""
 }

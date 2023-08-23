@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-// cSpell: words pocma
+// cSpell: words pocma Wself
 
 #include "cetlvast/helpers_gtest.hpp"
 #include "cetl/variable_length_array.hpp"
@@ -56,6 +56,13 @@ struct FakeAllocator
     };
 };
 
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    if __GNUC__ >= 13
+#        pragma GCC diagnostic ignored "-Wself-move"
+#    endif
+#endif
+
 TYPED_TEST(TestVariableLengthArrayCompiles, MoveAssignmentNoexcept)
 {
     using IsAlways_and_DoesProp     = FakeAllocator<typename TypeParam::value_type, std::true_type, std::true_type>;
@@ -63,21 +70,28 @@ TYPED_TEST(TestVariableLengthArrayCompiles, MoveAssignmentNoexcept)
     using NotAlways_but_DoesProp    = FakeAllocator<typename TypeParam::value_type, std::false_type, std::true_type>;
     using NotAlways_and_DoesNotProp = FakeAllocator<typename TypeParam::value_type, std::false_type, std::false_type>;
 
-    using VLAType_0 = cetl::VariableLengthArray < typename TypeParam::value_type, IsAlways_and_DoesProp> ;
-    static_assert(noexcept(std::declval<VLAType_0>() = std::move(std::declval<VLAType_0>())),
+    using VLAType_0   = cetl::VariableLengthArray<typename TypeParam::value_type, IsAlways_and_DoesProp>;
+    using VLAType_0_1 = cetl::VariableLengthArray<typename TypeParam::value_type, IsAlways_and_DoesProp>;
+    static_assert(noexcept(std::declval<VLAType_0>() = std::move(std::declval<VLAType_0_1>())),
                   "Violates noexcept specification for move constructor.");
 
-    using VLAType_1 = cetl::VariableLengthArray < typename TypeParam::value_type, IsAlways_but_DoesNotProp> ;
-    static_assert(noexcept(std::declval<VLAType_1>() = std::move(std::declval<VLAType_1>())),
+    using VLAType_1   = cetl::VariableLengthArray<typename TypeParam::value_type, IsAlways_but_DoesNotProp>;
+    using VLAType_1_1 = cetl::VariableLengthArray<typename TypeParam::value_type, IsAlways_but_DoesNotProp>;
+
+    static_assert(noexcept(std::declval<VLAType_1>() = std::move(std::declval<VLAType_1_1>())),
                   "Violates noexcept specification for move constructor.");
 
-    using VLAType_2 = cetl::VariableLengthArray < typename TypeParam::value_type, NotAlways_but_DoesProp> ;
+    using VLAType_2 = cetl::VariableLengthArray<typename TypeParam::value_type, NotAlways_but_DoesProp>;
     static_assert(noexcept(std::declval<VLAType_2>() = std::move(std::declval<VLAType_2>())),
                   "Violates noexcept specification for move constructor.");
 
-    using VLAType_3 = cetl::VariableLengthArray < typename TypeParam::value_type, NotAlways_and_DoesNotProp> ;
+    using VLAType_3 = cetl::VariableLengthArray<typename TypeParam::value_type, NotAlways_and_DoesNotProp>;
     static_assert(!noexcept(std::declval<VLAType_3>() = std::move(std::declval<VLAType_3>())),
                   "Violates noexcept specification for move constructor.");
 }
+
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
 
 // ---------------------------------------------------------------------------------------------------------------------

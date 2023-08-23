@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-/// cSpell:ignore cend cbegin rnext rend lnext lbegin pocca pocma
+/// cSpell:ignore cend cbegin rnext rend lnext lbegin pocca pocma urvo
 
 #ifndef CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 #define CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
@@ -675,7 +675,7 @@ protected:
             }
             for (std::size_t i = size_; i < new_size; ++i)
             {
-                alloc_.construct(&data_[i], std::forward<Args>(args)...);
+                std::allocator_traits<allocator_type>::construct(alloc_, &data_[i], std::forward<Args>(args)...);
             }
         }
         else
@@ -1226,6 +1226,54 @@ public:
 
 #endif
 
+    /// Returns a reference to the first element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Reference to the first element in the array.
+    constexpr reference front()
+    {
+        CETL_DEBUG_ASSERT(size() > 0, "CDE_vla_004: Calling front() on an empty array is undefined.");
+        return data_[0];
+    }
+
+    /// Returns a const reference to the first element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Constant reference to the first element in the array.
+    constexpr const_reference front() const
+    {
+        CETL_DEBUG_ASSERT(size() > 0, "CDE_vla_005: Calling front() on an empty array is undefined.");
+        return data_[0];
+    }
+
+    /// Returns a reference to the last element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Reference to the last element in the array.
+    constexpr reference back()
+    {
+        // a, perhaps naive, attempt to constrain undefined behaviour considering
+        // calling front() on an empty container will return a reference to undefined
+        // memory close to the VLA object where as data_[size_t{0} - 1] will reference a
+        // random but very distant memory address.
+        const size_type current_size = size();
+        if (current_size == 0)
+        {
+            return front();
+        }
+        return data_[current_size - 1];
+    }
+
+    /// Returns a const reference to the last element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Constant reference to the last element in the array.
+    constexpr const_reference back() const
+    {
+        const size_type current_size = size();
+        if (current_size == 0)
+        {
+            return front();
+        }
+        return data_[current_size - 1];
+    }
+
     // +----------------------------------------------------------------------+
     // | CAPACITY
     // +----------------------------------------------------------------------+
@@ -1394,8 +1442,6 @@ public:
             data_[--size_].~value_type();
         }
     }
-
-    ///
     /// Like push_back but constructs the object directly in uninitialized memory.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
     ///        If exceptions are disabled then the caller must check the array size before and
@@ -1413,6 +1459,35 @@ public:
 
         std::allocator_traits<allocator_type>::construct(alloc_, &data_[size_], std::forward<Args>(args)...);
         size_++;
+    }
+
+    /// Resizes internal storage to count elements default initializing any added elements over the
+    /// current size() and deleting any elements under the current size(). If size() == `count` then
+    /// this method has no effect.
+    ///
+    /// @param count    The new size to set for this container.
+    /// @throw * If exceptions are enabled then any exceptions that `value_type` constructors or destructors
+    ///        throw will escape this call
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void resize(size_type count)
+    {
+        Base::resize(count, max_size());
+    }
+
+    /// Resizes internal storage to count elements copy-initializing any added elements over the
+    /// current size() and deleting any elements under the current size(). If size() == `count` then
+    /// this method has no effect.
+    ///
+    /// @param count    The new size to set for this container.
+    /// @param value    The value to copy into any new elements created by the operation.
+    /// @throw * If exceptions are enabled then any exceptions that `value_type` constructors or destructors
+    ///        throw will escape this call
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void resize(size_type count, const value_type& value)
+    {
+        Base::resize(count, max_size(), value);
     }
 
 private:
@@ -1838,7 +1913,7 @@ public:
         {
             return true;
         }
-        const Storage last_byte_mask = static_cast<Storage>((1U << last_byte_bit_fill_) - 1U);
+        const Storage last_byte_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1)) - 1U);
         return (data_[size_ - 1] & last_byte_mask) == (rhs.data_[size_ - 1] & last_byte_mask);
     }
 
@@ -1943,6 +2018,53 @@ public:
 
 #endif
 
+    /// Returns a reference to the first element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Reference to the first element in the array.
+    constexpr reference front()
+    {
+        CETL_DEBUG_ASSERT(size() > 0, "CDE_vla_006: Calling front() on an empty array is undefined.");
+        return this->operator[](0);
+    }
+
+    /// Returns a const reference to the first element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Constant reference to the first element in the array.
+    constexpr const_reference front() const
+    {
+        CETL_DEBUG_ASSERT(size() > 0, "CDE_vla_007: Calling front() on an empty array is undefined.");
+        return this->operator[](0);
+    }
+
+    /// Returns a reference to the last element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Reference to the last element in the array.
+    constexpr reference back()
+    {
+        // a, perhaps naive, attempt to constrain undefined behaviour considering
+        // calling front() on an empty container will return a reference to undefined
+        // memory close to the VLA object where as data_[size_t{0} - 1] will reference a
+        // random but very distant memory address.
+        const size_type current_size = size();
+        if (current_size == 0)
+        {
+            return front();
+        }
+        return this->operator[](current_size - 1);
+    }
+
+    /// Returns a const reference to the last element in the array.
+    /// Calling this method on an empty array is undefined.
+    /// @return Constant reference to the last element in the array.
+    constexpr const_reference back() const
+    {
+        const size_type current_size = size();
+        if (current_size == 0)
+        {
+            return front();
+        }
+        return this->operator[](current_size - 1);
+    }
     // +----------------------------------------------------------------------+
     // | CAPACITY
     // +----------------------------------------------------------------------+
@@ -1952,7 +2074,7 @@ public:
     ///
     constexpr bool empty() const noexcept
     {
-        return (last_byte_bit_fill_ == 0);
+        return (size_ == 0);
     }
 
     /// Returns the, theoretical, maximum number of elements that can be stored in this container.
@@ -2086,12 +2208,17 @@ public:
     {
         if (last_byte_bit_fill_ > 0)
         {
-            last_byte_bit_fill_--;
+            --last_byte_bit_fill_;
         }
-        if (last_byte_bit_fill_ == 0 && size_ > 1)
+        else if (size_ > 1)
         {
             --size_;
-            last_byte_bit_fill_ = 8;
+            last_byte_bit_fill_ = 7;
+        }
+        else
+        {
+            size_               = 0;
+            last_byte_bit_fill_ = 0;
         }
     }
 
@@ -2117,10 +2244,78 @@ public:
         }
     }
 
+    /// Resizes internal storage to count elements default initializing any added elements over the
+    /// current size() and deleting any elements under the current size(). If size() == `count` then
+    /// this method has no effect.
+    ///
+    /// @param count    The new size, in bits, to set for this container.
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void resize(size_type count)
+    {
+        resize(count, false);
+    }
+
+    /// Resizes internal storage to count elements copy-initializing any added elements over the
+    /// current size() and deleting any elements under the current size(). If size() == `count` then
+    /// this method has no effect.
+    ///
+    /// @param count    The new size, in bits, to set for this container.
+    /// @param value    The value to copy into any new elements created by the operation.
+    /// @throw std::length_error if the size requested is greater than `max_size()`.
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
+    constexpr void resize(size_type count, const bool value)
+    {
+        const std::size_t current_count = size_bits();
+        if (count != current_count)
+        {
+            const std::size_t byte_sized = bits2bytes(count);
+            if (byte_sized > capacity_)
+            {
+                Base::reserve(byte_sized, max_size());
+            }
+            if (byte_sized == 0)
+            {
+                size_               = 0;
+                last_byte_bit_fill_ = 0;
+            }
+            else
+            {
+                Storage bit_sized = (count - 1) % 8U;
+                if (byte_sized > size_)
+                {
+                    // Go ahead and just set all bits in the last bytes since we use masks
+                    // when we do comparisons.
+                    (void) std::memset(&data_[size_], (value) ? 0xFF : 0, byte_sized - size_);
+                }
+                if (size_ > 0)
+                {
+                    const Storage     existing_byte      = data_[size_ - 1];
+                    const std::size_t bit_size_delta     = 8U - (last_byte_bit_fill_ + 1);
+                    const Storage     existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1)) - 1U);
+                    if (value)
+                    {
+                        const Storage new_bits =
+                            static_cast<Storage>(((1U << bit_size_delta) - 1U) << (last_byte_bit_fill_ + 1));
+                        data_[size_ - 1] = (existing_byte & existing_bits_mask) | new_bits;
+                    }
+                    else
+                    {
+                        data_[size_ - 1] = existing_byte & existing_bits_mask;
+                    }
+                }
+                size_               = byte_sized;
+                last_byte_bit_fill_ = bit_sized;
+            }
+            (void) value;
+        }
+        // else no change
+    }
+
 private:
     constexpr bool ensure_size_plus_one()
     {
-        if (capacity_ > 0 && (last_byte_bit_fill_ < 8 || size_ < capacity_))
+        if (capacity_ > 0 && (last_byte_bit_fill_ < 7 || size_ < capacity_))
         {
             // we have at least one byte of capacity (first allocation)
             // and we have room in the last byte or we have room for another byte
@@ -2133,7 +2328,7 @@ private:
     constexpr bool emplace_back_impl(bool value)
     {
         const size_type index = size_bits();
-        if (last_byte_bit_fill_ == 0 || last_byte_bit_fill_ == 8)
+        if (size_ == 0 || last_byte_bit_fill_ == 7)
         {
             // we are using a bit in the next byte so we have to bump the size.
             if (size_ >= capacity_)
@@ -2141,18 +2336,8 @@ private:
                 // nope. Can't grow.
                 return false;
             }
-            // last_byte_bit_fill_ == 0 is a special condition meaning there are
-            // no bits set at all. In fact empty() == (last_byte_bit_fill_ == 0).
-            // After the array gets to this branch last_byte_bit_fill_ will always
-            // be > 0 as long as there is at least one bit in the array. That is,
-            // it will cycle from 1 to 8 and back to 1 as our byte count, size_,
-            // increases.
-
-            // zero the next byte we're about to start using so comparisons
-            // don't use uninitialized bits.
-            data_[size_] = 0;
             ++size_;
-            last_byte_bit_fill_ = 1;
+            last_byte_bit_fill_ = 0;
         }
         else
         {
@@ -2173,11 +2358,11 @@ private:
 
     constexpr size_type size_bits() const noexcept
     {
-        CETL_DEBUG_ASSERT(last_byte_bit_fill_ <= 8, "CDE_vla_001: last_byte_bit_fill_ is out of range.");
+        CETL_DEBUG_ASSERT(last_byte_bit_fill_ <= 7, "CDE_vla_001: last_byte_bit_fill_ is out of range.");
         CETL_DEBUG_ASSERT(size_ <= capacity_, "CDE_vla_002: size_ is out of range.");
-        CETL_DEBUG_ASSERT(size_ == 0 || last_byte_bit_fill_ > 0,
-                          "CDE_vla_003: last_byte_bit_fill_ cannot be zero unless size_ is.");
-        return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + last_byte_bit_fill_;
+        CETL_DEBUG_ASSERT(size_ != 0 || last_byte_bit_fill_ == 0,
+                          "CDE_vla_003: last_byte_bit_fill_ should always be zero when size_ is.");
+        return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1);
     }
 
     constexpr size_type capacity_bits() const noexcept
@@ -2185,7 +2370,10 @@ private:
         return capacity_ * 8U;
     }
 
-    /// The number of bits that are valid in the last byte of the array.
+    /// The number of bits that are valid in the last byte of the array. If size_ == 0 this value
+    /// has no meaning, however, it should always be 0 if size_ == 0 such that, when size_ == 0, size_++
+    /// will immediately be valid as 1-bit in the first byte. See size_bits() implementation for more
+    /// details.
     Storage last_byte_bit_fill_;
 };
 

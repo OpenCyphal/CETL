@@ -19,7 +19,10 @@ using ::testing::Return;
 using ::testing::Expectation;
 
 constexpr std::size_t   TestBufferSize = 0x100000;
-static cetl::pf17::byte large_buffer[TestBufferSize];
+static struct alignas(std::max_align_t)
+{
+    cetl::pf17::byte data[TestBufferSize];
+} large_buffer;
 
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
 {
@@ -41,7 +44,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLargeBuffer)
 {
     cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{large_buffer,
+    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{large_buffer.data,
                                                                                                          TestBufferSize,
                                                                                                          &mock_upstream,
                                                                                                          0};
@@ -68,7 +71,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestDataAccess)
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLocalReallocate)
 {
     cetlvast::MockMemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetlvast::MockMemoryResource> test_subject{large_buffer,
+    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetlvast::MockMemoryResource> test_subject{large_buffer.data,
                                                                                                      TestBufferSize,
                                                                                                      &mock_upstream,
                                                                                                      0};

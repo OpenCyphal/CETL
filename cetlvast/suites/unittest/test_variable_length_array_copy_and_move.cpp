@@ -341,3 +341,13 @@ TYPED_TEST(VLACopyMoveTests, MoveAssignWithAdequateCapacity)
     EXPECT_EQ(source.size(), 0);
     EXPECT_EQ(subject.size(), 9);
 }
+
+// +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLACopyMoveTests, MoveAssignSelf)
+{
+    typename TypeParam::source_vla_type  subject{{0, 1, 0, 1, 0, 1, 0, 1, 0}, TypeParam::make_source_allocator()};
+    EXPECT_EQ(subject.size(), 9);
+    subject = std::move(subject);
+    EXPECT_EQ(subject.size(), 9);
+}
