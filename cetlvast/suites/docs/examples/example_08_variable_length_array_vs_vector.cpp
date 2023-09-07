@@ -83,8 +83,10 @@ TEST(example_08_variable_length_array_vs_vector, example_tight_fit_1)
     cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_1{};
     cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{&array_storage_1,
                                                                            array_storage_1.max_size()};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> tight_fit{{&array_storage_0},
-                                                                                            array_storage_0.size()};
+    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> tight_fit{
+        array_storage_0.size(),
+        {&array_storage_0},
+    };
     for (std::size_t i = 0; i < 56; ++i)
     {
         std::cout << i << ", ";
@@ -102,8 +104,10 @@ TEST(example_08_variable_length_array_vs_vector, example_exact_fit)
     /// resource.
 
     cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> exact_fit{{&array_storage_0},
-                                                                                            array_storage_0.size()};
+    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> exact_fit{
+        array_storage_0.size(),
+        {&array_storage_0},
+    };
     exact_fit.reserve(56);
     for (std::size_t i = 0; i < 56; ++i)
     {

@@ -27,12 +27,12 @@
 /// just an int.
 struct BoxedInt
 {
-    BoxedInt() noexcept = default;
-    BoxedInt(const BoxedInt&) noexcept = default;
-    BoxedInt(BoxedInt&&) noexcept = default;
+    BoxedInt() noexcept                           = default;
+    BoxedInt(const BoxedInt&) noexcept            = default;
+    BoxedInt(BoxedInt&&) noexcept                 = default;
     BoxedInt& operator=(const BoxedInt&) noexcept = default;
-    BoxedInt& operator=(BoxedInt&&) noexcept = default;
-    ~BoxedInt() noexcept = default;
+    BoxedInt& operator=(BoxedInt&&) noexcept      = default;
+    ~BoxedInt() noexcept                          = default;
 
     BoxedInt(int value) noexcept
         : value_{value}
@@ -138,10 +138,10 @@ struct TypeParamDef
     TypeParamDef() = delete;
 
     using subject = cetlvast::AllocatorTypeParamDef<SubjectAllocatorFactoryType, SubjectAllocatorValueType>;
-    using source = cetlvast::AllocatorTypeParamDef<SubjectAllocatorFactoryType, SourceAllocatorValueType>;
+    using source  = cetlvast::AllocatorTypeParamDef<SubjectAllocatorFactoryType, SourceAllocatorValueType>;
 
     using subject_vla_type = cetl::VariableLengthArray<SubjectValueType, typename subject::allocator_type>;
-    using source_vla_type = cetl::VariableLengthArray<SourceValueType, typename source::allocator_type>;
+    using source_vla_type  = cetl::VariableLengthArray<SourceValueType, typename source::allocator_type>;
 
     static constexpr typename subject::allocator_type make_subject_allocator()
     {
@@ -180,17 +180,20 @@ namespace cetlvast
 using MyTypes = ::testing::Types<
 /*                              source value type | allocator factory                                     | subject val. type         | subject allocator factory           */
 /*  0 */  TypeParamDef<int,                         PolymorphicAllocatorNewDeleteFactory,                   int,                        PolymorphicAllocatorNewDeleteFactory>
-/*  1 */, TypeParamDef<bool,                        PolymorphicAllocatorNewDeleteFactory,                   bool,                       PolymorphicAllocatorNewDeleteFactory>
-/*  2 */, TypeParamDef<BoxedInt,                    PolymorphicAllocatorNewDeleteFactory,                   BoxedInt,                   PolymorphicAllocatorNewDeleteFactory>
-/*  3 */, TypeParamDef<NonTrivialBoxedInt,          PolymorphicAllocatorNewDeleteFactory,                   NonTrivialBoxedInt,         PolymorphicAllocatorNewDeleteFactory>
-/*  4 */, TypeParamDef<int,                         PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  int,                        PolymorphicAllocatorNewDeleteFactory>
-/*  5 */, TypeParamDef<bool,                        PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  bool,                       PolymorphicAllocatorNewDeleteFactory>
-/*  6 */, TypeParamDef<BoxedInt,                    PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  BoxedInt,                   PolymorphicAllocatorNewDeleteFactory>
-/*  7 */, TypeParamDef<NonTrivialBoxedInt,          PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  NonTrivialBoxedInt,         PolymorphicAllocatorNewDeleteFactory>
-/*  8 */, TypeParamDef<int,                         DefaultAllocatorFactory,                                int,                        DefaultAllocatorFactory>
-/*  9 */, TypeParamDef<bool,                        DefaultAllocatorFactory,                                bool,                       DefaultAllocatorFactory>
-/* 10 */, TypeParamDef<BoxedInt,                    DefaultAllocatorFactory,                                BoxedInt,                   DefaultAllocatorFactory>
-/* 11 */, TypeParamDef<NonTrivialBoxedInt,          DefaultAllocatorFactory,                                NonTrivialBoxedInt,         DefaultAllocatorFactory>
+/*  1 */, TypeParamDef<char,                        PolymorphicAllocatorNewDeleteFactory,                   char,                       PolymorphicAllocatorNewDeleteFactory>
+/*  2 */, TypeParamDef<bool,                        PolymorphicAllocatorNewDeleteFactory,                   bool,                       PolymorphicAllocatorNewDeleteFactory>
+/*  3 */, TypeParamDef<BoxedInt,                    PolymorphicAllocatorNewDeleteFactory,                   BoxedInt,                   PolymorphicAllocatorNewDeleteFactory>
+/*  4 */, TypeParamDef<NonTrivialBoxedInt,          PolymorphicAllocatorNewDeleteFactory,                   NonTrivialBoxedInt,         PolymorphicAllocatorNewDeleteFactory>
+/*  5 */, TypeParamDef<int,                         PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  int,                        PolymorphicAllocatorNewDeleteFactory>
+/*  6 */, TypeParamDef<char,                        PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  char,                       PolymorphicAllocatorNewDeleteFactory>
+/*  7 */, TypeParamDef<bool,                        PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  bool,                       PolymorphicAllocatorNewDeleteFactory>
+/*  8 */, TypeParamDef<BoxedInt,                    PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  BoxedInt,                   PolymorphicAllocatorNewDeleteFactory>
+/*  9 */, TypeParamDef<NonTrivialBoxedInt,          PolymorphicAllocatorNewDeleteBackedMonotonicFactory<>,  NonTrivialBoxedInt,         PolymorphicAllocatorNewDeleteFactory>
+/* 10 */, TypeParamDef<int,                         DefaultAllocatorFactory,                                int,                        DefaultAllocatorFactory>
+/* 11 */, TypeParamDef<char,                        DefaultAllocatorFactory,                                char,                       DefaultAllocatorFactory>
+/* 12 */, TypeParamDef<bool,                        DefaultAllocatorFactory,                                bool,                       DefaultAllocatorFactory>
+/* 13 */, TypeParamDef<BoxedInt,                    DefaultAllocatorFactory,                                BoxedInt,                   DefaultAllocatorFactory>
+/* 14 */, TypeParamDef<NonTrivialBoxedInt,          DefaultAllocatorFactory,                                NonTrivialBoxedInt,         DefaultAllocatorFactory>
 
 >;
 }  // namespace cetlvast
@@ -286,6 +289,18 @@ TYPED_TEST(VLACopyMoveTests, CopyAssignReplaceWithMoreWithAdequateCapacity)
 }
 
 // +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLACopyMoveTests, CopyAssignValueMethod)
+{
+    typename TypeParam::subject_vla_type            subject{{0, 1, 0, 1}, TypeParam::make_subject_allocator()};
+    typename TypeParam::source_vla_type::value_type source{1};
+    subject.assign(6, source);
+    std::for_each(subject.cbegin(), subject.cend(), [](const typename TypeParam::source_vla_type::value_type& value) {
+        ASSERT_EQ(value, 1);
+    });
+}
+
+// +---------------------------------------------------------------------------+
 // | TEST CASES :: Move Construction
 // +---------------------------------------------------------------------------+
 
@@ -346,7 +361,7 @@ TYPED_TEST(VLACopyMoveTests, MoveAssignWithAdequateCapacity)
 
 TYPED_TEST(VLACopyMoveTests, MoveAssignSelf)
 {
-    typename TypeParam::source_vla_type  subject{{0, 1, 0, 1, 0, 1, 0, 1, 0}, TypeParam::make_source_allocator()};
+    typename TypeParam::source_vla_type subject{{0, 1, 0, 1, 0, 1, 0, 1, 0}, TypeParam::make_source_allocator()};
     EXPECT_EQ(subject.size(), 9);
     subject = std::move(subject);
     EXPECT_EQ(subject.size(), 9);
