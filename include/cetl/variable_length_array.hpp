@@ -1962,7 +1962,7 @@ public:
         {
             return true;
         }
-        const Storage last_byte_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1)) - 1U);
+        const Storage last_byte_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
         return (data_[size_ - 1] & last_byte_mask) == (rhs.data_[size_ - 1] & last_byte_mask);
     }
 
@@ -2339,13 +2339,13 @@ public:
                 }
                 if (size_ > 0)
                 {
-                    const Storage     existing_byte      = data_[size_ - 1];
-                    const std::size_t bit_size_delta     = 8U - (last_byte_bit_fill_ + 1);
-                    const Storage     existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1)) - 1U);
+                    const Storage     existing_byte  = data_[size_ - 1];
+                    const std::size_t bit_size_delta = 8U - (last_byte_bit_fill_ + 1);
+                    const Storage existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
                     if (value)
                     {
                         const Storage new_bits =
-                            static_cast<Storage>(((1U << bit_size_delta) - 1U) << (last_byte_bit_fill_ + 1));
+                            static_cast<Storage>(((1U << bit_size_delta) - 1U) << (last_byte_bit_fill_ + 1U));
                         data_[size_ - 1] = (existing_byte & existing_bits_mask) | new_bits;
                     }
                     else

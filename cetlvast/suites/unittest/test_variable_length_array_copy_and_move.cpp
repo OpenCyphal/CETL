@@ -359,6 +359,13 @@ TYPED_TEST(VLACopyMoveTests, MoveAssignWithAdequateCapacity)
 
 // +---------------------------------------------------------------------------+
 
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    if __GNUC__ >= 13
+#        pragma GCC diagnostic ignored "-Wself-move"
+#    endif
+#endif
+
 TYPED_TEST(VLACopyMoveTests, MoveAssignSelf)
 {
     typename TypeParam::source_vla_type subject{{0, 1, 0, 1, 0, 1, 0, 1, 0}, TypeParam::make_source_allocator()};
@@ -366,3 +373,7 @@ TYPED_TEST(VLACopyMoveTests, MoveAssignSelf)
     subject = std::move(subject);
     EXPECT_EQ(subject.size(), 9);
 }
+
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
