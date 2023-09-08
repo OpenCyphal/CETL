@@ -2339,9 +2339,9 @@ public:
                 }
                 if (size_ > 0)
                 {
-                    const Storage     existing_byte      = data_[size_ - 1];
-                    const std::size_t bit_size_delta     = 8U - (last_byte_bit_fill_ + 1);
-                    const Storage     existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
+                    const Storage     existing_byte  = data_[size_ - 1];
+                    const std::size_t bit_size_delta = 8U - (last_byte_bit_fill_ + 1);
+                    const Storage existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
                     if (value)
                     {
                         const Storage new_bits =
