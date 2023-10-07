@@ -260,10 +260,8 @@ protected:
     /// @return the number of elements copied.
     ///
     template <typename DstType, typename SrcType>
-    static constexpr size_type fast_copy_assign(
-        DstType* const dst,
-        size_type      dst_capacity_count,
-        const SrcType& src) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
+    static constexpr size_type fast_copy_assign(DstType& dst, size_type dst_capacity_count, SrcType& src) noexcept(
+        noexcept(std::is_nothrow_assignable<std::remove_pointer_t<DstType>, std::remove_pointer_t<SrcType>>::value))
     {
         if (nullptr == dst)
         {
@@ -279,10 +277,11 @@ protected:
     ///
     template <typename DstType, typename SrcType>
     static constexpr size_type fast_copy_assign(
-        DstType* const       dst,
-        size_type            dst_capacity_count,
-        const SrcType* const src,
-        size_type            src_len_count) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
+        DstType&  dst,
+        size_type dst_capacity_count,
+        SrcType&  src,
+        size_type src_len_count) noexcept(noexcept(std::is_nothrow_assignable<std::remove_pointer_t<DstType>,
+                                                                              std::remove_pointer_t<SrcType>>::value))
     {
         if (nullptr == dst || nullptr == src)
         {
