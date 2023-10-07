@@ -137,10 +137,10 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, SelfAssignment)
 
 TYPED_TEST(VLATestsCompatPrimitiveTypes, TestAssignCountItems)
 {
-    std::allocator<TypeParam>                                 allocator{};
+    std::allocator<TypeParam>                                       allocator{};
     cetl::VariableLengthArray<TypeParam, std::allocator<TypeParam>> subject{allocator};
-    const TypeParam value0 = std::numeric_limits<TypeParam>::max();
-    const TypeParam value1 = std::numeric_limits<TypeParam>::min();
+    const TypeParam                                                 value0 = std::numeric_limits<TypeParam>::max();
+    const TypeParam                                                 value1 = std::numeric_limits<TypeParam>::min();
     subject.assign(16, value0);
     ASSERT_EQ(16, subject.size());
     for (auto i = subject.begin(), e = subject.end(); i != e; ++i)
@@ -157,30 +157,45 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, TestAssignCountItems)
 
 // +-------------------------------------------------------------------------------------------------------------------+
 // | ANY TYPE
-// |    These are just the rest of the tests. All ad-hoc and simple.
+// |    Various type handling across implementations.
 // +-------------------------------------------------------------------------------------------------------------------+
-
-TEST(VLATestsCompatAnyType, TestDeallocSizeNonBool)
+template <typename T>
+class VLATestsCompatAnyType : public ::testing::Test
 {
-    cetlvast::InstrumentedAllocatorStatistics&          stats = cetlvast::InstrumentedAllocatorStatistics::get();
-    cetlvast::InstrumentedNewDeleteAllocator<int>       allocator;
-    cetl::VariableLengthArray<int, decltype(allocator)> subject{allocator};
+protected:
+    void SetUp() override
+    {
+        cetlvast::InstrumentedAllocatorStatistics::reset();
+    }
+
+    template <typename ValueType, typename AllocatorType>
+    using TestSubjectType = std::conditional_t<std::is_same<cetlvast::CETLTag, T>::value,
+                                               cetl::VariableLengthArray<ValueType, AllocatorType>,
+                                               std::vector<ValueType, AllocatorType>>;
+};
+using VLATestsCompatAnyTypeTypes = ::testing::Types<cetlvast::CETLTag, cetlvast::STLTag>;
+TYPED_TEST_SUITE(VLATestsCompatAnyType, VLATestsCompatAnyTypeTypes, );
+
+TYPED_TEST(VLATestsCompatAnyType, TestDeallocSizeNonBool)
+{
+    cetlvast::InstrumentedAllocatorStatistics&    stats = cetlvast::InstrumentedAllocatorStatistics::get();
+    cetlvast::InstrumentedNewDeleteAllocator<int> allocator;
+    typename TestFixture::template TestSubjectType<int, decltype(allocator)> subject{allocator};
 
     subject.reserve(10U);
     ASSERT_EQ(10U, subject.capacity());
     ASSERT_EQ(1U, stats.allocations);
     ASSERT_EQ(10U * sizeof(int), stats.last_allocation_size_bytes);
     ASSERT_EQ(0U, stats.last_deallocation_size_bytes);
-    subject.pop_back();
     subject.shrink_to_fit();
     ASSERT_EQ(10U * sizeof(int), stats.last_deallocation_size_bytes);
 }
 
-TEST(VLATestsCompatAnyType, TestPush)
+TYPED_TEST(VLATestsCompatAnyType, TestPush)
 {
     cetlvast::InstrumentedAllocatorStatistics&            stats = cetlvast::InstrumentedAllocatorStatistics::get();
     cetlvast::InstrumentedNewDeleteAllocator<std::size_t> allocator;
-    cetl::VariableLengthArray<std::size_t, decltype(allocator)> subject{allocator};
+    typename TestFixture::template TestSubjectType<std::size_t, decltype(allocator)> subject{allocator};
     ASSERT_EQ(nullptr, subject.data());
     ASSERT_EQ(0U, subject.size());
     std::size_t x = 0;
@@ -237,12 +252,11 @@ private:
     bool moved_;
 };
 
-TEST(VLATestsCompatAnyType, TestDestroy)
+TYPED_TEST(VLATestsCompatAnyType, TestDestroy)
 {
-    int dtor_called = 0;
-
-    auto subject =
-        std::make_shared<cetl::VariableLengthArray<Doomed, std::allocator<Doomed>>>(std::allocator<Doomed>{});
+    int dtor_called              = 0;
+    using TestDestroySubjectType = typename TestFixture::template TestSubjectType<Doomed, std::allocator<Doomed>>;
+    auto subject                 = std::make_shared<TestDestroySubjectType>(std::allocator<Doomed>{});
 
     subject->reserve(10);
     ASSERT_EQ(10U, subject->capacity());
@@ -255,11 +269,11 @@ TEST(VLATestsCompatAnyType, TestDestroy)
     ASSERT_EQ(2, dtor_called);
 }
 
-TEST(VLATestsCompatAnyType, TestNonFundamental)
+TYPED_TEST(VLATestsCompatAnyType, TestNonFundamental)
 {
     int dtor_called = 0;
 
-    cetl::VariableLengthArray<Doomed, std::allocator<Doomed>> subject(std::allocator<Doomed>{});
+    typename TestFixture::template TestSubjectType<Doomed, std::allocator<Doomed>> subject(std::allocator<Doomed>{});
 
     subject.reserve(10U);
     ASSERT_EQ(10U, subject.capacity());
@@ -269,7 +283,11 @@ TEST(VLATestsCompatAnyType, TestNonFundamental)
     ASSERT_EQ(1, dtor_called);
 }
 
-TEST(VLATestsCompatAnyType, TestNotMovable)
+#if !defined(__clang__)
+/// Clang seems to have a different opinion about this. It statically asserts that a type must be move insertable
+/// to use reserve or the internal memory reallocation logic shared by many of the vector routines. GCC and CETL
+/// allow degraded behaviour instead where the type is copied if it cannot be moved.
+TYPED_TEST(VLATestsCompatAnyType, TestNotMovable)
 {
     class NotMovable
     {
@@ -280,8 +298,14 @@ TEST(VLATestsCompatAnyType, TestNotMovable)
         {
             (void) rhs;
         }
+        NotMovable& operator=(const NotMovable& rhs) noexcept
+        {
+            (void) rhs;
+            return *this;
+        }
     };
-    cetl::VariableLengthArray<NotMovable, std::allocator<NotMovable>> subject(std::allocator<NotMovable>{});
+    typename TestFixture::template TestSubjectType<NotMovable, std::allocator<NotMovable>> subject(
+        std::allocator<NotMovable>{});
 
     subject.reserve(10U);
     ASSERT_EQ(10U, subject.capacity());
@@ -289,8 +313,9 @@ TEST(VLATestsCompatAnyType, TestNotMovable)
     subject.push_back(source);
     ASSERT_EQ(1U, subject.size());
 }
+#endif
 
-TEST(VLATestsCompatAnyType, TestMovable)
+TYPED_TEST(VLATestsCompatAnyType, TestMovable)
 {
     class Movable
     {
@@ -313,7 +338,7 @@ TEST(VLATestsCompatAnyType, TestMovable)
     private:
         int data_;
     };
-    cetl::VariableLengthArray<Movable, std::allocator<Movable>> subject(std::allocator<Movable>{});
+    typename TestFixture::template TestSubjectType<Movable, std::allocator<Movable>> subject(std::allocator<Movable>{});
     subject.reserve(10U);
     ASSERT_EQ(10U, subject.capacity());
     subject.push_back(Movable(1));
@@ -323,10 +348,10 @@ TEST(VLATestsCompatAnyType, TestMovable)
     ASSERT_EQ(1, pushed->get_data());
 }
 
-TEST(VLATestsCompatAnyType, TestInitializerArray)
+TYPED_TEST(VLATestsCompatAnyType, TestInitializerArray)
 {
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> subject{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
-                                                                                std::allocator<std::size_t>{}};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        subject{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, std::allocator<std::size_t>{}};
     ASSERT_EQ(10U, subject.size());
     for (std::size_t i = 0; i < subject.size(); ++i)
     {
@@ -334,12 +359,12 @@ TEST(VLATestsCompatAnyType, TestInitializerArray)
     }
 }
 
-TEST(VLATestsCompatAnyType, TestCopyConstructor)
+TYPED_TEST(VLATestsCompatAnyType, TestCopyConstructor)
 {
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> fixture{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
-                                                                                std::allocator<std::size_t>{}};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        fixture{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, std::allocator<std::size_t>{}};
 
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> subject(fixture);
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>> subject(fixture);
     ASSERT_EQ(10U, subject.size());
     for (std::size_t i = 0; i < subject.size(); ++i)
     {
@@ -347,12 +372,13 @@ TEST(VLATestsCompatAnyType, TestCopyConstructor)
     }
 }
 
-TEST(VLATestsCompatAnyType, TestMoveConstructor)
+TYPED_TEST(VLATestsCompatAnyType, TestMoveConstructor)
 {
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> fixture{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
-                                                                                std::allocator<std::size_t>{}};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        fixture{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, std::allocator<std::size_t>{}};
 
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> subject(std::move(fixture));
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>> subject(
+        std::move(fixture));
     ASSERT_EQ(10U, subject.size());
     for (std::size_t i = 0; i < subject.size(); ++i)
     {
@@ -362,46 +388,49 @@ TEST(VLATestsCompatAnyType, TestMoveConstructor)
     ASSERT_EQ(0U, fixture.capacity());
 }
 
-TEST(VLATestsCompatAnyType, TestCompare)
+TYPED_TEST(VLATestsCompatAnyType, TestCompare)
 {
-    std::allocator<std::size_t>                                         allocator{};
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> one{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> two{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
-    cetl::VariableLengthArray<std::size_t, std::allocator<std::size_t>> three{{9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
+    std::allocator<std::size_t> allocator{};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        one{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        two{{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
+    typename TestFixture::template TestSubjectType<std::size_t, std::allocator<std::size_t>>
+        three{{9, 8, 7, 6, 5, 4, 3, 2, 1}, allocator};
     ASSERT_EQ(one, one);
     ASSERT_EQ(one, two);
     ASSERT_NE(one, three);
 }
 
-TEST(VLATestsCompatAnyType, TestFPCompare)
+TYPED_TEST(VLATestsCompatAnyType, TestFPCompare)
 {
-    std::allocator<std::size_t>                                    allocator{};
-    cetl::VariableLengthArray<double, std::allocator<std::size_t>> one{{1.00, 2.00}, allocator};
-    cetl::VariableLengthArray<double, std::allocator<std::size_t>> two{{1.00, 2.00}, allocator};
+    std::allocator<std::size_t>                                                    allocator{};
+    typename TestFixture::template TestSubjectType<double, std::allocator<double>> one{{1.00, 2.00}, allocator};
+    typename TestFixture::template TestSubjectType<double, std::allocator<double>> two{{1.00, 2.00}, allocator};
     const double epsilon_for_two_comparison = std::nextafter(4.00, INFINITY) - 4.00;
-    cetl::VariableLengthArray<double, std::allocator<std::size_t>>
+    typename TestFixture::template TestSubjectType<double, std::allocator<double>>
         three{{1.00, std::nextafter(2.00 + epsilon_for_two_comparison, INFINITY)}, allocator};
     ASSERT_EQ(one, one);
     ASSERT_EQ(one, two);
     ASSERT_NE(one, three);
 }
 
-TEST(VLATestsCompatAnyType, TestCompareBool)
+TYPED_TEST(VLATestsCompatAnyType, TestCompareBool)
 {
-    std::allocator<bool>                                  allocator{};
-    cetl::VariableLengthArray<bool, std::allocator<bool>> one{{true, false, true}, allocator};
-    cetl::VariableLengthArray<bool, std::allocator<bool>> two{{true, false, true}, allocator};
-    cetl::VariableLengthArray<bool, std::allocator<bool>> three{{true, true, false}, allocator};
+    std::allocator<bool>                                                       allocator{};
+    typename TestFixture::template TestSubjectType<bool, std::allocator<bool>> one{{true, false, true}, allocator};
+    typename TestFixture::template TestSubjectType<bool, std::allocator<bool>> two{{true, false, true}, allocator};
+    typename TestFixture::template TestSubjectType<bool, std::allocator<bool>> three{{true, true, false}, allocator};
     ASSERT_EQ(one, one);
     ASSERT_EQ(one, two);
     ASSERT_NE(one, three);
 }
 
-TEST(VLATestsCompatAnyType, TestCopyAssignment)
+TYPED_TEST(VLATestsCompatAnyType, TestCopyAssignment)
 {
-    std::allocator<double>                                    allocator{};
-    cetl::VariableLengthArray<double, std::allocator<double>> lhs{{1.00}, allocator};
-    cetl::VariableLengthArray<double, std::allocator<double>> rhs{{2.00, 3.00}, allocator};
+    std::allocator<double>                                                         allocator{};
+    typename TestFixture::template TestSubjectType<double, std::allocator<double>> lhs{{1.00}, allocator};
+    typename TestFixture::template TestSubjectType<double, std::allocator<double>> rhs{{2.00, 3.00}, allocator};
     ASSERT_EQ(1U, lhs.size());
     ASSERT_EQ(2U, rhs.size());
     ASSERT_NE(lhs, rhs);
@@ -411,15 +440,16 @@ TEST(VLATestsCompatAnyType, TestCopyAssignment)
     ASSERT_EQ(lhs, rhs);
 }
 
-TEST(VLATestsCompatAnyType, TestMoveAssignment)
+TYPED_TEST(VLATestsCompatAnyType, TestMoveAssignment)
 {
-    std::allocator<std::string>                                         allocator{};
-    cetl::VariableLengthArray<std::string, std::allocator<std::string>> lhs{{std::string("one"), std::string("two")},
-                                                                            allocator};
-    cetl::VariableLengthArray<std::string, std::allocator<std::string>> rhs{{std::string("three"),
-                                                                             std::string("four"),
-                                                                             std::string("five")},
-                                                                            allocator};
+    std::allocator<std::string>                                                              allocator{};
+    typename TestFixture::template TestSubjectType<std::string, std::allocator<std::string>> lhs{{std::string("one"),
+                                                                                                  std::string("two")},
+                                                                                                 allocator};
+    typename TestFixture::template TestSubjectType<std::string, std::allocator<std::string>> rhs{{std::string("three"),
+                                                                                                  std::string("four"),
+                                                                                                  std::string("five")},
+                                                                                                 allocator};
     ASSERT_EQ(2U, lhs.size());
     ASSERT_EQ(3U, rhs.size());
     ASSERT_NE(lhs, rhs);
@@ -451,10 +481,11 @@ private:
     int data_;
 };
 
-TEST(VLATestsCompatAnyType, TestResizeWithNoDefaultCtorData)
+TYPED_TEST(VLATestsCompatAnyType, TestResizeWithNoDefaultCtorData)
 {
-    std::allocator<NoDefault>                                       allocator{};
-    cetl::VariableLengthArray<NoDefault, std::allocator<NoDefault>> subject{{NoDefault{1}}, allocator};
+    std::allocator<NoDefault>                                                            allocator{};
+    typename TestFixture::template TestSubjectType<NoDefault, std::allocator<NoDefault>> subject{{NoDefault{1}},
+                                                                                                 allocator};
     ASSERT_EQ(1, subject.size());
     subject.resize(10, NoDefault{2});
     ASSERT_EQ(10, subject.size());
@@ -490,24 +521,66 @@ struct Grenade
             throw GrenadeError("Kaboom!");
         }
     }
+
+    Grenade& operator=(const Grenade& rhs)
+    {
+        value_ = rhs.value_;
+        return *this;
+    }
+
+    int value() const
+    {
+        return value_;
+    }
+
 private:
     int value_;
 };
 
-TEST(VLATestsCompatAnyType, TestResizeExceptionFromCtorOnResize)
+TYPED_TEST(VLATestsCompatAnyType, TestResizeExceptionFromCtorOnResize)
 {
-    std::allocator<Grenade>                                     allocator{};
-    cetl::VariableLengthArray<Grenade, std::allocator<Grenade>> subject{{Grenade{1}}, allocator};
+    std::allocator<Grenade>                                                          allocator{};
+    typename TestFixture::template TestSubjectType<Grenade, std::allocator<Grenade>> subject{{Grenade{1}}, allocator};
     ASSERT_EQ(1, subject.size());
     ASSERT_THROW(subject.resize(2, Grenade{2}), GrenadeError);
 }
 
+TYPED_TEST(VLATestsCompatAnyType, TestAt)
+{
+    // Grenade shouldn't explode if we are just accessing a reference value using at()
+    std::allocator<Grenade>                                                          allocator{};
+    typename TestFixture::template TestSubjectType<Grenade, std::allocator<Grenade>> subject{{Grenade{1}}, allocator};
+    ASSERT_EQ(1, subject.size());
+    ASSERT_EQ(1, subject.at(0).value());
+    ASSERT_EQ(1, reinterpret_cast<const decltype(subject)*>(&subject)->at(0).value());
+}
+
+TYPED_TEST(VLATestsCompatAnyType, TestAtThrows)
+{
+    // Grenade shouldn't explode if we are just accessing a reference value using at()
+    std::allocator<int>                                                      allocator{};
+    typename TestFixture::template TestSubjectType<int, std::allocator<int>> subject{{5}, allocator};
+    ASSERT_EQ(1, subject.size());
+    ASSERT_THROW(subject.at(1), std::out_of_range);
+    ASSERT_THROW(subject.at(2), std::out_of_range);
+}
+
+TYPED_TEST(VLATestsCompatAnyType, TestConstAtThrows)
+{
+    // Grenade shouldn't explode if we are just accessing a reference value using at()
+    std::allocator<int>                                                      allocator{};
+    typename TestFixture::template TestSubjectType<int, std::allocator<int>> subject{{2}, allocator};
+    ASSERT_EQ(1, subject.size());
+    ASSERT_THROW(reinterpret_cast<const decltype(subject)*>(&subject)->at(1), std::out_of_range);
+    ASSERT_THROW(reinterpret_cast<const decltype(subject)*>(&subject)->at(2), std::out_of_range);
+}
+
 #endif  // __cpp_exceptions
 
-TEST(VLATestsCompatAnyType, TestAssignCountItems)
+TYPED_TEST(VLATestsCompatAnyType, TestAssignCountItems)
 {
-    std::allocator<std::string>                                 allocator{};
-    cetl::VariableLengthArray<std::string, std::allocator<std::string>> subject{allocator};
+    std::allocator<std::string>                                                              allocator{};
+    typename TestFixture::template TestSubjectType<std::string, std::allocator<std::string>> subject{allocator};
     subject.assign(25, "Hi müm");
     ASSERT_EQ(25, subject.size());
     for (auto i = subject.begin(), e = subject.end(); i != e; ++i)

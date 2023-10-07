@@ -89,7 +89,7 @@ set_directory_properties(PROPERTIES
 if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
     enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
                            ROOT_DIRECTORY ${CETL_ROOT}
-                           OUT_REPORT_INDICIES LOCAL_COVERAGE_REPORT_INDICIES
+                           OUT_REPORT_INDICES LOCAL_COVERAGE_REPORT_INDICIES
     )
 endif()
 

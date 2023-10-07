@@ -932,7 +932,7 @@ public:
     ///
     /// STL-like declaration of constant-reference type.
     ///
-    using const_reference = typename std::add_const_t<std::add_lvalue_reference_t<value_type>>;
+    using const_reference = typename std::add_lvalue_reference_t<std::add_const_t<value_type>>;
 
     // +----------------------------------------------------------------------+
     // | CONSTRUCTORS
@@ -1215,7 +1215,7 @@ public:
         {
             throw std::out_of_range("at position argument is outside of container size.");
         }
-        return this->operator[][pos];
+        return this->operator[](pos);
     }
 
     /// Returns a const reference to the element at specified location pos, with bounds checking.
@@ -1232,7 +1232,7 @@ public:
         {
             throw std::out_of_range("at position argument is outside of container size.");
         }
-        return this->operator[][pos];
+        return this->operator[](pos);
     }
 
 #endif

@@ -3,6 +3,7 @@
 # Copyright Amazon.com Inc. or its affiliates.
 # SPDX-License-Identifier: MIT
 #
+# cSpell: words fprofile fcoverage gcov tracefile objdir gcno gcda objlib tracefiles
 
 find_program(GCOVR gcovr)
 
@@ -22,7 +23,7 @@ define_property(DIRECTORY
 )
 
 # function: enable_instrumentation
-# Sets well-known compiler flags for gcc and/or clang to insert intrumentations
+# Sets well-known compiler flags for gcc and/or clang to insert instrumentations
 # into binaries that generate coverage data.
 #
 # param: TARGET target - The target to set compile and link options on.
@@ -199,12 +200,12 @@ endfunction(define_gcovr_tracefile_target)
 #
 # param: COVERAGE_REPORT_FORMATS - Supports html or sonarqube
 # param: ROOT_DIRECTORY string - The root directory of the source to be covered.
-# param: OUT_REPORT_INDICIES list[string] - The name of a variable to set to a list of index files of the reports.
+# param: OUT_REPORT_INDICES list[string] - The name of a variable to set to a list of index files of the reports.
 #
 function (enable_coverage_report)
     #+-[input]----------------------------------------------------------------+
     set(options "")
-    set(singleValueArgs OUT_REPORT_INDICIES ROOT_DIRECTORY)
+    set(singleValueArgs OUT_REPORT_INDICES ROOT_DIRECTORY)
     set(multiValueArgs COVERAGE_REPORT_FORMATS)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
@@ -241,7 +242,7 @@ function (enable_coverage_report)
         else()
             message(FATAL_ERROR "${LOCAL_REPORT_FORMAT} is not a supported coverage report format.")
         endif()
-        list(APPEND LOCAL_REPORT_INDICIES ${LOCAL_REPORT_INDEX})
+        list(APPEND LOCAL_REPORT_INDICES ${LOCAL_REPORT_INDEX})
 
         add_custom_command(
             OUTPUT ${LOCAL_REPORT_INDEX}
@@ -263,8 +264,8 @@ function (enable_coverage_report)
 
     #+-[output]---------------------------------------------------------------+
 
-    if (NOT ARG_OUT_REPORT_INDICIES STREQUAL "")
-        set(${ARG_OUT_REPORT_INDICIES} "${LOCAL_REPORT_INDICIES}" PARENT_SCOPE)
+    if (NOT ARG_OUT_REPORT_INDICES STREQUAL "")
+        set(${ARG_OUT_REPORT_INDICES} "${LOCAL_REPORT_INDICES}" PARENT_SCOPE)
     endif()
 
 endfunction(enable_coverage_report)
