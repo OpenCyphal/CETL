@@ -188,7 +188,12 @@ TYPED_TEST(VLATestsCompatAnyType, TestDeallocSizeNonBool)
     ASSERT_EQ(10U * sizeof(int), stats.last_allocation_size_bytes);
     ASSERT_EQ(0U, stats.last_deallocation_size_bytes);
     subject.shrink_to_fit();
-    ASSERT_EQ(10U * sizeof(int), stats.last_deallocation_size_bytes);
+    if (std::is_same<cetlvast::CETLTag, TypeParam>::value)
+    {
+        /// STL says that any effect shrink_to_fit has is optional and implementation specific.
+        /// For CETL we requires specific behaviors.
+        ASSERT_EQ(10U * sizeof(int), stats.last_deallocation_size_bytes);
+    }
 }
 
 TYPED_TEST(VLATestsCompatAnyType, TestPush)
@@ -214,8 +219,13 @@ TYPED_TEST(VLATestsCompatAnyType, TestPush)
     ASSERT_EQ(0U, subject.size());
     ASSERT_GE(subject.capacity(), 1024U);
     subject.shrink_to_fit();
-    ASSERT_EQ(0U, subject.capacity());
-    ASSERT_EQ(0U, stats.outstanding_allocated_memory);
+    if (std::is_same<cetlvast::CETLTag, TypeParam>::value)
+    {
+        /// STL says that any effect shrink_to_fit has is optional and implementation specific.
+        /// For CETL we requires specific behaviors.
+        ASSERT_EQ(0U, subject.capacity());
+        ASSERT_EQ(0U, stats.outstanding_allocated_memory);
+    }
 }
 
 /**
@@ -594,4 +604,17 @@ TYPED_TEST(VLATestsCompatAnyType, TestAssignCountItems)
     {
         ASSERT_EQ(*i, "ciao");
     }
+}
+
+TYPED_TEST(VLATestsCompatAnyType, TestInitFromString)
+{
+    std::string                 data = "stuff.";
+    std::allocator<std::string> allocator{};
+    typename TestFixture::template TestSubjectType<std::string::value_type, std::allocator<std::string::value_type>>
+        subject{data.begin(), data.end(), allocator};
+
+    ASSERT_GT(subject.size(), 0u);
+    ASSERT_EQ(data.size(), subject.size());
+    ASSERT_EQ('s', subject[0]);
+    ASSERT_EQ('.', subject[subject.size() - 1]);
 }
