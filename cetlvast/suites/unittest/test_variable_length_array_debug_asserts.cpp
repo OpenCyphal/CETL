@@ -112,7 +112,7 @@ static void TestConstFrontOnEmpty()
 {
     flush_coverage_on_death();
     const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
-    (void)vla.front();
+    (void)reinterpret_cast<const decltype(vla)*>(&vla)->front();
 }
 
 TEST(DeathTestVLAAssertions, TestConstFrontOnEmpty)
@@ -144,7 +144,7 @@ static void TestConstFrontOnEmptyBool()
 {
     flush_coverage_on_death();
     const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
-    (void)vla.front();
+    (void)reinterpret_cast<const decltype(vla)*>(&vla)->front();
 }
 
 TEST(DeathTestVLAAssertions, TestConstFrontOnEmptyBool)
@@ -176,7 +176,7 @@ static void TestConstBackOnEmpty()
 {
     flush_coverage_on_death();
     const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
-    (void)vla.back();
+    (void)reinterpret_cast<const decltype(vla)*>(&vla)->back();
 }
 
 TEST(DeathTestVLAAssertions, TestConstBackOnEmpty)
@@ -208,7 +208,7 @@ static void TestConstBackOnEmptyBool()
 {
     flush_coverage_on_death();
     const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
-    (void)vla.back();
+    (void)reinterpret_cast<const decltype(vla)*>(&vla)->back();
 }
 
 TEST(DeathTestVLAAssertions, TestConstBackOnEmptyBool)

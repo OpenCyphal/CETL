@@ -259,11 +259,9 @@ protected:
     /// Copy from src to dst.
     /// @return the number of elements copied.
     ///
-    template <typename DstType, typename SrcType>
-    static constexpr size_type fast_copy_assign(
-        DstType* const dst,
-        size_type      dst_capacity_count,
-        const SrcType& src) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
+    template <typename InputIt>
+    static constexpr size_type fast_copy_assign(value_type* dst, size_type dst_capacity_count, InputIt src) noexcept(
+        noexcept(std::is_nothrow_assignable<value_type, std::remove_pointer_t<InputIt>>::value))
     {
         if (nullptr == dst)
         {
@@ -277,12 +275,13 @@ protected:
     /// Copy from src to dst.
     /// @return the number of elements copied.
     ///
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_copy_assign(
-        DstType* const       dst,
-        size_type            dst_capacity_count,
-        const SrcType* const src,
-        size_type            src_len_count) noexcept(noexcept(std::is_nothrow_assignable<DstType, SrcType>::value))
+        value_type* dst,
+        size_type   dst_capacity_count,
+        InputIt     src,
+        size_type   src_len_count) noexcept(noexcept(std::is_nothrow_assignable<value_type,
+                                                                              std::remove_pointer_t<InputIt>>::value))
     {
         if (nullptr == dst || nullptr == src)
         {
@@ -301,14 +300,15 @@ protected:
     /// Copy from src to dst.
     /// @return the number of elements copied.
     ///
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_copy_construct(
-        DstType* const       dst,
-        size_type            dst_capacity_count,
-        const SrcType* const src,
-        size_type            src_len_count,
-        allocator_type&      alloc,
-        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr) noexcept
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        const InputIt     src,
+        size_type         src_len_count,
+        allocator_type&   alloc,
+        typename std::enable_if_t<
+            is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr) noexcept
     {
         (void) alloc;
         // for trivial copyable assignment is the same as construction:
@@ -319,27 +319,27 @@ protected:
     /// Copy from src to dst.
     /// @return the number of elements copied.
     ///
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_copy_construct(
-        DstType* const       dst,
-        size_type            dst_capacity_count,
-        const SrcType* const src,
-        size_type            src_len_count,
-        allocator_type&      alloc,
-        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* =
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        const InputIt     src,
+        size_type         src_len_count,
+        allocator_type&   alloc,
+        typename std::enable_if_t<
+            !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* =
             nullptr) noexcept(noexcept(std::allocator_traits<allocator_type>::
                                            construct(std::declval<std::add_lvalue_reference_t<allocator_type>>(),
-                                                     std::declval<std::add_pointer_t<DstType>>(),
-                                                     std::declval<std::add_lvalue_reference_t<const SrcType>>())))
+                                                     std::declval<std::add_pointer_t<value_type>>(),
+                                                     std::declval<std::add_lvalue_reference_t<
+                                                         decltype(std::declval<const InputIt>()[0])>>())))
     {
-        if (nullptr == dst || nullptr == src)
-        {
-            return 0;
-        }
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
         for (size_type i = 0; i < max_copy_size; ++i)
         {
-            std::allocator_traits<allocator_type>::construct(alloc, &dst[i], src[i]);
+            std::allocator_traits<allocator_type>::construct(alloc,
+                                                             &dst[static_cast<difference_type>(i)],
+                                                             src[static_cast<difference_type>(i)]);
         }
         return max_copy_size;
     }
@@ -347,33 +347,31 @@ protected:
     // +----------------------------------------------------------------------+
     // | FORWARD CONSTRUCTION
     // +----------------------------------------------------------------------+
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_forward_construct(
-        DstType* const  dst,
-        size_type       dst_capacity_count,
-        SrcType* const  src,
-        size_type       src_len_count,
-        allocator_type& alloc,
-        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        InputIt           src,
+        size_type         src_len_count,
+        allocator_type&   alloc,
+        typename std::enable_if_t<
+            is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
         (void) alloc;
         // for trivial copyable assignment move is the same as copy:
         return fast_copy_assign(dst, dst_capacity_count, src, src_len_count);
     }
 
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_forward_construct(
-        DstType* const  dst,
-        size_type       dst_capacity_count,
-        SrcType* const  src,
-        size_type       src_len_count,
-        allocator_type& alloc,
-        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        InputIt           src,
+        size_type         src_len_count,
+        allocator_type&   alloc,
+        typename std::enable_if_t<
+            !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
-        if (nullptr == dst || nullptr == src)
-        {
-            return 0;
-        }
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
         for (size_type i = 0; i < max_copy_size; ++i)
         {
@@ -385,30 +383,28 @@ protected:
     // +----------------------------------------------------------------------+
     // | FORWARD ASSIGNMENT
     // +----------------------------------------------------------------------+
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_forward_assign(
-        DstType* const dst,
-        size_type      dst_capacity_count,
-        SrcType* const src,
-        size_type      src_len_count,
-        typename std::enable_if_t<is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        InputIt           src,
+        size_type         src_len_count,
+        typename std::enable_if_t<
+            is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
         // for trivial copyable move and copy is the same.
         return fast_copy_assign(dst, dst_capacity_count, src, src_len_count);
     }
 
-    template <typename DstType, typename SrcType>
+    template <typename InputIt>
     static constexpr size_type fast_forward_assign(
-        DstType* const dst,
-        size_type      dst_capacity_count,
-        SrcType* const src,
-        size_type      src_len_count,
-        typename std::enable_if_t<!is_array_of_type_trivially_copyable<DstType, SrcType>::value>* = nullptr)
+        value_type* const dst,
+        size_type         dst_capacity_count,
+        InputIt           src,
+        size_type         src_len_count,
+        typename std::enable_if_t<
+            !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
-        if (nullptr == dst || nullptr == src)
-        {
-            return 0;
-        }
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
         for (size_type i = 0; i < max_copy_size; ++i)
         {
@@ -932,7 +928,7 @@ public:
     ///
     /// STL-like declaration of constant-reference type.
     ///
-    using const_reference = typename std::add_const_t<std::add_lvalue_reference_t<value_type>>;
+    using const_reference = typename std::add_lvalue_reference_t<std::add_const_t<value_type>>;
 
     // +----------------------------------------------------------------------+
     // | CONSTRUCTORS
@@ -1215,7 +1211,7 @@ public:
         {
             throw std::out_of_range("at position argument is outside of container size.");
         }
-        return this->operator[][pos];
+        return this->operator[](pos);
     }
 
     /// Returns a const reference to the element at specified location pos, with bounds checking.
@@ -1232,7 +1228,7 @@ public:
         {
             throw std::out_of_range("at position argument is outside of container size.");
         }
-        return this->operator[][pos];
+        return this->operator[](pos);
     }
 
 #endif
