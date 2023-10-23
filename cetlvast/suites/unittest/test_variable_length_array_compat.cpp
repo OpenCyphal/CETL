@@ -624,9 +624,9 @@ TYPED_TEST(VLATestsCompatAnyType, TestMakeReverseIterator)
     std::allocator<bool> allocator{};
     using SubjectType = typename TestFixture::template TestSubjectType<bool, std::allocator<bool>>;
     SubjectType subject{allocator};
-    subject.assign(0, true);
-    subject.assign(1, false);
-    subject.assign(2, false);
+    subject.push_back(true);
+    subject.push_back(false);
+    subject.push_back(false);
     auto rbegin = std::make_reverse_iterator(subject.end());
     auto rend = std::make_reverse_iterator(subject.begin());
     auto c = 0;
@@ -652,9 +652,9 @@ TYPED_TEST(VLATestsCompatAnyType, TestMakeReverseConstIterator)
     std::allocator<bool> allocator{};
     using SubjectType = typename TestFixture::template TestSubjectType<bool, std::allocator<bool>>;
     SubjectType subject{allocator};
-    subject.assign(0, true);
-    subject.assign(1, false);
-    subject.assign(2, false);
+    subject.push_back(true);
+    subject.push_back(false);
+    subject.push_back(false);
     auto rbegin = std::make_reverse_iterator(subject.cend());
     auto rend = std::make_reverse_iterator(subject.cbegin());
     auto c = 0;
