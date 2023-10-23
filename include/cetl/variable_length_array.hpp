@@ -2336,7 +2336,7 @@ public:
                 if (size_ > 0)
                 {
                     const Storage     existing_byte  = data_[size_ - 1];
-                    const std::size_t bit_size_delta = 8U - (last_byte_bit_fill_ + 1);
+                    const std::size_t bit_size_delta = 8U - (last_byte_bit_fill_ + 1U);
                     const Storage existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
                     if (value)
                     {
@@ -2420,7 +2420,7 @@ private:
         CETL_DEBUG_ASSERT(size_ <= capacity_, "CDE_vla_002: size_ is out of range.");
         CETL_DEBUG_ASSERT(size_ != 0 || last_byte_bit_fill_ == 0,
                           "CDE_vla_003: last_byte_bit_fill_ should always be zero when size_ is.");
-        return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1);
+        return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1U);
     }
 
     constexpr size_type capacity_bits() const noexcept
