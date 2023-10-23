@@ -1645,7 +1645,6 @@ public:
         {
             return !((*this) == rhs);
         }
-
         void flip()
         {
             set(array_, index_, !test(array_, index_));
@@ -1674,9 +1673,9 @@ private:
         using iterator_category = std::random_access_iterator_tag;
         using value_type        = typename A::value_type;
         using difference_type   = typename A::difference_type;
-        using reference         = typename A::reference;
-        using const_reference   = typename A::const_reference;
-        using pointer           = void;
+        using reference =
+            std::conditional_t<std::is_const<A>::value, typename A::const_reference, typename A::reference>;
+        using pointer = void;
 
         IteratorImpl() noexcept = default;
 
@@ -1734,7 +1733,7 @@ private:
         {
             return this->operator[](0);
         }
-        const_reference operator*() const
+        reference operator*() const
         {
             return this->operator[](0);
         }
@@ -1747,7 +1746,7 @@ private:
         {
             return array_->operator[](static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
-        const_reference operator[](const difference_type n) const
+        reference operator[](const difference_type n) const
         {
             return array_->operator[](static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
