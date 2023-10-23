@@ -618,3 +618,59 @@ TYPED_TEST(VLATestsCompatAnyType, TestInitFromString)
     ASSERT_EQ('s', subject[0]);
     ASSERT_EQ('.', subject[subject.size() - 1]);
 }
+
+TYPED_TEST(VLATestsCompatAnyType, TestMakeReverseIterator)
+{
+    std::allocator<bool> allocator{};
+    using SubjectType = typename TestFixture::template TestSubjectType<bool, std::allocator<bool>>;
+    SubjectType subject{allocator};
+    subject.assign(0, true);
+    subject.assign(1, false);
+    subject.assign(2, false);
+    auto rbegin = std::make_reverse_iterator(subject.end());
+    auto rend = std::make_reverse_iterator(subject.begin());
+    auto c = 0;
+    for(auto i = rbegin; i < rend; ++i)
+    {
+        if (c == 0)
+        {
+            ASSERT_FALSE(*i);
+        }
+        else if (c == 1)
+        {
+            ASSERT_FALSE(*i);
+        }
+        else {
+            ASSERT_TRUE(*i);
+        }
+        ++c;
+    }
+}
+
+TYPED_TEST(VLATestsCompatAnyType, TestMakeReverseConstIterator)
+{
+    std::allocator<bool> allocator{};
+    using SubjectType = typename TestFixture::template TestSubjectType<bool, std::allocator<bool>>;
+    SubjectType subject{allocator};
+    subject.assign(0, true);
+    subject.assign(1, false);
+    subject.assign(2, false);
+    auto rbegin = std::make_reverse_iterator(subject.cend());
+    auto rend = std::make_reverse_iterator(subject.cbegin());
+    auto c = 0;
+    for(auto i = rbegin; i < rend; ++i)
+    {
+        if (c == 0)
+        {
+            ASSERT_FALSE(*i);
+        }
+        else if (c == 1)
+        {
+            ASSERT_FALSE(*i);
+        }
+        else {
+            ASSERT_TRUE(*i);
+        }
+        ++c;
+    }
+}
