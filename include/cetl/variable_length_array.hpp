@@ -1811,7 +1811,7 @@ public:
     /// Required constructor for std::uses_allocator protocol.
     /// @param alloc Allocator to use for all allocations.
     explicit constexpr VariableLengthArray(const allocator_type& alloc) noexcept
-        : VariableLengthArray(std::numeric_limits<size_type>::max(), alloc)
+        : VariableLengthArray(numeric_limits_max_bits(), alloc)
     {
     }
 
@@ -1825,10 +1825,10 @@ public:
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
-        Base::reserve(bits2bytes(l.size()), max_size());
+        reserve_bits(l.size(), max_size());
         for (auto list_item : l)
         {
-            emplace_back_impl(list_item);
+            emplace_back(list_item);
         }
     }
 
@@ -1836,7 +1836,7 @@ public:
     /// @param l Initializer list of elements to copy into the array.
     /// @param alloc Allocator to use for all allocations.
     VariableLengthArray(std::initializer_list<bool> l, const allocator_type& alloc)
-        : VariableLengthArray(l, std::numeric_limits<size_type>::max(), alloc)
+        : VariableLengthArray(l, numeric_limits_max_bits(), alloc)
     {
     }
 
@@ -1844,26 +1844,22 @@ public:
     /// @tparam InputIt The type of the range's iterators.
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
-    /// @param length   The number of elements to copy from the range.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
     ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
     ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt>
-    VariableLengthArray(InputIt               first,
-                        InputIt               last,
-                        const size_type       length,
-                        size_type             max_size_max,
-                        const allocator_type& alloc)
+    VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
         if (last >= first)
         {
-            Base::reserve(bits2bytes(length), max_size());
-            for (size_t inserted = 0; first != last && inserted < length; ++first)
+            const size_type length = static_cast<std::size_t>(last - first);
+            reserve_bits(length, max_size());
+            for (; first != last; ++first)
             {
-                emplace_back_impl(*first);
+                emplace_back(*first);
             }
         }
     }
@@ -1872,11 +1868,10 @@ public:
     /// @tparam InputIt The type of the range's iterators.
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
-    /// @param length   The number of elements to copy from the range.
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt>
-    VariableLengthArray(InputIt first, InputIt last, const size_type length, const allocator_type& alloc)
-        : VariableLengthArray(first, last, length, std::numeric_limits<size_type>::max(), alloc)
+    VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
+        : VariableLengthArray(first, last, numeric_limits_max_bits(), alloc)
     {
     }
 
@@ -1887,7 +1882,7 @@ public:
         : Base(rhs, alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {
-        Base::reserve(rhs.size(), rhs.max_size());
+        reserve_bits(rhs.size(), rhs.max_size());
         size_ = Base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
     }
 
@@ -2126,14 +2121,22 @@ public:
     /// is out of memory this method will still return the maximum number of elements that could
     /// be stored if the allocator had enough memory, however, it will always return the maximum
     /// size passed into the constructor if that value is less than the allocator's max_size.
+    /// Note that the underlying size_ and capacity_ of VariableLengthArrayBase are in terms
+    /// of bytes and then converted to bits in size() and capacity().  However the max_size_max_
+    /// is in terms of bits and thus no conversion is needed in max_size().
     ///
     /// @return The maximum number of elements that could be stored in this container.
     constexpr size_type max_size() const noexcept
     {
-        const size_type max_diff = std::numeric_limits<ptrdiff_t>::max() / sizeof(bool);
-        const size_type max_size_bytes =
-            std::min(max_size_max_, std::min(max_diff, std::allocator_traits<allocator_type>::max_size(alloc_)));
-        return max_size_bytes * 8;
+        // We can't simply take the maximum possible bytes and convert that to bits because
+        // it could overflow size_type.  Instead we calculate the lesser of the maximum bytes that
+        // could be allocated and the maximum bytes that can be represented and convert that into
+        // bits.
+        const size_type max_diff_bytes = std::numeric_limits<ptrdiff_t>::max() / sizeof(Storage);
+        const size_type max_alloc_bytes =
+            std::min(max_diff_bytes, std::allocator_traits<allocator_type>::max_size(alloc_));
+        const size_type max_bytes = std::min(max_alloc_bytes, numeric_limits_max_bits() / 8U);
+        return std::min(max_size_max_, max_bytes * 8U);
     }
 
     /// Reduce the amount of memory held by this object to the minimum required
@@ -2185,7 +2188,7 @@ public:
     ///
     void reserve(const size_type desired_capacity)
     {
-        Base::reserve(bits2bytes(desired_capacity), max_size());
+        reserve_bits(desired_capacity, max_size());
     }
 
     // +----------------------------------------------------------------------+
@@ -2310,13 +2313,25 @@ public:
     /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
     constexpr void resize(size_type count, const bool value)
     {
-        const std::size_t current_count = size_bits();
-        if (count != current_count)
+        size_type clamped_count = count;
+        if (clamped_count > max_size())
         {
-            const std::size_t byte_sized = bits2bytes(count);
+#if defined(__cpp_exceptions)
+            throw std::length_error("Requested count exceeds maximum size.");
+#else
+            // deviation from the standard: instead of undefined behaviour we clamp the count to the maximum size
+            // when exceptions are disabled.
+            clamped_count = max_size();
+#endif
+        }
+
+        const std::size_t current_count = size_bits();
+        if (clamped_count != current_count)
+        {
+            const std::size_t byte_sized = bits2bytes(clamped_count);
             if (byte_sized > capacity_)
             {
-                Base::reserve(byte_sized, max_size());
+                reserve_bits(clamped_count, max_size());
             }
             if (byte_sized == 0)
             {
@@ -2325,7 +2340,7 @@ public:
             }
             else
             {
-                Storage bit_sized = (count - 1) % 8U;
+                Storage bit_sized = (clamped_count - 1) % 8U;
                 if (byte_sized > size_)
                 {
                     // Go ahead and just set all bits in the last bytes since we use masks
@@ -2376,7 +2391,8 @@ private:
         {
             // we have at least one byte of capacity (first allocation)
             // and we have room in the last byte or we have room for another byte
-            return true;
+            // but we haven't reached the max
+            return size_bits() < max_size();
         }
 
         return Base::grow(max_size());
@@ -2404,9 +2420,26 @@ private:
         return true;
     }
 
+    constexpr void reserve_bits(const size_type desired_capacity, const size_type max_size)
+    {
+        size_type clamped_capacity = desired_capacity;
+        if (clamped_capacity > max_size)
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("Requested capacity exceeds maximum size.");
+#else
+            // deviation from the standard: instead of undefined behaviour we clamp the capacity to the maximum size
+            // when exceptions are disabled.
+            clamped_capacity = max_size;
+#endif
+        }
+        Base::reserve(bits2bytes(clamped_capacity), bits2bytes(max_size));
+    }
+
     constexpr static size_type round8(const size_type value) noexcept
     {
-        return (value + 7U) & ~7U;
+        static_assert(numeric_limits_max_bits() + 7U > numeric_limits_max_bits(), "Uh oh, overflow");
+        return (value + 7U) & ~7ULL; // Careful, "ULL" to make sure the mask is long enough
     }
     constexpr static size_type bits2bytes(const size_type value) noexcept
     {
@@ -2425,6 +2458,13 @@ private:
     constexpr size_type capacity_bits() const noexcept
     {
         return capacity_ * 8U;
+    }
+
+    constexpr static size_type numeric_limits_max_bits()
+    {
+        // Make sure it ends on a byte boundary because of the various maths in other places that
+        // convert between bits and bytes
+        return std::numeric_limits<size_type>::max() - (std::numeric_limits<size_type>::max() % 8U);
     }
 
     /// The number of bits that are valid in the last byte of the array. If size_ == 0 this value
