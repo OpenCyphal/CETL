@@ -383,24 +383,38 @@ TYPED_TEST(VLABoolTestsVLAOnly, ConstructFromIteratorRange)
 {
     // Provide it too much stuff
     std::vector<bool> data{false, true, false};
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW((void)TypeParam::make_bool_container(data.begin(), data.end(), 2U), std::length_error);
+#elif (__cplusplus == CETL_CPP_STANDARD_14)
     auto subject = TypeParam::make_bool_container(data.begin(), data.end(), 2U);
     // Should only add to max
     EXPECT_EQ(subject.size(), 2);
     EXPECT_EQ(subject[0], false);
     EXPECT_EQ(subject[1], true);
+#else
+    GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
+#endif
 }
 
 TYPED_TEST(VLABoolTestsVLAOnly, ExceedMaxSizeMaxFails)
 {
     std::size_t max = 3U;
     auto subject = TypeParam::make_bool_container(max);
-    // Try to add one too many
-    for (std::size_t i = 0; i < max + 1; i++) {
+    for (std::size_t i = 0; i < max; i++) {
         subject.push_back(true);
     }
+#if defined(__cpp_exceptions)
+    EXPECT_THROW((void)subject.push_back(true), std::length_error);
+#elif (__cplusplus == CETL_CPP_STANDARD_14)
+    // Try to add one too many
+    subject.push_back(true);
     // Shouldn't have been added
     EXPECT_EQ(subject.size(), 3);
     EXPECT_EQ(subject[0], true);
     EXPECT_EQ(subject[1], true);
     EXPECT_EQ(subject[2], true);
+#else
+    GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
+#endif
 }

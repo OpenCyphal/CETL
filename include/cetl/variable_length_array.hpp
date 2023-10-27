@@ -2121,10 +2121,6 @@ public:
     /// is out of memory this method will still return the maximum number of elements that could
     /// be stored if the allocator had enough memory, however, it will always return the maximum
     /// size passed into the constructor if that value is less than the allocator's max_size.
-    /// Note that the underlying size_ and capacity_ of VariableLengthArrayBase are in terms
-    /// of bytes and then converted to bits in size() and capacity().  However the max_size_max_
-    /// is in terms of bits and thus no conversion is needed in max_size().
-    ///
     /// @return The maximum number of elements that could be stored in this container.
     constexpr size_type max_size() const noexcept
     {
@@ -2136,7 +2132,7 @@ public:
         const size_type max_alloc_bytes =
             std::min(max_diff_bytes, std::allocator_traits<allocator_type>::max_size(alloc_));
         const size_type max_bytes = std::min(max_alloc_bytes, numeric_limits_max_bits() / 8U);
-        return std::min(max_size_max_, max_bytes * 8U);
+        return std::min(max_size_max_bits(), max_bytes * 8U);
     }
 
     /// Reduce the amount of memory held by this object to the minimum required
@@ -2438,8 +2434,7 @@ private:
 
     constexpr static size_type round8(const size_type value) noexcept
     {
-        static_assert(numeric_limits_max_bits() + 7U > numeric_limits_max_bits(), "Uh oh, overflow");
-        return (value + 7U) & ~7ULL; // Careful, "ULL" to make sure the mask is long enough
+        return (value + 7U) & ~static_cast<size_type>(7U);  // Careful, make sure the mask is long enough
     }
     constexpr static size_type bits2bytes(const size_type value) noexcept
     {
@@ -2455,6 +2450,15 @@ private:
         return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1U);
     }
 
+    /// Note that the underlying size_ and capacity_ of VariableLengthArrayBase are in terms
+    /// of bytes and then converted to bits in size_bits() and capacity_bits().  However
+    /// bool VLA (unlike type T VLA) treats max_size_max_ in terms of bits and thus no conversion
+    /// is needed.
+    constexpr size_type max_size_max_bits() const noexcept
+    {
+        return max_size_max_;
+    }
+
     constexpr size_type capacity_bits() const noexcept
     {
         return capacity_ * 8U;
@@ -2464,7 +2468,12 @@ private:
     {
         // Make sure it ends on a byte boundary because of the various maths in other places that
         // convert between bits and bytes
-        return std::numeric_limits<size_type>::max() - (std::numeric_limits<size_type>::max() % 8U);
+        const size_type max_bits = std::numeric_limits<size_type>::max() - (std::numeric_limits<size_type>::max() % 8U);
+
+        // numeric_limits_max_bits() passes through round8() so we need to make sure it doesn't overflow
+        static_assert(max_bits + 7U > max_bits, "Uh oh, overflow");
+
+        return max_bits;
     }
 
     /// The number of bits that are valid in the last byte of the array. If size_ == 0 this value

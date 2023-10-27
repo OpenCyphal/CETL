@@ -692,6 +692,8 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
         cmake_configure_args.append("-DLIBCXX_ENABLE_ASSERTIONS:BOOL=ON")
 
     # --[EXCEPTIONS]---------------------------------------
+    if args.exceptions:
+        cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_EXCEPTIONS:BOOL=OFF")
     if args.no_exceptions:
         cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_EXCEPTIONS:BOOL=ON")
 
