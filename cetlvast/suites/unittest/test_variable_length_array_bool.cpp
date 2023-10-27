@@ -55,17 +55,31 @@ protected:
     }
 };
 
+template <typename T>
+class VLABoolTestsVLAOnly : public ::testing::Test
+{
+protected:
+    void TearDown() override
+    {
+        T::reset();
+    }
+};
+
 // clang-format off
 namespace cetlvast
 {
-using MyTypes = ::testing::Types<
+using VLAAndVectorTypes = ::testing::Types<
       TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>
     , TypeParamDef<cetlvast::DefaultAllocatorFactory, std::vector, unsigned char>
+>;
+using VLATypes = ::testing::Types<
+      TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>
 >;
 }  // namespace cetlvast
 // clang-format on
 
-TYPED_TEST_SUITE(VLABoolTests, cetlvast::MyTypes, );
+TYPED_TEST_SUITE(VLABoolTests, cetlvast::VLAAndVectorTypes, );
+TYPED_TEST_SUITE(VLABoolTestsVLAOnly, cetlvast::VLATypes, );
 
 // +---------------------------------------------------------------------------+
 // | TEST CASES :: Copy Construction
@@ -363,4 +377,44 @@ TYPED_TEST(VLABoolTests, TestAssignCountAndValue)
     {
         ASSERT_TRUE(*i);
     }
+}
+
+TYPED_TEST(VLABoolTestsVLAOnly, ConstructFromIteratorRange)
+{
+    // Provide it too much stuff
+    std::vector<bool> data{false, true, false};
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW((void)TypeParam::make_bool_container(data.begin(), data.end(), 2U), std::length_error);
+#elif (__cplusplus == CETL_CPP_STANDARD_14)
+    auto subject = TypeParam::make_bool_container(data.begin(), data.end(), 2U);
+    // Should only add to max
+    EXPECT_EQ(subject.size(), 2);
+    EXPECT_EQ(subject[0], false);
+    EXPECT_EQ(subject[1], true);
+#else
+    GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
+#endif
+}
+
+TYPED_TEST(VLABoolTestsVLAOnly, ExceedMaxSizeMaxFails)
+{
+    std::size_t max = 3U;
+    auto subject = TypeParam::make_bool_container(max);
+    for (std::size_t i = 0; i < max; i++) {
+        subject.push_back(true);
+    }
+#if defined(__cpp_exceptions)
+    EXPECT_THROW((void)subject.push_back(true), std::length_error);
+#elif (__cplusplus == CETL_CPP_STANDARD_14)
+    // Try to add one too many
+    subject.push_back(true);
+    // Shouldn't have been added
+    EXPECT_EQ(subject.size(), 3);
+    EXPECT_EQ(subject[0], true);
+    EXPECT_EQ(subject[1], true);
+    EXPECT_EQ(subject[2], true);
+#else
+    GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
+#endif
 }

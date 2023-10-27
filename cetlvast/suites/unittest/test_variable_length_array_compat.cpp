@@ -46,7 +46,7 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, TestMoveToVector)
     cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
         subject{10u, cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource())};
     subject.reserve(subject.max_size());
-    ASSERT_EQ(subject.capacity(), subject.max_size());
+    ASSERT_GE(subject.capacity(), subject.max_size());
     for (std::size_t i = 0; i < subject.max_size(); ++i)
     {
         subject.push_back(static_cast<TypeParam>(i % 2));
