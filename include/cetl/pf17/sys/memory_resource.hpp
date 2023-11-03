@@ -44,14 +44,14 @@ protected:
 #endif
             return nullptr;
         }
-        return ::operator new(size_bytes);
+        return std::malloc(size_bytes);
     }
 
     void do_deallocate(void* p, std::size_t size_bytes, std::size_t alignment) override
     {
         (void) size_bytes;
         (void) alignment;
-        ::operator delete(p);
+        std::free(p);
     }
 
     void* do_reallocate(void*       ptr,
