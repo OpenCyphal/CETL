@@ -335,6 +335,20 @@ TYPED_TEST(VLABoolTests, TestBoolResizeOneBit)
     ASSERT_EQ(0, array[4]);
 }
 
+TYPED_TEST(VLABoolTestsVLAOnly, TestBoolResizeExceedingMaxSizeMax)
+{
+    std::size_t max_size_max = 1ul;
+    auto array = TypeParam::make_bool_container(1ul);
+
+    ASSERT_EQ(0, array.size());
+#ifdef __cpp_exceptions
+    ASSERT_THROW(array.resize(2 * max_size_max), std::length_error);
+#else
+    array.resize(2 * max_size_max);
+    ASSERT_EQ(max_size_max, array.size());
+#endif  // __cpp_exceptions
+}
+
 TYPED_TEST(VLABoolTests, TestBoolFront)
 {
     auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});

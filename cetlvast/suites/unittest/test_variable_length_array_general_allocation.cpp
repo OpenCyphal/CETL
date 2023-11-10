@@ -784,6 +784,27 @@ TYPED_TEST(VLATestsGeneralAllocation, TestResizeWithCopy)
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
+TYPED_TEST(VLATestsGeneralAllocation, TestResizeExceedingMaxSizeMax)
+{
+    if (!std::is_same<typename TypeParam::container_type, cetlvast::CETLTag>::value)
+    {
+        GTEST_SKIP() << "Skipping test that only works for CETL VLA.";
+    }
+
+    std::size_t max_size_max = 1ul;
+    typename TestFixture::SubjectType subject{max_size_max, TestFixture::make_allocator()};
+
+    ASSERT_EQ(0, subject.size());
+#ifdef __cpp_exceptions
+    ASSERT_THROW(subject.resize(2 * max_size_max), std::length_error);
+#else
+    subject.resize(2 * max_size_max);
+    ASSERT_EQ(max_size_max, subject.size());
+#endif  // __cpp_exceptions
+}
+
+// +-------------------------------------------------------------------------------------------------------------------+
+
 TYPED_TEST(VLATestsGeneralAllocation, TestFrontAndBack)
 {
     using const_ref_value_type =

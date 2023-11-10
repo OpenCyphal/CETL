@@ -646,7 +646,7 @@ protected:
     }
 
     template <typename... Args>
-    constexpr void resize(const size_type new_size, const size_type max_size, Args&&... args)
+    constexpr void resize(size_type new_size, const size_type max_size, Args&&... args)
     {
         if (new_size == size_)
         {
@@ -659,6 +659,11 @@ protected:
             if (new_size > capacity_)
             {
                 reserve(new_size, max_size);
+#if !defined(__cpp_exceptions)
+                if (capacity_ != new_size) {
+                    new_size = capacity_;
+                }
+#endif
             }
             for (std::size_t i = size_; i < new_size; ++i)
             {
