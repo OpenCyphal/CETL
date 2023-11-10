@@ -784,7 +784,7 @@ TYPED_TEST(VLATestsGeneralAllocation, TestResizeWithCopy)
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
-TYPED_TEST(VLATestsGeneralAllocation, TestResizeExceedingMaxSizeMax)
+TYPED_TEST(VLATestsGeneralAllocation, TestExceedingMaxSizeMax)
 {
     if (!std::is_same<typename TypeParam::container_type, cetlvast::CETLTag>::value)
     {
@@ -793,12 +793,39 @@ TYPED_TEST(VLATestsGeneralAllocation, TestResizeExceedingMaxSizeMax)
 
     std::size_t max_size_max = 1ul;
     typename TestFixture::SubjectType subject{max_size_max, TestFixture::make_allocator()};
+    subject.push_back(123ul);
+    ASSERT_EQ(1, subject.size());
 
-    ASSERT_EQ(0, subject.size());
+    // Test resize()
 #ifdef __cpp_exceptions
     ASSERT_THROW(subject.resize(2 * max_size_max), std::length_error);
 #else
     subject.resize(2 * max_size_max);
+    ASSERT_EQ(max_size_max, subject.size());
+#endif  // __cpp_exceptions
+
+    // Test push_back()
+#ifdef __cpp_exceptions
+    const auto num = 456ul; // have to pass a const arg to hit the right push_back
+    ASSERT_THROW(subject.push_back(num), std::length_error);
+#else
+    subject.push_back(456ul);
+    ASSERT_EQ(max_size_max, subject.size());
+#endif  // __cpp_exceptions
+
+    // Test move push_back()
+#ifdef __cpp_exceptions
+    ASSERT_THROW(subject.push_back(std::move(456ul)), std::length_error);
+#else
+    subject.push_back(std::move(456ul));
+    ASSERT_EQ(max_size_max, subject.size());
+#endif  // __cpp_exceptions
+
+    // Test emplace_back()
+#ifdef __cpp_exceptions
+    ASSERT_THROW(subject.emplace_back(456ul), std::length_error);
+#else
+    subject.emplace_back(456ul);
     ASSERT_EQ(max_size_max, subject.size());
 #endif  // __cpp_exceptions
 }
