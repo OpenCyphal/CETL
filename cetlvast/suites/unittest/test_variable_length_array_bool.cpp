@@ -338,7 +338,7 @@ TYPED_TEST(VLABoolTests, TestBoolResizeOneBit)
 TYPED_TEST(VLABoolTestsVLAOnly, TestBoolExceedingMaxSizeMax)
 {
     std::size_t max_size_max = 1ul;
-    auto array = TypeParam::make_bool_container(1ul);
+    auto array = TypeParam::make_bool_container(max_size_max);
     array.push_back(true);
     ASSERT_EQ(1, array.size());
 
@@ -424,28 +424,6 @@ TYPED_TEST(VLABoolTestsVLAOnly, ConstructFromIteratorRange)
     EXPECT_EQ(subject.size(), 2);
     EXPECT_EQ(subject[0], false);
     EXPECT_EQ(subject[1], true);
-#else
-    GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
-#endif
-}
-
-TYPED_TEST(VLABoolTestsVLAOnly, ExceedMaxSizeMaxFails)
-{
-    std::size_t max = 3U;
-    auto subject = TypeParam::make_bool_container(max);
-    for (std::size_t i = 0; i < max; i++) {
-        subject.push_back(true);
-    }
-#if defined(__cpp_exceptions)
-    EXPECT_THROW((void)subject.push_back(true), std::length_error);
-#elif (__cplusplus == CETL_CPP_STANDARD_14)
-    // Try to add one too many
-    subject.push_back(true);
-    // Shouldn't have been added
-    EXPECT_EQ(subject.size(), 3);
-    EXPECT_EQ(subject[0], true);
-    EXPECT_EQ(subject[1], true);
-    EXPECT_EQ(subject[2], true);
 #else
     GTEST_SKIP() << "C++17 pmr does not support defined out of memory behaviour without exceptions.";
 #endif
