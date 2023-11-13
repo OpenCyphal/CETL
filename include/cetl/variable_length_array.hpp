@@ -646,7 +646,7 @@ protected:
     }
 
     template <typename... Args>
-    constexpr void resize(const size_type new_size, const size_type max_size, Args&&... args)
+    constexpr void resize(size_type new_size, const size_type max_size, Args&&... args)
     {
         if (new_size == size_)
         {
@@ -659,6 +659,12 @@ protected:
             if (new_size > capacity_)
             {
                 reserve(new_size, max_size);
+#if !defined(__cpp_exceptions)
+                if (capacity_ != new_size)
+                {
+                    new_size = capacity_;
+                }
+#endif
             }
             for (std::size_t i = size_; i < new_size; ++i)
             {
@@ -1403,12 +1409,7 @@ public:
             return;
         }
 
-        if (nullptr == push_back_impl(value))
-        {
-#if defined(__cpp_exceptions)
-            throw std::length_error("size is at capacity. Use reserve to grow the capacity.");
-#endif
-        }
+        push_back_impl(value);
     }
 
     ///
@@ -1424,18 +1425,10 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if defined(__cpp_exceptions)
-            throw std::length_error("size is at capacity and we cannot grow the capacity.");
-#endif
             return;
         }
 
-        if (nullptr == push_back_impl(std::move(value)))
-        {
-#if defined(__cpp_exceptions)
-            throw std::length_error("size is at capacity. Use reserve to grow the capacity.");
-#endif
-        }
+        push_back_impl(std::forward<value_type>(value));
     }
 
     ///
@@ -1458,9 +1451,6 @@ public:
     {
         if (!ensure_size_plus_one())
         {
-#if defined(__cpp_exceptions)
-            throw std::length_error("size is at capacity and we cannot grow the capacity.");
-#endif
             return;
         }
 
@@ -1522,19 +1512,24 @@ private:
             return true;
         }
 
-        return Base::grow(max_size());
+        if (!Base::grow(max_size()))
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("size is at capacity and we cannot grow the capacity.");
+#endif
+            return false;
+        }
+
+        return true;
     }
 
-    constexpr pointer push_back_impl(value_type&& value) noexcept(std::is_nothrow_move_constructible<value_type>::value)
+    constexpr void push_back_impl(value_type&& value) noexcept(std::is_nothrow_move_constructible<value_type>::value)
     {
+        CETL_DEBUG_ASSERT(size_ < capacity_, "CDE_vla_008: No capacity to push element.");
         if (size_ < capacity_)
         {
             std::allocator_traits<allocator_type>::construct(alloc_, &data_[size_], std::move(value));
-            return &data_[size_++];
-        }
-        else
-        {
-            return nullptr;
+            size_++;
         }
     }
 
