@@ -28,17 +28,17 @@ import typing
 
 @functools.lru_cache
 def _get_version_number(gitdir: pathlib.Path) -> typing.Tuple[int, int, int, str]:
-        git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
-        match_obj = re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)
-        if match_obj is not None:
-            qualifier = match_obj.group(4)
-            _version_string = (int(match_obj.group(1)),
-                            int(match_obj.group(2)),
-                            int(match_obj.group(3)),
-                            qualifier if qualifier else "")
-        else:
-            _version_string = (0,0,0,"")
-        return _version_string
+    git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
+    match_obj = re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)
+    if match_obj is not None:
+        qualifier = match_obj.group(4)
+        _version_string = (int(match_obj.group(1)),
+                        int(match_obj.group(2)),
+                        int(match_obj.group(3)),
+                        qualifier if qualifier else "")
+    else:
+        _version_string = (0,0,0,"")
+    return _version_string
 
 
 
