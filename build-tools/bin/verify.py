@@ -28,17 +28,17 @@ import typing
 
 @functools.lru_cache
 def _get_version_number(gitdir: pathlib.Path) -> typing.Tuple[int, int, int, str]:
-        git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
-        match_obj = re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)
-        if match_obj is not None:
-            qualifier = match_obj.group(4)
-            _version_string = (int(match_obj.group(1)),
-                            int(match_obj.group(2)),
-                            int(match_obj.group(3)),
-                            qualifier if qualifier else "")
-        else:
-            _version_string = (0,0,0,"")
-        return _version_string
+    git_output = subprocess.run(["git", "describe", "--abbrev=0", "--tags"], cwd=gitdir, capture_output=True, text=True).stdout
+    match_obj = re.match(r"^v(\d+)\.(\d+)\.(\d+)[-_]?(\w*)", git_output)
+    if match_obj is not None:
+        qualifier = match_obj.group(4)
+        _version_string = (int(match_obj.group(1)),
+                        int(match_obj.group(2)),
+                        int(match_obj.group(3)),
+                        qualifier if qualifier else "")
+    else:
+        _version_string = (0,0,0,"")
+    return _version_string
 
 
 
@@ -232,7 +232,7 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
             """
         Emits the current version.
 
-            export CYPHAL_PROJECT_VERSION=$(./verify.py --version)
+            export CETL_PROJECT_VERSION=$(./verify.py --version)
 
     """[1:])
     )
@@ -648,7 +648,7 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
     # set version number from git tag
     version = _get_version_number(_root_dir(args))
     version_string = "{}.{}.{}".format(version[0], version[1], version[2])
-    cmake_configure_args.append("-DCYPHAL_PROJECT_VERSION={}".format(version_string))
+    cmake_configure_args.append("-DCETL_PROJECT_VERSION={}".format(version_string))
 
     if not args.online:
         # see https://cmake.org/cmake/help/latest/module/FetchContent.html
@@ -843,6 +843,10 @@ def cli() -> int:
     """
         ).format(os.path.basename(__file__), str(_build_dir(args)), str(args), _get_version_number(_root_dir(args)))
     )
+
+    if args.version:
+        print(".".join(map(str, _get_version_number(_root_dir(args))[:3])))
+        return 0
 
     # --[CLEAN]----------------------------------------------------------------
     if args.action == "clean" or args.action.prefix == "clean":

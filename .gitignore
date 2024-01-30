@@ -44,3 +44,7 @@ Vagrantfile
 
 # vscode
 .vscode/c_cpp_properties.json
+
+# JetBrains
+.idea/*
+cmake-build-*/

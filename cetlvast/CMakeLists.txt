@@ -26,14 +26,14 @@ if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
     set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 endif()
 
-if (NOT DEFINED CYPHAL_PROJECT_VERSION)
-    message(WARNING "CYPHAL_PROJECT_VERSION was not set. Setting CYPHAL_VERSION to default of 0.0.0.")
-    set(CYPHAL_VERSION "0.0.0")
+if (NOT DEFINED CETL_PROJECT_VERSION)
+    message(WARNING "CETL_PROJECT_VERSION was not set. Setting CETL_VERSION to default of 0.0.0.")
+    set(CETL_VERSION "0.0.0")
 else()
-    set(CYPHAL_VERSION ${CYPHAL_PROJECT_VERSION})
+    set(CETL_VERSION ${CETL_PROJECT_VERSION})
 endif()
 
-add_compile_definitions("CYPHAL_VERSION=\"${CYPHAL_VERSION}\"")
+add_compile_definitions("CETL_VERSION=\"${CETL_VERSION}\"")
 
 if (NOT DEFINED CETL_ROOT)
     set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
@@ -44,12 +44,6 @@ if (NOT DEFINED CETL_ROOT)
     message(DEBUG "Setting CETL_ROOT = ${CETL_ROOT}")
 else()
     message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
-endif()
-
-if(NOT DEFINED FETCHCONTENT_FULLY_DISCONNECTED)
-    message(WARNING "FETCHCONTENT_FULLY_DISCONNECTED was not defined. Setting to \"OFF\" as a default but the build "
-                    "will fail if you haven't previously downloaded the external dependencies.")
-    set(FETCHCONTENT_FULLY_DISCONNECTED OFF)
 endif()
 
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)

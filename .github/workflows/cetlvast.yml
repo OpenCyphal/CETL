@@ -30,7 +30,7 @@ jobs:
             std: 14
             toolchain: gcc
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Cache ext modules
       id: cetlvast-ext
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Cache ext modules
       id: cetlvast-ext
       uses: actions/cache@v3
@@ -108,11 +108,11 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
     - name: Install sonar-scanner
-      uses: SonarSource/sonarcloud-github-c-cpp@v1
+      uses: SonarSource/sonarcloud-github-c-cpp@v2
 
     - name: Cache ext modules
       id: cetlvast-ext
