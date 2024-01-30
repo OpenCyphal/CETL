@@ -232,7 +232,7 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
             """
         Emits the current version.
 
-            export CYPHAL_PROJECT_VERSION=$(./verify.py --version)
+            export CETL_PROJECT_VERSION=$(./verify.py --version)
 
     """[1:])
     )
@@ -648,7 +648,7 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
     # set version number from git tag
     version = _get_version_number(_root_dir(args))
     version_string = "{}.{}.{}".format(version[0], version[1], version[2])
-    cmake_configure_args.append("-DCYPHAL_PROJECT_VERSION={}".format(version_string))
+    cmake_configure_args.append("-DCETL_PROJECT_VERSION={}".format(version_string))
 
     if not args.online:
         # see https://cmake.org/cmake/help/latest/module/FetchContent.html
@@ -843,6 +843,10 @@ def cli() -> int:
     """
         ).format(os.path.basename(__file__), str(_build_dir(args)), str(args), _get_version_number(_root_dir(args)))
     )
+
+    if args.version:
+        print(".".join(map(str, _get_version_number(_root_dir(args))[:3])))
+        return 0
 
     # --[CLEAN]----------------------------------------------------------------
     if args.action == "clean" or args.action.prefix == "clean":
