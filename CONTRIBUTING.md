@@ -12,10 +12,10 @@ early-adopters. To facilitate git submodule access to CETL and to avoid noise we
 incubate such types. As such, we may request that your PR to `main` be redirected to a feature branch we setup in the
 form of `preview/{your incubating feature name}`.
 
-# Running CETLVaSt
+# Running CETLVaSt locally
 
 ```
-./build-tools/bin/verify.py
+./build-tools/bin/verify.py --online
 ```
 
 need help?
@@ -44,7 +44,7 @@ docker pull ghcr.io/opencyphal/toolshed:ts22.4.3
 git clone {this repo}
 cd CETL
 docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3
-./build-tools/bin/verify.py -vv configure
+./build-tools/bin/verify.py -vv --online configure
 cd build
 ninja release
 ```
