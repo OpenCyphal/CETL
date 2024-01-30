@@ -46,12 +46,6 @@ else()
     message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
 endif()
 
-if(NOT DEFINED FETCHCONTENT_FULLY_DISCONNECTED)
-    message(WARNING "FETCHCONTENT_FULLY_DISCONNECTED was not defined. Setting to \"OFF\" as a default but the build "
-                    "will fail if you haven't previously downloaded the external dependencies.")
-    set(FETCHCONTENT_FULLY_DISCONNECTED OFF)
-endif()
-
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)
     message(DEBUG "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
     set(CMAKE_MODULE_PATH ${CETLVAST_CMAKE_MODULE_PATH})
