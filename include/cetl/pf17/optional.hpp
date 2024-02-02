@@ -10,9 +10,7 @@
 #include <cetl/pf17/utility.hpp>
 
 #include <algorithm>
-#include <array>
 #include <cassert>
-#include <cstdint>
 #include <type_traits>
 #if defined(__cpp_exceptions)
 #    include <exception>
@@ -206,7 +204,7 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
     constexpr base_copy_assignment(const base_copy_assignment&) noexcept = default;
     constexpr base_copy_assignment(base_copy_assignment&&) noexcept      = default;
     constexpr base_copy_assignment& operator=(const base_copy_assignment& other) noexcept(
-        std::is_nothrow_copy_assignable<T>::value)
+        std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_copy_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -248,7 +246,7 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
     constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
     constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
     constexpr base_move_assignment& operator=(base_move_assignment&& other) noexcept(
-        std::is_nothrow_move_assignable<T>::value)
+        std::is_nothrow_move_assignable<T>::value && std::is_nothrow_move_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -305,6 +303,9 @@ class optional : private detail::opt::base_move_assignment<T>,
                      std::is_copy_constructible<T>::value && std::is_copy_assignable<T>::value,
                      std::is_move_constructible<T>::value && std::is_move_assignable<T>::value>
 {
+    template <typename U>
+    friend class optional;
+
     using base = detail::opt::base_move_assignment<T>;
 
     static_assert(!std::is_same<typename std::remove_cvref<T>::type, in_place_t>::value);
@@ -371,7 +372,7 @@ public:
     /// Constructor 6
     /// TODO: conditional explicitness
     template <typename... Args>
-    constexpr optional(in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
+    constexpr optional(const in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
         : base(in_place, std::forward<Args>(args)...)
     {
     }
@@ -379,7 +380,7 @@ public:
     /// Constructor 7
     /// TODO: conditional explicitness
     template <typename U, typename... Args>
-    constexpr optional(in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
+    constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
         : base(in_place, il, std::forward<Args>(args)...)
     {
@@ -397,6 +398,88 @@ public:
     }
 
     ~optional() noexcept = default;
+
+    /// Assignment 1
+    optional& operator=(const nullopt_t) noexcept
+    {
+        reset();
+        return *this;
+    }
+
+    /// Assignment 2
+    optional& operator=(const optional& other) = default;
+
+    /// Assignment 3
+    constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable<T>::value &&
+                                                             std::is_nothrow_move_constructible<T>::value) = default;
+
+    /// Assignment 4
+    template <typename U                                                                                       = T,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                           = 0,
+              std::enable_if_t<std::is_constructible<T, U>::value, int>                                        = 0,
+              std::enable_if_t<std::is_assignable<T&, U>::value, int>                                          = 0,
+              std::enable_if_t<(!std::is_scalar<T>::value) || (!std::is_same<std::decay_t<U>, T>::value), int> = 0>
+    optional& operator=(U&& value)
+    {
+        if (this->m_engaged)
+        {
+            this->m_value = std::forward<U>(value);
+        }
+        else
+        {
+            new (std::addressof(this->m_value)) T(std::forward<U>(value));
+            this->m_engaged = true;
+        }
+        return *this;
+    }
+
+    /// Assignment 5
+    template <typename U,
+              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int> = 0,
+              std::enable_if_t<!detail::opt::assignable<T&, optional<U>>, int> = 0,
+              std::enable_if_t<std::is_constructible_v<T, const U&>, int>      = 0,
+              std::enable_if_t<std::is_assignable_v<T&, const U&>, int>        = 0>
+    optional& operator=(const optional<U>& other)
+    {
+        if (this->m_engaged && other.m_engaged)
+        {
+            this->m_value = other.m_value;
+        }
+        else if (other.m_engaged)
+        {
+            new (std::addressof(this->m_value)) T(other.m_value);
+            this->m_engaged = true;
+        }
+        else
+        {
+            this->reset();
+        }
+        return *this;
+    }
+
+    /// Assignment 6
+    template <typename U,
+              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int> = 0,
+              std::enable_if_t<!detail::opt::assignable<T&, optional<U>>, int> = 0,
+              std::enable_if_t<std::is_constructible_v<T, U>, int>             = 0,
+              std::enable_if_t<std::is_assignable_v<T&, U>, int>               = 0>
+    optional& operator=(optional<U>&& other)
+    {
+        if (this->m_engaged && other.m_engaged)
+        {
+            this->m_value = std::move(other.m_value);
+        }
+        else if (other.m_engaged)
+        {
+            new (std::addressof(this->m_value)) T(std::move(other.m_value));
+            this->m_engaged = true;
+        }
+        else
+        {
+            this->reset();
+        }
+        return *this;
+    }
 
     /// True if the optional is engaged.
     constexpr bool has_value() const noexcept
@@ -703,6 +786,25 @@ template <typename T, typename U>
 constexpr bool operator>=(const T& value, const optional<U>& opt)
 {
     return (!opt.has_value()) || (value >= *opt);
+}
+/// @}
+
+/// Polyfill for std::make_optional.
+/// @{
+template <typename T>
+constexpr optional<std::decay_t<T>> make_optional(T&& value)
+{
+    return optional<std::decay_t<T>>{std::forward<T>(value)};
+}
+template <typename T, typename... Args>
+constexpr optional<T> make_optional(Args&&... args)
+{
+    return optional<T>{in_place, std::forward<Args>(args)...};
+}
+template <typename T, typename U, typename... Args>
+constexpr optional<T> make_optional(std::initializer_list<U> il, Args&&... args)
+{
+    return optional<T>{in_place, il, std::forward<Args>(args)...};
 }
 /// @}
 
