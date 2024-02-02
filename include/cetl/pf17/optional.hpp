@@ -7,6 +7,7 @@
 #define CETL_OPTIONAL_HPP_INCLUDED
 
 #include <cetl/_helpers.hpp>
+#include <cetl/pf17/utility.hpp>
 
 #include <algorithm>
 #include <array>
@@ -75,7 +76,7 @@ struct base_storage
     {
     }
     template <typename... Args>
-    constexpr explicit base_storage(const std::in_place_t, Args&&... args)
+    constexpr explicit base_storage(const in_place_t, Args&&... args)
         : m_value(std::forward<Args>(args)...)
         , m_engaged(true)
     {
@@ -306,7 +307,7 @@ class optional : private detail::opt::base_move_assignment<T>,
 {
     using base = detail::opt::base_move_assignment<T>;
 
-    static_assert(!std::is_same<typename std::remove_cvref<T>::type, std::in_place_t>::value);
+    static_assert(!std::is_same<typename std::remove_cvref<T>::type, in_place_t>::value);
     static_assert(!std::is_same<typename std::remove_cvref<T>::type, nullopt_t>::value);
     static_assert(!std::is_reference<T>::value);
     static_assert(!std::is_array<T>::value);
@@ -370,28 +371,28 @@ public:
     /// Constructor 6
     /// TODO: conditional explicitness
     template <typename... Args>
-    constexpr optional(std::in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
-        : base(std::in_place, std::forward<Args>(args)...)
+    constexpr optional(in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
+        : base(in_place, std::forward<Args>(args)...)
     {
     }
 
     /// Constructor 7
     /// TODO: conditional explicitness
     template <typename U, typename... Args>
-    constexpr optional(std::in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
+    constexpr optional(in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
         std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
-        : base(std::in_place, il, std::forward<Args>(args)...)
+        : base(in_place, il, std::forward<Args>(args)...)
     {
     }
 
     /// Constructor 8
     template <typename U                                                                                           = T,
               std::enable_if_t<std::is_constructible<T, U&&>::value, int>                                          = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, std::in_place_t>::value, int>                        = 0,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
               std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0>
     constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
-        : base(std::in_place, std::forward<U>(value))
+        : base(in_place, std::forward<U>(value))
     {
     }
 
