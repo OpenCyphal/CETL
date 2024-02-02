@@ -18,6 +18,8 @@
 
 namespace cetl
 {
+namespace pf17
+{
 /// A polyfill for std::optional.
 template <typename T>
 class optional;
@@ -297,9 +299,9 @@ constexpr bool is_optional = detail::opt::is_optional<T>::value;
 
 template <typename T>
 class optional : private detail::opt::base_move_assignment<T>,
-                 private detail::enable_copy_move_construction<std::is_copy_constructible<T>::value,
-                                                               std::is_move_constructible<T>::value>,
-                 private detail::enable_copy_move_assignment<
+                 private cetl::detail::enable_copy_move_construction<std::is_copy_constructible<T>::value,
+                                                                     std::is_move_constructible<T>::value>,
+                 private cetl::detail::enable_copy_move_assignment<
                      std::is_copy_constructible<T>::value && std::is_copy_assignable<T>::value,
                      std::is_move_constructible<T>::value && std::is_move_assignable<T>::value>
 {
@@ -321,7 +323,7 @@ public:
 
     /// Constructor 1
     constexpr optional() noexcept = default;
-    constexpr optional(const nullopt_t) noexcept {}
+    constexpr optional(const nullopt_t) noexcept {}  // NOLINT(*-explicit-constructor)
 
     /// Constructor 2
     constexpr optional(const optional&) noexcept = default;
@@ -808,6 +810,7 @@ constexpr optional<T> make_optional(std::initializer_list<U> il, Args&&... args)
 }
 /// @}
 
+}  // namespace pf17
 }  // namespace cetl
 
 #endif  // CETL_OPTIONAL_HPP_INCLUDED
