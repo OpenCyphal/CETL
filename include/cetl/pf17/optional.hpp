@@ -3,11 +3,12 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef CETL_OPTIONAL_HPP_INCLUDED
-#define CETL_OPTIONAL_HPP_INCLUDED
+#ifndef CETL_PF17_OPTIONAL_HPP_INCLUDED
+#define CETL_PF17_OPTIONAL_HPP_INCLUDED
 
 #include <cetl/_helpers.hpp>
 #include <cetl/pf17/utility.hpp>
+#include <cetl/pf17/attribute.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -51,7 +52,7 @@ public:
     bad_optional_access& operator=(const bad_optional_access&) noexcept = default;
     bad_optional_access& operator=(bad_optional_access&&) noexcept      = default;
 
-    const char* what() const noexcept override
+    CETL_NODISCARD const char* what() const noexcept override
     {
         return "bad_optional_access";
     }
@@ -337,7 +338,7 @@ public:
               std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
               std::enable_if_t<std::is_convertible<const U&, T>::value, int>     = 0,  // implicit
               std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
-    optional(const optional<U>& other)
+    optional(const optional<U>& other)  // NOLINT(*-explicit-constructor)
         : base(detail::opt::copy_tag{}, other)
     {
     }
@@ -357,7 +358,7 @@ public:
               std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
               std::enable_if_t<std::is_convertible<const U&, T>::value, int>     = 0,  // implicit
               std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
-    optional(optional<U>&& other)
+    optional(optional<U>&& other)  // NOLINT(*-explicit-constructor)
         : base(detail::opt::copy_tag{}, std::move(other))
     {
     }
@@ -374,7 +375,8 @@ public:
     /// Constructor 6
     /// TODO: conditional explicitness
     template <typename... Args>
-    constexpr optional(const in_place_t, Args&&... args) noexcept(std::is_nothrow_constructible<T, Args...>::value)
+    constexpr optional(const in_place_t, Args&&... args)  // NOLINT(*-explicit-constructor)
+        noexcept(std::is_nothrow_constructible<T, Args...>::value)
         : base(in_place, std::forward<Args>(args)...)
     {
     }
@@ -382,8 +384,8 @@ public:
     /// Constructor 7
     /// TODO: conditional explicitness
     template <typename U, typename... Args>
-    constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args) noexcept(
-        std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
+    constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args)  // NOLINT(*-explicit-constructor)
+        noexcept(std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
         : base(in_place, il, std::forward<Args>(args)...)
     {
     }
@@ -393,8 +395,20 @@ public:
               std::enable_if_t<std::is_constructible<T, U&&>::value, int>                                          = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
-              std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0>
-    constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
+              std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
+              std::enable_if<std::is_convertible<U&&, T>::value, int> = 0>  // implicit
+    constexpr optional(U&& value)                                           // NOLINT(*-explicit-constructor)
+        noexcept(std::is_nothrow_constructible<T, U>::value)
+        : base(in_place, std::forward<U>(value))
+    {
+    }
+    template <typename U                                                                                           = T,
+              std::enable_if_t<std::is_constructible<T, U&&>::value, int>                                          = 0,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
+              std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
+              std::enable_if<!std::is_convertible<U&&, T>::value, int> = 0>  // explicit
+    explicit constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {
     }
@@ -484,7 +498,7 @@ public:
     }
 
     /// True if the optional is engaged.
-    constexpr bool has_value() const noexcept
+    CETL_NODISCARD constexpr bool has_value() const noexcept
     {
         return this->m_engaged;
     }
@@ -537,22 +551,22 @@ public:
     /// If the optional is not engaged, the behavior depends on whether exception handling is enabled:
     /// - If exceptions are enabled, a bad_optional_access exception is thrown.
     /// - If exceptions are disabled, the behavior is undefined.
-    constexpr T& value() &
+    CETL_NODISCARD constexpr T& value() &
     {
         ensure_engaged();
         return this->m_value;
     }
-    constexpr const T& value() const&
+    CETL_NODISCARD constexpr const T& value() const&
     {
         ensure_engaged();
         return this->m_value;
     }
-    constexpr T&& value() &&
+    CETL_NODISCARD constexpr T&& value() &&
     {
         ensure_engaged();
         return this->m_value;
     }
-    constexpr const T&& value() const&&
+    CETL_NODISCARD constexpr const T&& value() const&&
     {
         ensure_engaged();
         return this->m_value;
@@ -562,12 +576,12 @@ public:
     /// If the optional is engaged, a copy of its value is returned; otherwise, the default value is
     /// converted to T and the result is returned.
     template <class U>
-    constexpr T value_or(U&& default_value) const&
+    CETL_NODISCARD constexpr T value_or(U&& default_value) const&
     {
         return has_value() ? **this : static_cast<T>(std::forward<U>(default_value));
     }
     template <class U>
-    constexpr T value_or(U&& default_value) &&
+    CETL_NODISCARD constexpr T value_or(U&& default_value) &&
     {
         return has_value() ? std::move(**this) : static_cast<T>(std::forward<U>(default_value));
     }
@@ -813,4 +827,4 @@ constexpr optional<T> make_optional(std::initializer_list<U> il, Args&&... args)
 }  // namespace pf17
 }  // namespace cetl
 
-#endif  // CETL_OPTIONAL_HPP_INCLUDED
+#endif  // CETL_PF17_OPTIONAL_HPP_INCLUDED
