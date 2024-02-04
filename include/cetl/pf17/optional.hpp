@@ -92,6 +92,7 @@ struct base_storage
             new (std::addressof(m_value)) T(std::forward<U>(other).m_value);
         }
     }
+    ~base_storage() noexcept {}
 
     union
     {
