@@ -61,9 +61,6 @@ public:
 
 namespace detail::opt
 {
-struct nihil final
-{};
-
 struct copy_tag final
 {};
 
@@ -96,8 +93,8 @@ struct base_storage
 
     union
     {
-        nihil m_nihil;
-        T     m_value;
+        CETL_MAYBE_UNUSED in_place_t m_nihil;
+        T                            m_value;
     };
     bool m_engaged;
 };
@@ -397,7 +394,7 @@ public:
               std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
               std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
-              std::enable_if<std::is_convertible<U&&, T>::value, int> = 0>  // implicit
+              std::enable_if_t<std::is_convertible<U&&, T>::value, int> = 0>  // implicit
     constexpr optional(U&& value)                                           // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
@@ -408,7 +405,7 @@ public:
               std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
               std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
-              std::enable_if<!std::is_convertible<U&&, T>::value, int> = 0>  // explicit
+              std::enable_if_t<!std::is_convertible<U&&, T>::value, int> = 0>  // explicit
     explicit constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {

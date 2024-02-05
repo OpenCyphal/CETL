@@ -13,18 +13,18 @@
 /// This has to be an old-style enum because C++14 requires it to be convertible to int.
 enum special_function_policy
 {
-    PolicyNontrivial = 0,
-    PolicyTrivial    = 1,
-    PolicyDeleted    = 2,
+    policy_deleted    = 0,
+    policy_trivial    = 1,
+    policy_nontrivial = 2,
 };
 
 /// COPY CONSTRUCTION POLICY -------------------------------------------------------------------------------------------
 template <std::uint8_t>
 struct copy_ctor_policy;
 template <>
-struct copy_ctor_policy<PolicyNontrivial>
+struct copy_ctor_policy<policy_nontrivial>
 {
-    static constexpr auto copy_ctor_policy_value = PolicyNontrivial;
+    static constexpr auto copy_ctor_policy_value = policy_nontrivial;
     copy_ctor_policy()                           = default;
     copy_ctor_policy(const copy_ctor_policy& other)
         : copy_constructed{other.copy_constructed + 1U}
@@ -41,9 +41,9 @@ struct copy_ctor_policy<PolicyNontrivial>
     std::uint32_t copy_constructed = 0;
 };
 template <>
-struct copy_ctor_policy<PolicyTrivial>
+struct copy_ctor_policy<policy_trivial>
 {
-    static constexpr auto copy_ctor_policy_value = PolicyTrivial;
+    static constexpr auto copy_ctor_policy_value = policy_trivial;
     CETL_NODISCARD auto   get_copy_ctor_count() const
     {
         (void) this;
@@ -51,9 +51,9 @@ struct copy_ctor_policy<PolicyTrivial>
     }
 };
 template <>
-struct copy_ctor_policy<PolicyDeleted>
+struct copy_ctor_policy<policy_deleted>
 {
-    static constexpr auto copy_ctor_policy_value         = PolicyDeleted;
+    static constexpr auto copy_ctor_policy_value         = policy_deleted;
     copy_ctor_policy()                                   = default;
     copy_ctor_policy(const copy_ctor_policy&)            = delete;
     copy_ctor_policy(copy_ctor_policy&&)                 = default;
@@ -71,9 +71,9 @@ struct copy_ctor_policy<PolicyDeleted>
 template <std::uint8_t>
 struct move_ctor_policy;
 template <>
-struct move_ctor_policy<PolicyNontrivial>
+struct move_ctor_policy<policy_nontrivial>
 {
-    static constexpr auto move_ctor_policy_value = PolicyNontrivial;
+    static constexpr auto move_ctor_policy_value = policy_nontrivial;
     move_ctor_policy()                           = default;
     move_ctor_policy(const move_ctor_policy&)    = default;
     move_ctor_policy(move_ctor_policy&& other) noexcept
@@ -90,9 +90,9 @@ struct move_ctor_policy<PolicyNontrivial>
     }
 };
 template <>
-struct move_ctor_policy<PolicyTrivial>
+struct move_ctor_policy<policy_trivial>
 {
-    static constexpr auto move_ctor_policy_value = PolicyTrivial;
+    static constexpr auto move_ctor_policy_value = policy_trivial;
     CETL_NODISCARD auto   get_move_ctor_count() const
     {
         (void) this;
@@ -100,9 +100,9 @@ struct move_ctor_policy<PolicyTrivial>
     }
 };
 template <>
-struct move_ctor_policy<PolicyDeleted>
+struct move_ctor_policy<policy_deleted>
 {
-    static constexpr auto move_ctor_policy_value         = PolicyDeleted;
+    static constexpr auto move_ctor_policy_value         = policy_deleted;
     move_ctor_policy()                                   = default;
     move_ctor_policy(const move_ctor_policy&)            = default;
     move_ctor_policy(move_ctor_policy&&)                 = delete;
@@ -120,9 +120,9 @@ struct move_ctor_policy<PolicyDeleted>
 template <std::uint8_t>
 struct copy_assignment_policy;
 template <>
-struct copy_assignment_policy<PolicyNontrivial>
+struct copy_assignment_policy<policy_nontrivial>
 {
-    static constexpr auto copy_assignment_policy_value    = PolicyNontrivial;
+    static constexpr auto copy_assignment_policy_value    = policy_nontrivial;
     copy_assignment_policy()                              = default;
     copy_assignment_policy(const copy_assignment_policy&) = default;
     copy_assignment_policy(copy_assignment_policy&&)      = default;
@@ -140,9 +140,9 @@ struct copy_assignment_policy<PolicyNontrivial>
     std::uint32_t copy_assigned = 0;
 };
 template <>
-struct copy_assignment_policy<PolicyTrivial>
+struct copy_assignment_policy<policy_trivial>
 {
-    static constexpr auto copy_assignment_policy_value = PolicyTrivial;
+    static constexpr auto copy_assignment_policy_value = policy_trivial;
     CETL_NODISCARD auto   get_copy_assignment_count() const
     {
         (void) this;
@@ -150,9 +150,9 @@ struct copy_assignment_policy<PolicyTrivial>
     }
 };
 template <>
-struct copy_assignment_policy<PolicyDeleted>
+struct copy_assignment_policy<policy_deleted>
 {
-    static constexpr auto copy_assignment_policy_value               = PolicyDeleted;
+    static constexpr auto copy_assignment_policy_value               = policy_deleted;
     copy_assignment_policy()                                         = default;
     copy_assignment_policy(const copy_assignment_policy&)            = default;
     copy_assignment_policy(copy_assignment_policy&&)                 = default;
@@ -170,9 +170,9 @@ struct copy_assignment_policy<PolicyDeleted>
 template <std::uint8_t>
 struct move_assignment_policy;
 template <>
-struct move_assignment_policy<PolicyNontrivial>
+struct move_assignment_policy<policy_nontrivial>
 {
-    static constexpr auto move_assignment_policy_value               = PolicyNontrivial;
+    static constexpr auto move_assignment_policy_value               = policy_nontrivial;
     move_assignment_policy()                                         = default;
     move_assignment_policy(const move_assignment_policy&)            = default;
     move_assignment_policy(move_assignment_policy&&)                 = default;
@@ -190,9 +190,9 @@ struct move_assignment_policy<PolicyNontrivial>
     std::uint32_t move_assigned = 0;
 };
 template <>
-struct move_assignment_policy<PolicyTrivial>
+struct move_assignment_policy<policy_trivial>
 {
-    static constexpr auto move_assignment_policy_value = PolicyTrivial;
+    static constexpr auto move_assignment_policy_value = policy_trivial;
     CETL_NODISCARD auto   get_move_assignment_count() const
     {
         (void) this;
@@ -200,9 +200,9 @@ struct move_assignment_policy<PolicyTrivial>
     }
 };
 template <>
-struct move_assignment_policy<PolicyDeleted>
+struct move_assignment_policy<policy_deleted>
 {
-    static constexpr auto move_assignment_policy_value               = PolicyDeleted;
+    static constexpr auto move_assignment_policy_value               = policy_deleted;
     move_assignment_policy()                                         = default;
     move_assignment_policy(const move_assignment_policy&)            = default;
     move_assignment_policy(move_assignment_policy&&)                 = default;
@@ -220,9 +220,9 @@ struct move_assignment_policy<PolicyDeleted>
 template <std::uint8_t>
 struct dtor_policy;
 template <>
-struct dtor_policy<PolicyNontrivial>
+struct dtor_policy<policy_nontrivial>
 {
-    static constexpr auto dtor_policy_value        = PolicyNontrivial;
+    static constexpr auto dtor_policy_value        = policy_nontrivial;
     dtor_policy()                                  = default;
     dtor_policy(const dtor_policy&)                = default;
     dtor_policy(dtor_policy&&) noexcept            = default;
@@ -239,9 +239,9 @@ struct dtor_policy<PolicyNontrivial>
     std::uint32_t destructed = 0;
 };
 template <>
-struct dtor_policy<PolicyTrivial>
+struct dtor_policy<policy_trivial>
 {
-    static constexpr auto dtor_policy_value = PolicyTrivial;
+    static constexpr auto dtor_policy_value = policy_trivial;
     CETL_NODISCARD auto   get_destruction_count() const
     {
         (void) this;
@@ -249,9 +249,9 @@ struct dtor_policy<PolicyTrivial>
     }
 };
 template <>
-struct dtor_policy<PolicyDeleted>
+struct dtor_policy<policy_deleted>
 {
-    static constexpr auto dtor_policy_value        = PolicyDeleted;
+    static constexpr auto dtor_policy_value        = policy_deleted;
     dtor_policy()                                  = default;
     dtor_policy(const dtor_policy&)                = default;
     dtor_policy(dtor_policy&&) noexcept            = default;
@@ -266,16 +266,16 @@ struct dtor_policy<PolicyDeleted>
 };
 
 /// CONFIGURABLE POLICY TYPE -------------------------------------------------------------------------------------------
-template <std::uint8_t CopyConstruction,  //
-          std::uint8_t MoveConstruction,
-          std::uint8_t CopyAssignment,
-          std::uint8_t MoveAssignment,
-          std::uint8_t Destruction>
-struct configurable_special_function_type : copy_ctor_policy<CopyConstruction>,
-                                            move_ctor_policy<MoveConstruction>,
-                                            copy_assignment_policy<CopyAssignment>,
-                                            move_assignment_policy<MoveAssignment>,
-                                            dtor_policy<Destruction>
+template <std::uint8_t copy_ctor,  //
+          std::uint8_t move_ctor,
+          std::uint8_t copy_assignment,
+          std::uint8_t move_assignment,
+          std::uint8_t destruction>
+struct configurable_special_function_type : copy_ctor_policy<copy_ctor>,
+                                            move_ctor_policy<move_ctor>,
+                                            copy_assignment_policy<copy_assignment>,
+                                            move_assignment_policy<move_assignment>,
+                                            dtor_policy<destruction>
 {
     configurable_special_function_type() = default;
 };
@@ -285,15 +285,15 @@ constexpr std::uint32_t power(const std::uint32_t base, const std::uint32_t expo
     return (exponent == 0) ? 1 : ((exponent == 1) ? base : (base * power(base, exponent - 1U)));
 }
 
-template <std::uint16_t PackedPolicy>
+template <std::uint16_t packed_policy>
 struct packed_configurable_special_function_type
-    : configurable_special_function_type<(PackedPolicy / power(3, 4)) % 3,  //
-                                         (PackedPolicy / power(3, 3)) % 3,  //
-                                         (PackedPolicy / power(3, 2)) % 3,  //
-                                         (PackedPolicy / power(3, 1)) % 3,  //
-                                         (PackedPolicy / power(3, 0)) % 3>
+    : configurable_special_function_type<(packed_policy / power(3, 4)) % 3,  //
+                                         (packed_policy / power(3, 3)) % 3,  //
+                                         (packed_policy / power(3, 2)) % 3,  //
+                                         (packed_policy / power(3, 1)) % 3,  //
+                                         (packed_policy / power(3, 0)) % 3>
 {
-    static_assert(PackedPolicy < power(3, 5), "PackedPolicy is out of range.");
+    static_assert(packed_policy < power(3, 5), "packed_policy is out of range.");
 };
 
 using special_function_policy_combinations = ::testing::Types<  //
@@ -542,14 +542,14 @@ using special_function_policy_combinations = ::testing::Types<  //
     packed_configurable_special_function_type<242>>;
 
 /// This is a simple helper for testing that allows us to apply arbitrary special function policies to a value type.
-template <typename ValueType, typename... Bases>
-struct value_type final : public Bases...
+template <typename V, typename... B>
+struct value_type final : public B...
 {
-    explicit value_type(ValueType&& value)
-        : value{std::forward<ValueType>(value)}
+    explicit value_type(V&& value)
+        : value{std::forward<V>(value)}
     {
     }
-    ValueType value;
+    V value;
 };
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
@@ -560,22 +560,37 @@ class TestOptionalSpecialFunctionPolicy : public ::testing::Test
 
 TYPED_TEST_SUITE(TestOptionalSpecialFunctionPolicy, special_function_policy_combinations, );
 
-template <typename PolicyType,
-          std::uint8_t = PolicyType::copy_ctor_policy_value,
-          std::uint8_t = PolicyType::dtor_policy_value>
-struct copy_ctor_test
+template <typename policy_type,
+          std::uint8_t policy_copy_ctor = policy_type::copy_ctor_policy_value,
+          std::uint8_t policy_dtor      = policy_type::dtor_policy_value>
+struct test_ctor8
 {
     static void test()
     {
-        using ty = value_type<std::uint8_t, PolicyType>;
+        using ty = value_type<std::uint8_t, policy_type>;
         ty                       val(123U);
-        cetl::pf17::optional<ty> opt;
-        opt.emplace(val);
-        ASSERT_EQ(0U, val.get_copy_ctor_count());
+        cetl::pf17::optional<ty> opt(val);
+        EXPECT_EQ(0U, val.get_copy_ctor_count());
+        EXPECT_EQ(0U, val.get_move_ctor_count());
+        EXPECT_EQ(0U, val.get_copy_assignment_count());
+        EXPECT_EQ(0U, val.get_move_assignment_count());
+        EXPECT_EQ(0U, val.get_destruction_count());
+        ty& inner = opt.value();
+        EXPECT_EQ((policy_copy_ctor == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
+        EXPECT_EQ(0U, inner.get_move_ctor_count());
+        EXPECT_EQ(0U, inner.get_copy_assignment_count());
+        EXPECT_EQ(0U, inner.get_move_assignment_count());
+        EXPECT_EQ(0U, inner.get_destruction_count());
+        opt.reset();
+        EXPECT_EQ((policy_copy_ctor == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
+        EXPECT_EQ(0U, inner.get_move_ctor_count());
+        EXPECT_EQ(0U, inner.get_copy_assignment_count());
+        EXPECT_EQ(0U, inner.get_move_assignment_count());
+        EXPECT_EQ((policy_dtor == policy_nontrivial) ? 1U : 0, inner.get_destruction_count());
     }
 };
-template <typename PolicyType, std::uint8_t DtorPolicy>
-struct copy_ctor_test<PolicyType, PolicyDeleted, DtorPolicy>
+template <typename PolicyType, std::uint8_t policy_dtor>
+struct test_ctor8<PolicyType, policy_deleted, policy_dtor>
 {
     static void test()
     {
@@ -584,22 +599,22 @@ struct copy_ctor_test<PolicyType, PolicyDeleted, DtorPolicy>
     }
 };
 template <typename PolicyType>
-struct copy_ctor_test<PolicyType, PolicyNontrivial, PolicyDeleted>
+struct test_ctor8<PolicyType, policy_nontrivial, policy_deleted>
 {
     static void test() {}
 };
 template <typename PolicyType>
-struct copy_ctor_test<PolicyType, PolicyTrivial, PolicyDeleted>
+struct test_ctor8<PolicyType, policy_trivial, policy_deleted>
 {
     static void test() {}
 };
 template <typename PolicyType>
-struct copy_ctor_test<PolicyType, PolicyDeleted, PolicyDeleted>
+struct test_ctor8<PolicyType, policy_deleted, policy_deleted>
 {
     static void test() {}
 };
 
-TYPED_TEST(TestOptionalSpecialFunctionPolicy, TestCopyCtor)
+TYPED_TEST(TestOptionalSpecialFunctionPolicy, TestCtor8)
 {
-    copy_ctor_test<TypeParam>::test();
+    test_ctor8<TypeParam>::test();
 }

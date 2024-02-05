@@ -19,4 +19,17 @@
 #    endif
 #endif
 
+/// CETL_MAYBE_UNUSED
+#ifndef CETL_MAYBE_UNUSED
+#    if __cplusplus >= 201703L
+#        define CETL_MAYBE_UNUSED [[maybe_unused]]
+#    else
+#        if defined(__GNUC__) || defined(__clang__)
+#            define CETL_MAYBE_UNUSED __attribute__((unused))
+#        else
+#            define CETL_MAYBE_UNUSED
+#        endif
+#    endif
+#endif
+
 #endif  // CETL_PF17_ATTRIBUTE_HPP_INCLUDED
