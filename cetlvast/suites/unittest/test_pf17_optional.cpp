@@ -270,13 +270,13 @@ using policy_combinations = cetlvast::typelist::cartesian_product<  //
 
 /// Creates a new type that inherits from all the given types in the specified order.
 /// The list of types shall be given in a typelist container, like std::tuple.
-template <typename...>
+template <typename>
 struct combine_bases;
 template <template <typename...> class Q, typename... Ts>
 struct combine_bases<Q<Ts...>> : public Ts...
 {};
 
-template <typename...>
+template <typename>
 struct generate_bases;
 template <typename... Ts>
 struct generate_bases<std::tuple<Ts...>>
@@ -290,16 +290,10 @@ using testing_types = cetlvast::typelist::into<::testing::Types>::from<generate_
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
-/// This is a simple helper for testing that allows us to apply arbitrary special function policies to a value type.
-template <typename V, typename... B>
-struct value_type final : public B...
-{
-    explicit value_type(V&& value)
-        : value{std::forward<V>(value)}
-    {
-    }
-    V value;
-};
+using cetl::pf17::optional;
+
+// static_assert(std::is_same<optional<bool>::value_type, bool>::value, "");  // FIXME
+static_assert(std::is_same<optional<long>::value_type, long>::value, "");
 
 template <typename>
 class TestOptionalSpecialFunctionPolicy : public ::testing::Test
@@ -307,20 +301,80 @@ class TestOptionalSpecialFunctionPolicy : public ::testing::Test
 
 TYPED_TEST_SUITE(TestOptionalSpecialFunctionPolicy, testing_types, );
 
+/// This test checks common behaviors that are independent of the copy/move policies.
+TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
+{
+    struct value_type final : public TypeParam
+    {
+        explicit value_type(const std::int64_t val)
+            : value{val}
+        {
+        }
+        explicit value_type(std::initializer_list<std::int64_t> il)
+            : value{static_cast<std::int64_t>(il.size())}
+        {
+        }
+        std::int64_t value;
+    };
+    optional<value_type> opt;
+    EXPECT_FALSE(opt.has_value());
+    EXPECT_FALSE(opt);
+    opt.emplace(12345);
+    EXPECT_TRUE(opt.has_value());
+    EXPECT_TRUE(opt);
+    EXPECT_EQ(12345, opt->value);
+    EXPECT_EQ(12345, (*opt).value);
+    EXPECT_EQ(12345, (*std::move(opt)).value);
+    EXPECT_EQ(12345, opt.value().value);
+    EXPECT_EQ(12345, std::move(opt).value().value);
+    {
+        const auto& copt = opt;
+        EXPECT_EQ(12345, copt->value);
+        EXPECT_EQ(12345, (*copt).value);
+        EXPECT_EQ(12345, (*std::move(copt)).value);
+        EXPECT_EQ(12345, copt.value().value);
+        EXPECT_EQ(12345, std::move(copt).value().value);
+    }
+    opt = cetl::pf17::nullopt;
+    EXPECT_FALSE(opt);
+    opt.emplace(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5});
+    EXPECT_TRUE(opt);
+    EXPECT_EQ(5, opt->value);
+}
+
+#if defined(__cpp_exceptions)
+TYPED_TEST(TestOptionalSpecialFunctionPolicy, Exceptions)
+{
+    optional<TypeParam> opt;
+    EXPECT_THROW((void) opt.value(), cetl::pf17::bad_optional_access);
+    EXPECT_THROW((void) std::move(opt).value(), cetl::pf17::bad_optional_access);
+    opt.emplace();
+    EXPECT_NO_THROW((void) opt.value());
+    EXPECT_NO_THROW((void) std::move(opt).value());
+}
+#endif
+
 template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
 struct test_ctor8
 {
+    struct value_type final : public T
+    {
+        explicit value_type(const std::uint8_t val)
+            : value{val}
+        {
+        }
+        std::uint8_t value;
+    };
     static void test()
     {
-        using ty = value_type<std::uint8_t, T>;
-        ty                       val(123U);
-        cetl::pf17::optional<ty> opt(val);
+        value_type           val(123U);
+        optional<value_type> opt(val);
         EXPECT_EQ(0U, val.get_copy_ctor_count());
         EXPECT_EQ(0U, val.get_move_ctor_count());
         EXPECT_EQ(0U, val.get_copy_assignment_count());
         EXPECT_EQ(0U, val.get_move_assignment_count());
         EXPECT_EQ(0U, val.get_destruction_count());
-        ty& inner = opt.value();
+        value_type& inner = opt.value();
         EXPECT_EQ((CopyCtorPolicy == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
         EXPECT_EQ(0U, inner.get_move_ctor_count());
         EXPECT_EQ(0U, inner.get_copy_assignment_count());
@@ -340,7 +394,7 @@ struct test_ctor8<PolicyType, policy_deleted>
     static void test()
     {
         static_assert(!std::is_copy_constructible<PolicyType>::value);
-        static_assert(!std::is_copy_constructible<cetl::pf17::optional<PolicyType>>::value);
+        static_assert(!std::is_copy_constructible<optional<PolicyType>>::value);
     }
 };
 

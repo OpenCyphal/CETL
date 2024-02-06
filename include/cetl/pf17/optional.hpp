@@ -395,7 +395,7 @@ public:
               std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
               std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
               std::enable_if_t<std::is_convertible<U&&, T>::value, int> = 0>  // implicit
-    constexpr optional(U&& value)                                           // NOLINT(*-explicit-constructor)
+    constexpr optional(U&& value)                                             // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {
@@ -562,12 +562,12 @@ public:
     CETL_NODISCARD constexpr T&& value() &&
     {
         ensure_engaged();
-        return this->m_value;
+        return std::move(this->m_value);
     }
     CETL_NODISCARD constexpr const T&& value() const&&
     {
         ensure_engaged();
-        return this->m_value;
+        return std::move(this->m_value);
     }
 
     /// Checked access to the value with a fallback value.
@@ -613,11 +613,11 @@ public:
     }
     constexpr T&& operator*() && noexcept
     {
-        return this->m_value;
+        return std::move(this->m_value);
     }
     constexpr const T&& operator*() const&& noexcept
     {
-        return this->m_value;
+        return std::move(this->m_value);
     }
 
 private:
