@@ -164,7 +164,7 @@ list(TRANSFORM LOCAL_EXAMPLES PREPEND "examples/")
 
 create_docs_target( DOCS_DOXY_ROOT ${CMAKE_CURRENT_SOURCE_DIR}
                     OPEN_CYPHAL_PROJECT_NAME "CETL"
-                    OPEN_CYPHAL_PROJECT_VERSION ${CYPHAL_PROJECT_VERSION}
+                    OPEN_CYPHAL_PROJECT_VERSION ${CETL_PROJECT_VERSION}
                     OPEN_CYPHAL_PROJECT_NAME_BRIEF
                         "Cyphal Embedded Template Library"
                     EXAMPLES_PATH

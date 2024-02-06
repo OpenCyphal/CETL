@@ -28,7 +28,7 @@ struct nullopt_t final
 {
     enum class _detail
     {
-        _detail
+        _detail  ///< The secret tag is needed to meet the behavioral requirements.
     };
 
     constexpr explicit nullopt_t(const _detail) noexcept {}
