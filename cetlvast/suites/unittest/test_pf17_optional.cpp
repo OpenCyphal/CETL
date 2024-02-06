@@ -346,11 +346,12 @@ TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
 TYPED_TEST(TestOptionalSpecialFunctionPolicy, Exceptions)
 {
     optional<TypeParam> opt;
-    EXPECT_THROW((void) opt.value(), cetl::pf17::bad_optional_access);
-    EXPECT_THROW((void) std::move(opt).value(), cetl::pf17::bad_optional_access);
+    const auto sink = [](auto&&) {};  // Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
+    EXPECT_THROW(sink(opt.value()), cetl::pf17::bad_optional_access);
+    EXPECT_THROW(sink(std::move(opt).value()), cetl::pf17::bad_optional_access);
     opt.emplace();
-    EXPECT_NO_THROW((void) opt.value());
-    EXPECT_NO_THROW((void) std::move(opt).value());
+    EXPECT_NO_THROW(sink(opt.value()));
+    EXPECT_NO_THROW(sink(std::move(opt).value()));
 }
 #endif
 
