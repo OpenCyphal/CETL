@@ -18,7 +18,7 @@ struct in_place_t
 };
 
 /// Polyfill for std::in_place.
-inline constexpr in_place_t in_place{};
+constexpr in_place_t in_place{};
 
 }  // namespace pf17
 }  // namespace cetl

@@ -393,8 +393,8 @@ struct test_ctor8<PolicyType, policy_deleted>
 {
     static void test()
     {
-        static_assert(!std::is_copy_constructible<PolicyType>::value);
-        static_assert(!std::is_copy_constructible<optional<PolicyType>>::value);
+        static_assert(!std::is_copy_constructible<PolicyType>::value, "");
+        static_assert(!std::is_copy_constructible<optional<PolicyType>>::value, "");
     }
 };
 

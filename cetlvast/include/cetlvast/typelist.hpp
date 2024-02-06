@@ -124,7 +124,7 @@ struct cartesian_product;
 template <template <typename...> class Q, typename... A, typename... B>
 struct cartesian_product<Q<A...>, B...>
 {
-    using type = flatten_each<typename product<Q<A...>, B...>::type>::type;
+    using type = typename flatten_each<typename product<Q<A...>, B...>::type>::type;
 };
 }  // namespace _impl_cartesian_product
 

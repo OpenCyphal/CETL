@@ -6,7 +6,9 @@
 #ifndef CETL_HELPERS_HPP_INCLUDED
 #define CETL_HELPERS_HPP_INCLUDED
 
-namespace cetl::detail
+namespace cetl
+{
+namespace detail
 {
 template <bool Copyable, bool Movable>
 struct enable_copy_move_construction;
@@ -86,6 +88,7 @@ struct enable_copy_move_assignment<false, false>
     enable_copy_move_assignment& operator=(enable_copy_move_assignment&&)      = delete;
 };
 
-}  // namespace cetl::detail
+}  // namespace detail
+}  // namespace cetl
 
 #endif  // CETL_HELPERS_HPP_INCLUDED

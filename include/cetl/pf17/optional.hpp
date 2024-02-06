@@ -59,7 +59,9 @@ public:
 };
 #endif
 
-namespace detail::opt
+namespace detail
+{
+namespace opt
 {
 struct copy_tag final
 {};
@@ -279,10 +281,10 @@ constexpr bool convertible = std::is_constructible<T, F&>::value ||         //
                              std::is_convertible<const F&&, T>::value;
 /// True if T is assignable from const F& or F&&.
 template <typename T, typename F>
-constexpr bool assignable = std::is_assignable_v<T, F&> ||        //
-                            std::is_assignable_v<T, const F&> ||  //
-                            std::is_assignable_v<T, F&&> ||       //
-                            std::is_assignable_v<T, const F&&>;
+constexpr bool assignable = std::is_assignable<T, F&>::value ||        //
+                            std::is_assignable<T, const F&>::value ||  //
+                            std::is_assignable<T, F&&>::value ||       //
+                            std::is_assignable<T, const F&&>::value;
 /// True if T is a specialization of optional.
 template <typename T>
 struct is_optional : std::false_type
@@ -291,7 +293,8 @@ template <typename T>
 struct is_optional<optional<T>> : std::true_type
 {};
 
-}  // namespace detail::opt
+}  // namespace opt
+}  // namespace detail
 
 template <typename T>
 constexpr bool is_optional = detail::opt::is_optional<T>::value;
@@ -309,8 +312,8 @@ class optional : private detail::opt::base_move_assignment<T>,
 
     using base = detail::opt::base_move_assignment<T>;
 
-    static_assert(!std::is_same<typename std::remove_cvref<T>::type, in_place_t>::value, "");
-    static_assert(!std::is_same<typename std::remove_cvref<T>::type, nullopt_t>::value, "");
+    static_assert(!std::is_same<std::remove_cv_t<std::remove_reference_t<T>>, in_place_t>::value, "");
+    static_assert(!std::is_same<std::remove_cv_t<std::remove_reference_t<T>>, nullopt_t>::value, "");
     static_assert(!std::is_reference<T>::value, "");
     static_assert(!std::is_array<T>::value, "");
 
@@ -451,8 +454,8 @@ public:
     template <typename U,
               std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int> = 0,
               std::enable_if_t<!detail::opt::assignable<T&, optional<U>>, int> = 0,
-              std::enable_if_t<std::is_constructible_v<T, const U&>, int>      = 0,
-              std::enable_if_t<std::is_assignable_v<T&, const U&>, int>        = 0>
+              std::enable_if_t<std::is_constructible<T, const U&>::value, int> = 0,
+              std::enable_if_t<std::is_assignable<T&, const U&>::value, int>   = 0>
     optional& operator=(const optional<U>& other)
     {
         if (this->m_engaged && other.m_engaged)
@@ -475,8 +478,8 @@ public:
     template <typename U,
               std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int> = 0,
               std::enable_if_t<!detail::opt::assignable<T&, optional<U>>, int> = 0,
-              std::enable_if_t<std::is_constructible_v<T, U>, int>             = 0,
-              std::enable_if_t<std::is_assignable_v<T&, U>, int>               = 0>
+              std::enable_if_t<std::is_constructible<T, U>::value, int>        = 0,
+              std::enable_if_t<std::is_assignable<T&, U>::value, int>          = 0>
     optional& operator=(optional<U>&& other)
     {
         if (this->m_engaged && other.m_engaged)
@@ -522,7 +525,8 @@ public:
     }
 
     /// Swaps two optionals. If either is not engaged, acts like move assignment.
-    void swap(optional& other) noexcept(std::is_nothrow_move_constructible_v<T>&& std::is_nothrow_swappable_v<T>)
+    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value&&  //
+                                            std::is_nothrow_swappable<T>::value)
     {
         using std::swap;
         if (has_value() && other.has_value())

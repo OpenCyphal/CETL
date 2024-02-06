@@ -9,7 +9,6 @@
 #include <cetlvast/typelist.hpp>
 #include <type_traits>
 #include <tuple>
-#include <variant>
 
 struct A;
 struct B;
@@ -19,7 +18,10 @@ struct E;
 struct F;
 
 using std::tuple;
-using std::variant;
+
+template <typename...>
+struct my_typelist
+{};
 
 /// cat
 namespace
@@ -46,7 +48,7 @@ static_assert(std::is_same<tuple<tuple<A, B>, tuple<C, A>, D, B, E, F>,  //
                            cat<tuple<tuple<A, B>,                        //
                                      tuple<C, A>>,
                                tuple<D, B>,
-                               variant<E, F>,
+                               my_typelist<E, F>,
                                tuple<>>>::value,
               "");
 }  // namespace
@@ -127,7 +129,7 @@ static_assert(std::is_same<tuple<tuple<A, C, E>,  //
                                  tuple<B, D, E>,
                                  tuple<B, D, F>>,
                            cartesian_product<tuple<A, B>,  //
-                                             variant<C, D>,
+                                             my_typelist<C, D>,
                                              tuple<E, F>>>::value,
               "");
 }  // namespace
@@ -136,8 +138,8 @@ static_assert(std::is_same<tuple<tuple<A, C, E>,  //
 namespace
 {
 using cetlvast::typelist::into;
-static_assert(std::is_same<tuple<>, into<tuple>::from<variant<>>>::value, "");
+static_assert(std::is_same<tuple<>, into<tuple>::from<my_typelist<>>>::value, "");
 static_assert(std::is_same<tuple<>, into<tuple>::from<tuple<>>>::value, "");
-static_assert(std::is_same<tuple<A, B, tuple<C>>, into<tuple>::from<variant<A, B, tuple<C>>>>::value, "");
-static_assert(std::is_same<variant<A, B, tuple<C>>, into<variant>::from<tuple<A, B, tuple<C>>>>::value, "");
+static_assert(std::is_same<tuple<A, B, tuple<C>>, into<tuple>::from<my_typelist<A, B, tuple<C>>>>::value, "");
+static_assert(std::is_same<my_typelist<A, B, tuple<C>>, into<my_typelist>::from<tuple<A, B, tuple<C>>>>::value, "");
 }  // namespace

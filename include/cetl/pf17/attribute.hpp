@@ -24,11 +24,7 @@
 #    if __cplusplus >= 201703L
 #        define CETL_MAYBE_UNUSED [[maybe_unused]]
 #    else
-#        if defined(__GNUC__) || defined(__clang__)
-#            define CETL_MAYBE_UNUSED __attribute__((unused))
-#        else
-#            define CETL_MAYBE_UNUSED
-#        endif
+#        define CETL_MAYBE_UNUSED
 #    endif
 #endif
 
