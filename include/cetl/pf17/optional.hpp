@@ -93,8 +93,8 @@ struct base_storage
 
     union
     {
-        CETL_MAYBE_UNUSED in_place_t m_nihil;
-        T                            m_value;
+        in_place_t m_nihil;
+        T          m_value;
     };
     bool m_engaged;
 };
