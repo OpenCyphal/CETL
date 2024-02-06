@@ -309,10 +309,10 @@ class optional : private detail::opt::base_move_assignment<T>,
 
     using base = detail::opt::base_move_assignment<T>;
 
-    static_assert(!std::is_same<typename std::remove_cvref<T>::type, in_place_t>::value);
-    static_assert(!std::is_same<typename std::remove_cvref<T>::type, nullopt_t>::value);
-    static_assert(!std::is_reference<T>::value);
-    static_assert(!std::is_array<T>::value);
+    static_assert(!std::is_same<typename std::remove_cvref<T>::type, in_place_t>::value, "");
+    static_assert(!std::is_same<typename std::remove_cvref<T>::type, nullopt_t>::value, "");
+    static_assert(!std::is_reference<T>::value, "");
+    static_assert(!std::is_array<T>::value, "");
 
 public:
     using value_type = T;
