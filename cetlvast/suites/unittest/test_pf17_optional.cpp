@@ -310,7 +310,7 @@ TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
             : value{val}
         {
         }
-        explicit value_type(std::initializer_list<std::int64_t> il)
+        value_type(const std::initializer_list<std::int64_t> il)
             : value{static_cast<std::int64_t>(il.size())}
         {
         }

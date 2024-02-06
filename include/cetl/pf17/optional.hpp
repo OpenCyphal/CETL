@@ -13,9 +13,7 @@
 #include <algorithm>
 #include <cassert>
 #include <type_traits>
-#if defined(__cpp_exceptions)
-#    include <exception>
-#endif
+#include <exception>  // We need this even if exceptions are disabled for std::terminate.
 
 namespace cetl
 {

@@ -56,17 +56,11 @@ struct cons final
 template <template <typename...> class Q>
 struct flatten
 {
-    template <typename...>
-    struct impl;
-    template <>
-    struct impl<>
+    template <typename... Ts>
+    struct impl
     {
-        using type = Q<>;
-    };
-    template <typename T, typename... X>
-    struct impl<T, X...>
-    {
-        using type = Q<T>;
+        static_assert(sizeof...(Ts) <= 1, "");  // Use explicit check because full specialization is not allowed here.
+        using type = Q<Ts...>;
     };
     template <typename L, typename R, typename... Ts>
     struct impl<cons<L, R>, Ts...>
