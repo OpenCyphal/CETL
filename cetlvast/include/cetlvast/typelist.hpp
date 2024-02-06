@@ -139,6 +139,23 @@ using cartesian_product = typename _impl_cartesian_product::cartesian_product<Ts
 
 // ------------------------------------------------------------------------------------------------
 
+/// Creates a new typelist with the same types but a different container type.
+template <template <typename...> class NewContainer>
+class into
+{
+    template <typename...>
+    struct impl;
+    template <template <typename...> class OldContainer, typename... Ts>
+    struct impl<OldContainer<Ts...>>
+    {
+        using type = NewContainer<Ts...>;
+    };
+
+public:
+    template <typename... Ts>
+    using from = typename impl<Ts...>::type;
+};
+
 }  // namespace typelist
 }  // namespace cetlvast
 

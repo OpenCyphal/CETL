@@ -19,6 +19,7 @@ struct E;
 struct F;
 
 using std::tuple;
+using std::variant;
 
 /// cat
 namespace
@@ -45,7 +46,7 @@ static_assert(std::is_same<tuple<tuple<A, B>, tuple<C, A>, D, B, E, F>,  //
                            cat<tuple<tuple<A, B>,                        //
                                      tuple<C, A>>,
                                tuple<D, B>,
-                               std::variant<E, F>,
+                               variant<E, F>,
                                tuple<>>>::value,
               "");
 }  // namespace
@@ -126,7 +127,17 @@ static_assert(std::is_same<tuple<tuple<A, C, E>,  //
                                  tuple<B, D, E>,
                                  tuple<B, D, F>>,
                            cartesian_product<tuple<A, B>,  //
-                                             std::variant<C, D>,
+                                             variant<C, D>,
                                              tuple<E, F>>>::value,
               "");
+}  // namespace
+
+/// into
+namespace
+{
+using cetlvast::typelist::into;
+static_assert(std::is_same<tuple<>, into<tuple>::from<variant<>>>::value, "");
+static_assert(std::is_same<tuple<>, into<tuple>::from<tuple<>>>::value, "");
+static_assert(std::is_same<tuple<A, B, tuple<C>>, into<tuple>::from<variant<A, B, tuple<C>>>>::value, "");
+static_assert(std::is_same<variant<A, B, tuple<C>>, into<variant>::from<tuple<A, B, tuple<C>>>>::value, "");
 }  // namespace
