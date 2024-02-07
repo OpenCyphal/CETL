@@ -291,11 +291,27 @@ template <typename T>
 struct is_optional<optional<T>> : std::true_type
 {};
 
+/// https://en.cppreference.com/w/cpp/utility/optional/optional
+template <typename T, typename U, bool Explicit>
+constexpr bool enable_ctor4 = (!std::is_same<bool, std::decay_t<T>>::value) &&          //
+                              std::is_constructible<T, const U&>::value &&              //
+                              (std::is_convertible<const U&, T>::value != Explicit) &&  //
+                              !convertible<T, optional<U>>;
+template <typename T, typename U, bool Explicit>
+constexpr bool enable_ctor5 = (!std::is_same<bool, std::decay_t<T>>::value) &&     //
+                              std::is_constructible<T, U&&>::value &&              //
+                              (std::is_convertible<U&&, T>::value != Explicit) &&  //
+                              !convertible<T, optional<U>>;
+template <typename T, typename U, bool Explicit>
+constexpr bool enable_ctor8 =
+    std::is_constructible<T, U&&>::value &&                                                    //
+    (!std::is_same<std::decay_t<U>, in_place_t>::value) &&                                     //
+    (!std::is_same<std::decay_t<U>, optional<T>>::value) &&                                    //
+    (!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>::value)) &&  //
+    (std::is_convertible<U&&, T>::value != Explicit);
+
 }  // namespace opt
 }  // namespace detail
-
-template <typename T>
-constexpr bool is_optional = detail::opt::is_optional<T>::value;
 
 template <typename T>
 class optional : private detail::opt::base_move_assignment<T>,
@@ -332,40 +348,24 @@ public:
     constexpr optional(optional&&) noexcept = default;
 
     /// Constructor 4
-    template <typename U,
-              std::enable_if_t<!std::is_same<bool, std::decay_t<T>>::value, int> = 0,
-              std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
-              std::enable_if_t<std::is_convertible<const U&, T>::value, int>     = 0,  // implicit
-              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
+    template <typename U, std::enable_if_t<detail::opt::enable_ctor4<T, U, false>, int> = 0>
     optional(const optional<U>& other)  // NOLINT(*-explicit-constructor)
         : base(detail::opt::copy_tag{}, other)
     {
     }
-    template <typename U,
-              std::enable_if_t<!std::is_same<bool, std::decay_t<T>>::value, int> = 0,
-              std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
-              std::enable_if_t<!std::is_convertible<const U&, T>::value, int>    = 0,  // explicit
-              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
+    template <typename U, std::enable_if_t<detail::opt::enable_ctor4<T, U, true>, int> = 0>
     explicit optional(const optional<U>& other)
         : base(detail::opt::copy_tag{}, other)
     {
     }
 
     /// Constructor 5
-    template <typename U,
-              std::enable_if_t<!std::is_same<bool, std::decay_t<T>>::value, int> = 0,
-              std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
-              std::enable_if_t<std::is_convertible<const U&, T>::value, int>     = 0,  // implicit
-              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
+    template <typename U, std::enable_if_t<detail::opt::enable_ctor5<T, U, false>, int> = 0>
     optional(optional<U>&& other)  // NOLINT(*-explicit-constructor)
         : base(detail::opt::copy_tag{}, std::move(other))
     {
     }
-    template <typename U,
-              std::enable_if_t<!std::is_same<bool, std::decay_t<T>>::value, int> = 0,
-              std::enable_if_t<std::is_constructible<T, const U&>::value, int>   = 0,
-              std::enable_if_t<!std::is_convertible<const U&, T>::value, int>    = 0,  // explicit
-              std::enable_if_t<!detail::opt::convertible<T, optional<U>>, int>   = 0>
+    template <typename U, std::enable_if_t<detail::opt::enable_ctor5<T, U, true>, int> = 0>
     explicit optional(optional<U>&& other)
         : base(detail::opt::copy_tag{}, std::move(other))
     {
@@ -390,23 +390,13 @@ public:
     }
 
     /// Constructor 8
-    template <typename U                                                                                           = T,
-              std::enable_if_t<std::is_constructible<T, U&&>::value, int>                                          = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
-              std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
-              std::enable_if_t<std::is_convertible<U&&, T>::value, int> = 0>  // implicit
-    constexpr optional(U&& value)                                             // NOLINT(*-explicit-constructor)
+    template <typename U = T, std::enable_if_t<detail::opt::enable_ctor8<T, U, false>, int> = 0>
+    constexpr optional(U&& value)  // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {
     }
-    template <typename U                                                                                           = T,
-              std::enable_if_t<std::is_constructible<T, U&&>::value, int>                                          = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, in_place_t>::value, int>                             = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, optional>::value, int>                               = 0,
-              std::enable_if_t<!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>), int> = 0,
-              std::enable_if_t<!std::is_convertible<U&&, T>::value, int> = 0>  // explicit
+    template <typename U = T, std::enable_if_t<detail::opt::enable_ctor8<T, U, true>, int> = 0>
     explicit constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {

@@ -322,7 +322,7 @@ using testing_types = cetlvast::typelist::into<::testing::Types>::from<generate_
 
 using cetl::pf17::optional;
 
-// static_assert(std::is_same<optional<bool>::value_type, bool>::value, "");  // FIXME
+static_assert(std::is_same<optional<bool>::value_type, bool>::value, "");
 static_assert(std::is_same<optional<long>::value_type, long>::value, "");
 
 template <typename>
