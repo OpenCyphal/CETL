@@ -44,11 +44,11 @@ class bad_optional_access : public std::exception
 {
 public:
     bad_optional_access() noexcept                                      = default;
-    ~bad_optional_access() noexcept override                            = default;
     bad_optional_access(const bad_optional_access&) noexcept            = default;
     bad_optional_access(bad_optional_access&&) noexcept                 = default;
     bad_optional_access& operator=(const bad_optional_access&) noexcept = default;
     bad_optional_access& operator=(bad_optional_access&&) noexcept      = default;
+    ~bad_optional_access() noexcept override                            = default;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
