@@ -219,8 +219,8 @@ struct move_assignment_policy<policy_deleted>
 
 /// DESTRUCTION POLICY -------------------------------------------------------------------------------------------
 /// Before the object is destroyed, the destruction counter should be configured by calling
-/// configure_destruction_counter. The reason we can't keep the destruction counter as a member variable is that
-/// we can't safely access after the object is destroyed.
+/// configure_destruction_counter. The reason we don't keep the destruction counter as a member variable is that
+/// we can't safely access it after the object is destroyed.
 /// The trivial destruction policy does not maintain the destruction counter and the method does nothing.
 template <std::uint8_t>
 struct dtor_policy;
@@ -321,19 +321,48 @@ using testing_types = cetlvast::typelist::into<::testing::Types>::from<generate_
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
 using cetl::pf17::optional;
+using cetl::pf17::nullopt;
 
 static_assert(std::is_same<optional<bool>::value_type, bool>::value, "");
 static_assert(std::is_same<optional<long>::value_type, long>::value, "");
 
+static_assert(std::is_trivially_copy_constructible<optional<bool>>::value, "");
+static_assert(std::is_trivially_move_constructible<optional<bool>>::value, "");
+static_assert(std::is_trivially_copy_assignable<optional<bool>>::value, "");
+static_assert(std::is_trivially_move_assignable<optional<bool>>::value, "");
+static_assert(std::is_trivially_destructible<optional<bool>>::value, "");
+
 template <typename>
-class TestOptionalSpecialFunctionPolicy : public ::testing::Test
+class test_optional_combinations : public ::testing::Test
 {};
 
-TYPED_TEST_SUITE(TestOptionalSpecialFunctionPolicy, testing_types, );
+TYPED_TEST_SUITE(test_optional_combinations, testing_types, );
+
+/// ------------------------------------------------------------------------------------------------
 
 /// This test checks common behaviors that are independent of the copy/move policies.
-TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
+TYPED_TEST(test_optional_combinations, common)
 {
+    static_assert(std::is_trivially_copy_constructible<TypeParam>::value ==
+                      std::is_trivially_copy_constructible<optional<TypeParam>>::value,
+                  "");
+    static_assert(std::is_trivially_move_constructible<TypeParam>::value ==
+                      std::is_trivially_move_constructible<optional<TypeParam>>::value,
+                  "");
+    static_assert((std::is_trivially_copy_assignable<TypeParam>::value &&
+                   std::is_trivially_copy_constructible<TypeParam>::value &&
+                   std::is_trivially_destructible<TypeParam>::value) ==
+                      std::is_trivially_copy_assignable<optional<TypeParam>>::value,
+                  "");
+    static_assert((std::is_trivially_move_assignable<TypeParam>::value &&
+                   std::is_trivially_move_constructible<TypeParam>::value &&
+                   std::is_trivially_destructible<TypeParam>::value) ==
+                      std::is_trivially_move_assignable<optional<TypeParam>>::value,
+                  "");
+    static_assert(std::is_trivially_destructible<TypeParam>::value ==
+                      std::is_trivially_destructible<optional<TypeParam>>::value,
+                  "");
+
     struct value_type final : public TypeParam
     {
         explicit value_type(const std::int64_t val)
@@ -346,12 +375,14 @@ TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
         }
         std::int64_t value;
     };
+    std::uint32_t        destruction_count = 0;
     optional<value_type> opt;
     EXPECT_FALSE(opt.has_value());
     EXPECT_FALSE(opt);
-    opt.emplace(12345);
+    opt.emplace(12345).configure_destruction_counter(&destruction_count);
     EXPECT_TRUE(opt.has_value());
     EXPECT_TRUE(opt);
+    EXPECT_EQ(0, destruction_count);
     EXPECT_EQ(12345, opt->value);
     EXPECT_EQ(12345, (*opt).value);
     EXPECT_EQ(12345, (*std::move(opt)).value);
@@ -365,15 +396,30 @@ TYPED_TEST(TestOptionalSpecialFunctionPolicy, Common)
         EXPECT_EQ(12345, copt.value().value);
         EXPECT_EQ(12345, std::move(copt).value().value);
     }
+    EXPECT_EQ(0, opt->get_copy_ctor_count());
+    EXPECT_EQ(0, opt->get_move_ctor_count());
+    EXPECT_EQ(0, opt->get_copy_assignment_count());
+    EXPECT_EQ(0, opt->get_move_assignment_count());
+    EXPECT_EQ(0, destruction_count);
     opt = cetl::pf17::nullopt;
     EXPECT_FALSE(opt);
-    opt.emplace(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5});
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, destruction_count);
+    opt.emplace(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}).configure_destruction_counter(&destruction_count);
     EXPECT_TRUE(opt);
     EXPECT_EQ(5, opt->value);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, destruction_count);
+    EXPECT_EQ(0, opt->get_copy_ctor_count());
+    EXPECT_EQ(0, opt->get_move_ctor_count());
+    EXPECT_EQ(0, opt->get_copy_assignment_count());
+    EXPECT_EQ(0, opt->get_move_assignment_count());
+    opt.reset();
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 2 : 0, destruction_count);
 }
 
+/// ------------------------------------------------------------------------------------------------
+
 #if defined(__cpp_exceptions)
-TYPED_TEST(TestOptionalSpecialFunctionPolicy, Exceptions)
+TYPED_TEST(test_optional_combinations, exceptions)
 {
     optional<TypeParam> opt;
     const auto sink = [](auto&&) {};  // Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
@@ -384,6 +430,107 @@ TYPED_TEST(TestOptionalSpecialFunctionPolicy, Exceptions)
     EXPECT_NO_THROW(sink(std::move(opt).value()));
 }
 #endif
+
+/// ------------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_optional_combinations, ctor1)
+{
+    optional<TypeParam> opt1;
+    EXPECT_FALSE(opt1.has_value());
+    optional<TypeParam> opt2(nullopt);
+    EXPECT_FALSE(opt2.has_value());
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
+struct test_ctor2
+{
+    static void test()
+    {
+        std::uint32_t destructed = 0;
+        optional<T>   opt;
+        opt.emplace().configure_destruction_counter(&destructed);
+        {
+            optional<T> opt2 = opt;
+            EXPECT_EQ((T::copy_ctor_policy_value == policy_nontrivial) ? 1 : 0, opt2->get_copy_ctor_count());
+            EXPECT_EQ(0U, opt2->get_move_ctor_count());
+            EXPECT_EQ(0U, opt2->get_copy_assignment_count());
+            EXPECT_EQ(0U, opt2->get_move_assignment_count());
+            EXPECT_EQ(0U, destructed);
+            EXPECT_EQ(0U, opt->get_copy_ctor_count());
+            EXPECT_EQ(0U, opt->get_move_ctor_count());
+            EXPECT_EQ(0U, opt->get_copy_assignment_count());
+            EXPECT_EQ(0U, opt->get_move_assignment_count());
+            opt.reset();
+            EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
+    }
+};
+template <typename T>
+struct test_ctor2<T, policy_deleted>
+{
+    static void test()
+    {
+        static_assert(!std::is_copy_constructible<T>::value, "");
+        static_assert(!std::is_copy_constructible<optional<T>>::value, "");
+    }
+};
+
+TYPED_TEST(test_optional_combinations, ctor2)
+{
+    test_ctor2<TypeParam>::test();
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+// Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
+// satisfy std::is_move_constructible.
+template <typename T, std::uint8_t MoveCtorPolicy = T::move_ctor_policy_value>
+struct test_ctor3
+{
+    static void test()
+    {
+        std::uint32_t destructed = 0;
+        optional<T>   opt;
+        opt.emplace().configure_destruction_counter(&destructed);
+        {
+            optional<T> opt2 = std::move(opt);
+            EXPECT_EQ(0, opt2->get_copy_ctor_count());
+            EXPECT_EQ((T::move_ctor_policy_value == policy_nontrivial) ? 1 : 0, opt2->get_move_ctor_count());
+            EXPECT_EQ(0U, opt2->get_copy_assignment_count());
+            EXPECT_EQ(0U, opt2->get_move_assignment_count());
+            EXPECT_EQ(0U, destructed);
+            EXPECT_EQ(0U, opt->get_copy_ctor_count());
+            EXPECT_EQ(0U, opt->get_move_ctor_count());
+            EXPECT_EQ(0U, opt->get_copy_assignment_count());
+            EXPECT_EQ(0U, opt->get_move_assignment_count());
+            opt.reset();
+            EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
+    }
+};
+template <typename T>
+struct test_ctor3<T, policy_deleted>
+{
+    static void test()
+    {
+        // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
+        // satisfy std::is_move_constructible.
+        static_assert(std::is_move_constructible<T>::value == (T::copy_ctor_policy_value != policy_deleted), "");
+        static_assert(std::is_move_constructible<optional<T>>::value == (T::copy_ctor_policy_value != policy_deleted),
+                      "");
+    }
+};
+
+TYPED_TEST(test_optional_combinations, ctor3)
+{
+    test_ctor3<TypeParam>::test();
+}
+
+/// ------------------------------------------------------------------------------------------------
 
 template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
 struct test_ctor8
@@ -429,7 +576,9 @@ struct test_ctor8<PolicyType, policy_deleted>
     }
 };
 
-TYPED_TEST(TestOptionalSpecialFunctionPolicy, TestCtor8)
+TYPED_TEST(test_optional_combinations, ctor8)
 {
     test_ctor8<TypeParam>::test();
 }
+
+/// ------------------------------------------------------------------------------------------------
