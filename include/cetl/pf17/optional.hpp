@@ -64,33 +64,37 @@ namespace opt
 struct copy_tag final
 {};
 
-/// OPTIONAL STORAGE
+/// DESTRUCTION POLICY
+template <typename T, bool = std::is_trivially_destructible<T>::value>
+struct base_destruction;
+/// Trivially destructible case.
 template <typename T>
-struct base_storage
+struct base_destruction<T, true>
 {
-    constexpr base_storage() noexcept
+    constexpr base_destruction() noexcept
         : m_nihil{}
         , m_engaged{false}
     {
     }
     template <typename... Args>
-    constexpr explicit base_storage(const in_place_t, Args&&... args)
+    constexpr explicit base_destruction(const in_place_t, Args&&... args)
         : m_value(std::forward<Args>(args)...)
         , m_engaged(true)
     {
     }
     template <typename U>
-    constexpr explicit base_storage(const copy_tag, U&& other)
-        : m_nihil{}
-        , m_engaged{other.m_engaged}
+    constexpr explicit base_destruction(const copy_tag, U&& other)
+        : m_engaged{other.m_engaged}
     {
         if (m_engaged)
         {
             new (std::addressof(m_value)) T(std::forward<U>(other).m_value);
         }
     }
-    ~base_storage() noexcept {}
-
+    void reset() noexcept
+    {
+        this->m_engaged = false;
+    }
     union
     {
         in_place_t m_nihil;
@@ -98,25 +102,30 @@ struct base_storage
     };
     bool m_engaged;
 };
-
-/// DESTRUCTION POLICY
-template <typename T, bool = std::is_trivially_destructible<T>::value>
-struct base_destruction;
-/// Trivially destructible case.
-template <typename T>
-struct base_destruction<T, true> : base_storage<T>
-{
-    using base_storage<T>::base_storage;
-    void reset() noexcept
-    {
-        this->m_engaged = false;
-    }
-};
 /// Non-trivially destructible case.
 template <typename T>
-struct base_destruction<T, false> : base_storage<T>
+struct base_destruction<T, false>
 {
-    using base_storage<T>::base_storage;
+    constexpr base_destruction() noexcept
+        : m_nihil{}
+        , m_engaged{false}
+    {
+    }
+    template <typename... Args>
+    constexpr explicit base_destruction(const in_place_t, Args&&... args)
+        : m_value(std::forward<Args>(args)...)
+        , m_engaged(true)
+    {
+    }
+    template <typename U>
+    constexpr explicit base_destruction(const copy_tag, U&& other)
+        : m_engaged{other.m_engaged}
+    {
+        if (m_engaged)
+        {
+            new (std::addressof(m_value)) T(std::forward<U>(other).m_value);
+        }
+    }
     constexpr base_destruction(const base_destruction&) noexcept            = default;
     constexpr base_destruction(base_destruction&&) noexcept                 = default;
     constexpr base_destruction& operator=(const base_destruction&) noexcept = default;
@@ -133,6 +142,12 @@ struct base_destruction<T, false> : base_storage<T>
             this->m_engaged = false;
         }
     }
+    union
+    {
+        in_place_t m_nihil;
+        T          m_value;
+    };
+    bool m_engaged;
 };
 
 /// COPY CONSTRUCTION POLICY
@@ -149,6 +164,7 @@ template <typename T>
 struct base_copy_construction<T, false> : base_destruction<T>
 {
     using base_destruction<T>::base_destruction;
+    constexpr base_copy_construction() noexcept = default;
     constexpr base_copy_construction(const base_copy_construction& other) noexcept(
         std::is_nothrow_copy_constructible<T>::value)
         : base_destruction<T>(copy_tag{}, other)
@@ -174,6 +190,7 @@ template <typename T>
 struct base_move_construction<T, false> : base_copy_construction<T>
 {
     using base_copy_construction<T>::base_copy_construction;
+    constexpr base_move_construction() noexcept                              = default;
     constexpr base_move_construction(const base_move_construction&) noexcept = default;
     constexpr base_move_construction(base_move_construction&& other) noexcept(
         std::is_nothrow_move_constructible<T>::value)
@@ -202,6 +219,7 @@ template <typename T>
 struct base_copy_assignment<T, false> : base_move_construction<T>
 {
     using base_move_construction<T>::base_move_construction;
+    constexpr base_copy_assignment() noexcept                            = default;
     constexpr base_copy_assignment(const base_copy_assignment&) noexcept = default;
     constexpr base_copy_assignment(base_copy_assignment&&) noexcept      = default;
     constexpr base_copy_assignment& operator=(const base_copy_assignment& other) noexcept(
@@ -243,6 +261,7 @@ template <typename T>
 struct base_move_assignment<T, false> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
+    constexpr base_move_assignment() noexcept                                       = default;
     constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
     constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
     constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
