@@ -84,11 +84,11 @@ struct move_ctor_policy<policy_nontrivial>
     move_ctor_policy& operator=(const move_ctor_policy&) = default;
     move_ctor_policy& operator=(move_ctor_policy&&)      = default;
     ~move_ctor_policy()                                  = default;
-    std::uint32_t       move_constructed                 = 0;
     CETL_NODISCARD auto get_move_ctor_count() const
     {
         return move_constructed;
     }
+    std::uint32_t move_constructed = 0;
 };
 template <>
 struct move_ctor_policy<policy_trivial>
@@ -218,6 +218,10 @@ struct move_assignment_policy<policy_deleted>
 };
 
 /// DESTRUCTION POLICY -------------------------------------------------------------------------------------------
+/// Before the object is destroyed, the destruction counter should be configured by calling
+/// configure_destruction_counter. The reason we can't keep the destruction counter as a member variable is that
+/// we can't safely access after the object is destroyed.
+/// The trivial destruction policy does not maintain the destruction counter and the method does nothing.
 template <std::uint8_t>
 struct dtor_policy;
 template <>
@@ -231,23 +235,22 @@ struct dtor_policy<policy_nontrivial>
     dtor_policy& operator=(dtor_policy&&) noexcept = default;
     ~dtor_policy()
     {
-        destructed++;
+        if (nullptr != destructed)
+        {
+            ++*destructed;
+        }
     }
-    CETL_NODISCARD auto get_destruction_count() const
+    void configure_destruction_counter(std::uint32_t* const counter)
     {
-        return destructed;
+        destructed = counter;
     }
-    std::uint32_t destructed = 0;
+    std::uint32_t* destructed = nullptr;
 };
 template <>
 struct dtor_policy<policy_trivial>
 {
     static constexpr auto dtor_policy_value = policy_trivial;
-    CETL_NODISCARD auto   get_destruction_count() const
-    {
-        (void) this;
-        return 0U;
-    }
+    void                  configure_destruction_counter(std::uint32_t* const) {}
 };
 // There is no specialization for policy_deleted because std::optional requires the destructor to be accessible.
 
@@ -275,6 +278,33 @@ struct combine_bases;
 template <template <typename...> class Q, typename... Ts>
 struct combine_bases<Q<Ts...>> : public Ts...
 {};
+
+namespace self_check
+{
+template <std::uint8_t P, std::uint8_t DtorPolicy = P>
+using same_policy = combine_bases<std::tuple<copy_ctor_policy<P>,
+                                             move_ctor_policy<P>,
+                                             copy_assignment_policy<P>,
+                                             move_assignment_policy<P>,
+                                             dtor_policy<DtorPolicy>>>;
+//
+static_assert(std::is_trivially_copy_constructible<same_policy<policy_trivial>>::value, "");
+static_assert(std::is_trivially_move_constructible<same_policy<policy_trivial>>::value, "");
+static_assert(std::is_trivially_copy_assignable<same_policy<policy_trivial>>::value, "");
+static_assert(std::is_trivially_move_assignable<same_policy<policy_trivial>>::value, "");
+static_assert(std::is_trivially_destructible<same_policy<policy_trivial>>::value, "");
+//
+static_assert(!std::is_trivially_copy_constructible<same_policy<policy_nontrivial>>::value, "");
+static_assert(!std::is_trivially_move_constructible<same_policy<policy_nontrivial>>::value, "");
+static_assert(!std::is_trivially_copy_assignable<same_policy<policy_nontrivial>>::value, "");
+static_assert(!std::is_trivially_move_assignable<same_policy<policy_nontrivial>>::value, "");
+static_assert(!std::is_trivially_destructible<same_policy<policy_nontrivial>>::value, "");
+//
+static_assert(!std::is_copy_constructible<same_policy<policy_deleted, policy_trivial>>::value, "");
+static_assert(!std::is_move_constructible<same_policy<policy_deleted, policy_trivial>>::value, "");
+static_assert(!std::is_copy_assignable<same_policy<policy_deleted, policy_trivial>>::value, "");
+static_assert(!std::is_move_assignable<same_policy<policy_deleted, policy_trivial>>::value, "");
+}  // namespace self_check
 
 template <typename>
 struct generate_bases;
@@ -368,25 +398,25 @@ struct test_ctor8
     };
     static void test()
     {
-        value_type           val(123U);
+        std::uint32_t val_destructed = 0;
+        std::uint32_t opt_destructed = 0;
+        value_type    val(123U);
+        val.configure_destruction_counter(&val_destructed);
         optional<value_type> opt(val);
+        opt->configure_destruction_counter(&opt_destructed);
         EXPECT_EQ(0U, val.get_copy_ctor_count());
         EXPECT_EQ(0U, val.get_move_ctor_count());
         EXPECT_EQ(0U, val.get_copy_assignment_count());
         EXPECT_EQ(0U, val.get_move_assignment_count());
-        EXPECT_EQ(0U, val.get_destruction_count());
+        EXPECT_EQ(0U, val_destructed);
         value_type& inner = opt.value();
         EXPECT_EQ((CopyCtorPolicy == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
         EXPECT_EQ(0U, inner.get_move_ctor_count());
         EXPECT_EQ(0U, inner.get_copy_assignment_count());
         EXPECT_EQ(0U, inner.get_move_assignment_count());
-        EXPECT_EQ(0U, inner.get_destruction_count());
+        EXPECT_EQ(0U, opt_destructed);
         opt.reset();
-        EXPECT_EQ((CopyCtorPolicy == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
-        EXPECT_EQ(0U, inner.get_move_ctor_count());
-        EXPECT_EQ(0U, inner.get_copy_assignment_count());
-        EXPECT_EQ(0U, inner.get_move_assignment_count());
-        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1U : 0, inner.get_destruction_count());
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1U : 0, opt_destructed);
     }
 };
 template <typename PolicyType>
