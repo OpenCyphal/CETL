@@ -1289,3 +1289,32 @@ TYPED_TEST(test_optional_combinations, assignment_6)
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, a_dtor);
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
 }
+
+/// ------------------------------------------------------------------------------------------------
+
+TEST(test_optional, swap)
+{
+    optional<std::int64_t> a(in_place, 12345);
+    optional<std::int64_t> b(in_place, 23456);
+    // Non-empty with non-empty.
+    a.swap(b);
+    EXPECT_TRUE(a);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(23456, a.value());
+    EXPECT_EQ(12345, b.value());
+    // Empty with non-empty.
+    a = nullopt;
+    a.swap(b);
+    EXPECT_TRUE(a);
+    EXPECT_FALSE(b);
+    EXPECT_EQ(12345, a.value());
+    a.swap(b);
+    EXPECT_FALSE(a);
+    EXPECT_TRUE(b);
+    EXPECT_EQ(12345, b.value());
+    // Empty with empty.
+    b = nullopt;
+    a.swap(b);
+    EXPECT_FALSE(a);
+    EXPECT_FALSE(b);
+}
