@@ -287,15 +287,18 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
 };
 
 /// True if T is constructible or convertible from const F& or F&&.
+/// CAVEAT: in C++14, std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T,
+/// so we use std::is_convertible<F, T&&> instead.
+/// The specification of std::optional<> prescribes the use of T over T&& because it is written for C++17.
 template <typename T, typename F>
 constexpr bool convertible = std::is_constructible<T, F&>::value ||         //
                              std::is_constructible<T, const F&>::value ||   //
                              std::is_constructible<T, F&&>::value ||        //
                              std::is_constructible<T, const F&&>::value ||  //
-                             std::is_convertible<F&, T>::value ||           //
-                             std::is_convertible<const F&, T>::value ||     //
-                             std::is_convertible<F&&, T>::value ||          //
-                             std::is_convertible<const F&&, T>::value;
+                             std::is_convertible<F&, T&&>::value ||         //
+                             std::is_convertible<const F&, T&&>::value ||   //
+                             std::is_convertible<F&&, T&&>::value ||        //
+                             std::is_convertible<const F&&, T&&>::value;
 /// True if T is assignable from const F& or F&&.
 template <typename T, typename F>
 constexpr bool assignable = std::is_assignable<T, F&>::value ||        //
@@ -311,15 +314,18 @@ struct is_optional<optional<T>> : std::true_type
 {};
 
 /// https://en.cppreference.com/w/cpp/utility/optional/optional
+/// CAVEAT: in C++14, std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T,
+/// so we use std::is_convertible<F, T&&> instead.
+/// The specification of std::optional<> prescribes the use of T over T&& because it is written for C++17.
 template <typename T, typename U, bool Explicit>
-constexpr bool enable_ctor4 = (!std::is_same<bool, std::decay_t<T>>::value) &&          //
-                              std::is_constructible<T, const U&>::value &&              //
-                              (std::is_convertible<const U&, T>::value != Explicit) &&  //
+constexpr bool enable_ctor4 = (!std::is_same<bool, std::decay_t<T>>::value) &&            //
+                              std::is_constructible<T, const U&>::value &&                //
+                              (std::is_convertible<const U&, T&&>::value != Explicit) &&  //
                               !convertible<T, optional<U>>;
 template <typename T, typename U, bool Explicit>
-constexpr bool enable_ctor5 = (!std::is_same<bool, std::decay_t<T>>::value) &&     //
-                              std::is_constructible<T, U&&>::value &&              //
-                              (std::is_convertible<U&&, T>::value != Explicit) &&  //
+constexpr bool enable_ctor5 = (!std::is_same<bool, std::decay_t<T>>::value) &&       //
+                              std::is_constructible<T, U&&>::value &&                //
+                              (std::is_convertible<U&&, T&&>::value != Explicit) &&  //
                               !convertible<T, optional<U>>;
 template <typename T, typename U, bool Explicit>
 constexpr bool enable_ctor8 =
@@ -327,7 +333,7 @@ constexpr bool enable_ctor8 =
     (!std::is_same<std::decay_t<U>, in_place_t>::value) &&                                     //
     (!std::is_same<std::decay_t<U>, optional<T>>::value) &&                                    //
     (!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>::value)) &&  //
-    (std::is_convertible<U&&, T>::value != Explicit);
+    (std::is_convertible<U&&, T&&>::value != Explicit);
 
 }  // namespace opt
 }  // namespace detail
@@ -393,18 +399,16 @@ public:
     }
 
     /// Constructor 6
-    /// TODO: conditional explicitness
     template <typename... Args>
-    constexpr optional(const in_place_t, Args&&... args)  // NOLINT(*-explicit-constructor)
+    explicit constexpr optional(const in_place_t, Args&&... args)  //
         noexcept(std::is_nothrow_constructible<T, Args...>::value)
         : base(in_place, std::forward<Args>(args)...)
     {
     }
 
     /// Constructor 7
-    /// TODO: conditional explicitness
     template <typename U, typename... Args>
-    constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args)  // NOLINT(*-explicit-constructor)
+    explicit constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args)  //
         noexcept(std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
         : base(in_place, il, std::forward<Args>(args)...)
     {

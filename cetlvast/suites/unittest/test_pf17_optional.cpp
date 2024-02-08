@@ -322,6 +322,7 @@ using testing_types = cetlvast::typelist::into<::testing::Types>::from<generate_
 
 using cetl::pf17::optional;
 using cetl::pf17::nullopt;
+using cetl::pf17::in_place;
 
 static_assert(std::is_same<optional<bool>::value_type, bool>::value, "");
 static_assert(std::is_same<optional<long>::value_type, long>::value, "");
@@ -338,10 +339,21 @@ class test_optional_combinations : public ::testing::Test
 
 TYPED_TEST_SUITE(test_optional_combinations, testing_types, );
 
-struct empty_t
+struct copyable_t
 {};
+struct noncopyable_t
+{
+    noncopyable_t()                                = default;
+    noncopyable_t(const noncopyable_t&)            = delete;
+    noncopyable_t(noncopyable_t&&)                 = delete;
+    noncopyable_t& operator=(const noncopyable_t&) = delete;
+    noncopyable_t& operator=(noncopyable_t&&)      = delete;
+    ~noncopyable_t()                               = default;
+};
 
 /// A simple pair of types for testing where foo is implicitly convertible to bar but not vice versa.
+template <typename>
+struct bar;
 template <typename Base>
 struct foo final : Base
 {
@@ -353,6 +365,8 @@ struct foo final : Base
         : value{val}
     {
     }
+    explicit foo(const bar<Base>& val) noexcept;
+    explicit foo(bar<Base>&& val) noexcept;
     foo(const std::initializer_list<std::int64_t> il)
         : value{static_cast<std::int64_t>(il.size())}
     {
@@ -370,35 +384,73 @@ struct bar final : Base
         : value{other.value}
     {
     }
-    explicit operator foo<Base>() const noexcept
+    bar(foo<Base>&& other) noexcept  // NOLINT(*-explicit-constructor)
+        : value{other.value}
     {
-        return foo<Base>{value};
+        other.value = 0;  // Moving zeroes the source.
     }
     std::int64_t value;
 };
+template <typename Base>
+foo<Base>::foo(const bar<Base>& val) noexcept
+    : value{val.value}
+{
+}
+template <typename Base>
+foo<Base>::foo(bar<Base>&& val) noexcept
+    : value{val.value}
+{
+    val.value = 0;  // Moving zeroes the source.
+}
 
+// COPYABLE CASE
 // Check implicit conversions.
-static_assert(std::is_convertible<foo<empty_t>, bar<empty_t>>::value, "");
-static_assert(!std::is_convertible<bar<empty_t>, foo<empty_t>>::value, "");
-static_assert(std::is_convertible<optional<foo<empty_t>>, optional<bar<empty_t>>>::value, "");
-static_assert(!std::is_convertible<optional<bar<empty_t>>, optional<foo<empty_t>>>::value, "");
+static_assert(std::is_convertible<foo<copyable_t>, bar<copyable_t>>::value, "");
+static_assert(!std::is_convertible<bar<copyable_t>, foo<copyable_t>>::value, "");
+static_assert(std::is_convertible<optional<foo<copyable_t>>, optional<bar<copyable_t>>>::value, "");
+static_assert(!std::is_convertible<optional<bar<copyable_t>>, optional<foo<copyable_t>>>::value, "");
 // Check explicit conversions.
-static_assert(std::is_constructible<bar<empty_t>, foo<empty_t>>::value, "");
-static_assert(std::is_constructible<foo<empty_t>, bar<empty_t>>::value, "");
-static_assert(std::is_constructible<optional<bar<empty_t>>, optional<foo<empty_t>>>::value, "");
-static_assert(std::is_constructible<optional<foo<empty_t>>, optional<bar<empty_t>>>::value, "");
+static_assert(std::is_constructible<bar<copyable_t>, foo<copyable_t>>::value, "");
+static_assert(std::is_constructible<foo<copyable_t>, bar<copyable_t>>::value, "");
+static_assert(std::is_constructible<optional<bar<copyable_t>>, optional<foo<copyable_t>>>::value, "");
+static_assert(std::is_constructible<optional<foo<copyable_t>>, optional<bar<copyable_t>>>::value, "");
 // Check triviality of foo.
-static_assert(std::is_trivially_copy_constructible<optional<foo<empty_t>>>::value, "");
-static_assert(std::is_trivially_move_constructible<optional<foo<empty_t>>>::value, "");
-static_assert(std::is_trivially_copy_assignable<optional<foo<empty_t>>>::value, "");
-static_assert(std::is_trivially_move_assignable<optional<foo<empty_t>>>::value, "");
-static_assert(std::is_trivially_destructible<optional<foo<empty_t>>>::value, "");
+static_assert(std::is_trivially_copy_constructible<optional<foo<copyable_t>>>::value, "");
+static_assert(std::is_trivially_move_constructible<optional<foo<copyable_t>>>::value, "");
+static_assert(std::is_trivially_copy_assignable<optional<foo<copyable_t>>>::value, "");
+static_assert(std::is_trivially_move_assignable<optional<foo<copyable_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<foo<copyable_t>>>::value, "");
 // Check triviality of bar.
-static_assert(std::is_trivially_copy_constructible<optional<bar<empty_t>>>::value, "");
-static_assert(std::is_trivially_move_constructible<optional<bar<empty_t>>>::value, "");
-static_assert(std::is_trivially_copy_assignable<optional<bar<empty_t>>>::value, "");
-static_assert(std::is_trivially_move_assignable<optional<bar<empty_t>>>::value, "");
-static_assert(std::is_trivially_destructible<optional<bar<empty_t>>>::value, "");
+static_assert(std::is_trivially_copy_constructible<optional<bar<copyable_t>>>::value, "");
+static_assert(std::is_trivially_move_constructible<optional<bar<copyable_t>>>::value, "");
+static_assert(std::is_trivially_copy_assignable<optional<bar<copyable_t>>>::value, "");
+static_assert(std::is_trivially_move_assignable<optional<bar<copyable_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<bar<copyable_t>>>::value, "");
+// NONCOPYABLE CASE
+// Check implicit conversions.
+// CAVEAT: in C++14, std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T,
+// so we use std::is_convertible<F, T&&> instead.
+static_assert(std::is_convertible<foo<noncopyable_t>, bar<noncopyable_t>&&>::value, "");
+static_assert(!std::is_convertible<bar<noncopyable_t>, foo<noncopyable_t>&&>::value, "");
+static_assert(std::is_convertible<optional<foo<noncopyable_t>>, optional<bar<noncopyable_t>>&&>::value, "");
+static_assert(!std::is_convertible<optional<bar<noncopyable_t>>, optional<foo<noncopyable_t>>&&>::value, "");
+// Check explicit conversions.
+static_assert(std::is_constructible<bar<noncopyable_t>, foo<noncopyable_t>>::value, "");
+static_assert(std::is_constructible<foo<noncopyable_t>, bar<noncopyable_t>>::value, "");
+static_assert(std::is_constructible<optional<bar<noncopyable_t>>, optional<foo<noncopyable_t>>>::value, "");
+static_assert(std::is_constructible<optional<foo<noncopyable_t>>, optional<bar<noncopyable_t>>>::value, "");
+// Check triviality of foo.
+static_assert(!std::is_copy_constructible<optional<foo<noncopyable_t>>>::value, "");
+static_assert(!std::is_move_constructible<optional<foo<noncopyable_t>>>::value, "");
+static_assert(!std::is_copy_assignable<optional<foo<noncopyable_t>>>::value, "");
+static_assert(!std::is_move_assignable<optional<foo<noncopyable_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<foo<noncopyable_t>>>::value, "");
+// Check triviality of bar.
+static_assert(!std::is_copy_constructible<optional<bar<noncopyable_t>>>::value, "");
+static_assert(!std::is_move_constructible<optional<bar<noncopyable_t>>>::value, "");
+static_assert(!std::is_copy_assignable<optional<bar<noncopyable_t>>>::value, "");
+static_assert(!std::is_move_assignable<optional<bar<noncopyable_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<bar<noncopyable_t>>>::value, "");
 
 /// ------------------------------------------------------------------------------------------------
 
@@ -427,6 +479,8 @@ TYPED_TEST(test_optional_combinations, common)
                   "");
 
     // Ensure implicit convertibility is inherited from the value type.
+    // Note that these checks behave differently in C++14 vs. newer standards because in C++14,
+    // std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T.
     static_assert(std::is_convertible<foo<TypeParam>, bar<TypeParam>>::value ==
                       std::is_convertible<optional<foo<TypeParam>>, optional<bar<TypeParam>>>::value,
                   "");
@@ -581,7 +635,7 @@ struct test_ctor_3
     }
 };
 template <typename T>
-struct test_ctor_3<T, policy_deleted>
+struct test_ctor_3<T, policy_deleted>  // FIXME: allow testing if either copy or move ctors available.
 {
     static void test()
     {
@@ -600,53 +654,176 @@ TYPED_TEST(test_optional_combinations, ctor_3)
 
 /// ------------------------------------------------------------------------------------------------
 
-template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
-struct test_ctor_8
+TYPED_TEST(test_optional_combinations, ctor_4)
 {
-    struct value_type final : public T
+    using F = foo<TypeParam>;
+    using B = bar<TypeParam>;
+    static_assert(std::is_constructible<F, B>::value, "");
+    static_assert(std::is_constructible<B, F>::value, "");
+    static_assert(std::is_constructible<optional<F>, optional<B>>::value, "");
+    static_assert(std::is_constructible<optional<B>, optional<F>>::value, "");
+    std::uint32_t f_dtor = 0;
+    std::uint32_t b_dtor = 0;
+    optional<F>   f1;
+    f1.emplace(12345).configure_destruction_counter(&f_dtor);
+    optional<B> b1(f1);  // Use implicit constructor because foo is implicitly convertible to bar
+    b1.value().configure_destruction_counter(&b_dtor);
     {
-        explicit value_type(const std::uint8_t val)
-            : value{val}
-        {
-        }
-        std::uint8_t value;
-    };
-    static void test()
-    {
-        std::uint32_t val_destructed = 0;
-        std::uint32_t opt_destructed = 0;
-        value_type    val(123U);
-        val.configure_destruction_counter(&val_destructed);
-        optional<value_type> opt(val);
-        opt->configure_destruction_counter(&opt_destructed);
-        EXPECT_EQ(0U, val.get_copy_ctor_count());
-        EXPECT_EQ(0U, val.get_move_ctor_count());
-        EXPECT_EQ(0U, val.get_copy_assignment_count());
-        EXPECT_EQ(0U, val.get_move_assignment_count());
-        EXPECT_EQ(0U, val_destructed);
-        value_type& inner = opt.value();
-        EXPECT_EQ((CopyCtorPolicy == policy_nontrivial) ? 1U : 0, inner.get_copy_ctor_count());
-        EXPECT_EQ(0U, inner.get_move_ctor_count());
-        EXPECT_EQ(0U, inner.get_copy_assignment_count());
-        EXPECT_EQ(0U, inner.get_move_assignment_count());
-        EXPECT_EQ(0U, opt_destructed);
-        opt.reset();
-        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1U : 0, opt_destructed);
+        optional<F> f2(b1);  // Use explicit constructor because bar is not implicitly convertible to foo
+        f2.value().configure_destruction_counter(&f_dtor);
+        EXPECT_EQ(12345, f1.value().value);
+        EXPECT_EQ(12345, b1.value().value);
+        EXPECT_EQ(12345, f2.value().value);
+        // Ensure no copy/move of the base took place.
+        EXPECT_EQ(0, f1->get_copy_ctor_count());
+        EXPECT_EQ(0, f1->get_move_ctor_count());
+        EXPECT_EQ(0, f1->get_copy_assignment_count());
+        EXPECT_EQ(0, f1->get_move_assignment_count());
+        EXPECT_EQ(0, b1->get_copy_ctor_count());
+        EXPECT_EQ(0, b1->get_move_ctor_count());
+        EXPECT_EQ(0, b1->get_copy_assignment_count());
+        EXPECT_EQ(0, b1->get_move_assignment_count());
+        EXPECT_EQ(0, f2->get_copy_ctor_count());
+        EXPECT_EQ(0, f2->get_move_ctor_count());
+        EXPECT_EQ(0, f2->get_copy_assignment_count());
+        EXPECT_EQ(0, f2->get_move_assignment_count());
+        EXPECT_EQ(0, f_dtor);
+        EXPECT_EQ(0, b_dtor);
     }
-};
-template <typename PolicyType>
-struct test_ctor_8<PolicyType, policy_deleted>
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+    EXPECT_EQ(0, b_dtor);
+    b1.reset();
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+    f1.reset();
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 2 : 0, f_dtor);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_optional_combinations, ctor_5)
 {
-    static void test()
+    using F = foo<TypeParam>;
+    using B = bar<TypeParam>;
+    static_assert(std::is_constructible<F, B>::value, "");
+    static_assert(std::is_constructible<B, F>::value, "");
+    static_assert(std::is_constructible<optional<F>, optional<B>>::value, "");
+    static_assert(std::is_constructible<optional<B>, optional<F>>::value, "");
+    std::uint32_t f_dtor = 0;
+    std::uint32_t b_dtor = 0;
+    optional<F>   f1;
+    f1.emplace(12345).configure_destruction_counter(&f_dtor);
+    optional<B> b1(std::move(f1));   // Use implicit constructor because foo is implicitly convertible to bar
+    EXPECT_EQ(0, f1.value().value);  // Moving zeroes the source.
+    EXPECT_EQ(12345, b1.value().value);
+    b1.value().configure_destruction_counter(&b_dtor);
     {
-        static_assert(!std::is_copy_constructible<PolicyType>::value, "");
-        static_assert(!std::is_copy_constructible<optional<PolicyType>>::value, "");
+        optional<F> f2(std::move(b1));  // Use explicit constructor because bar is not implicitly convertible to foo
+        f2.value().configure_destruction_counter(&f_dtor);
+        EXPECT_EQ(0, f1.value().value);
+        EXPECT_EQ(0, b1.value().value);  // Moving zeroes the source.
+        EXPECT_EQ(12345, f2.value().value);
+        // Ensure no copy/move of the base took place.
+        EXPECT_EQ(0, f1->get_copy_ctor_count());
+        EXPECT_EQ(0, f1->get_move_ctor_count());
+        EXPECT_EQ(0, f1->get_copy_assignment_count());
+        EXPECT_EQ(0, f1->get_move_assignment_count());
+        EXPECT_EQ(0, b1->get_copy_ctor_count());
+        EXPECT_EQ(0, b1->get_move_ctor_count());
+        EXPECT_EQ(0, b1->get_copy_assignment_count());
+        EXPECT_EQ(0, b1->get_move_assignment_count());
+        EXPECT_EQ(0, f2->get_copy_ctor_count());
+        EXPECT_EQ(0, f2->get_move_ctor_count());
+        EXPECT_EQ(0, f2->get_copy_assignment_count());
+        EXPECT_EQ(0, f2->get_move_assignment_count());
+        EXPECT_EQ(0, f_dtor);
+        EXPECT_EQ(0, b_dtor);
     }
-};
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+    EXPECT_EQ(0, b_dtor);
+    b1.reset();
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+    f1.reset();
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 2 : 0, f_dtor);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_optional_combinations, ctor_6)
+{
+    std::uint32_t            f_dtor = 0;
+    optional<foo<TypeParam>> f1(in_place, 12345);
+    f1.value().configure_destruction_counter(&f_dtor);
+    EXPECT_TRUE(f1.has_value());
+    EXPECT_EQ(12345, f1.value().value);
+    // Ensure no copy/move of the base took place.
+    EXPECT_EQ(0, f1->get_copy_ctor_count());
+    EXPECT_EQ(0, f1->get_move_ctor_count());
+    EXPECT_EQ(0, f1->get_copy_assignment_count());
+    EXPECT_EQ(0, f1->get_move_assignment_count());
+    EXPECT_EQ(0, f_dtor);
+    f1 = nullopt;
+    EXPECT_FALSE(f1);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_optional_combinations, ctor_7)
+{
+    std::uint32_t            f_dtor = 0;
+    optional<foo<TypeParam>> f1(in_place, std::initializer_list<std::int64_t>{1, 2, 3, 4, 5});
+    f1.value().configure_destruction_counter(&f_dtor);
+    EXPECT_TRUE(f1.has_value());
+    EXPECT_EQ(5, f1.value().value);
+    // Ensure no copy/move of the base took place.
+    EXPECT_EQ(0, f1->get_copy_ctor_count());
+    EXPECT_EQ(0, f1->get_move_ctor_count());
+    EXPECT_EQ(0, f1->get_copy_assignment_count());
+    EXPECT_EQ(0, f1->get_move_assignment_count());
+    EXPECT_EQ(0, f_dtor);
+    f1 = nullopt;
+    EXPECT_FALSE(f1);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+static_assert(cetl::pf17::detail::opt::enable_ctor8<bar<noncopyable_t>, foo<noncopyable_t>, false>, "");
+static_assert(cetl::pf17::detail::opt::enable_ctor8<foo<noncopyable_t>, bar<noncopyable_t>, true>, "");
 
 TYPED_TEST(test_optional_combinations, ctor_8)
 {
-    test_ctor_8<TypeParam>::test();
+    std::uint32_t            f_dtor = 0;
+    std::uint32_t            b_dtor = 0;
+    optional<foo<TypeParam>> f1(12345);  // Use explicit constructor.
+    optional<bar<TypeParam>> b1(23456);  // Use implicit constructor.
+    f1.value().configure_destruction_counter(&f_dtor);
+    b1.value().configure_destruction_counter(&b_dtor);
+    EXPECT_TRUE(f1.has_value());
+    EXPECT_EQ(12345, f1.value().value);
+    EXPECT_TRUE(b1.has_value());
+    EXPECT_EQ(23456, b1.value().value);
+    // Ensure no copy/move of the base took place.
+    EXPECT_EQ(0, f1->get_copy_ctor_count());
+    EXPECT_EQ(0, f1->get_move_ctor_count());
+    EXPECT_EQ(0, f1->get_copy_assignment_count());
+    EXPECT_EQ(0, f1->get_move_assignment_count());
+    EXPECT_EQ(0, f_dtor);
+    EXPECT_EQ(0, b1->get_copy_ctor_count());
+    EXPECT_EQ(0, b1->get_move_ctor_count());
+    EXPECT_EQ(0, b1->get_copy_assignment_count());
+    EXPECT_EQ(0, b1->get_move_assignment_count());
+    EXPECT_EQ(0, b_dtor);
+    f1 = nullopt;
+    b1 = nullopt;
+    EXPECT_FALSE(f1);
+    EXPECT_FALSE(b1);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, f_dtor);
+    EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
 }
 
 /// ------------------------------------------------------------------------------------------------
