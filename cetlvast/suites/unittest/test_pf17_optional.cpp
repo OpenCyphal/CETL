@@ -701,6 +701,9 @@ TYPED_TEST(test_optional_combinations, ctor_4)
     f1.reset();
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 2 : 0, f_dtor);
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+    // Test empty copy.
+    optional<B> b2(f1);
+    EXPECT_FALSE(b2);
 }
 
 /// ------------------------------------------------------------------------------------------------
@@ -751,6 +754,9 @@ TYPED_TEST(test_optional_combinations, ctor_5)
     f1.reset();
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 2 : 0, f_dtor);
     EXPECT_EQ((TypeParam::dtor_policy_value == policy_nontrivial) ? 1 : 0, b_dtor);
+    // Test empty copy.
+    optional<B> b2(std::move(f1));
+    EXPECT_FALSE(b2);
 }
 
 /// ------------------------------------------------------------------------------------------------
@@ -1317,4 +1323,61 @@ TEST(test_optional, swap)
     a.swap(b);
     EXPECT_FALSE(a);
     EXPECT_FALSE(b);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+TEST(test_optional, make_optional_1)
+{
+    const std::int64_t           value = 123456;
+    const optional<std::int64_t> a     = cetl::pf17::make_optional(static_cast<const std::int64_t&>(value));
+    EXPECT_TRUE(a);
+    EXPECT_EQ(123456, a.value());
+}
+
+TEST(test_optional, make_optional_2)
+{
+    struct value_type
+    {
+        value_type(const std::int64_t a, const std::int64_t b)
+            : a(a)
+            , b(b)
+        {
+        }
+        std::int64_t a;
+        std::int64_t b;
+    };
+    const optional<value_type> opt = cetl::pf17::make_optional<value_type>(123, 456);
+    EXPECT_TRUE(opt);
+    EXPECT_EQ(123, opt.value().a);
+    EXPECT_EQ(456, opt.value().b);
+}
+
+TEST(test_optional, make_optional_3)
+{
+    struct value_type
+    {
+        value_type(const std::initializer_list<std::int64_t> list, const std::int64_t b)
+            : a(list.size())
+            , b(b)
+        {
+        }
+        std::size_t  a;
+        std::int64_t b;
+    };
+    const optional<value_type> opt =
+        cetl::pf17::make_optional<value_type>(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}, 123);
+    EXPECT_TRUE(opt);
+    EXPECT_EQ(5, opt.value().a);
+    EXPECT_EQ(123, opt.value().b);
+}
+
+/// ------------------------------------------------------------------------------------------------
+
+TEST(test_optional, value_or)
+{
+    const optional<std::int64_t> a = 12345;
+    EXPECT_EQ(12345, a.value_or(23456));
+    EXPECT_EQ(12345, (optional<std::int64_t>{12345}).value_or(23456));
+    EXPECT_EQ(23456, (optional<std::int64_t>{}).value_or(23456));
 }
