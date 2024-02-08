@@ -338,11 +338,74 @@ class test_optional_combinations : public ::testing::Test
 
 TYPED_TEST_SUITE(test_optional_combinations, testing_types, );
 
+struct empty_t
+{};
+
+/// A simple pair of types for testing where foo is implicitly convertible to bar but not vice versa.
+template <typename Base>
+struct foo final : Base
+{
+    foo()
+        : value{0}
+    {
+    }
+    explicit foo(const std::int64_t val) noexcept
+        : value{val}
+    {
+    }
+    foo(const std::initializer_list<std::int64_t> il)
+        : value{static_cast<std::int64_t>(il.size())}
+    {
+    }
+    std::int64_t value;
+};
+template <typename Base>
+struct bar final : Base
+{
+    bar(const std::int64_t val) noexcept  // NOLINT(*-explicit-constructor)
+        : value{val}
+    {
+    }
+    bar(const foo<Base>& other) noexcept  // NOLINT(*-explicit-constructor)
+        : value{other.value}
+    {
+    }
+    explicit operator foo<Base>() const noexcept
+    {
+        return foo<Base>{value};
+    }
+    std::int64_t value;
+};
+
+// Check implicit conversions.
+static_assert(std::is_convertible<foo<empty_t>, bar<empty_t>>::value, "");
+static_assert(!std::is_convertible<bar<empty_t>, foo<empty_t>>::value, "");
+static_assert(std::is_convertible<optional<foo<empty_t>>, optional<bar<empty_t>>>::value, "");
+static_assert(!std::is_convertible<optional<bar<empty_t>>, optional<foo<empty_t>>>::value, "");
+// Check explicit conversions.
+static_assert(std::is_constructible<bar<empty_t>, foo<empty_t>>::value, "");
+static_assert(std::is_constructible<foo<empty_t>, bar<empty_t>>::value, "");
+static_assert(std::is_constructible<optional<bar<empty_t>>, optional<foo<empty_t>>>::value, "");
+static_assert(std::is_constructible<optional<foo<empty_t>>, optional<bar<empty_t>>>::value, "");
+// Check triviality of foo.
+static_assert(std::is_trivially_copy_constructible<optional<foo<empty_t>>>::value, "");
+static_assert(std::is_trivially_move_constructible<optional<foo<empty_t>>>::value, "");
+static_assert(std::is_trivially_copy_assignable<optional<foo<empty_t>>>::value, "");
+static_assert(std::is_trivially_move_assignable<optional<foo<empty_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<foo<empty_t>>>::value, "");
+// Check triviality of bar.
+static_assert(std::is_trivially_copy_constructible<optional<bar<empty_t>>>::value, "");
+static_assert(std::is_trivially_move_constructible<optional<bar<empty_t>>>::value, "");
+static_assert(std::is_trivially_copy_assignable<optional<bar<empty_t>>>::value, "");
+static_assert(std::is_trivially_move_assignable<optional<bar<empty_t>>>::value, "");
+static_assert(std::is_trivially_destructible<optional<bar<empty_t>>>::value, "");
+
 /// ------------------------------------------------------------------------------------------------
 
 /// This test checks common behaviors that are independent of the copy/move policies.
 TYPED_TEST(test_optional_combinations, common)
 {
+    // Ensure trivial copy/move policies are correctly inherited from the value type.
     static_assert(std::is_trivially_copy_constructible<TypeParam>::value ==
                       std::is_trivially_copy_constructible<optional<TypeParam>>::value,
                   "");
@@ -363,20 +426,25 @@ TYPED_TEST(test_optional_combinations, common)
                       std::is_trivially_destructible<optional<TypeParam>>::value,
                   "");
 
-    struct value_type final : public TypeParam
-    {
-        explicit value_type(const std::int64_t val)
-            : value{val}
-        {
-        }
-        value_type(const std::initializer_list<std::int64_t> il)
-            : value{static_cast<std::int64_t>(il.size())}
-        {
-        }
-        std::int64_t value;
-    };
-    std::uint32_t        destruction_count = 0;
-    optional<value_type> opt;
+    // Ensure implicit convertibility is inherited from the value type.
+    static_assert(std::is_convertible<foo<TypeParam>, bar<TypeParam>>::value ==
+                      std::is_convertible<optional<foo<TypeParam>>, optional<bar<TypeParam>>>::value,
+                  "");
+    static_assert(std::is_convertible<bar<TypeParam>, foo<TypeParam>>::value ==
+                      std::is_convertible<optional<bar<TypeParam>>, optional<foo<TypeParam>>>::value,
+                  "");
+
+    // Ensure explicit convertibility is inherited from the value type.
+    static_assert(std::is_constructible<bar<TypeParam>, foo<TypeParam>>::value ==
+                      std::is_constructible<optional<bar<TypeParam>>, optional<foo<TypeParam>>>::value,
+                  "");
+    static_assert(std::is_constructible<foo<TypeParam>, bar<TypeParam>>::value ==
+                      std::is_constructible<optional<foo<TypeParam>>, optional<bar<TypeParam>>>::value,
+                  "");
+
+    // Runtime tests.
+    std::uint32_t            destruction_count = 0;
+    optional<foo<TypeParam>> opt;
     EXPECT_FALSE(opt.has_value());
     EXPECT_FALSE(opt);
     opt.emplace(12345).configure_destruction_counter(&destruction_count);
@@ -433,7 +501,7 @@ TYPED_TEST(test_optional_combinations, exceptions)
 
 /// ------------------------------------------------------------------------------------------------
 
-TYPED_TEST(test_optional_combinations, ctor1)
+TYPED_TEST(test_optional_combinations, ctor_1)
 {
     optional<TypeParam> opt1;
     EXPECT_FALSE(opt1.has_value());
@@ -444,7 +512,7 @@ TYPED_TEST(test_optional_combinations, ctor1)
 /// ------------------------------------------------------------------------------------------------
 
 template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
-struct test_ctor2
+struct test_ctor_2
 {
     static void test()
     {
@@ -469,7 +537,7 @@ struct test_ctor2
     }
 };
 template <typename T>
-struct test_ctor2<T, policy_deleted>
+struct test_ctor_2<T, policy_deleted>
 {
     static void test()
     {
@@ -478,9 +546,9 @@ struct test_ctor2<T, policy_deleted>
     }
 };
 
-TYPED_TEST(test_optional_combinations, ctor2)
+TYPED_TEST(test_optional_combinations, ctor_2)
 {
-    test_ctor2<TypeParam>::test();
+    test_ctor_2<TypeParam>::test();
 }
 
 /// ------------------------------------------------------------------------------------------------
@@ -488,7 +556,7 @@ TYPED_TEST(test_optional_combinations, ctor2)
 // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
 // satisfy std::is_move_constructible.
 template <typename T, std::uint8_t MoveCtorPolicy = T::move_ctor_policy_value>
-struct test_ctor3
+struct test_ctor_3
 {
     static void test()
     {
@@ -513,7 +581,7 @@ struct test_ctor3
     }
 };
 template <typename T>
-struct test_ctor3<T, policy_deleted>
+struct test_ctor_3<T, policy_deleted>
 {
     static void test()
     {
@@ -525,15 +593,15 @@ struct test_ctor3<T, policy_deleted>
     }
 };
 
-TYPED_TEST(test_optional_combinations, ctor3)
+TYPED_TEST(test_optional_combinations, ctor_3)
 {
-    test_ctor3<TypeParam>::test();
+    test_ctor_3<TypeParam>::test();
 }
 
 /// ------------------------------------------------------------------------------------------------
 
 template <typename T, std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value>
-struct test_ctor8
+struct test_ctor_8
 {
     struct value_type final : public T
     {
@@ -567,7 +635,7 @@ struct test_ctor8
     }
 };
 template <typename PolicyType>
-struct test_ctor8<PolicyType, policy_deleted>
+struct test_ctor_8<PolicyType, policy_deleted>
 {
     static void test()
     {
@@ -576,9 +644,9 @@ struct test_ctor8<PolicyType, policy_deleted>
     }
 };
 
-TYPED_TEST(test_optional_combinations, ctor8)
+TYPED_TEST(test_optional_combinations, ctor_8)
 {
-    test_ctor8<TypeParam>::test();
+    test_ctor_8<TypeParam>::test();
 }
 
 /// ------------------------------------------------------------------------------------------------

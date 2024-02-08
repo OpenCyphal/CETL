@@ -340,8 +340,10 @@ class optional : private detail::opt::base_move_assignment<T>,
                      std::is_copy_constructible<T>::value && std::is_copy_assignable<T>::value,
                      std::is_move_constructible<T>::value && std::is_move_assignable<T>::value>
 {
-    template <typename U>
+    template <typename>
     friend class optional;
+    template <typename, bool>
+    friend struct detail::opt::base_destruction;
 
     using base = detail::opt::base_move_assignment<T>;
 
