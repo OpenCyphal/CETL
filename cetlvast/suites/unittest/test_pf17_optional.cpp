@@ -1376,8 +1376,10 @@ TEST(test_optional, make_optional_3)
 
 TEST(test_optional, value_or)
 {
-    const optional<std::int64_t> a = 12345;
+    optional<std::int64_t> a = 12345;
     EXPECT_EQ(12345, a.value_or(23456));
+    a = nullopt;
+    EXPECT_EQ(23456, a.value_or(23456));
     EXPECT_EQ(12345, (optional<std::int64_t>{12345}).value_or(23456));
     EXPECT_EQ(23456, (optional<std::int64_t>{}).value_or(23456));
 }
