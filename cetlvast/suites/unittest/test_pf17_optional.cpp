@@ -593,11 +593,9 @@ struct test_ctor_2
 template <typename T>
 struct test_ctor_2<T, policy_deleted>
 {
-    static void test()
-    {
-        static_assert(!std::is_copy_constructible<T>::value, "");
-        static_assert(!std::is_copy_constructible<optional<T>>::value, "");
-    }
+    static_assert(!std::is_copy_constructible<T>::value, "");
+    static_assert(!std::is_copy_constructible<optional<T>>::value, "");
+    static void test() {}
 };
 
 TYPED_TEST(test_optional_combinations, ctor_2)
@@ -609,7 +607,9 @@ TYPED_TEST(test_optional_combinations, ctor_2)
 
 // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
 // satisfy std::is_move_constructible.
-template <typename T, std::uint8_t MoveCtorPolicy = T::move_ctor_policy_value>
+template <typename T,
+          std::uint8_t CopyCtorPolicy = T::copy_ctor_policy_value,
+          std::uint8_t MoveCtorPolicy = T::move_ctor_policy_value>
 struct test_ctor_3
 {
     static void test()
@@ -619,7 +619,11 @@ struct test_ctor_3
         opt.emplace().configure_destruction_counter(&destructed);
         {
             optional<T> opt2 = std::move(opt);
-            EXPECT_EQ(0, opt2->get_copy_ctor_count());
+            EXPECT_EQ(((T::move_ctor_policy_value == policy_deleted) &&
+                       (T::copy_ctor_policy_value == policy_nontrivial))
+                          ? 1
+                          : 0,
+                      opt2->get_copy_ctor_count());
             EXPECT_EQ((T::move_ctor_policy_value == policy_nontrivial) ? 1 : 0, opt2->get_move_ctor_count());
             EXPECT_EQ(0U, opt2->get_copy_assignment_count());
             EXPECT_EQ(0U, opt2->get_move_assignment_count());
@@ -635,16 +639,15 @@ struct test_ctor_3
     }
 };
 template <typename T>
-struct test_ctor_3<T, policy_deleted>  // FIXME: allow testing if either copy or move ctors available.
+struct test_ctor_3<T, policy_deleted, policy_deleted>
 {
-    static void test()
-    {
-        // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
-        // satisfy std::is_move_constructible.
-        static_assert(std::is_move_constructible<T>::value == (T::copy_ctor_policy_value != policy_deleted), "");
-        static_assert(std::is_move_constructible<optional<T>>::value == (T::copy_ctor_policy_value != policy_deleted),
-                      "");
-    }
+    // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
+    // satisfy std::is_move_constructible.
+    static_assert(!std::is_move_constructible<T>::value, "");
+    static_assert(!std::is_move_constructible<optional<T>>::value, "");
+    static_assert(!std::is_copy_constructible<T>::value, "");
+    static_assert(!std::is_copy_constructible<optional<T>>::value, "");
+    static void test() {}
 };
 
 TYPED_TEST(test_optional_combinations, ctor_3)
