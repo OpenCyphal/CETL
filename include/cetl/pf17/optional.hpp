@@ -204,9 +204,9 @@ struct base_move_construction<T, false> : base_copy_construction<T>
 
 /// COPY ASSIGNMENT POLICY
 template <typename T,
-          bool = std::is_trivially_copy_assignable<T>::value &&     //
-                 std::is_trivially_copy_constructible<T>::value &&  //
-                 std::is_trivially_destructible<T>::value>
+          bool = std::is_trivially_copy_assignable<T>::value&&      //
+                  std::is_trivially_copy_constructible<T>::value&&  //
+                  std::is_trivially_destructible<T>::value>
 struct base_copy_assignment;
 /// Trivially copy assignable case.
 template <typename T>
@@ -223,7 +223,7 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
     constexpr base_copy_assignment(const base_copy_assignment&) noexcept = default;
     constexpr base_copy_assignment(base_copy_assignment&&) noexcept      = default;
     constexpr base_copy_assignment& operator=(const base_copy_assignment& other) noexcept(
-        std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_copy_constructible<T>::value)
+        std::is_nothrow_copy_assignable<T>::value&& std::is_nothrow_copy_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -246,9 +246,9 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
 
 /// MOVE ASSIGNMENT POLICY
 template <typename T,
-          bool = std::is_trivially_move_assignable<T>::value &&     //
-                 std::is_trivially_move_constructible<T>::value &&  //
-                 std::is_trivially_destructible<T>::value>
+          bool = std::is_trivially_move_assignable<T>::value&&      //
+                  std::is_trivially_move_constructible<T>::value&&  //
+                  std::is_trivially_destructible<T>::value>
 struct base_move_assignment;
 /// Trivially move assignable case.
 template <typename T>
@@ -266,7 +266,7 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
     constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
     constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
     constexpr base_move_assignment& operator=(base_move_assignment&& other) noexcept(
-        std::is_nothrow_move_assignable<T>::value && std::is_nothrow_move_constructible<T>::value)
+        std::is_nothrow_move_assignable<T>::value&& std::is_nothrow_move_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -335,6 +335,8 @@ constexpr bool enable_ctor8 =
     (!(std::is_same<std::decay_t<T>, bool>::value && is_optional<std::decay_t<U>>::value)) &&  //
     (std::is_convertible<U&&, T&&>::value != Explicit);
 
+template <typename Expression>
+using enable_comparison = std::enable_if_t<std::is_convertible<Expression, bool>::value, bool>;
 }  // namespace opt
 }  // namespace detail
 
@@ -440,8 +442,8 @@ public:
     optional& operator=(const optional& other) = default;
 
     /// Assignment 3
-    constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable<T>::value &&
-                                                             std::is_nothrow_move_constructible<T>::value) = default;
+    constexpr optional& operator=(optional&& other) noexcept(
+        std::is_nothrow_move_assignable<T>::value&& std::is_nothrow_move_constructible<T>::value) = default;
 
     /// Assignment 4
     template <typename U                                                                                       = T,
@@ -538,8 +540,8 @@ public:
     }
 
     /// Swaps two optionals. If either is not engaged, acts like move assignment.
-    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value &&  //
-                                        std::is_nothrow_swappable<T>::value)
+    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value&&  //
+                                            std::is_nothrow_swappable<T>::value)
     {
         using std::swap;
         if (has_value() && other.has_value())
@@ -658,32 +660,44 @@ private:
 /// - lhs is considered less than rhs if, and only if, rhs contains a value and lhs does not.
 /// @{
 template <typename T, typename U>
-constexpr bool operator==(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() == std::declval<const U&>())> operator==(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return (lhs.has_value() == rhs.has_value()) && ((!lhs.has_value()) || ((*lhs) == (*rhs)));
 }
 template <typename T, typename U>
-constexpr bool operator!=(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() != std::declval<const U&>())> operator!=(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return !(lhs == rhs);
 }
 template <typename T, typename U>
-constexpr bool operator<(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() < std::declval<const U&>())> operator<(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return rhs.has_value() && ((!lhs.has_value()) || (*lhs) < (*rhs));
 }
 template <typename T, typename U>
-constexpr bool operator<=(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() <= std::declval<const U&>())> operator<=(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return !(rhs < lhs);
 }
 template <typename T, typename U>
-constexpr bool operator>(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() > std::declval<const U&>())> operator>(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return rhs < lhs;
 }
 template <typename T, typename U>
-constexpr bool operator>=(const optional<T>& lhs, const optional<U>& rhs)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= std::declval<const U&>())> operator>=(
+    const optional<T>& lhs,
+    const optional<U>& rhs)
 {
     return !(lhs < rhs);
 }
@@ -759,62 +773,86 @@ constexpr bool operator>=(const nullopt_t, const optional<T>& opt) noexcept
 /// Otherwise, the optional is considered less than value.
 /// @{
 template <typename T, typename U>
-constexpr bool operator==(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() == std::declval<const U&>())> operator==(
+    const optional<T>& opt,
+    const U&           value)
 {
     return opt.has_value() && ((*opt) == value);
 }
 template <typename T, typename U>
-constexpr bool operator==(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() == std::declval<const U&>())> operator==(
+    const T&           value,
+    const optional<U>& opt)
 {
     return opt.has_value() && (value == (*opt));
 }
 template <typename T, typename U>
-constexpr bool operator!=(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() != std::declval<const U&>())> operator!=(
+    const optional<T>& opt,
+    const U&           value)
 {
     return (!opt.has_value()) || ((*opt) != value);
 }
 template <typename T, typename U>
-constexpr bool operator!=(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() != std::declval<const U&>())> operator!=(
+    const T&           value,
+    const optional<U>& opt)
 {
     return (!opt.has_value()) || ((*opt) != value);
 }
 template <typename T, typename U>
-constexpr bool operator<(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() < std::declval<const U&>())> operator<(
+    const optional<T>& opt,
+    const U&           value)
 {
     return (!opt.has_value()) || ((*opt) < value);
 }
 template <typename T, typename U>
-constexpr bool operator<(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() < std::declval<const U&>())> operator<(
+    const T&           value,
+    const optional<U>& opt)
 {
     return opt.has_value() && (value < (*opt));
 }
 template <typename T, typename U>
-constexpr bool operator<=(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() <= std::declval<const U&>())> operator<=(
+    const optional<T>& opt,
+    const U&           value)
 {
     return (!opt.has_value()) || ((*opt) <= value);
 }
 template <typename T, typename U>
-constexpr bool operator<=(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() <= std::declval<const U&>())> operator<=(
+    const T&           value,
+    const optional<U>& opt)
 {
     return opt.has_value() && (value <= (*opt));
 }
 template <typename T, typename U>
-constexpr bool operator>(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() > std::declval<const U&>())> operator>(
+    const optional<T>& opt,
+    const U&           value)
 {
     return opt.has_value() && ((*opt) > value);
 }
 template <typename T, typename U>
-constexpr bool operator>(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() > std::declval<const U&>())> operator>(
+    const T&           value,
+    const optional<U>& opt)
 {
     return (!opt.has_value()) || (value > (*opt));
 }
 template <typename T, typename U>
-constexpr bool operator>=(const optional<T>& opt, const U& value)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= std::declval<const U&>())> operator>=(
+    const optional<T>& opt,
+    const U&           value)
 {
     return opt.has_value() && ((*opt) >= value);
 }
 template <typename T, typename U>
-constexpr bool operator>=(const T& value, const optional<U>& opt)
+constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= std::declval<const U&>())> operator>=(
+    const T&           value,
+    const optional<U>& opt)
 {
     return (!opt.has_value()) || (value >= (*opt));
 }
