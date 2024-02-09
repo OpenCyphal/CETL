@@ -1383,3 +1383,171 @@ TEST(test_optional, value_or)
     EXPECT_EQ(12345, (optional<std::int64_t>{12345}).value_or(23456));
     EXPECT_EQ(23456, (optional<std::int64_t>{}).value_or(23456));
 }
+
+/// ------------------------------------------------------------------------------------------------
+
+/// This wrapper is used to test the comparison operators. It is made non-copyable and non-movable to ensure that the
+/// comparison operators are not using the copy/move constructors or assignment operators.
+template <typename T>
+struct comparable final
+{
+    explicit constexpr comparable(const T& value)
+        : value(value)
+    {
+    }
+    comparable(const comparable&)            = delete;
+    comparable(comparable&&)                 = delete;
+    comparable& operator=(const comparable&) = delete;
+    comparable& operator=(comparable&&)      = delete;
+    ~comparable()                            = default;
+    T value;
+};
+
+template <typename T, typename U>
+constexpr bool operator==(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value == rhs.value;
+}
+template <typename T, typename U>
+constexpr bool operator!=(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value != rhs.value;
+}
+template <typename T, typename U>
+constexpr bool operator<(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value < rhs.value;
+}
+template <typename T, typename U>
+constexpr bool operator<=(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value <= rhs.value;
+}
+template <typename T, typename U>
+constexpr bool operator>(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value > rhs.value;
+}
+template <typename T, typename U>
+constexpr bool operator>=(const comparable<T>& lhs, const comparable<U>& rhs)
+{
+    return lhs.value >= rhs.value;
+}
+
+TEST(test_optional, comparison_optional_to_optional)
+{
+    using A = optional<comparable<std::int64_t>>;
+    using B = optional<comparable<std::int32_t>>;
+    // ==
+    EXPECT_TRUE(A{} == B{});
+    EXPECT_TRUE(A{10} == B{10});
+    EXPECT_FALSE(A{} == B{10});
+    EXPECT_FALSE(A{10} == B{});
+    // !=
+    EXPECT_FALSE(A{} != B{});
+    EXPECT_FALSE(A{10} != B{10});
+    EXPECT_TRUE(A{} != B{10});
+    EXPECT_TRUE(A{10} != B{});
+    // <
+    EXPECT_FALSE(A{} < B{});
+    EXPECT_FALSE(A{10} < B{10});
+    EXPECT_TRUE(A{} < B{10});
+    EXPECT_FALSE(A{10} < B{});
+    // <=
+    EXPECT_TRUE(A{} <= B{});
+    EXPECT_TRUE(A{10} <= B{10});
+    EXPECT_TRUE(A{} <= B{10});
+    EXPECT_FALSE(A{10} <= B{});
+    // >
+    EXPECT_FALSE(A{} > B{});
+    EXPECT_FALSE(A{10} > B{10});
+    EXPECT_FALSE(A{} > B{10});
+    EXPECT_TRUE(A{10} > B{});
+    // >=
+    EXPECT_TRUE(A{} >= B{});
+    EXPECT_TRUE(A{10} >= B{10});
+    EXPECT_FALSE(A{} >= B{10});
+    EXPECT_TRUE(A{10} >= B{});
+}
+
+TEST(test_optional, comparison_optional_to_nullopt)
+{
+    using A = optional<comparable<std::int64_t>>;
+    // ==
+    EXPECT_TRUE(A{} == nullopt);
+    EXPECT_TRUE(nullopt == A{});
+    EXPECT_FALSE(A{10} == nullopt);
+    EXPECT_FALSE(nullopt == A{10});
+    // !=
+    EXPECT_FALSE(A{} != nullopt);
+    EXPECT_FALSE(nullopt != A{});
+    EXPECT_TRUE(A{10} != nullopt);
+    EXPECT_TRUE(nullopt != A{10});
+    // <
+    EXPECT_FALSE(A{} < nullopt);
+    EXPECT_FALSE(nullopt < A{});
+    EXPECT_FALSE(A{10} < nullopt);
+    EXPECT_TRUE(nullopt < A{10});
+    // <=
+    EXPECT_TRUE(A{} <= nullopt);
+    EXPECT_TRUE(nullopt <= A{});
+    EXPECT_FALSE(A{10} <= nullopt);
+    EXPECT_TRUE(nullopt <= A{10});
+    // >
+    EXPECT_FALSE(A{} > nullopt);
+    EXPECT_FALSE(nullopt > A{});
+    EXPECT_TRUE(A{10} > nullopt);
+    EXPECT_FALSE(nullopt > A{10});
+    // >=
+    EXPECT_TRUE(A{} >= nullopt);
+    EXPECT_TRUE(nullopt >= A{});
+    EXPECT_TRUE(A{10} >= nullopt);
+    EXPECT_FALSE(nullopt >= A{10});
+}
+
+TEST(test_optional, comparison_optional_to_value)
+{
+    using A = optional<std::int64_t>;
+    // ==
+    EXPECT_FALSE(A{} == 10);
+    EXPECT_FALSE(10 == A{});
+    EXPECT_TRUE(A{10} == 10);
+    EXPECT_TRUE(10 == A{10});
+    EXPECT_FALSE(A{10} == 0);
+    EXPECT_FALSE(0 == A{10});
+    // !=
+    EXPECT_TRUE(A{} != 10);
+    EXPECT_TRUE(10 != A{});
+    EXPECT_FALSE(A{10} != 10);
+    EXPECT_FALSE(10 != A{10});
+    EXPECT_TRUE(A{10} != 0);
+    EXPECT_TRUE(0 != A{10});
+    // <
+    EXPECT_TRUE(A{} < 10);
+    EXPECT_FALSE(10 < A{});
+    EXPECT_FALSE(A{10} < 10);
+    EXPECT_FALSE(10 < A{10});
+    EXPECT_FALSE(A{10} < 0);
+    EXPECT_TRUE(0 < A{10});
+    // <=
+    EXPECT_TRUE(A{} <= 10);
+    EXPECT_FALSE(10 <= A{});
+    EXPECT_TRUE(A{10} <= 10);
+    EXPECT_TRUE(10 <= A{10});
+    EXPECT_FALSE(A{10} <= 0);
+    EXPECT_TRUE(0 <= A{10});
+    // >
+    EXPECT_FALSE(A{} > 10);
+    EXPECT_TRUE(10 > A{});
+    EXPECT_FALSE(A{10} > 10);
+    EXPECT_FALSE(10 > A{10});
+    EXPECT_TRUE(A{10} > 0);
+    EXPECT_FALSE(0 > A{10});
+    // >=
+    EXPECT_FALSE(A{} >= 10);
+    EXPECT_TRUE(10 >= A{});
+    EXPECT_TRUE(A{10} >= 10);
+    EXPECT_TRUE(10 >= A{10});
+    EXPECT_TRUE(A{10} >= 0);
+    EXPECT_FALSE(0 >= A{10});
+}
