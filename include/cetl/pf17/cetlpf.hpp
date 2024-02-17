@@ -73,8 +73,8 @@ using std::in_place_t;
 using std::optional;
 using std::nullopt_t;
 using std::nullopt;
-using std::bad_optional_access;
 using std::make_optional;
+using std::bad_optional_access;
 
 // type_traits
 using std::is_nothrow_swappable_v;
@@ -117,8 +117,10 @@ using cetl::pf17::in_place_t;
 using cetl::pf17::optional;
 using cetl::pf17::nullopt_t;
 using cetl::pf17::nullopt;
-using cetl::pf17::bad_optional_access;
 using cetl::pf17::make_optional;
+#    if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
+using cetl::pf17::bad_optional_access;
+#    endif
 
 // type_traits
 using cetl::pf17::is_nothrow_swappable_v;
