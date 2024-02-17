@@ -1,3 +1,5 @@
+/// @file
+/// Attribute polyfills for C++17.
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -8,7 +10,9 @@
 
 /// CETL_NODISCARD
 #ifndef CETL_NODISCARD
-#    if __cplusplus >= 201703L
+#    if (__cplusplus >= 201703L) || defined(CETL_DOXYGEN)
+/// A compatibility macros that expands to \c [[nodiscard]] if C++17 or later is used, otherwise it expands to
+/// a compiler-specific alternative if one is known, otherwise it expands to nothing.
 #        define CETL_NODISCARD [[nodiscard]]
 #    else
 #        if defined(__GNUC__) || defined(__clang__)
