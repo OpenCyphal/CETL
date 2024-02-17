@@ -1,3 +1,5 @@
+/// @file
+/// Defines the C++17 std::optional type and several related entities.
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
@@ -19,27 +21,26 @@ namespace cetl
 {
 namespace pf17
 {
-/// A polyfill for std::optional.
 template <typename T>
 class optional;
 
-/// A polyfill for std::nullopt_t.
+/// An implementation of C++17 \ref std::nullopt_t.
 struct nullopt_t final
 {
     enum class _detail
     {
-        _detail  ///< The secret tag is needed to meet the behavioral requirements.
+        _detail
     };
 
     constexpr explicit nullopt_t(const _detail) noexcept {}
 };
 
-/// A polyfill for std::nullopt.
+/// An implementation of C++17 \c std::nullopt.
 constexpr nullopt_t nullopt{nullopt_t::_detail::_detail};
 
 #if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 /// A polyfill for std::bad_optional_access.
-/// This is only available if exceptions are enabled.
+/// This is only available if exceptions are enabled (__cpp_exceptions is defined).
 class bad_optional_access : public std::exception
 {
 public:
@@ -340,6 +341,7 @@ using enable_comparison = std::enable_if_t<std::is_convertible<Expression, bool>
 }  // namespace opt
 }  // namespace detail
 
+/// A strict implementation of C++17 \ref std::optional.
 template <typename T>
 class optional : private detail::opt::base_move_assignment<T>,
                  private cetl::detail::enable_copy_move_construction<std::is_copy_constructible<T>::value,
@@ -362,9 +364,6 @@ class optional : private detail::opt::base_move_assignment<T>,
 
 public:
     using value_type = T;
-
-    /// Destroy the value if engaged, otherwise do nothing.
-    using base::reset;
 
     /// Constructor 1
     constexpr optional() noexcept = default;
@@ -484,7 +483,7 @@ public:
         }
         else
         {
-            this->reset();
+            reset();
         }
         return *this;
     }
@@ -508,9 +507,15 @@ public:
         }
         else
         {
-            this->reset();
+            reset();
         }
         return *this;
+    }
+
+    /// Destroy the value if engaged, otherwise do nothing.
+    void reset()
+    {
+        base::reset();
     }
 
     /// True if the optional is engaged.
@@ -703,7 +708,7 @@ constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= st
 }
 /// @}
 
-/// Compares an optional with a nullopt.
+/// Compares an optional with a \ref nullopt.
 /// Equivalent to the above case when comparing to an optional that does not contain a value.
 /// @{
 template <typename T>
@@ -858,7 +863,7 @@ constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= st
 }
 /// @}
 
-/// Polyfill for std::make_optional.
+/// An implementation of C++17 \ref std::make_optional.
 /// @{
 template <typename T>
 constexpr optional<std::decay_t<T>> make_optional(T&& value)
