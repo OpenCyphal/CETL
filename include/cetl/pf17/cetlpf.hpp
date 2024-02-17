@@ -40,6 +40,7 @@
 #if (__cplusplus >= CETL_CPP_STANDARD_17 && !defined(CETL_DOXYGEN))
 #    include <memory_resource>
 #    include <cstddef>
+#    include <optional>
 
 namespace cetl
 {
@@ -64,11 +65,24 @@ inline memory_resource* new_delete_resource() noexcept
     return std::pmr::new_delete_resource();
 }
 
+// utility
+using std::in_place;
+using std::in_place_t;
+
+// optional
+using std::optional;
+using std::nullopt_t;
+using std::nullopt;
+using std::bad_optional_access;
+using std::make_optional;
+
 }  // namespace pmr
 }  // namespace cetl
 
 #else
 #    include "cetl/pf17/byte.hpp"
+#    include "cetl/pf17/utility.hpp"
+#    include "cetl/pf17/optional.hpp"
 
 namespace cetl
 {
@@ -91,6 +105,17 @@ inline memory_resource* new_delete_resource() noexcept
 {
     return cetl::pf17::pmr::new_delete_resource();
 }
+
+// utility
+using cetl::pf17::in_place;
+using cetl::pf17::in_place_t;
+
+// optional
+using cetl::pf17::optional;
+using cetl::pf17::nullopt_t;
+using cetl::pf17::nullopt;
+using cetl::pf17::bad_optional_access;
+using cetl::pf17::make_optional;
 
 }  // namespace pmr
 }  // namespace cetl

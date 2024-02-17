@@ -1,3 +1,5 @@
+/// @file
+/// Defines C++17 entities from the \c utility header.
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
