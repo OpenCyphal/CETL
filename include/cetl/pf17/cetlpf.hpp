@@ -76,6 +76,9 @@ using std::nullopt;
 using std::bad_optional_access;
 using std::make_optional;
 
+// type_traits
+using std::is_nothrow_swappable_v;
+
 }  // namespace pmr
 }  // namespace cetl
 
@@ -116,6 +119,9 @@ using cetl::pf17::nullopt_t;
 using cetl::pf17::nullopt;
 using cetl::pf17::bad_optional_access;
 using cetl::pf17::make_optional;
+
+// type_traits
+using cetl::pf17::is_nothrow_swappable_v;
 
 }  // namespace pmr
 }  // namespace cetl

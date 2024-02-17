@@ -11,6 +11,7 @@
 #include <cetl/_helpers.hpp>
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/attribute.hpp>
+#include <cetl/pf17/type_traits.hpp>
 
 #include <algorithm>
 #include <cassert>
@@ -545,8 +546,7 @@ public:
     }
 
     /// Swaps two optionals. If either is not engaged, acts like move assignment.
-    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value&&  //
-                                            std::is_nothrow_swappable<T>::value)
+    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value&& is_nothrow_swappable_v<T>)
     {
         using std::swap;
         if (has_value() && other.has_value())
