@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for cetl::pf17::pmr::polymorphic_allocator defined in memory_resource.hpp
+/// Unit tests for cetl/pf17/optional.hpp
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
