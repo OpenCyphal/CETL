@@ -8,6 +8,13 @@
 #include <cetl/rtti.hpp>
 #include <gtest/gtest.h>
 
+/// An optional helper that can be used to implement CETL RTTI support with minimal boilerplate.
+/// Use it in the public section of the class definition.
+///
+/// The first argument is the base class of the class that is being defined, which can be \c cetl::rtti.
+///
+/// The following arguments are the 16 bytes of the type identifier exposed via \c _get_static_type_id_;
+/// if less than 16 bytes are provided, the remaining bytes are zeroed.
 #define CETL_RTTI(base, ...)                                                                       \
     static constexpr cetl::type_id _get_static_type_id_() noexcept                                 \
     {                                                                                              \
