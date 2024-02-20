@@ -8,166 +8,293 @@
 #include <cetl/rtti.hpp>
 #include <gtest/gtest.h>
 
-/// An optional helper that can be used to implement CETL RTTI support with minimal boilerplate.
-/// Use it in the public section of the class definition.
-///
-/// The first argument is the base class of the class that is being defined, which can be \c cetl::rtti.
-///
-/// The following arguments are the 16 bytes of the type identifier exposed via \c _get_static_type_id_;
-/// if less than 16 bytes are provided, the remaining bytes are zeroed.
-#define CETL_RTTI(base, ...)                                                                       \
-    static constexpr cetl::type_id _get_static_type_id_() noexcept                                 \
-    {                                                                                              \
-        return cetl::type_id{__VA_ARGS__};                                                         \
-    }                                                                                              \
-    cetl::type_id _get_polymorphic_type_id_() const noexcept override                              \
-    {                                                                                              \
-        return _get_static_type_id_();                                                             \
-    }                                                                                              \
-    void* _cast_(const cetl::type_id& id)& noexcept override                                       \
-    {                                                                                              \
-        return (id == _get_static_type_id_()) ? static_cast<void*>(this) : base::_cast_(id);       \
-    }                                                                                              \
-    const void* _cast_(const cetl::type_id& id) const& noexcept override                           \
-    {                                                                                              \
-        return (id == _get_static_type_id_()) ? static_cast<const void*>(this) : base::_cast_(id); \
-    }
-
-struct A : cetl::rtti
-{
-    ~A() override    = default;
-    const char value = 'a';
-    CETL_RTTI(cetl::rtti, 0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF)
-};
-
-struct B : A
-{
-    const char value = 'b';
-    CETL_RTTI(A, 0x1, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF)
-};
-
-struct C : B
-{
-    const char value = 'c';
-    CETL_RTTI(B, 0x2, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF)
-};
-
-struct D final
+/// A simple non-polymorphic type that supports CETL RTTI.
+struct Static final
 {
     static constexpr cetl::type_id _get_static_type_id_() noexcept
     {
-        return {0x3, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF};
+        return {0x3, 0x0};
+    }
+};
+
+/// A simple polymorphic inheritance hierarchy: A <- B <- C.
+struct PolymorphA : cetl::rtti_helper<cetl::type_id_type<0x0, 0x1>>
+{
+    char value = 'a';
+};
+struct PolymorphB : cetl::rtti_helper<cetl::type_id_type<0x1, 0x1>, PolymorphA>
+{
+    char value = 'b';
+};
+struct PolymorphC : cetl::rtti_helper<cetl::type_id_type<0x2, 0x1>, PolymorphB>
+{
+    char        value = 'c';
+    const char& value_a() const
+    {
+        return PolymorphA::value;
+    }
+    char& value_b()
+    {
+        return PolymorphB::value;
+    }
+};
+
+/// A diamond multi-inheritance hierarchy:
+///     A
+///    / `
+///   B   C
+///    ` /
+///     D
+struct MultiA : cetl::rtti_helper<cetl::type_id_type<0x0, 0x2>>
+{
+    char value = 'a';
+};
+struct MultiB : cetl::rtti_helper<cetl::type_id_type<0x1, 0x2>, MultiA>
+{
+    char  value = 'b';
+    char& value_b_a()
+    {
+        return MultiA::value;
+    }
+};
+struct MultiC : cetl::rtti_helper<cetl::type_id_type<0x2, 0x2>, MultiA>
+{
+    char  value = 'c';
+    char& value_c_a()
+    {
+        return MultiA::value;
+    }
+};
+struct MultiD : cetl::rtti_helper<cetl::type_id_type<0x3, 0x2>, MultiB, MultiC>
+{
+    char  value = 'd';
+    char& value_b()
+    {
+        return MultiB::value;
+    }
+    char& value_c()
+    {
+        return MultiC::value;
     }
 };
 
 TEST(test_rtti, basic)
 {
-    EXPECT_EQ(cetl::get_type_id(A{}), A::_get_static_type_id_());
-    EXPECT_EQ(cetl::get_type_id(B{}), B::_get_static_type_id_());
-    EXPECT_EQ(cetl::get_type_id(C{}), C::_get_static_type_id_());
-    EXPECT_EQ(cetl::get_type_id(D{}), D::_get_static_type_id_());
+    EXPECT_EQ(cetl::get_type_id(PolymorphA{}), PolymorphA::_get_static_type_id_());
+    EXPECT_EQ(cetl::get_type_id(PolymorphB{}), PolymorphB::_get_static_type_id_());
+    EXPECT_EQ(cetl::get_type_id(PolymorphC{}), PolymorphC::_get_static_type_id_());
+    EXPECT_EQ(cetl::get_type_id(Static{}), Static::_get_static_type_id_());
 
-    EXPECT_EQ(nullptr, cetl::rtti_cast<D*>(static_cast<A*>(nullptr)));
-    EXPECT_EQ(nullptr, cetl::rtti_cast<A*>(static_cast<C*>(nullptr)));
-    EXPECT_EQ(nullptr, cetl::rtti_cast<D*>(static_cast<const A*>(nullptr)));
-    EXPECT_EQ(nullptr, cetl::rtti_cast<A*>(static_cast<const C*>(nullptr)));
-
-    A a;
-    EXPECT_EQ(cetl::get_type_id(a),
-              cetl::type_id({0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF}));
-    EXPECT_EQ(cetl::get_type_id(a), a._get_static_type_id_());
-    EXPECT_EQ('a', cetl::rtti_cast<A*>(&a)->value);
-    EXPECT_EQ('a', cetl::rtti_cast<A*>(static_cast<const A*>(&a))->value);
-    EXPECT_EQ(&a, cetl::rtti_cast<A*>(&a));
-    EXPECT_EQ(&a, cetl::rtti_cast<A*>(static_cast<const A*>(&a)));
-    EXPECT_EQ(nullptr, cetl::rtti_cast<B*>(&a));
-    EXPECT_EQ(nullptr, cetl::rtti_cast<B*>(static_cast<const A*>(&a)));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<Static*>(static_cast<PolymorphA*>(nullptr)));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<PolymorphA*>(static_cast<PolymorphC*>(nullptr)));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<Static*>(static_cast<const PolymorphA*>(nullptr)));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<PolymorphA*>(static_cast<const PolymorphC*>(nullptr)));
 }
 
-TEST(test_rtti, polymorphism)
+TEST(test_rtti, basic_single_inheritance)
+{
+    PolymorphA a;
+    EXPECT_EQ(cetl::get_type_id(a), cetl::type_id({0x0, 0x1}));
+    EXPECT_EQ(cetl::get_type_id(a), a._get_static_type_id_());
+    EXPECT_EQ('a', cetl::rtti_cast<PolymorphA*>(&a)->value);
+    EXPECT_EQ('a', cetl::rtti_cast<PolymorphA*>(static_cast<const PolymorphA*>(&a))->value);
+    EXPECT_EQ(&a, cetl::rtti_cast<PolymorphA*>(&a));
+    EXPECT_EQ(&a, cetl::rtti_cast<PolymorphA*>(static_cast<const PolymorphA*>(&a)));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<PolymorphB*>(&a));
+    EXPECT_EQ(nullptr, cetl::rtti_cast<PolymorphB*>(static_cast<const PolymorphA*>(&a)));
+}
+
+TEST(test_rtti, basic_multi_inheritance)
+{
+    MultiD d;
+    EXPECT_EQ(cetl::get_type_id(d), cetl::type_id({0x3, 0x2}));
+    EXPECT_EQ(cetl::get_type_id(d), d._get_static_type_id_());
+
+    EXPECT_TRUE(cetl::is_instance_of<MultiD>(d));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(d));
+    EXPECT_TRUE(cetl::is_instance_of<MultiC>(d));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(d));
+
+    EXPECT_TRUE(cetl::is_instance_of<MultiD>(static_cast<MultiB&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(static_cast<MultiB&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiC>(static_cast<MultiB&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(static_cast<MultiB&>(d)));
+
+    EXPECT_TRUE(cetl::is_instance_of<MultiD>(static_cast<MultiC&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(static_cast<MultiC&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiC>(static_cast<MultiC&>(d)));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(static_cast<MultiC&>(d)));
+
+    EXPECT_TRUE(cetl::is_instance_of<MultiD>(static_cast<const MultiA&>(static_cast<MultiB&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(static_cast<const MultiA&>(static_cast<MultiB&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiC>(static_cast<const MultiA&>(static_cast<MultiB&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(static_cast<const MultiA&>(static_cast<MultiB&>(d))));
+
+    EXPECT_TRUE(cetl::is_instance_of<MultiD>(static_cast<const MultiA&>(static_cast<MultiC&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(static_cast<const MultiA&>(static_cast<MultiC&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiC>(static_cast<const MultiA&>(static_cast<MultiC&>(d))));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(static_cast<const MultiA&>(static_cast<MultiC&>(d))));
+
+    MultiB b;
+    EXPECT_FALSE(cetl::is_instance_of<MultiD>(b));
+    EXPECT_TRUE(cetl::is_instance_of<MultiB>(b));
+    EXPECT_FALSE(cetl::is_instance_of<MultiC>(b));
+    EXPECT_TRUE(cetl::is_instance_of<MultiA>(b));
+}
+
+TEST(test_rtti, single_inheritance)
 {
     using cetl::rtti_cast;
     using cetl::is_instance_of;
 
-    B b;
-    C c;
+    PolymorphB b;
+    PolymorphC c;
 
-    EXPECT_EQ(cetl::get_type_id(b),
-              cetl::type_id({0x1, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF}));
-    EXPECT_EQ(cetl::get_type_id(c),
-              cetl::type_id({0x2, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9, 0xA, 0xB, 0xC, 0xD, 0xE, 0xF}));
+    EXPECT_EQ(cetl::get_type_id(b), cetl::type_id({0x1, 0x1}));
+    EXPECT_EQ(cetl::get_type_id(c), cetl::type_id({0x2, 0x1}));
     EXPECT_EQ(cetl::get_type_id(b), b._get_static_type_id_());
     EXPECT_EQ(cetl::get_type_id(c), c._get_static_type_id_());
 
+    // check values
+    EXPECT_EQ('c', c.value);
+    EXPECT_EQ('a', c.value_a());
+    EXPECT_EQ('b', c.value_b());
+    static_cast<PolymorphA&>(c).value = 'A';
+    c.value_b()                       = 'B';
+    EXPECT_EQ('A', c.value_a());
+    EXPECT_EQ('B', static_cast<PolymorphB&>(c).value);
+
     // identity, b to b
-    EXPECT_EQ('b', rtti_cast<B*>(&b)->value);
-    EXPECT_EQ('b', rtti_cast<B*>(static_cast<const B*>(&b))->value);
-    EXPECT_EQ(&b, rtti_cast<B*>(&b));
-    EXPECT_EQ(&b, rtti_cast<B*>(static_cast<const B*>(&b)));
+    EXPECT_EQ('b', rtti_cast<PolymorphB*>(&b)->value);
+    EXPECT_EQ('b', rtti_cast<PolymorphB*>(static_cast<const PolymorphB*>(&b))->value);
+    EXPECT_EQ(&b, rtti_cast<PolymorphB*>(&b));
+    EXPECT_EQ(&b, rtti_cast<PolymorphB*>(static_cast<const PolymorphB*>(&b)));
 
     // identity, c to c
-    EXPECT_EQ('c', rtti_cast<C*>(&c)->value);
-    EXPECT_EQ('c', rtti_cast<C*>(static_cast<const C*>(&c))->value);
-    EXPECT_EQ(&c, rtti_cast<C*>(&c));
-    EXPECT_EQ(&c, rtti_cast<C*>(static_cast<const C*>(&c)));
+    EXPECT_EQ('c', rtti_cast<PolymorphC*>(&c)->value);
+    EXPECT_EQ('c', rtti_cast<PolymorphC*>(static_cast<const PolymorphC*>(&c))->value);
+    EXPECT_EQ(&c, rtti_cast<PolymorphC*>(&c));
+    EXPECT_EQ(&c, rtti_cast<PolymorphC*>(static_cast<const PolymorphC*>(&c)));
 
     // up-conversion, b to a
-    EXPECT_EQ('a', rtti_cast<A*>(&b)->value);
-    EXPECT_EQ('a', rtti_cast<A*>(static_cast<const B*>(&b))->value);
-    EXPECT_EQ(&b, rtti_cast<A*>(&b));
-    EXPECT_EQ(&b, rtti_cast<A*>(static_cast<const B*>(&b)));
+    EXPECT_EQ('a', rtti_cast<PolymorphA*>(&b)->value);
+    EXPECT_EQ('a', rtti_cast<PolymorphA*>(static_cast<const PolymorphB*>(&b))->value);
+    EXPECT_EQ(&b, rtti_cast<PolymorphA*>(&b));
+    EXPECT_EQ(&b, rtti_cast<PolymorphA*>(static_cast<const PolymorphB*>(&b)));
 
     // up-conversion, c to b
-    EXPECT_EQ('b', rtti_cast<B*>(&c)->value);
-    EXPECT_EQ('b', rtti_cast<B*>(static_cast<const C*>(&c))->value);
-    EXPECT_EQ(&c, rtti_cast<B*>(&c));
-    EXPECT_EQ(&c, rtti_cast<B*>(static_cast<const C*>(&c)));
+    EXPECT_EQ('B', rtti_cast<PolymorphB*>(&c)->value);
+    EXPECT_EQ('B', rtti_cast<PolymorphB*>(static_cast<const PolymorphC*>(&c))->value);
+    EXPECT_EQ(&c, rtti_cast<PolymorphB*>(&c));
+    EXPECT_EQ(&c, rtti_cast<PolymorphB*>(static_cast<const PolymorphC*>(&c)));
 
     // up-conversion, c to a
-    EXPECT_EQ('a', rtti_cast<A*>(&c)->value);
-    EXPECT_EQ('a', rtti_cast<A*>(static_cast<const C*>(&c))->value);
-    EXPECT_EQ(&c, rtti_cast<A*>(&c));
-    EXPECT_EQ(&c, rtti_cast<A*>(static_cast<const C*>(&c)));
+    EXPECT_EQ('A', rtti_cast<PolymorphA*>(&c)->value);
+    EXPECT_EQ('A', rtti_cast<PolymorphA*>(static_cast<const PolymorphC*>(&c))->value);
+    EXPECT_EQ(&c, rtti_cast<PolymorphA*>(&c));
+    EXPECT_EQ(&c, rtti_cast<PolymorphA*>(static_cast<const PolymorphC*>(&c)));
 
-    A& a_b = b;
-    A& a_c = c;
+    PolymorphA& a_b = b;
+    PolymorphA& a_c = c;
 
     // down-conversion, a to b
-    EXPECT_EQ('b', rtti_cast<B*>(&a_b)->value);
-    EXPECT_EQ('b', rtti_cast<B*>(static_cast<const A*>(&a_b))->value);
-    EXPECT_EQ(&b, rtti_cast<B*>(&a_b));
-    EXPECT_EQ(&b, rtti_cast<B*>(static_cast<const A*>(&a_b)));
+    EXPECT_EQ('b', rtti_cast<PolymorphB*>(&a_b)->value);
+    EXPECT_EQ('b', rtti_cast<PolymorphB*>(static_cast<const PolymorphA*>(&a_b))->value);
+    EXPECT_EQ(&b, rtti_cast<PolymorphB*>(&a_b));
+    EXPECT_EQ(&b, rtti_cast<PolymorphB*>(static_cast<const PolymorphA*>(&a_b)));
 
     // down-conversion, a to c
-    EXPECT_EQ('c', rtti_cast<C*>(&a_c)->value);
-    EXPECT_EQ('c', rtti_cast<C*>(static_cast<const A*>(&a_c))->value);
-    EXPECT_EQ(&c, rtti_cast<C*>(&a_c));
-    EXPECT_EQ(&c, rtti_cast<C*>(static_cast<const A*>(&a_c)));
+    EXPECT_EQ('c', rtti_cast<PolymorphC*>(&a_c)->value);
+    EXPECT_EQ('c', rtti_cast<PolymorphC*>(static_cast<const PolymorphA*>(&a_c))->value);
+    EXPECT_EQ(&c, rtti_cast<PolymorphC*>(&a_c));
+    EXPECT_EQ(&c, rtti_cast<PolymorphC*>(static_cast<const PolymorphA*>(&a_c)));
 
     // illegal down-conversion, b to c
-    EXPECT_EQ(nullptr, rtti_cast<C*>(&a_b));
-    EXPECT_EQ(nullptr, rtti_cast<C*>(static_cast<const A*>(&a_b)));
-    EXPECT_EQ(nullptr, rtti_cast<C*>(&b));
-    EXPECT_EQ(nullptr, rtti_cast<C*>(static_cast<const B*>(&b)));
+    EXPECT_EQ(nullptr, rtti_cast<PolymorphC*>(&a_b));
+    EXPECT_EQ(nullptr, rtti_cast<PolymorphC*>(static_cast<const PolymorphA*>(&a_b)));
+    EXPECT_EQ(nullptr, rtti_cast<PolymorphC*>(&b));
+    EXPECT_EQ(nullptr, rtti_cast<PolymorphC*>(static_cast<const PolymorphB*>(&b)));
 
     // is_instance_of
-    EXPECT_TRUE(is_instance_of<A>(b));
-    EXPECT_TRUE(is_instance_of<B>(b));
-    EXPECT_FALSE(is_instance_of<C>(b));
-    EXPECT_FALSE(is_instance_of<D>(b));
+    EXPECT_TRUE(is_instance_of<PolymorphA>(b));
+    EXPECT_TRUE(is_instance_of<PolymorphB>(b));
+    EXPECT_FALSE(is_instance_of<PolymorphC>(b));
+    EXPECT_FALSE(is_instance_of<Static>(b));
 
-    EXPECT_TRUE(is_instance_of<A>(c));
-    EXPECT_TRUE(is_instance_of<B>(c));
-    EXPECT_TRUE(is_instance_of<C>(c));
-    EXPECT_FALSE(is_instance_of<D>(c));
+    EXPECT_TRUE(is_instance_of<PolymorphA>(c));
+    EXPECT_TRUE(is_instance_of<PolymorphB>(c));
+    EXPECT_TRUE(is_instance_of<PolymorphC>(c));
+    EXPECT_FALSE(is_instance_of<Static>(c));
 
-    EXPECT_TRUE(is_instance_of<A>(a_b));
-    EXPECT_TRUE(is_instance_of<B>(a_b));
-    EXPECT_FALSE(is_instance_of<C>(a_b));
-    EXPECT_FALSE(is_instance_of<D>(a_b));
+    EXPECT_TRUE(is_instance_of<PolymorphA>(a_b));
+    EXPECT_TRUE(is_instance_of<PolymorphB>(a_b));
+    EXPECT_FALSE(is_instance_of<PolymorphC>(a_b));
+    EXPECT_FALSE(is_instance_of<Static>(a_b));
 
-    EXPECT_TRUE(is_instance_of<A>(a_c));
-    EXPECT_TRUE(is_instance_of<B>(a_c));
-    EXPECT_TRUE(is_instance_of<C>(a_c));
-    EXPECT_FALSE(is_instance_of<D>(a_c));
+    EXPECT_TRUE(is_instance_of<PolymorphA>(a_c));
+    EXPECT_TRUE(is_instance_of<PolymorphB>(a_c));
+    EXPECT_TRUE(is_instance_of<PolymorphC>(a_c));
+    EXPECT_FALSE(is_instance_of<Static>(a_c));
+}
+
+TEST(test_rtti, multi_inheritance)
+{
+    MultiD d;
+
+    EXPECT_EQ(cetl::get_type_id(d), cetl::type_id({0x3, 0x2}));
+    EXPECT_EQ(cetl::get_type_id(d), d._get_static_type_id_());
+
+    // check values
+    EXPECT_EQ('d', d.value);
+    EXPECT_EQ('b', d.value_b());
+    EXPECT_EQ('c', d.value_c());
+    EXPECT_EQ('a', d.value_b_a());
+    EXPECT_EQ('a', d.value_c_a());
+    d.value_b()   = 'B';
+    d.value_c()   = 'C';
+    d.value_b_a() = 'p';
+    d.value_c_a() = 'o';
+    EXPECT_EQ('B', static_cast<MultiB&>(d).value);
+    EXPECT_EQ('C', static_cast<MultiC&>(d).value);
+    EXPECT_EQ('p', static_cast<MultiA&>(static_cast<MultiB&>(d)).value);
+    EXPECT_EQ('o', static_cast<MultiA&>(static_cast<MultiC&>(d)).value);
+
+    // identity
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(&d)->value);
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(static_cast<const MultiD*>(&d))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(&d));
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(static_cast<const MultiD*>(&d)));
+
+    // up-conversion, d to b
+    EXPECT_EQ('B', cetl::rtti_cast<MultiB*>(&d)->value);
+    EXPECT_EQ('B', cetl::rtti_cast<MultiB*>(static_cast<const MultiD*>(&d))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiB*>(&d));
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiB*>(static_cast<const MultiD*>(&d)));
+
+    // up-conversion, d to c
+    EXPECT_EQ('C', cetl::rtti_cast<MultiC*>(&d)->value);
+    EXPECT_EQ('C', cetl::rtti_cast<MultiC*>(static_cast<const MultiD*>(&d))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiC*>(&d));
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiC*>(static_cast<const MultiD*>(&d)));
+
+    // up-conversion, d to a; the base ambiguity is resolved by the order of inheritance: A<-B<-D wins over A<-C<-D.
+    EXPECT_EQ('p', cetl::rtti_cast<MultiA*>(&d)->value);
+    EXPECT_EQ('p', cetl::rtti_cast<MultiA*>(static_cast<const MultiD*>(&d))->value);
+    EXPECT_EQ(static_cast<MultiA*>(static_cast<MultiB*>(&d)), cetl::rtti_cast<MultiA*>(&d));
+
+    // down-conversion, b to d
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(static_cast<MultiB*>(&d))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(static_cast<MultiB*>(&d)));
+
+    // down-conversion, c to d
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(static_cast<MultiC*>(&d))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(static_cast<MultiC*>(&d)));
+
+    // down-conversion, a to d through b
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiB*>(&d)))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiB*>(&d))));
+
+    // down-conversion, a to d through c
+    EXPECT_EQ('d', cetl::rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiC*>(&d)))->value);
+    EXPECT_EQ(&d, cetl::rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiC*>(&d))));
 }
