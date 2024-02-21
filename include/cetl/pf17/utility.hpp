@@ -22,6 +22,28 @@ struct in_place_t
 /// Polyfill for std::in_place.
 constexpr in_place_t in_place{};
 
+/// Implementation of \ref std::in_place_type_t.
+template <typename T>
+struct in_place_type_t
+{
+    explicit in_place_type_t() = default;
+};
+
+/// Implementation of \ref std::in_place_type.
+template <typename T>
+constexpr in_place_type_t<T> in_place_type{};
+
+/// Implementation of \ref std::in_place_index_t.
+template <std::size_t I>
+struct in_place_index_t
+{
+    explicit in_place_index_t() = default;
+};
+
+/// Implementation of \ref std::in_place_index.
+template <std::size_t I>
+constexpr in_place_index_t<I> in_place_index{};
+
 }  // namespace pf17
 }  // namespace cetl
 
