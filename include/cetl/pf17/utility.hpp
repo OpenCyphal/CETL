@@ -8,6 +8,8 @@
 #ifndef CETL_PF17_UTILITY_HPP_INCLUDED
 #define CETL_PF17_UTILITY_HPP_INCLUDED
 
+#include <cstddef>
+
 namespace cetl
 {
 namespace pf17

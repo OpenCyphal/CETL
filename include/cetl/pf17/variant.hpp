@@ -14,6 +14,7 @@
 #include <cetl/pf17/attribute.hpp>
 
 #include <tuple>
+#include <array>
 #include <limits>
 #include <cassert>
 #include <algorithm>
@@ -60,9 +61,9 @@ template <std::size_t N, typename... Ts>
 using nth_type = std::tuple_element_t<N, std::tuple<Ts...>>;
 
 template <typename>
-struct cronomorphize_impl;
+struct chronomorphize_impl;
 template <std::size_t... Is>
-struct cronomorphize_impl<std::index_sequence<Is...>>
+struct chronomorphize_impl<std::index_sequence<Is...>>
 {
     template <typename F, typename... Args>
     static decltype(auto) lookup(F&& fun, const std::size_t index, Args&&... ar)
@@ -86,11 +87,11 @@ struct cronomorphize_impl<std::index_sequence<Is...>>
 /// If `index>=N`, behaves like `std::array<...,N>::at(index)`.
 /// The time complexity is constant.
 template <std::size_t N, typename F, typename... Args>
-decltype(auto) cronomorphize(F&& fun, const std::size_t index, Args&&... ar)
+decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... ar)
 {
-    return cronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<F>(fun),
-                                                                   index,
-                                                                   std::forward<Args>(ar)...);
+    return chronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<F>(fun),
+                                                                    index,
+                                                                    std::forward<Args>(ar)...);
 }
 
 /// An internal helper used to keep the list of the variant types and query their properties.
@@ -194,7 +195,7 @@ struct storage  // NOLINT(*-pro-type-member-init)
     decltype(auto) visit_index(F&& fun)
     {
         bad_access_unless(m_index != variant_npos);
-        return cronomorphize<sizeof...(Ts)>(
+        return chronomorphize<sizeof...(Ts)>(
             [this, &fun](const auto index) -> decltype(auto) {
                 assert(index.value == m_index);
                 return fun(index);
@@ -311,7 +312,7 @@ struct base_move_construction<types<Ts...>, false> : base_copy_construction<type
 
 /// COPY ASSIGNMENT POLICY
 template <typename Seq,
-          bool = Seq::trivially_copy_assignable&& Seq::trivially_copy_constructible&& Seq::trivially_destructible>
+          bool = Seq::trivially_copy_assignable && Seq::trivially_copy_constructible && Seq::trivially_destructible>
 struct base_copy_assignment;
 /// Trivially copy assignable case.
 template <typename... Ts>
@@ -358,7 +359,7 @@ struct base_copy_assignment<types<Ts...>, false> : base_move_construction<types<
 
 /// MOVE ASSIGNMENT POLICY
 template <typename Seq,
-          bool = Seq::trivially_move_assignable&& Seq::trivially_move_constructible&& Seq::trivially_destructible>
+          bool = Seq::trivially_move_assignable && Seq::trivially_move_constructible && Seq::trivially_destructible>
 struct base_move_assignment;
 /// Trivially move assignable case.
 template <typename... Ts>
@@ -373,8 +374,8 @@ struct base_move_assignment<types<Ts...>, false> : base_copy_assignment<types<Ts
     base_move_assignment(const base_move_assignment&)            = default;
     base_move_assignment(base_move_assignment&&)                 = default;
     base_move_assignment& operator=(const base_move_assignment&) = default;
-    base_move_assignment& operator=(base_move_assignment&& other) noexcept(
-        tys::nothrow_move_constructible&& tys::nothrow_move_assignable)
+    base_move_assignment& operator=(base_move_assignment&& other) noexcept(tys::nothrow_move_constructible &&
+                                                                           tys::nothrow_move_assignable)
     {
         if ((!this->is_valueless()) && (this->m_index == other.m_index))  // Invoke move assignment.
         {
