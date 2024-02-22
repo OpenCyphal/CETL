@@ -30,6 +30,54 @@ constexpr bool is_nothrow_swappable = noexcept(swap(std::declval<T&>(), std::dec
 template <typename T>
 constexpr bool is_nothrow_swappable_v = detail::type_traits::is_nothrow_swappable<T>;
 
+/// Implementation of \ref std::conjunction.
+template <typename...>
+struct conjunction : std::true_type
+{};
+template <typename A>
+struct conjunction<A> : A
+{};
+template <typename A, typename... B>
+struct conjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), conjunction<B...>, A>
+{};
+
+/// Implementation of \ref std::conjunction_v.
+template <typename... Ts>
+constexpr bool conjunction_v = conjunction<Ts...>::value;
+
+/// Implementation of \ref std::disjunction.
+template <typename...>
+struct disjunction : std::false_type
+{};
+template <typename A>
+struct disjunction<A> : A
+{};
+template <typename A, typename... B>
+struct disjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), A, disjunction<B...>>
+{};
+
+/// Implementation of \ref std::disjunction_v.
+template <typename... Ts>
+constexpr bool disjunction_v = disjunction<Ts...>::value;
+
+// ---------------------------------------------------------------------------------------------------------------------
+
+static_assert(conjunction_v<> == true, "");
+static_assert(conjunction_v<std::true_type> == true, "");
+static_assert(conjunction_v<std::false_type> == false, "");
+static_assert(conjunction_v<std::true_type, std::true_type> == true, "");
+static_assert(conjunction_v<std::true_type, std::false_type> == false, "");
+static_assert(conjunction_v<std::false_type, std::true_type> == false, "");
+static_assert(conjunction_v<std::false_type, std::false_type> == false, "");
+
+static_assert(disjunction_v<> == false, "");
+static_assert(disjunction_v<std::true_type> == true, "");
+static_assert(disjunction_v<std::false_type> == false, "");
+static_assert(disjunction_v<std::true_type, std::true_type> == true, "");
+static_assert(disjunction_v<std::true_type, std::false_type> == true, "");
+static_assert(disjunction_v<std::false_type, std::true_type> == true, "");
+static_assert(disjunction_v<std::false_type, std::false_type> == false, "");
+
 }  // namespace pf17
 }  // namespace cetl
 
