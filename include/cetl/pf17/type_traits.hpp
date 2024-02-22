@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <utility>
+#include <type_traits>
 
 namespace cetl
 {
@@ -60,6 +61,15 @@ struct disjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), A,
 template <typename... Ts>
 constexpr bool disjunction_v = disjunction<Ts...>::value;
 
+/// Implementation of \ref std::negation.
+template <typename T>
+struct negation : std::integral_constant<bool, !static_cast<bool>(T::value)>
+{};
+
+/// Implementation of \ref std::negation_v.
+template <typename T>
+constexpr bool negation_v = negation<T>::value;
+
 // ---------------------------------------------------------------------------------------------------------------------
 
 static_assert(conjunction_v<> == true, "");
@@ -77,6 +87,9 @@ static_assert(disjunction_v<std::true_type, std::true_type> == true, "");
 static_assert(disjunction_v<std::true_type, std::false_type> == true, "");
 static_assert(disjunction_v<std::false_type, std::true_type> == true, "");
 static_assert(disjunction_v<std::false_type, std::false_type> == false, "");
+
+static_assert(negation_v<std::true_type> == false, "");
+static_assert(negation_v<std::false_type> == true, "");
 
 }  // namespace pf17
 }  // namespace cetl
