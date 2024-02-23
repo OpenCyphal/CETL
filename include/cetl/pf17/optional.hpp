@@ -371,10 +371,10 @@ public:
     constexpr optional(const nullopt_t) noexcept {}  // NOLINT(*-explicit-constructor)
 
     /// Constructor 2
-    constexpr optional(const optional&) noexcept = default;
+    constexpr optional(const optional&) = default;
 
     /// Constructor 3
-    constexpr optional(optional&&) noexcept = default;
+    constexpr optional(optional&&) noexcept(std::is_nothrow_move_constructible<T>::value) = default;
 
     /// Constructor 4
     template <typename U, std::enable_if_t<detail::opt::enable_ctor4<T, U, false>, int> = 0>
