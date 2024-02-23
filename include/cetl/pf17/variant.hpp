@@ -8,7 +8,6 @@
 #ifndef CETL_PF17_VARIANT_HPP_INCLUDED
 #define CETL_PF17_VARIANT_HPP_INCLUDED
 
-#include <cetl/_helpers.hpp>
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/type_traits.hpp>
 #include <cetl/pf17/attribute.hpp>
@@ -70,7 +69,9 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
     {
         using R = std::common_type_t<decltype(std::forward<F>(fun)(std::integral_constant<std::size_t, Is>{},
                                                                    std::forward<Args>(ar)...))...>;
-        static const std::array<R (*)(F&&, Args&&... ar), sizeof...(Is)> lut = {
+        // The lookup table can be made constexpr starting with C++17. Perhaps we should use some kind of conditional
+        // macro here like CETL_CONSTEXPR_17 that expands into constexpr if C++17 is available.
+        static const std::array<R (*)(F&&, Args&&...), sizeof...(Is)> lut = {
             [](F&& fn, Args&&... ar) -> R {
                 return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{}, std::forward<Args>(ar)...);
             }...,
@@ -80,19 +81,27 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
 };
 /// Invokes the specified fun as follows and forwards its result to the caller (argument forwarding not shown):
 /// @code
-/// fun(std::integral_constant<std::size_t, index>{}, ar...)
+/// fun(std::integral_constant<std::size_t, index>{}, extra_args...)
 /// @endcode
 /// In other words, this function moves the `index` value from the run time to the compile time domain (hence the name).
-/// `N` specifies the maximum value for the index, which also informs the size of the scanned lookup table.
+/// `N` specifies the maximum value for the index, which also informs the size of the lookup table.
 /// If `index>=N`, behaves like `std::array<...,N>::at(index)`.
 /// The time complexity is constant.
 template <std::size_t N, typename F, typename... Args>
-decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... ar)
+decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_args)
 {
     return chronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<F>(fun),
                                                                     index,
-                                                                    std::forward<Args>(ar)...);
+                                                                    std::forward<Args>(extra_args)...);
 }
+
+/// This has to be an old-style enum because it is used as a template parameter.
+enum smf_availability
+{
+    smf_deleted,
+    smf_trivial,
+    smf_nontrivial,
+};
 
 /// An internal helper used to keep the list of the variant types and query their properties.
 template <typename... Ts>
@@ -106,17 +115,29 @@ struct types final
     static_assert(conjunction_v<negation<std::is_reference<Ts>>...>, "");
     static_assert(conjunction_v<negation<std::is_void<Ts>>...>, "");
 
-    static constexpr bool copy_constructible = all_satisfy<std::is_copy_constructible>;
-    static constexpr bool move_constructible = all_satisfy<std::is_move_constructible>;
-    static constexpr bool copy_assignable    = all_satisfy<std::is_copy_assignable>;
-    static constexpr bool move_assignable    = all_satisfy<std::is_move_assignable>;
+    static constexpr smf_availability avail_copy_ctor =
+        all_satisfy<std::is_copy_constructible>
+            ? (all_satisfy<std::is_trivially_copy_constructible> ? smf_trivial : smf_nontrivial)
+            : smf_deleted;
 
-    static constexpr bool trivially_destructible = all_satisfy<std::is_trivially_destructible>;
+    static constexpr smf_availability avail_move_ctor =
+        all_satisfy<std::is_move_constructible>
+            ? (all_satisfy<std::is_trivially_move_constructible> ? smf_trivial : smf_nontrivial)
+            : smf_deleted;
 
-    static constexpr bool trivially_copy_constructible = all_satisfy<std::is_trivially_copy_constructible>;
-    static constexpr bool trivially_move_constructible = all_satisfy<std::is_trivially_move_constructible>;
-    static constexpr bool trivially_copy_assignable    = all_satisfy<std::is_trivially_copy_assignable>;
-    static constexpr bool trivially_move_assignable    = all_satisfy<std::is_trivially_move_assignable>;
+    static constexpr smf_availability avail_copy_assign =
+        all_satisfy<std::is_copy_assignable>
+            ? (all_satisfy<std::is_trivially_copy_assignable> ? smf_trivial : smf_nontrivial)
+            : smf_deleted;
+
+    static constexpr smf_availability avail_move_assign =
+        all_satisfy<std::is_move_assignable>
+            ? (all_satisfy<std::is_trivially_move_assignable> ? smf_trivial : smf_nontrivial)
+            : smf_deleted;
+
+    static constexpr smf_availability avail_dtor =
+        all_satisfy<std::is_destructible> ? (all_satisfy<std::is_trivially_destructible> ? smf_trivial : smf_nontrivial)
+                                          : smf_deleted;
 
     static constexpr bool nothrow_move_constructible = all_satisfy<std::is_nothrow_move_constructible>;
     static constexpr bool nothrow_move_assignable    = all_satisfy<std::is_nothrow_move_assignable>;
@@ -124,8 +145,21 @@ struct types final
     types()  = delete;
     ~types() = delete;
 };
-static_assert(types<int, float>::trivially_destructible, "");
-static_assert(!types<int, types<char>>::trivially_destructible, "");
+
+/// True iff all SMF availability values are trivial.
+template <int... Vs>
+constexpr bool smf_all_trivial = conjunction_v<std::integral_constant<bool, (smf_trivial == Vs)>...>;
+static_assert(smf_all_trivial<smf_trivial, smf_trivial, smf_trivial>, "");
+static_assert(!smf_all_trivial<smf_trivial, smf_nontrivial, smf_trivial>, "");
+static_assert(!smf_all_trivial<smf_deleted, smf_trivial, smf_trivial>, "");
+
+/// True iff any SMF availability value is deleted.
+template <int... Vs>
+constexpr bool smf_any_deleted = disjunction_v<std::integral_constant<bool, (smf_deleted == Vs)>...>;
+static_assert(smf_any_deleted<smf_deleted, smf_trivial, smf_trivial>, "");
+static_assert(smf_any_deleted<smf_trivial, smf_deleted, smf_trivial>, "");
+static_assert(smf_any_deleted<smf_trivial, smf_trivial, smf_deleted>, "");
+static_assert(!smf_any_deleted<smf_trivial, smf_trivial, smf_trivial>, "");
 
 /// index_of<> fails with a missing type error if the type is not found in the sequence.
 /// If there is more than one matching type, the index of the first occurrence is selected.
@@ -237,15 +271,13 @@ struct storage  // NOLINT(*-pro-type-member-init)
 };
 
 /// DESTRUCTION POLICY
-template <typename Seq, bool = Seq::trivially_destructible>
+template <typename Seq, int = Seq::avail_dtor>
 struct base_destruction;
-/// Trivially destructible case.
 template <typename... Ts>
-struct base_destruction<types<Ts...>, true> : storage<Ts...>  // NOLINT(*-pro-type-member-init)
+struct base_destruction<types<Ts...>, smf_trivial> : storage<Ts...>  // NOLINT(*-pro-type-member-init)
 {};
-/// Non-trivially destructible case.
 template <typename... Ts>
-struct base_destruction<types<Ts...>, false> : storage<Ts...>  // NOLINT(*-pro-type-member-init)
+struct base_destruction<types<Ts...>, smf_nontrivial> : storage<Ts...>  // NOLINT(*-pro-type-member-init)
 {
     base_destruction()                                   = default;
     base_destruction(const base_destruction&)            = default;
@@ -257,24 +289,27 @@ struct base_destruction<types<Ts...>, false> : storage<Ts...>  // NOLINT(*-pro-t
         this->destroy();
     }
 };
+template <typename... Ts>
+struct base_destruction<types<Ts...>, smf_deleted>;  // Definition omitted, all variant types shall be destructible.
 
 /// COPY CONSTRUCTION POLICY
-template <typename Seq, bool = Seq::trivially_copy_constructible>
+template <typename Seq, int = Seq::avail_copy_ctor>
 struct base_copy_construction;
-/// Trivially copy constructible case.
 template <typename... Ts>
-struct base_copy_construction<types<Ts...>, true> : base_destruction<types<Ts...>>
+struct base_copy_construction<types<Ts...>, smf_trivial> : base_destruction<types<Ts...>>
 {};
-/// Non-trivially copy constructible case.
 template <typename... Ts>
-struct base_copy_construction<types<Ts...>, false> : base_destruction<types<Ts...>>
+struct base_copy_construction<types<Ts...>, smf_nontrivial> : base_destruction<types<Ts...>>
 {
     base_copy_construction() = default;
     base_copy_construction(const base_copy_construction& other)
     {
         if (!other.is_valueless())
         {
-            other.visit([this, &other](auto& val) { new (this->m_data) decltype(val)(val); });
+            other.visit([this, &other](auto& val) {
+                static_assert(sizeof(val) <= sizeof(this->m_data), "");
+                new (this->m_data) decltype(val)(val);
+            });
             this->m_index = other.m_index;
         }
     }
@@ -283,17 +318,25 @@ struct base_copy_construction<types<Ts...>, false> : base_destruction<types<Ts..
     base_copy_construction& operator=(base_copy_construction&&)      = default;
     ~base_copy_construction() noexcept                               = default;
 };
+template <typename... Ts>
+struct base_copy_construction<types<Ts...>, smf_deleted> : base_destruction<types<Ts...>>
+{
+    base_copy_construction()                                         = default;
+    base_copy_construction(const base_copy_construction& other)      = delete;
+    base_copy_construction(base_copy_construction&&)                 = default;
+    base_copy_construction& operator=(const base_copy_construction&) = default;
+    base_copy_construction& operator=(base_copy_construction&&)      = default;
+    ~base_copy_construction() noexcept                               = default;
+};
 
 /// MOVE CONSTRUCTION POLICY
-template <typename Seq, bool = Seq::trivially_move_constructible>
+template <typename Seq, int = Seq::avail_move_ctor>
 struct base_move_construction;
-/// Trivially move constructible case.
 template <typename... Ts>
-struct base_move_construction<types<Ts...>, true> : base_copy_construction<types<Ts...>>
+struct base_move_construction<types<Ts...>, smf_trivial> : base_copy_construction<types<Ts...>>
 {};
-/// Non-trivially move constructible case.
 template <typename... Ts>
-struct base_move_construction<types<Ts...>, false> : base_copy_construction<types<Ts...>>
+struct base_move_construction<types<Ts...>, smf_nontrivial> : base_copy_construction<types<Ts...>>
 {
     base_move_construction()                              = default;
     base_move_construction(const base_move_construction&) = default;
@@ -309,18 +352,29 @@ struct base_move_construction<types<Ts...>, false> : base_copy_construction<type
     base_move_construction& operator=(base_move_construction&&)      = default;
     ~base_move_construction() noexcept                               = default;
 };
+template <typename... Ts>
+struct base_move_construction<types<Ts...>, smf_deleted> : base_copy_construction<types<Ts...>>
+{
+    base_move_construction()                                         = default;
+    base_move_construction(const base_move_construction&)            = default;
+    base_move_construction(base_move_construction&& other)           = delete;
+    base_move_construction& operator=(const base_move_construction&) = default;
+    base_move_construction& operator=(base_move_construction&&)      = default;
+    ~base_move_construction() noexcept                               = default;
+};
 
 /// COPY ASSIGNMENT POLICY
 template <typename Seq,
-          bool = Seq::trivially_copy_assignable && Seq::trivially_copy_constructible && Seq::trivially_destructible>
+          int = smf_all_trivial<Seq::avail_copy_ctor, Seq::avail_copy_assign, Seq::avail_dtor>
+                    ? smf_trivial
+                    : (smf_any_deleted<Seq::avail_copy_ctor, Seq::avail_copy_assign, Seq::avail_dtor> ? smf_deleted
+                                                                                                      : smf_nontrivial)>
 struct base_copy_assignment;
-/// Trivially copy assignable case.
 template <typename... Ts>
-struct base_copy_assignment<types<Ts...>, true> : base_move_construction<types<Ts...>>
+struct base_copy_assignment<types<Ts...>, smf_trivial> : base_move_construction<types<Ts...>>
 {};
-/// Non-trivially copy assignable case.
 template <typename... Ts>
-struct base_copy_assignment<types<Ts...>, false> : base_move_construction<types<Ts...>>
+struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_construction<types<Ts...>>
 {
     base_copy_assignment()                            = default;
     base_copy_assignment(const base_copy_assignment&) = default;
@@ -356,18 +410,29 @@ struct base_copy_assignment<types<Ts...>, false> : base_move_construction<types<
     base_copy_assignment& operator=(base_copy_assignment&&) = default;
     ~base_copy_assignment() noexcept                        = default;
 };
+template <typename... Ts>
+struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<types<Ts...>>
+{
+    base_copy_assignment()                                             = default;
+    base_copy_assignment(const base_copy_assignment&)                  = default;
+    base_copy_assignment(base_copy_assignment&&)                       = default;
+    base_copy_assignment& operator=(const base_copy_assignment& other) = delete;
+    base_copy_assignment& operator=(base_copy_assignment&&)            = default;
+    ~base_copy_assignment() noexcept                                   = default;
+};
 
 /// MOVE ASSIGNMENT POLICY
 template <typename Seq,
-          bool = Seq::trivially_move_assignable && Seq::trivially_move_constructible && Seq::trivially_destructible>
+          int = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
+                    ? smf_trivial
+                    : (smf_any_deleted<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor> ? smf_deleted
+                                                                                                      : smf_nontrivial)>
 struct base_move_assignment;
-/// Trivially move assignable case.
 template <typename... Ts>
-struct base_move_assignment<types<Ts...>, true> : base_copy_assignment<types<Ts...>>
+struct base_move_assignment<types<Ts...>, smf_trivial> : base_copy_assignment<types<Ts...>>
 {};
-/// Non-trivially move assignable case.
 template <typename... Ts>
-struct base_move_assignment<types<Ts...>, false> : base_copy_assignment<types<Ts...>>
+struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment<types<Ts...>>
 {
     using tys                                                    = types<Ts...>;
     base_move_assignment()                                       = default;
@@ -405,22 +470,24 @@ struct base_move_assignment<types<Ts...>, false> : base_copy_assignment<types<Ts
     }
     ~base_move_assignment() noexcept = default;
 };
-
-/// A helper for special member function enablement.
-template <typename L>
-struct base_smf_enabler
-    : public cetl::detail::enable_copy_move_construction<L::copy_constructible, L::move_constructible>,
-      public cetl::detail::enable_copy_move_assignment<L::copy_constructible && L::copy_assignable,
-                                                       L::move_constructible && L::move_assignable>
-{};
+template <typename... Ts>
+struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<types<Ts...>>
+{
+    using tys                                                     = types<Ts...>;
+    base_move_assignment()                                        = default;
+    base_move_assignment(const base_move_assignment&)             = default;
+    base_move_assignment(base_move_assignment&&)                  = default;
+    base_move_assignment& operator=(const base_move_assignment&)  = default;
+    base_move_assignment& operator=(base_move_assignment&& other) = delete;
+    ~base_move_assignment() noexcept                              = default;
+};
 
 }  // namespace var
 }  // namespace detail
 
 /// An implementation of \ref std::variant.
 template <typename... Ts>
-class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>,
-                private detail::var::base_smf_enabler<detail::var::types<Ts...>>
+class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
     using base = detail::var::base_move_assignment<detail::var::types<Ts...>>;
 };

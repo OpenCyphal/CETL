@@ -7,7 +7,35 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/pf17/variant.hpp>
+#include <cetlvast/typelist.hpp>
+#include <cetlvast/smf_policies.hpp>
 #include <gtest/gtest.h>
+
+namespace smfp = cetlvast::smf_policies;
+using cetl::pf17::detail::var::types;
+using cetl::pf17::detail::var::smf_availability::smf_deleted;
+using cetl::pf17::detail::var::smf_availability::smf_trivial;
+using cetl::pf17::detail::var::smf_availability::smf_nontrivial;
+
+static_assert(types<smfp::copy_ctor_policy<smfp::policy_deleted>>::avail_copy_ctor == smf_deleted, "");
+static_assert(types<smfp::copy_ctor_policy<smfp::policy_trivial>>::avail_copy_ctor == smf_trivial, "");
+static_assert(types<smfp::copy_ctor_policy<smfp::policy_nontrivial>>::avail_copy_ctor == smf_nontrivial, "");
+
+static_assert(types<smfp::move_ctor_policy<smfp::policy_deleted>>::avail_move_ctor == smf_deleted, "");
+static_assert(types<smfp::move_ctor_policy<smfp::policy_trivial>>::avail_move_ctor == smf_trivial, "");
+static_assert(types<smfp::move_ctor_policy<smfp::policy_nontrivial>>::avail_move_ctor == smf_nontrivial, "");
+
+static_assert(types<smfp::copy_assignment_policy<smfp::policy_deleted>>::avail_copy_assign == smf_deleted, "");
+static_assert(types<smfp::copy_assignment_policy<smfp::policy_trivial>>::avail_copy_assign == smf_trivial, "");
+static_assert(types<smfp::copy_assignment_policy<smfp::policy_nontrivial>>::avail_copy_assign == smf_nontrivial, "");
+
+static_assert(types<smfp::move_assignment_policy<smfp::policy_deleted>>::avail_move_assign == smf_deleted, "");
+static_assert(types<smfp::move_assignment_policy<smfp::policy_trivial>>::avail_move_assign == smf_trivial, "");
+static_assert(types<smfp::move_assignment_policy<smfp::policy_nontrivial>>::avail_move_assign == smf_nontrivial, "");
+
+static_assert(types<smfp::dtor_policy<smfp::policy_deleted>>::avail_dtor == smf_deleted, "");
+static_assert(types<smfp::dtor_policy<smfp::policy_trivial>>::avail_dtor == smf_trivial, "");
+static_assert(types<smfp::dtor_policy<smfp::policy_nontrivial>>::avail_dtor == smf_nontrivial, "");
 
 TEST(test_variant, chronomorphize)
 {
@@ -19,7 +47,6 @@ TEST(test_variant, chronomorphize)
         auto operator()(const std::integral_constant<std::size_t, 1> ix) { return check(ix.value); }
         auto operator()(const std::integral_constant<std::size_t, 2> ix) { return check(ix.value); }
         // clang-format on
-
         std::size_t check(const std::size_t value)
         {
             if ((!armed) || (value != expected_value))
@@ -29,7 +56,6 @@ TEST(test_variant, chronomorphize)
             armed = false;
             return value;
         }
-
         std::size_t expected_value = 0;
         bool        armed          = false;
     };
