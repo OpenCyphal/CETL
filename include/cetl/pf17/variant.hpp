@@ -539,7 +539,8 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
-    using base = detail::var::base_move_assignment<detail::var::types<Ts...>>;
+    using tys  = detail::var::types<Ts...>;
+    using base = detail::var::base_move_assignment<tys>;
 
     template <std::size_t N>
     using nth_type = detail::var::nth_type<N, Ts...>;
@@ -606,6 +607,16 @@ public:
     {
         this->template construct<Ix>(il, std::forward<Args>(args)...);
     }
+
+    /// Assignment 1
+    variant& operator=(const variant& rhs) = default;
+
+    /// Assignment 2
+    variant& operator=(variant&& rhs) noexcept(tys::nothrow_move_constructible&& tys::nothrow_move_assignable) =
+        default;
+
+    /// Assignment 3
+    // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
 };
 
 }  // namespace pf17
