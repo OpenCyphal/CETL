@@ -541,7 +541,71 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 {
     using base = detail::var::base_move_assignment<detail::var::types<Ts...>>;
 
+    template <std::size_t N>
+    using nth_type = detail::var::nth_type<N, Ts...>;
+
+    template <typename T>
+    static constexpr std::size_t index_of = detail::var::unique_index_of<T, Ts...>;
+
+    template <typename T>
+    static constexpr bool is_unique = (detail::var::count_occurrences<T, Ts...> == 1);
+
 public:
+    /// Constructor 1
+    template <std::enable_if_t<std::is_default_constructible<nth_type<0>>::value, int> = 0>
+    variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
+    {
+    }
+
+    /// Constructor 2
+    variant(const variant& other) = default;
+
+    /// Constructor 3
+    variant(variant&& other) noexcept(std::is_nothrow_move_constructible<nth_type<0>>::value) = default;
+
+    /// Constructor 4
+    // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/variant
+
+    /// Constructor 5
+    template <typename T,
+              typename... Args,
+              std::enable_if_t<is_unique<T> && std::is_constructible<T, Args...>::value, int> = 0>
+    explicit variant(const in_place_type_t<T>, Args&&... args)
+    {
+        this->template construct<index_of<T>>(std::forward<Args>(args)...);
+    }
+
+    /// Constructor 6
+    template <
+        typename T,
+        typename U,
+        typename... Args,
+        std::enable_if_t<is_unique<T> && std::is_constructible<T, std::initializer_list<U>&, Args...>::value, int> = 0>
+    explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
+    {
+        this->template construct<index_of<T>>(il, std::forward<Args>(args)...);
+    }
+
+    /// Constructor 7
+    template <std::size_t Ix,
+              typename... Args,
+              std::enable_if_t<(Ix < sizeof...(Ts)) && std::is_constructible<nth_type<Ix>, Args...>::value, int> = 0>
+    explicit variant(const in_place_index_t<Ix>, Args&&... args)
+    {
+        this->template construct<Ix>(std::forward<Args>(args)...);
+    }
+
+    /// Constructor 8
+    template <std::size_t Ix,
+              typename U,
+              typename... Args,
+              std::enable_if_t<(Ix < sizeof...(Ts)) &&
+                                   std::is_constructible<nth_type<Ix>, std::initializer_list<U>&, Args...>::value,
+                               int> = 0>
+    explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
+    {
+        this->template construct<Ix>(il, std::forward<Args>(args)...);
+    }
 };
 
 }  // namespace pf17
