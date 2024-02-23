@@ -211,9 +211,12 @@ struct storage  // NOLINT(*-pro-type-member-init)
     {
         if (this->m_index != variant_npos)
         {
-            if (!types<Ts...>::trivially_destructible)  // A decent compiler will know what to do.
+            if (types<Ts...>::avail_dtor != smf_trivial)  // A decent compiler will know what to do.
             {
-                this->visit([](auto& val) { val.~decltype(val)(); });
+                this->visit([](auto& val) {
+                    using T = std::decay_t<decltype(val)>;
+                    val.~T();
+                });
             }
             this->m_index = variant_npos;
         }
