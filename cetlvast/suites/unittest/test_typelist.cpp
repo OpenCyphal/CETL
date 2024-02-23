@@ -143,3 +143,12 @@ static_assert(std::is_same<tuple<>, into<tuple>::from<tuple<>>>::value, "");
 static_assert(std::is_same<tuple<A, B, tuple<C>>, into<tuple>::from<my_typelist<A, B, tuple<C>>>>::value, "");
 static_assert(std::is_same<my_typelist<A, B, tuple<C>>, into<my_typelist>::from<tuple<A, B, tuple<C>>>>::value, "");
 }  // namespace
+
+/// map
+namespace
+{
+using cetlvast::typelist::map;
+static_assert(std::is_same<map<std::add_pointer_t, std::tuple<int, char>>::type,  //
+                           std::tuple<int*, char*>>::value,
+              "");
+}  // namespace
