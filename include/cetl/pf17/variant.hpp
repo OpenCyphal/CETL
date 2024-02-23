@@ -24,7 +24,7 @@ namespace cetl
 {
 namespace pf17
 {
-/// Implementation of \ref std::variant_npos.
+/// Implementation of \c std::variant_npos.
 constexpr std::size_t variant_npos = std::numeric_limits<std::size_t>::max();
 
 /// Implementation of \ref std::monostate.
@@ -195,6 +195,9 @@ inline void bad_access_unless(const bool condition)
 }
 
 /// STORAGE
+/// The storage class does not construct, destroy, copy, or move anything automatically;
+/// by itself it is trivially copyable and standard-layout.
+/// All SMF behaviors have to be implemented by the descendants according to the properties of the variant types.
 template <typename... Ts>
 struct storage  // NOLINT(*-pro-type-member-init)
 {
@@ -272,6 +275,9 @@ struct storage  // NOLINT(*-pro-type-member-init)
     alignas(std::max({alignof(Ts)...})) unsigned char m_data[std::max({sizeof(Ts)...})];
     std::size_t m_index = variant_npos;
 };
+static_assert(std::is_trivially_destructible<storage<int, double, char>>::value, "");
+static_assert(std::is_trivially_copyable<storage<int, double, char>>::value, "");
+static_assert(std::is_standard_layout<storage<int, double, char>>::value, "");
 
 /// DESTRUCTION POLICY
 template <typename Seq, int = Seq::avail_dtor>
@@ -442,8 +448,8 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
     base_move_assignment(const base_move_assignment&)            = default;
     base_move_assignment(base_move_assignment&&)                 = default;
     base_move_assignment& operator=(const base_move_assignment&) = default;
-    base_move_assignment& operator=(base_move_assignment&& other) noexcept(tys::nothrow_move_constructible &&
-                                                                           tys::nothrow_move_assignable)
+    base_move_assignment& operator=(base_move_assignment&& other) noexcept(
+        tys::nothrow_move_constructible&& tys::nothrow_move_assignable)
     {
         if ((!this->is_valueless()) && (this->m_index == other.m_index))  // Invoke move assignment.
         {
