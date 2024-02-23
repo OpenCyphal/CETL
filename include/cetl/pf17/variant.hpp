@@ -59,6 +59,8 @@ namespace var
 template <std::size_t N, typename... Ts>
 using nth_type = std::tuple_element_t<N, std::tuple<Ts...>>;
 
+// --------------------------------------------------------------------------------------------------------------------
+
 template <typename>
 struct chronomorphize_impl;
 template <std::size_t... Is>
@@ -94,6 +96,52 @@ decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_
                                                                     index,
                                                                     std::forward<Args>(extra_args)...);
 }
+
+// --------------------------------------------------------------------------------------------------------------------
+
+template <typename, typename...>
+struct count_occurrences_impl;
+template <typename T, typename A>
+struct count_occurrences_impl<T, A> : std::integral_constant<std::size_t, std::is_same<T, A>::value ? 1 : 0>
+{};
+template <typename T, typename A, typename B, typename... C>
+struct count_occurrences_impl<T, A, B, C...>
+    : std::integral_constant<std::size_t,
+                             count_occurrences_impl<T, A>::value + count_occurrences_impl<T, B, C...>::value>
+{};
+/// Counts the occurrences of T in Ts.
+template <typename T, typename... Ts>
+constexpr std::size_t count_occurrences = count_occurrences_impl<T, Ts...>::value;
+static_assert(0 == count_occurrences<int, char>, "");
+static_assert(1 == count_occurrences<int, int, char>, "");
+static_assert(2 == count_occurrences<int, char, int, double, int>, "");
+
+// --------------------------------------------------------------------------------------------------------------------
+
+template <typename T, typename... Ts>
+struct first_index_of_impl;
+template <typename T, typename... Ts>
+struct first_index_of_impl<T, T, Ts...> : std::integral_constant<std::size_t, 0>
+{};
+template <typename T, typename U, typename... Ts>
+struct first_index_of_impl<T, U, Ts...> : std::integral_constant<std::size_t, 1 + first_index_of_impl<T, Ts...>::value>
+{};
+
+/// Find the index of the first occurrence of T in Ts. Fails compilation if T is not found in Ts.
+template <typename T, typename... Ts>
+constexpr std::size_t first_index_of = first_index_of_impl<T, Ts...>::value;
+
+/// Find the index of T in Ts. Fails compilation if T is not found in Ts or if T is found more than once.
+template <typename T, typename... Ts>
+constexpr std::enable_if_t<count_occurrences<T, Ts...> == 1, std::size_t> unique_index_of = first_index_of<T, Ts...>;
+
+static_assert(0 == unique_index_of<int, int>, "");
+static_assert(0 == unique_index_of<int, int, double, char>, "");
+static_assert(1 == unique_index_of<double, int, double, char>, "");
+static_assert(2 == unique_index_of<char, int, double, char>, "");
+static_assert(2 == first_index_of<char, int, double, char, char>, "");
+
+// --------------------------------------------------------------------------------------------------------------------
 
 /// This has to be an old-style enum because it is used as a template parameter.
 enum smf_availability
@@ -161,26 +209,7 @@ static_assert(smf_any_deleted<smf_trivial, smf_deleted, smf_trivial>, "");
 static_assert(smf_any_deleted<smf_trivial, smf_trivial, smf_deleted>, "");
 static_assert(!smf_any_deleted<smf_trivial, smf_trivial, smf_trivial>, "");
 
-/// index_of<> fails with a missing type error if the type is not found in the sequence.
-/// If there is more than one matching type, the index of the first occurrence is selected.
-template <typename T, typename... Ts>
-struct index_of_impl;
-template <typename T, typename... Ts>
-struct index_of_impl<T, T, Ts...>
-{
-    static constexpr std::size_t value = 0;
-};
-template <typename T, typename U, typename... Ts>
-struct index_of_impl<T, U, Ts...>
-{
-    static constexpr std::size_t value = 1 + index_of_impl<T, Ts...>::value;
-};
-template <typename T, typename... Ts>
-constexpr std::size_t index_of = index_of_impl<T, Ts...>::value;
-static_assert(0 == index_of<int, int>, "");
-static_assert(0 == index_of<int, int, double, char>, "");
-static_assert(1 == index_of<double, int, double, char>, "");
-static_assert(2 == index_of<char, int, double, char>, "");
+// --------------------------------------------------------------------------------------------------------------------
 
 inline void bad_access_unless(const bool condition)
 {
@@ -279,6 +308,8 @@ static_assert(std::is_trivially_destructible<storage<int, double, char>>::value,
 static_assert(std::is_trivially_copyable<storage<int, double, char>>::value, "");
 static_assert(std::is_standard_layout<storage<int, double, char>>::value, "");
 
+// --------------------------------------------------------------------------------------------------------------------
+
 /// DESTRUCTION POLICY
 template <typename Seq, int = Seq::avail_dtor>
 struct base_destruction;
@@ -300,6 +331,8 @@ struct base_destruction<types<Ts...>, smf_nontrivial> : storage<Ts...>  // NOLIN
 };
 template <typename... Ts>
 struct base_destruction<types<Ts...>, smf_deleted>;  // Definition omitted, all variant types shall be destructible.
+
+// --------------------------------------------------------------------------------------------------------------------
 
 /// COPY CONSTRUCTION POLICY
 template <typename Seq, int = Seq::avail_copy_ctor>
@@ -338,6 +371,8 @@ struct base_copy_construction<types<Ts...>, smf_deleted> : base_destruction<type
     ~base_copy_construction() noexcept                               = default;
 };
 
+// --------------------------------------------------------------------------------------------------------------------
+
 /// MOVE CONSTRUCTION POLICY
 template <typename Seq, int = Seq::avail_move_ctor>
 struct base_move_construction;
@@ -371,6 +406,8 @@ struct base_move_construction<types<Ts...>, smf_deleted> : base_copy_constructio
     base_move_construction& operator=(base_move_construction&&)      = default;
     ~base_move_construction() noexcept                               = default;
 };
+
+// --------------------------------------------------------------------------------------------------------------------
 
 /// COPY ASSIGNMENT POLICY
 template <typename Seq,
@@ -429,6 +466,8 @@ struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<
     base_copy_assignment& operator=(base_copy_assignment&&)            = default;
     ~base_copy_assignment() noexcept                                   = default;
 };
+
+// --------------------------------------------------------------------------------------------------------------------
 
 /// MOVE ASSIGNMENT POLICY
 template <typename Seq,
@@ -494,11 +533,15 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 }  // namespace var
 }  // namespace detail
 
+// --------------------------------------------------------------------------------------------------------------------
+
 /// An implementation of \ref std::variant.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
     using base = detail::var::base_move_assignment<detail::var::types<Ts...>>;
+
+public:
 };
 
 }  // namespace pf17
