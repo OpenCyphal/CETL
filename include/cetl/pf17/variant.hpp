@@ -619,6 +619,29 @@ public:
     // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
 };
 
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::variant_alternative.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <size_t, typename>
+struct variant_alternative;
+template <size_t N, template <typename...> class V, typename... Ts>
+struct variant_alternative<N, V<Ts...>>
+{
+    static_assert(N < sizeof...(Ts), "Variant type index out of range");
+    using type = detail::var::nth_type<N, Ts...>;
+};
+template <size_t N, template <typename...> class V, typename... Ts>
+struct variant_alternative<N, const V<Ts...>>
+{
+    using type = const typename variant_alternative<N, V<Ts...>>::type;
+};
+
+/// Implementation of \ref std::variant_alternative_t.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <size_t N, typename Var>
+using variant_alternative_t = typename variant_alternative<N, Var>::type;
+
 }  // namespace pf17
 }  // namespace cetl
 
