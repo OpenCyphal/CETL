@@ -617,6 +617,18 @@ public:
 
     /// Assignment 3
     // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
+
+    /// The index of the currently held alternative, or \ref variant_npos if the variant is valueless.
+    CETL_NODISCARD constexpr std::size_t index() const noexcept
+    {
+        return this->m_index;
+    }
+
+    /// True if the variant is valueless.
+    CETL_NODISCARD constexpr bool valueless_by_exception() const noexcept
+    {
+        return this->is_valueless();
+    }
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -659,6 +671,55 @@ struct variant_size<V<Ts...>> : std::integral_constant<std::size_t, sizeof...(Ts
 /// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
 template <typename V>
 constexpr size_t variant_size_v = variant_size<V>::value;
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::holds_alternative.
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr bool holds_alternative(const variant<Ts...>& var) noexcept
+{
+    return detail::var::unique_index_of<T, Ts...> == var.index();
+}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::get_if(std::variant).
+/// @{
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr std::add_pointer_t<variant_alternative_t<Ix, variant<Ts...>>> get_if(
+    variant<Ts...>* const var) noexcept;
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr std::add_pointer_t<const variant_alternative_t<Ix, variant<Ts...>>> get_if(
+    const variant<Ts...>* const var) noexcept;
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr std::add_pointer_t<T> get_if(variant<Ts...>* const var) noexcept;
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr std::add_pointer_t<const T> get_if(const variant<Ts...>* const var) noexcept;
+/// @}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::get(std::variant).
+/// @{
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>& get(variant<Ts...>& var);
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>&& get(variant<Ts...>&& var);
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>& get(const variant<Ts...>& var);
+template <std::size_t Ix, typename... Ts>
+CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>&& get(const variant<Ts...>&& var);
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr T& get(variant<Ts...>& var);
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr T&& get(variant<Ts...>&& var);
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr const T& get(const variant<Ts...>& var);
+template <typename T, typename... Ts>
+CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var);
+/// @}
+
+// --------------------------------------------------------------------------------------------------------------------
 
 }  // namespace pf17
 }  // namespace cetl
