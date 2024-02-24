@@ -245,29 +245,25 @@ struct storage  // NOLINT(*-pro-type-member-init)
         {
             if (types<Ts...>::avail_dtor != smf_trivial)  // A decent compiler will know what to do.
             {
-                this->visit([](auto& val) {
-                    using T = std::decay_t<decltype(val)>;
-                    val.~T();
+                this->chronomorphize([this](const auto index) {
+                    using T = nth_type<index.value, Ts...>;
+                    this->template as<index.value>().~T();
                 });
             }
             this->m_index = variant_npos;
         }
     }
-    /// The ordinary visit().
+    /// Invoke \c fun(integral_constant<size_t, index>); throws bad_variant_access if valueless.
     template <typename F>
-    decltype(auto) visit(F&& fun)
-    {
-        return visit_index([this, &fun](const auto index) { return fun(this->as<index.value>()); });
-    }
-    /// This is like the ordinary visit but the argument type is integral_constant<size_t, index> instead of T.
-    template <typename F>
-    decltype(auto) visit_index(F&& fun)
+    decltype(auto) chronomorphize(F&& fun) const
     {
         bad_access_unless(m_index != variant_npos);
-        return chronomorphize<sizeof...(Ts)>(
-            [this, &fun](const auto index) -> decltype(auto) {
-                assert(index.value == m_index);
-                return fun(index);
+        return detail::var::chronomorphize<sizeof...(Ts)>(
+            // https://twitter.com/PavelKirienko/status/1761525562370040002
+            [check_index = m_index, &fun](const auto index) -> decltype(auto) {
+                assert(index.value == check_index);
+                (void) check_index;  // Silence the warning about unused variable.
+                return std::forward<F>(fun)(index);
             },
             m_index);
     }
@@ -352,9 +348,9 @@ struct base_copy_construction<types<Ts...>, smf_nontrivial> : base_destruction<t
     {
         if (!other.is_valueless())
         {
-            other.visit([this, &other](auto& val) {
-                static_assert(sizeof(val) <= sizeof(this->m_data), "");
-                new (this->m_data) decltype(val)(val);
+            other.chronomorphize([this, &other](const auto index) {
+                using T = nth_type<index.value, Ts...>;
+                new (this->m_data) T(other.template as<index.value>());
             });
             this->m_index = other.m_index;
         }
@@ -392,7 +388,10 @@ struct base_move_construction<types<Ts...>, smf_nontrivial> : base_copy_construc
     {
         if (!other.is_valueless())
         {
-            other.visit([this, &other](auto& val) { new (this->m_data) decltype(val)(std::move(val)); });
+            other.chronomorphize([this, &other](const auto index) {
+                using T = nth_type<index.value, Ts...>;
+                new (this->m_data) T(std::move(other.template as<index.value>()));
+            });
             this->m_index = other.m_index;
         }
     }
@@ -436,7 +435,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             assert(!other.is_valueless());
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
-            other.visit_index([this, &other](const auto index) {
+            other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
                 this->template as<index.value>() = other.template as<index.value>();
             });
@@ -445,7 +444,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
         {
             // Here, this may or may not be valueless; either way we don't care about its state as it
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
-            other.visit_index([this, &other](const auto index) {
+            other.chronomorphize([this, &other](const auto index) {
                 assert(index.value == other.m_index);
                 this->construct<index.value>(other.template as<index.value>());
             });
@@ -499,7 +498,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             assert(!other.is_valueless());
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's move assignment.
-            other.visit_index([this, &other](const auto index) {
+            other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
                 this->template as<index.value>() = std::move(other.template as<index.value>());
             });
@@ -508,7 +507,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
         {
             // Here, this may or may not be valueless; either way we don't care about its state as it
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
-            other.visit_index([this, &other](const auto index) {
+            other.chronomorphize([this, &other](const auto index) {
                 assert(index.value == other.m_index);
                 this->construct<index.value>(std::move(other.template as<index.value>()));
             });
@@ -533,6 +532,39 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
     base_move_assignment& operator=(base_move_assignment&& other) = delete;
     ~base_move_assignment() noexcept                              = default;
 };
+
+// --------------------------------------------------------------------------------------------------------------------
+
+template <typename F>
+decltype(auto) visit(F&& fun)  // For some reason the standard requires this silly overload.
+{
+    return std::forward<F>(fun)();
+}
+template <typename F, typename V>
+decltype(auto) visit(F&& fun, V&& var)
+{
+    // https://twitter.com/PavelKirienko/status/1761525562370040002
+    return std::forward<V>(var).chronomorphize([&fun, &var](const auto index) {
+        return std::forward<F>(fun)(std::forward<V>(var).template as<index.value>());
+    });
+}
+template <typename F, typename V0, typename... Vs, std::enable_if_t<(sizeof...(Vs) > 0), int> = 0>
+decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
+{
+    // Instead of generating a multidimensional vtable as it is commonly done, we use recursive visiting;
+    // this allows us to achieve a similar result with much less code at the expense of one extra call indirection
+    // per variant. The recursive structure below builds a Cartesian product of the variant combinations
+    // one level at a time starting with the leftmost variant.
+    return visit(
+        [&](auto&& hh) {  // https://twitter.com/PavelKirienko/status/1761525562370040002
+            return visit(
+                [&](auto&&... tt) {
+                    return std::forward<F>(fun)(std::forward<decltype(hh)>(hh), std::forward<decltype(tt)>(tt)...);
+                },
+                std::forward<Vs>(vars)...);
+        },
+        std::forward<V0>(var0));
+}
 
 }  // namespace var
 }  // namespace detail
@@ -611,6 +643,10 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
     friend constexpr const variant_alternative_t<Ix, variant<Us...>>& get(const variant<Us...>& var);
     template <std::size_t Ix, typename... Us>
     friend constexpr const variant_alternative_t<Ix, variant<Us...>>&& get(const variant<Us...>&& var);
+
+    // visit() friends
+    template <typename F, typename V>
+    friend decltype(auto) detail::var::visit(F&& fun, V&& var);
 
 public:
     /// Constructor 1
@@ -779,6 +815,15 @@ CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var)
     return get<detail::var::unique_index_of<T, Ts...>>(std::move(var));
 }
 /// @}
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::visit.
+template <typename F, typename... Vs>
+decltype(auto) visit(F&& fun, Vs&&... vars)
+{
+    return detail::var::visit(std::forward<F>(fun), std::forward<Vs>(vars)...);
+}
 
 }  // namespace pf17
 }  // namespace cetl

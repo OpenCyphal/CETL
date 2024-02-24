@@ -124,6 +124,7 @@ TEST(test_variant, basic_operations)
 {
     using cetl::pf17::variant;
     using cetl::pf17::monostate;
+    using cetl::pf17::visit;
     using cetl::pf17::holds_alternative;
     using cetl::pf17::get;
     using cetl::pf17::get_if;
@@ -145,4 +146,6 @@ TEST(test_variant, basic_operations)
     const auto& const_var = var;
     EXPECT_EQ(42, *get_if<int>(&const_var));
     EXPECT_EQ(42, get<int>(const_var));
+
+    EXPECT_EQ(1, cetl::pf17::visit([](auto&& arg) { return static_cast<int>(arg + 1); }, variant<int, char, double>{}));
 }
