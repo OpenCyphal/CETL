@@ -639,8 +639,26 @@ struct variant_alternative<N, const V<Ts...>>
 
 /// Implementation of \ref std::variant_alternative_t.
 /// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
-template <size_t N, typename Var>
-using variant_alternative_t = typename variant_alternative<N, Var>::type;
+template <size_t N, typename V>
+using variant_alternative_t = typename variant_alternative<N, V>::type;
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::variant_size.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <typename>
+struct variant_size;
+template <typename V>
+struct variant_size<const V> : variant_size<V>
+{};
+template <template <typename...> class V, typename... Ts>
+struct variant_size<V<Ts...>> : std::integral_constant<std::size_t, sizeof...(Ts)>
+{};
+
+/// Implementation of \ref std::variant_size_v.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <typename V>
+constexpr size_t variant_size_v = variant_size<V>::value;
 
 }  // namespace pf17
 }  // namespace cetl

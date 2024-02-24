@@ -71,6 +71,16 @@ static_assert(std::is_same<monostate* const, variant_alternative_t<2, const vari
               "");
 }  // namespace test_variant_alternative
 
+namespace test_variant_size
+{
+using cetl::pf17::variant;
+using cetl::pf17::variant_size;
+static_assert(variant_size<variant<int>>::value == 1, "");
+static_assert(variant_size<const variant<double>>::value == 1, "");
+static_assert(variant_size<variant<int, char, double>>::value == 3, "");
+static_assert(variant_size<const variant<int, char, double>>::value == 3, "");
+}  // namespace test_variant_size
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;
