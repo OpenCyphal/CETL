@@ -119,3 +119,30 @@ TEST(test_variant, chronomorphize)
         EXPECT_FALSE(chk.armed);
     }
 }
+
+TEST(test_variant, basic_operations)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::holds_alternative;
+    using cetl::pf17::get;
+    using cetl::pf17::get_if;
+
+    variant<int, char, monostate> var;
+    EXPECT_EQ(0, var.index());
+    EXPECT_FALSE(var.valueless_by_exception());
+    EXPECT_TRUE(holds_alternative<int>(var));
+    EXPECT_FALSE(holds_alternative<char>(var));
+
+    EXPECT_FALSE(get_if<char>(&var));
+    EXPECT_FALSE(get_if<char>(static_cast<variant<int, char, monostate>*>(nullptr)));
+    EXPECT_FALSE(get_if<char>(static_cast<const variant<int, char, monostate>*>(nullptr)));
+    EXPECT_TRUE(get_if<int>(&var));
+    *get_if<int>(&var) = 42;
+    EXPECT_EQ(42, get<int>(var));
+    EXPECT_EQ(42, *get_if<int>(&var));
+
+    const auto& const_var = var;
+    EXPECT_EQ(42, *get_if<int>(&const_var));
+    EXPECT_EQ(42, get<int>(const_var));
+}

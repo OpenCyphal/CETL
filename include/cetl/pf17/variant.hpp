@@ -257,7 +257,7 @@ struct storage  // NOLINT(*-pro-type-member-init)
     template <typename F>
     decltype(auto) visit(F&& fun)
     {
-        return visit_index([this, &fun](const auto index) { return fun(this->get<index.value>()); });
+        return visit_index([this, &fun](const auto index) { return fun(this->as<index.value>()); });
     }
     /// This is like the ordinary visit but the argument type is integral_constant<size_t, index> instead of T.
     template <typename F>
@@ -276,27 +276,31 @@ struct storage  // NOLINT(*-pro-type-member-init)
         return m_index == variant_npos;
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD auto& get() & noexcept
+    CETL_NODISCARD T& as() & noexcept
     {
-        bad_access_unless(N == m_index);
+        static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
+        assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return *reinterpret_cast<T*>(m_data);
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD const auto& get() const& noexcept
+    CETL_NODISCARD const T& as() const& noexcept
     {
-        bad_access_unless(N == m_index);
+        static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
+        assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return *reinterpret_cast<const T*>(m_data);
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD auto&& get() && noexcept
+    CETL_NODISCARD T&& as() && noexcept
     {
-        bad_access_unless(N == m_index);
+        static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
+        assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return std::move(*reinterpret_cast<T*>(m_data));
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD const auto&& get() const&& noexcept
+    CETL_NODISCARD const T&& as() const&& noexcept
     {
-        bad_access_unless(N == m_index);
+        static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
+        assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return std::move(*reinterpret_cast<const T*>(m_data));
     }
     // The address of the stored alternative equals the address of the first byte of the storage.
@@ -434,7 +438,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
             other.visit_index([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                this->template get<index.value>() = other.template get<index.value>();
+                this->template as<index.value>() = other.template as<index.value>();
             });
         }
         else if (!other.is_valueless())  // Invoke copy constructor.
@@ -443,7 +447,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
             other.visit_index([this, &other](const auto index) {
                 assert(index.value == other.m_index);
-                this->construct<index.value>(other.template get<index.value>());
+                this->construct<index.value>(other.template as<index.value>());
             });
         }
         else
@@ -497,7 +501,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             // the value depends on the exception safety guarantee of the alternative's move assignment.
             other.visit_index([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                this->template get<index.value>() = std::move(other.template get<index.value>());
+                this->template as<index.value>() = std::move(other.template as<index.value>());
             });
         }
         else if (!other.is_valueless())  // Invoke move constructor.
@@ -506,7 +510,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
             other.visit_index([this, &other](const auto index) {
                 assert(index.value == other.m_index);
-                this->construct<index.value>(std::move(other.template get<index.value>()));
+                this->construct<index.value>(std::move(other.template as<index.value>()));
             });
         }
         else
@@ -535,6 +539,47 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 
 // --------------------------------------------------------------------------------------------------------------------
 
+/// Implementation of \ref std::variant_alternative.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <size_t, typename>
+struct variant_alternative;
+template <size_t N, template <typename...> class V, typename... Ts>
+struct variant_alternative<N, V<Ts...>>
+{
+    static_assert(N < sizeof...(Ts), "Variant type index out of range");
+    using type = detail::var::nth_type<N, Ts...>;
+};
+template <size_t N, template <typename...> class V, typename... Ts>
+struct variant_alternative<N, const V<Ts...>>
+{
+    using type = const typename variant_alternative<N, V<Ts...>>::type;
+};
+
+/// Implementation of \ref std::variant_alternative_t.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <size_t N, typename V>
+using variant_alternative_t = typename variant_alternative<N, V>::type;
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::variant_size.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <typename>
+struct variant_size;
+template <typename V>
+struct variant_size<const V> : variant_size<V>
+{};
+template <template <typename...> class V, typename... Ts>
+struct variant_size<V<Ts...>> : std::integral_constant<std::size_t, sizeof...(Ts)>
+{};
+
+/// Implementation of \ref std::variant_size_v.
+/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
+template <typename V>
+constexpr size_t variant_size_v = variant_size<V>::value;
+
+// --------------------------------------------------------------------------------------------------------------------
+
 /// An implementation of \ref std::variant.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
@@ -544,17 +589,34 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 
     template <std::size_t N>
     using nth_type = detail::var::nth_type<N, Ts...>;
-
     template <typename T>
     static constexpr std::size_t index_of = detail::var::unique_index_of<T, Ts...>;
-
     template <typename T>
     static constexpr bool is_unique = (detail::var::count_occurrences<T, Ts...> == 1);
+
+    // get_if<>() friends
+    template <std::size_t Ix, typename... Us>
+    friend constexpr std::add_pointer_t<variant_alternative_t<Ix, variant<Us...>>> get_if(
+        variant<Us...>* const var) noexcept;
+    template <std::size_t Ix, typename... Us>
+    friend constexpr std::add_pointer_t<const variant_alternative_t<Ix, variant<Us...>>> get_if(
+        const variant<Us...>* const var) noexcept;
+
+    // get<>() friends
+    template <std::size_t Ix, typename... Us>
+    friend constexpr variant_alternative_t<Ix, variant<Us...>>& get(variant<Us...>& var);
+    template <std::size_t Ix, typename... Us>
+    friend constexpr variant_alternative_t<Ix, variant<Us...>>&& get(variant<Us...>&& var);
+    template <std::size_t Ix, typename... Us>
+    friend constexpr const variant_alternative_t<Ix, variant<Us...>>& get(const variant<Us...>& var);
+    template <std::size_t Ix, typename... Us>
+    friend constexpr const variant_alternative_t<Ix, variant<Us...>>&& get(const variant<Us...>&& var);
 
 public:
     /// Constructor 1
     template <std::enable_if_t<std::is_default_constructible<nth_type<0>>::value, int> = 0>
     variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
+        : variant(in_place_index<0>)
     {
     }
 
@@ -633,47 +695,6 @@ public:
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/// Implementation of \ref std::variant_alternative.
-/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
-template <size_t, typename>
-struct variant_alternative;
-template <size_t N, template <typename...> class V, typename... Ts>
-struct variant_alternative<N, V<Ts...>>
-{
-    static_assert(N < sizeof...(Ts), "Variant type index out of range");
-    using type = detail::var::nth_type<N, Ts...>;
-};
-template <size_t N, template <typename...> class V, typename... Ts>
-struct variant_alternative<N, const V<Ts...>>
-{
-    using type = const typename variant_alternative<N, V<Ts...>>::type;
-};
-
-/// Implementation of \ref std::variant_alternative_t.
-/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
-template <size_t N, typename V>
-using variant_alternative_t = typename variant_alternative<N, V>::type;
-
-// --------------------------------------------------------------------------------------------------------------------
-
-/// Implementation of \ref std::variant_size.
-/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
-template <typename>
-struct variant_size;
-template <typename V>
-struct variant_size<const V> : variant_size<V>
-{};
-template <template <typename...> class V, typename... Ts>
-struct variant_size<V<Ts...>> : std::integral_constant<std::size_t, sizeof...(Ts)>
-{};
-
-/// Implementation of \ref std::variant_size_v.
-/// This implementation also accepts other typelist-parameterized classes, such as \ref std::variant.
-template <typename V>
-constexpr size_t variant_size_v = variant_size<V>::value;
-
-// --------------------------------------------------------------------------------------------------------------------
-
 /// Implementation of \ref std::holds_alternative.
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr bool holds_alternative(const variant<Ts...>& var) noexcept
@@ -683,43 +704,81 @@ CETL_NODISCARD constexpr bool holds_alternative(const variant<Ts...>& var) noexc
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/// Implementation of \ref std::get_if(std::variant).
+/// Implementation of \c std::get_if(std::variant).
 /// @{
 template <std::size_t Ix, typename... Ts>
 CETL_NODISCARD constexpr std::add_pointer_t<variant_alternative_t<Ix, variant<Ts...>>> get_if(
-    variant<Ts...>* const var) noexcept;
+    variant<Ts...>* const var) noexcept
+{
+    return ((var != nullptr) && (var->index() == Ix)) ? &var->template as<Ix>() : nullptr;
+}
 template <std::size_t Ix, typename... Ts>
 CETL_NODISCARD constexpr std::add_pointer_t<const variant_alternative_t<Ix, variant<Ts...>>> get_if(
-    const variant<Ts...>* const var) noexcept;
+    const variant<Ts...>* const var) noexcept
+{
+    return ((var != nullptr) && (var->index() == Ix)) ? &var->template as<Ix>() : nullptr;
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr std::add_pointer_t<T> get_if(variant<Ts...>* const var) noexcept;
+CETL_NODISCARD constexpr std::add_pointer_t<T> get_if(variant<Ts...>* const var) noexcept
+{
+    return get_if<detail::var::unique_index_of<T, Ts...>>(var);
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr std::add_pointer_t<const T> get_if(const variant<Ts...>* const var) noexcept;
+CETL_NODISCARD constexpr std::add_pointer_t<const T> get_if(const variant<Ts...>* const var) noexcept
+{
+    return get_if<detail::var::unique_index_of<T, Ts...>>(var);
+}
 /// @}
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/// Implementation of \ref std::get(std::variant).
+/// Implementation of \c std::get(std::variant).
 /// @{
 template <std::size_t Ix, typename... Ts>
-CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>& get(variant<Ts...>& var);
+CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>& get(variant<Ts...>& var)
+{
+    detail::var::bad_access_unless(var.index() == Ix);
+    return var.template as<Ix>();
+}
 template <std::size_t Ix, typename... Ts>
-CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>&& get(variant<Ts...>&& var);
+CETL_NODISCARD constexpr variant_alternative_t<Ix, variant<Ts...>>&& get(variant<Ts...>&& var)
+{
+    detail::var::bad_access_unless(var.index() == Ix);
+    return std::move(var).template as<Ix>();
+}
 template <std::size_t Ix, typename... Ts>
-CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>& get(const variant<Ts...>& var);
+CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>& get(const variant<Ts...>& var)
+{
+    detail::var::bad_access_unless(var.index() == Ix);
+    return var.template as<Ix>();
+}
 template <std::size_t Ix, typename... Ts>
-CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>&& get(const variant<Ts...>&& var);
+CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>&& get(const variant<Ts...>&& var)
+{
+    detail::var::bad_access_unless(var.index() == Ix);
+    return std::move(var).template as<Ix>();
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr T& get(variant<Ts...>& var);
+CETL_NODISCARD constexpr T& get(variant<Ts...>& var)
+{
+    return get<detail::var::unique_index_of<T, Ts...>>(var);
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr T&& get(variant<Ts...>&& var);
+CETL_NODISCARD constexpr T&& get(variant<Ts...>&& var)
+{
+    return get<detail::var::unique_index_of<T, Ts...>>(std::move(var));
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr const T& get(const variant<Ts...>& var);
+CETL_NODISCARD constexpr const T& get(const variant<Ts...>& var)
+{
+    return get<detail::var::unique_index_of<T, Ts...>>(var);
+}
 template <typename T, typename... Ts>
-CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var);
+CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var)
+{
+    return get<detail::var::unique_index_of<T, Ts...>>(std::move(var));
+}
 /// @}
-
-// --------------------------------------------------------------------------------------------------------------------
 
 }  // namespace pf17
 }  // namespace cetl
