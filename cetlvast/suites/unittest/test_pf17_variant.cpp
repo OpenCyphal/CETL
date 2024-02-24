@@ -11,40 +11,48 @@
 #include <cetlvast/smf_policies.hpp>
 #include <gtest/gtest.h>
 
-// Import relevant entities from the cetl namespace.
-using cetl::pf17::variant;
-using cetl::pf17::variant_alternative_t;
-using cetl::pf17::monostate;
+namespace test_detail_types
+{
+using cetlvast::smf_policies::copy_ctor_policy;
+using cetlvast::smf_policies::move_ctor_policy;
+using cetlvast::smf_policies::copy_assignment_policy;
+using cetlvast::smf_policies::move_assignment_policy;
+using cetlvast::smf_policies::dtor_policy;
+using cetlvast::smf_policies::policy_deleted;
+using cetlvast::smf_policies::policy_trivial;
+using cetlvast::smf_policies::policy_nontrivial;
 using cetl::pf17::detail::var::types;
 using cetl::pf17::detail::var::smf_availability::smf_deleted;
 using cetl::pf17::detail::var::smf_availability::smf_trivial;
 using cetl::pf17::detail::var::smf_availability::smf_nontrivial;
 
-// Import relevant entities from the cetlvast namespace.
-namespace smfp = cetlvast::smf_policies;
+static_assert(types<copy_ctor_policy<policy_deleted>>::avail_copy_ctor == smf_deleted, "");
+static_assert(types<copy_ctor_policy<policy_trivial>>::avail_copy_ctor == smf_trivial, "");
+static_assert(types<copy_ctor_policy<policy_nontrivial>>::avail_copy_ctor == smf_nontrivial, "");
 
-// Test the `types` typelist helper.
-static_assert(types<smfp::copy_ctor_policy<smfp::policy_deleted>>::avail_copy_ctor == smf_deleted, "");
-static_assert(types<smfp::copy_ctor_policy<smfp::policy_trivial>>::avail_copy_ctor == smf_trivial, "");
-static_assert(types<smfp::copy_ctor_policy<smfp::policy_nontrivial>>::avail_copy_ctor == smf_nontrivial, "");
+static_assert(types<move_ctor_policy<policy_deleted>>::avail_move_ctor == smf_deleted, "");
+static_assert(types<move_ctor_policy<policy_trivial>>::avail_move_ctor == smf_trivial, "");
+static_assert(types<move_ctor_policy<policy_nontrivial>>::avail_move_ctor == smf_nontrivial, "");
 
-static_assert(types<smfp::move_ctor_policy<smfp::policy_deleted>>::avail_move_ctor == smf_deleted, "");
-static_assert(types<smfp::move_ctor_policy<smfp::policy_trivial>>::avail_move_ctor == smf_trivial, "");
-static_assert(types<smfp::move_ctor_policy<smfp::policy_nontrivial>>::avail_move_ctor == smf_nontrivial, "");
+static_assert(types<copy_assignment_policy<policy_deleted>>::avail_copy_assign == smf_deleted, "");
+static_assert(types<copy_assignment_policy<policy_trivial>>::avail_copy_assign == smf_trivial, "");
+static_assert(types<copy_assignment_policy<policy_nontrivial>>::avail_copy_assign == smf_nontrivial, "");
 
-static_assert(types<smfp::copy_assignment_policy<smfp::policy_deleted>>::avail_copy_assign == smf_deleted, "");
-static_assert(types<smfp::copy_assignment_policy<smfp::policy_trivial>>::avail_copy_assign == smf_trivial, "");
-static_assert(types<smfp::copy_assignment_policy<smfp::policy_nontrivial>>::avail_copy_assign == smf_nontrivial, "");
+static_assert(types<move_assignment_policy<policy_deleted>>::avail_move_assign == smf_deleted, "");
+static_assert(types<move_assignment_policy<policy_trivial>>::avail_move_assign == smf_trivial, "");
+static_assert(types<move_assignment_policy<policy_nontrivial>>::avail_move_assign == smf_nontrivial, "");
 
-static_assert(types<smfp::move_assignment_policy<smfp::policy_deleted>>::avail_move_assign == smf_deleted, "");
-static_assert(types<smfp::move_assignment_policy<smfp::policy_trivial>>::avail_move_assign == smf_trivial, "");
-static_assert(types<smfp::move_assignment_policy<smfp::policy_nontrivial>>::avail_move_assign == smf_nontrivial, "");
+static_assert(types<dtor_policy<policy_deleted>>::avail_dtor == smf_deleted, "");
+static_assert(types<dtor_policy<policy_trivial>>::avail_dtor == smf_trivial, "");
+static_assert(types<dtor_policy<policy_nontrivial>>::avail_dtor == smf_nontrivial, "");
+}  // namespace test_detail_types
 
-static_assert(types<smfp::dtor_policy<smfp::policy_deleted>>::avail_dtor == smf_deleted, "");
-static_assert(types<smfp::dtor_policy<smfp::policy_trivial>>::avail_dtor == smf_trivial, "");
-static_assert(types<smfp::dtor_policy<smfp::policy_nontrivial>>::avail_dtor == smf_nontrivial, "");
+namespace test_variant_alternative
+{
+using cetl::pf17::variant;
+using cetl::pf17::variant_alternative_t;
+using cetl::pf17::monostate;
 
-// Test variant_alternative_t.
 static_assert(std::is_same<int, variant_alternative_t<0, variant<int, char, monostate>>>::value, "");
 static_assert(std::is_same<char, variant_alternative_t<1, variant<int, char, monostate>>>::value, "");
 static_assert(std::is_same<monostate, variant_alternative_t<2, variant<int, char, monostate>>>::value, "");
@@ -61,6 +69,7 @@ static_assert(std::is_same<int* const, variant_alternative_t<0, const variant<in
 static_assert(std::is_same<char* const, variant_alternative_t<1, const variant<int*, char*, monostate*>>>::value, "");
 static_assert(std::is_same<monostate* const, variant_alternative_t<2, const variant<int*, char*, monostate*>>>::value,
               "");
+}  // namespace test_variant_alternative
 
 TEST(test_variant, chronomorphize)
 {
