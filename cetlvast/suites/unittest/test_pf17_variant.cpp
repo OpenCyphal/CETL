@@ -387,12 +387,9 @@ TYPED_TEST(test_smf_policy_combinations, basics)
 
     // visitation
     EXPECT_EQ(42 + 1234 + 5,
-              cetl::pf17::visit(make_overloaded([](const auto&, const auto&, const auto&, const auto&) { return 0; },
-                                                [](int a, const T& b, const T& c, monostate) {
-                                                    return a + b.value + c.value;
-                                                }),
+              cetl::pf17::visit(make_overloaded([](const auto&, const auto&, const auto&) { return 0; },
+                                                [](int a, const T& b, const T& c) { return a + b.value + c.value; }),
                                 v1,
                                 v2,
-                                v3,
-                                v4));
+                                v3));
 }
