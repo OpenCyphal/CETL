@@ -74,11 +74,19 @@ static_assert(std::is_same<monostate* const, variant_alternative_t<2, const vari
 namespace test_variant_size
 {
 using cetl::pf17::variant;
-using cetl::pf17::variant_size;
-static_assert(variant_size<variant<int>>::value == 1, "");
-static_assert(variant_size<const variant<double>>::value == 1, "");
-static_assert(variant_size<variant<int, char, double>>::value == 3, "");
-static_assert(variant_size<const variant<int, char, double>>::value == 3, "");
+using cetl::pf17::variant_size_v;
+static_assert(variant_size_v<variant<int>> == 1, "");
+static_assert(variant_size_v<const variant<double>> == 1, "");
+static_assert(variant_size_v<variant<int, char, double>> == 3, "");
+static_assert(variant_size_v<const variant<int, char, double>> == 3, "");
+
+// Well, this is also size...
+using cetl::pf17::monostate;
+static_assert(sizeof(variant<char>) == (2 * sizeof(std::size_t)), "");  // mind the index field alignment
+static_assert(sizeof(variant<std::size_t, char>) == (2 * sizeof(std::size_t)), "");
+static_assert(sizeof(variant<std::size_t, monostate>) == (2 * sizeof(std::size_t)), "");
+static_assert(sizeof(variant<std::size_t, monostate, std::int64_t>) == (sizeof(std::int64_t) + sizeof(std::size_t)),
+              "");
 }  // namespace test_variant_size
 
 namespace test_smf_availability_basics
@@ -269,10 +277,24 @@ TYPED_TEST(test_smf_policy_combinations, basics)
     using cetl::pf17::get_if;
     using cetl::pf17::make_overloaded;
     using cetl::pf17::in_place_index;
+    using cetl::pf17::in_place_type;
+
+    struct T : public TypeParam
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        T(const std::initializer_list<std::int64_t> il)
+            : value(static_cast<std::int64_t>(il.size()))
+        {
+        }
+        std::int64_t value = 0;
+    };
 
     // Enrich the variant with SMF-trivial types to ensure we always pick the most restrictive policy.
-    using T = TypeParam;
-    using V = variant<int, T, monostate>;
+    using V = variant<int, T, monostate, T>;
+    static_assert(sizeof(V) == sizeof(T) + sizeof(std::size_t), "");
 
     // Ensure trivial copy/move policies are correctly inherited from the value type.
     // copy ctor
@@ -304,4 +326,73 @@ TYPED_TEST(test_smf_policy_combinations, basics)
                   "");
     // dtor
     static_assert(std::is_trivially_destructible<T>::value == std::is_trivially_destructible<V>::value, "");
+
+    V v1;
+    EXPECT_EQ(0, v1.index());
+    EXPECT_FALSE(v1.valueless_by_exception());
+
+    EXPECT_TRUE(holds_alternative<int>(v1));
+    // EXPECT_FALSE(holds_alternative<T>(v1));  // ill-formed due to ambiguity
+    EXPECT_FALSE(holds_alternative<monostate>(v1));
+
+    EXPECT_TRUE(get_if<int>(&v1));
+    EXPECT_TRUE(get_if<0>(&v1));
+    EXPECT_FALSE(get_if<1>(&v1));
+    EXPECT_FALSE(get_if<monostate>(&v1));
+
+    get<int>(v1) = 42;
+    EXPECT_EQ(42, *get_if<int>(&v1));
+    EXPECT_EQ(42, get<int>(v1));
+    EXPECT_EQ(42, *get_if<0>(&v1));
+    EXPECT_EQ(42, get<0>(v1));
+
+#if __cpp_exceptions
+    const auto sink = [](auto&&) {};  // Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
+    EXPECT_THROW(sink(get<1>(v1)), cetl::pf17::bad_variant_access);
+    EXPECT_THROW(sink(get<monostate>(v1)), cetl::pf17::bad_variant_access);
+#endif
+
+    const V v2{in_place_index<1>, 1234};
+    EXPECT_EQ(1, v2.index());
+    EXPECT_FALSE(v2.valueless_by_exception());
+
+    EXPECT_FALSE(holds_alternative<int>(v2));
+    // EXPECT_TRUE(holds_alternative<T>(v2));  // ill-formed due to ambiguity
+    EXPECT_FALSE(holds_alternative<monostate>(v2));
+
+    EXPECT_FALSE(get_if<int>(&v2));
+    EXPECT_TRUE(get_if<1>(&v2));
+    EXPECT_FALSE(get_if<monostate>(&v2));
+
+    EXPECT_EQ(1234, get<1>(v2).value);
+
+#if __cpp_exceptions
+    EXPECT_THROW(sink(get<int>(v2)), cetl::pf17::bad_variant_access);
+    EXPECT_THROW(sink(get<2>(v2)), cetl::pf17::bad_variant_access);
+#endif
+
+    // This is an optional feature that might be useful in some scenarios:
+    // the address of the value is always the same as the address of the variant.
+    EXPECT_EQ(static_cast<const void*>(&v1), static_cast<const void*>(get_if<int>(&v1)));
+    EXPECT_EQ(static_cast<const void*>(&v2), static_cast<const void*>(get_if<1>(&v2)));
+
+    V v3{in_place_index<1>, std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}};
+    EXPECT_EQ(1, v3.index());
+    EXPECT_EQ(5, get<1>(v3).value);
+
+    V v4{in_place_type<monostate>};
+    EXPECT_EQ(2, v4.index());
+    EXPECT_TRUE(holds_alternative<monostate>(v4));
+    EXPECT_TRUE(get_if<monostate>(&v4));
+
+    // visitation
+    EXPECT_EQ(42 + 1234 + 5,
+              cetl::pf17::visit(make_overloaded([](const auto&, const auto&, const auto&, const auto&) { return 0; },
+                                                [](int a, const T& b, const T& c, monostate) {
+                                                    return a + b.value + c.value;
+                                                }),
+                                v1,
+                                v2,
+                                v3,
+                                v4));
 }
