@@ -81,6 +81,46 @@ static_assert(variant_size<variant<int, char, double>>::value == 3, "");
 static_assert(variant_size<const variant<int, char, double>>::value == 3, "");
 }  // namespace test_variant_size
 
+namespace test_smf_availability_basics
+{
+using cetl::pf17::variant;
+using cetl::pf17::monostate;
+
+struct restricted
+{
+    restricted()                             = default;
+    restricted(const restricted&)            = delete;
+    restricted(restricted&&)                 = delete;
+    restricted& operator=(const restricted&) = delete;
+    restricted& operator=(restricted&&)      = delete;
+    ~restricted()
+    {
+        std::terminate(); /* a nontrivial dtor */
+    }
+};
+
+static_assert(std::is_trivially_copy_constructible<variant<bool>>::value, "");
+static_assert(std::is_trivially_move_constructible<variant<bool>>::value, "");
+static_assert(std::is_trivially_copy_assignable<variant<bool>>::value, "");
+static_assert(std::is_trivially_move_assignable<variant<bool>>::value, "");
+static_assert(std::is_trivially_destructible<variant<bool>>::value, "");
+static_assert(std::is_trivially_copyable<variant<bool>>::value, "");
+
+static_assert(std::is_trivially_copy_constructible<variant<monostate>>::value, "");
+static_assert(std::is_trivially_move_constructible<variant<monostate>>::value, "");
+static_assert(std::is_trivially_copy_assignable<variant<monostate>>::value, "");
+static_assert(std::is_trivially_move_assignable<variant<monostate>>::value, "");
+static_assert(std::is_trivially_destructible<variant<monostate>>::value, "");
+static_assert(std::is_trivially_copyable<variant<monostate>>::value, "");
+
+static_assert(!std::is_trivially_copy_constructible<variant<monostate, restricted>>::value, "");
+static_assert(!std::is_trivially_move_constructible<variant<monostate, restricted>>::value, "");
+static_assert(!std::is_trivially_copy_assignable<variant<monostate, restricted>>::value, "");
+static_assert(!std::is_trivially_move_assignable<variant<monostate, restricted>>::value, "");
+static_assert(!std::is_trivially_destructible<variant<monostate, restricted>>::value, "");
+static_assert(!std::is_trivially_copyable<variant<monostate, restricted>>::value, "");
+}  // namespace test_smf_availability_basics
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;
@@ -177,4 +217,93 @@ TEST(test_variant, basic_operations)
                                                 [](monostate, char) { return 0; }),
                                 var,
                                 variant<double, char>{in_place_index<1>, 'a'}));
+}
+
+namespace smf_policy_combinations
+{
+using cetlvast::smf_policies::copy_ctor_policy;
+using cetlvast::smf_policies::move_ctor_policy;
+using cetlvast::smf_policies::copy_assignment_policy;
+using cetlvast::smf_policies::move_assignment_policy;
+using cetlvast::smf_policies::dtor_policy;
+using cetlvast::smf_policies::policy_deleted;
+using cetlvast::smf_policies::policy_trivial;
+using cetlvast::smf_policies::policy_nontrivial;
+namespace typelist = cetlvast::typelist;
+
+using policy_combinations = cetlvast::typelist::cartesian_product<  //
+    std::tuple<copy_ctor_policy<policy_deleted>,                    //
+               copy_ctor_policy<policy_trivial>,
+               copy_ctor_policy<policy_nontrivial>>,
+    std::tuple<move_ctor_policy<policy_deleted>,  //
+               move_ctor_policy<policy_trivial>,
+               move_ctor_policy<policy_nontrivial>>,
+    std::tuple<copy_assignment_policy<policy_deleted>,  //
+               copy_assignment_policy<policy_trivial>,
+               copy_assignment_policy<policy_nontrivial>>,
+    std::tuple<move_assignment_policy<policy_deleted>,  //
+               move_assignment_policy<policy_trivial>,
+               move_assignment_policy<policy_nontrivial>>,
+    std::tuple<dtor_policy<policy_trivial>,  //
+               dtor_policy<policy_nontrivial>>>;
+
+/// This is a long list of all the possible combinations of special function policies.
+/// Derive from each type to test all possible policies.
+using testing_types = typelist::into<::testing::Types>::from<
+    typelist::map<cetlvast::smf_policies::combine_bases, policy_combinations>::type>;
+}  // namespace smf_policy_combinations
+
+template <typename>
+class test_smf_policy_combinations : public ::testing::Test
+{};
+TYPED_TEST_SUITE(test_smf_policy_combinations, smf_policy_combinations::testing_types, );
+
+/// This test checks common behaviors that are independent of the SMF policies.
+TYPED_TEST(test_smf_policy_combinations, basics)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::visit;
+    using cetl::pf17::holds_alternative;
+    using cetl::pf17::get;
+    using cetl::pf17::get_if;
+    using cetl::pf17::make_overloaded;
+    using cetl::pf17::in_place_index;
+
+    // Enrich the variant with SMF-trivial types to ensure we always pick the most restrictive policy.
+    using T = TypeParam;
+    using V = variant<int, T, monostate>;
+
+    // Ensure trivial copy/move policies are correctly inherited from the value type.
+    // copy ctor
+    static_assert(std::is_copy_constructible<T>::value == std::is_copy_constructible<V>::value, "");
+    static_assert(std::is_trivially_copy_constructible<T>::value == std::is_trivially_copy_constructible<V>::value, "");
+    // move ctor
+    static_assert(std::is_move_constructible<T>::value == std::is_move_constructible<V>::value, "");
+    static_assert(std::is_trivially_move_constructible<T>::value == std::is_trivially_move_constructible<V>::value, "");
+    // copy assign
+    // We don't check is_trivially_copyable because this check operates on memory representation rather than
+    // the availability of the corresponding SMFs. As such, the is_trivially_copyable can be true even if the
+    // copy ctor is deleted.
+    static_assert((std::is_copy_assignable<T>::value &&     //
+                   std::is_copy_constructible<T>::value &&  //
+                   std::is_destructible<T>::value) == std::is_copy_assignable<V>::value,
+                  "");
+    static_assert((std::is_trivially_copy_assignable<T>::value &&     //
+                   std::is_trivially_copy_constructible<T>::value &&  //
+                   std::is_trivially_destructible<T>::value) == std::is_trivially_copy_assignable<V>::value,
+                  "");
+    // move assign
+    static_assert((std::is_move_assignable<T>::value &&     //
+                   std::is_move_constructible<T>::value &&  //
+                   std::is_destructible<T>::value) == std::is_move_assignable<V>::value,
+                  "");
+    static_assert((std::is_trivially_move_assignable<T>::value &&     //
+                   std::is_trivially_move_constructible<T>::value &&  //
+                   std::is_trivially_destructible<T>::value) == std::is_trivially_move_assignable<V>::value,
+                  "");
+    // dtor
+    static_assert(std::is_trivially_destructible<T>::value == std::is_trivially_destructible<V>::value, "");
+
+
 }

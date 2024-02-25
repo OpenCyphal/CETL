@@ -364,7 +364,7 @@ template <typename... Ts>
 struct base_copy_construction<types<Ts...>, smf_deleted> : base_destruction<types<Ts...>>
 {
     base_copy_construction()                                         = default;
-    base_copy_construction(const base_copy_construction& other)      = delete;
+    base_copy_construction(const base_copy_construction&)            = delete;
     base_copy_construction(base_copy_construction&&)                 = default;
     base_copy_construction& operator=(const base_copy_construction&) = default;
     base_copy_construction& operator=(base_copy_construction&&)      = default;
@@ -404,7 +404,7 @@ struct base_move_construction<types<Ts...>, smf_deleted> : base_copy_constructio
 {
     base_move_construction()                                         = default;
     base_move_construction(const base_move_construction&)            = default;
-    base_move_construction(base_move_construction&& other)           = delete;
+    base_move_construction(base_move_construction&&)                 = delete;
     base_move_construction& operator=(const base_move_construction&) = default;
     base_move_construction& operator=(base_move_construction&&)      = default;
     ~base_move_construction() noexcept                               = default;
@@ -462,12 +462,12 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
 template <typename... Ts>
 struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<types<Ts...>>
 {
-    base_copy_assignment()                                             = default;
-    base_copy_assignment(const base_copy_assignment&)                  = default;
-    base_copy_assignment(base_copy_assignment&&)                       = default;
-    base_copy_assignment& operator=(const base_copy_assignment& other) = delete;
-    base_copy_assignment& operator=(base_copy_assignment&&)            = default;
-    ~base_copy_assignment() noexcept                                   = default;
+    base_copy_assignment()                                       = default;
+    base_copy_assignment(const base_copy_assignment&)            = default;
+    base_copy_assignment(base_copy_assignment&&)                 = default;
+    base_copy_assignment& operator=(const base_copy_assignment&) = delete;
+    base_copy_assignment& operator=(base_copy_assignment&&)      = default;
+    ~base_copy_assignment() noexcept                             = default;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -524,13 +524,13 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
 template <typename... Ts>
 struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<types<Ts...>>
 {
-    using tys                                                     = types<Ts...>;
-    base_move_assignment()                                        = default;
-    base_move_assignment(const base_move_assignment&)             = default;
-    base_move_assignment(base_move_assignment&&)                  = default;
-    base_move_assignment& operator=(const base_move_assignment&)  = default;
-    base_move_assignment& operator=(base_move_assignment&& other) = delete;
-    ~base_move_assignment() noexcept                              = default;
+    using tys                                                    = types<Ts...>;
+    base_move_assignment()                                       = default;
+    base_move_assignment(const base_move_assignment&)            = default;
+    base_move_assignment(base_move_assignment&&)                 = default;
+    base_move_assignment& operator=(const base_move_assignment&) = default;
+    base_move_assignment& operator=(base_move_assignment&&)      = delete;
+    ~base_move_assignment() noexcept                             = default;
 };
 
 // --------------------------------------------------------------------------------------------------------------------
