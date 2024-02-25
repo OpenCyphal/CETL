@@ -82,6 +82,16 @@ ninja help
 ninja release
 ```
 
+### Format the sources
+
+Clang-Format may format the sources differently depending on the version used.
+To ensure that the formatting matches the expectations of the CI suite,
+invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
+
+```
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
+```
+
 # Hashtag-based CI triggering
 
 Normally, the CI will only run on pull requests, releases, and perhaps some other special occasions.
