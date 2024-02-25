@@ -73,7 +73,7 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
                                                                    std::forward<Args>(ar)...))...>;
         // The lookup table can be made constexpr starting with C++17. Perhaps we should use some kind of conditional
         // macro here like CETL_CONSTEXPR_17 that expands into constexpr if C++17 is available.
-        static const std::array<R (*)(F&&, Args&&...), sizeof...(Is)> lut = {
+        static const std::array<R (*)(F&&, Args && ...), sizeof...(Is)> lut = {
             [](F&& fn, Args&&... ar) -> R {
                 return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{}, std::forward<Args>(ar)...);
             }...,

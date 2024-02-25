@@ -304,6 +304,4 @@ TYPED_TEST(test_smf_policy_combinations, basics)
                   "");
     // dtor
     static_assert(std::is_trivially_destructible<T>::value == std::is_trivially_destructible<V>::value, "");
-
-
 }

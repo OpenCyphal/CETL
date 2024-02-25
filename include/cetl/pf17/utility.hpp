@@ -69,7 +69,7 @@ struct overloaded<T> : public T
 template <typename T, typename... Ts>
 struct overloaded<T, Ts...> : public T, public overloaded<Ts...>
 {
-    using T::operator();
+    using T::                operator();
     using overloaded<Ts...>::operator();
     // If B were empty, the ctor would need sfinae to avoid hiding the copy/move ctors; ensure this is not so.
     template <typename A, typename... B, std::enable_if_t<(sizeof...(B) > 0), int> = 0>
