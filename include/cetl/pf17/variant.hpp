@@ -554,7 +554,7 @@ decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
     // Instead of generating a multidimensional vtable as it is commonly done, we use recursive visiting;
     // this allows us to achieve a similar result with much less code at the expense of one extra call indirection
     // per variant. The recursive structure below builds a Cartesian product of the variant combinations
-    // one level at a time starting with the leftmost variant.
+    // one level at a time starting with the leftmost variant. The complexity is one table jump per variant level.
     return visit(
         [&](auto&& hh) {  // https://twitter.com/PavelKirienko/status/1761525562370040002
             return visit(

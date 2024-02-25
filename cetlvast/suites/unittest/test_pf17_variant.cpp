@@ -120,6 +120,17 @@ TEST(test_variant, chronomorphize)
     }
 }
 
+TEST(test_variant, monostate)
+{
+    using cetl::pf17::monostate;
+    EXPECT_TRUE(monostate{} == monostate{});
+    EXPECT_FALSE(monostate{} != monostate{});
+    EXPECT_FALSE(monostate{} < monostate{});
+    EXPECT_FALSE(monostate{} > monostate{});
+    EXPECT_TRUE(monostate{} <= monostate{});
+    EXPECT_TRUE(monostate{} >= monostate{});
+}
+
 TEST(test_variant, basic_operations)
 {
     using cetl::pf17::variant;
@@ -128,6 +139,8 @@ TEST(test_variant, basic_operations)
     using cetl::pf17::holds_alternative;
     using cetl::pf17::get;
     using cetl::pf17::get_if;
+    using cetl::pf17::make_overloaded;
+    using cetl::pf17::in_place_index;
 
     variant<int, char, monostate> var;
     EXPECT_EQ(0, var.index());
@@ -147,5 +160,21 @@ TEST(test_variant, basic_operations)
     EXPECT_EQ(42, *get_if<int>(&const_var));
     EXPECT_EQ(42, get<int>(const_var));
 
-    EXPECT_EQ(1, cetl::pf17::visit([](auto&& arg) { return static_cast<int>(arg + 1); }, variant<int, char, double>{}));
+    EXPECT_EQ(43,
+              cetl::pf17::visit(make_overloaded([](const int arg) { return arg + 1; },
+                                                [](const char arg) { return static_cast<int>(arg) + 2; },
+                                                [](const monostate) {
+                                                    std::terminate();
+                                                    return '\0';
+                                                }),
+                                var));
+    EXPECT_EQ(42 + 'a',
+              cetl::pf17::visit(make_overloaded([](int, double) { return 0; },
+                                                [](int a, char b) { return a + b; },
+                                                [](char, double) { return 0; },
+                                                [](char, char) { return 0; },
+                                                [](monostate, double) { return 0; },
+                                                [](monostate, char) { return 0; }),
+                                var,
+                                variant<double, char>{in_place_index<1>, 'a'}));
 }
