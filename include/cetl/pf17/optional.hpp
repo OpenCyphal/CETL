@@ -8,7 +8,7 @@
 #ifndef CETL_PF17_OPTIONAL_HPP_INCLUDED
 #define CETL_PF17_OPTIONAL_HPP_INCLUDED
 
-#include <cetl/_helpers.hpp>
+#include <cetl/_helper_enable_copy_move.hpp>
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/attribute.hpp>
 #include <cetl/pf17/type_traits.hpp>
