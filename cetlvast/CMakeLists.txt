@@ -84,6 +84,7 @@ set(CETLVAST_CPP_STANDARD "20" CACHE STRING "C++ standard to use when compiling.
 set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20)
 
 set(CMAKE_CXX_STANDARD ${CETLVAST_CPP_STANDARD})
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type.")
 set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Debug)
@@ -113,9 +114,6 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
 
 # Always need this.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# Keep it real.
-set(CXX_EXTENSIONS OFF)
 
 # +---------------------------------------------------------------------------+
 # | KITS

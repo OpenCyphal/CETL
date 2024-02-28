@@ -81,3 +81,15 @@ cd build
 ninja help
 ninja release
 ```
+
+# Hashtag-based CI triggering
+
+Normally, the CI will only run on pull requests, releases, and perhaps some other special occasions.
+Often, however, you will want to run it on your branch before proposing the changes to ensure all checks are
+green and test coverage is adequate.
+To do that, add a hashtag with the name of the workflow you need to run to the head commit;
+for example, making a commit with a message like `Add feature such and such #verification #docs #sonar`
+will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
+
+Note that if the job you requested is dependent on other jobs that are not triggered, it will not run; 
+for example, if `sonar` requires `docs`, pushing a commit with `#sonar` alone will not make it run.
