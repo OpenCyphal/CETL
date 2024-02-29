@@ -331,7 +331,7 @@ struct base_destruction<types<Ts...>, smf_nontrivial> : storage<Ts...>  // NOLIN
     }
 };
 template <typename... Ts>
-struct base_destruction<types<Ts...>, smf_deleted>;  // Definition omitted, all variant types shall be destructible.
+struct base_destruction<types<Ts...>, smf_deleted>;  // Definition omitted, all alternatives shall be destructible.
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -935,7 +935,7 @@ constexpr bool operator<(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
         return false;
     }
     return detail::var::chronomorphize<sizeof...(Ts)>(lhs.index(), [&lhs, &rhs](const auto index) {
-        return get<index.value>(lhs) < get<index.value>(rhs);
+        return static_cast<bool>(get<index.value>(lhs) < get<index.value>(rhs));
     });
 }
 template <typename... Ts>
