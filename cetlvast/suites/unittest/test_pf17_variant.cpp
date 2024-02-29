@@ -393,7 +393,8 @@ TYPED_TEST(test_smf_policy_combinations, basics)
                                 v2,
                                 v3));
 
-    v4.template emplace<monostate>();
-    EXPECT_EQ(2, v4.index());
-    EXPECT_TRUE(holds_alternative<monostate>(v4));
+    // emplacement
+    v4.template emplace<int>(123);
+    EXPECT_EQ(0, v4.index());
+    EXPECT_EQ(123, get<int>(v4));
 }

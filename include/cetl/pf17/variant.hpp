@@ -189,6 +189,7 @@ struct types final
 
     static constexpr bool nothrow_move_constructible = all_satisfy<std::is_nothrow_move_constructible>;
     static constexpr bool nothrow_move_assignable    = all_satisfy<std::is_nothrow_move_assignable>;
+    static constexpr bool nothrow_swappable          = all_satisfy<is_nothrow_swappable>;
 
     types()  = delete;
     ~types() = delete;
@@ -761,6 +762,34 @@ public:
         return this->template construct<Ix>(il, std::forward<Args>(ar)...);
     }
     /// @}
+
+    /// Invokes swap() on the Ts if the indices match, otherwise swaps the variants.
+    /// In the first case, if an exception is thrown, the state of the values depends on the exception safety of
+    /// the swap function called.
+    /// In the second case, if the move constructor or the move assignment operator throw,
+    /// either or both variants may become valueless.
+    void swap(variant& other) noexcept(tys::nothrow_move_constructible&& tys::nothrow_swappable)
+    {
+        if ((!this->is_valueless()) || (!other.is_valueless()))
+        {
+            if (this->m_index == other.m_index)
+            {
+                // If an exception is thrown, the state of the values depends on the exception safety
+                // of the swap function called.
+                this->chronomorphize([this, &other](const auto index) {
+                    using std::swap;  // Engage ADL
+                    swap(this->template as<index.value>(), other.template as<index.value>());
+                });
+            }
+            else
+            {
+                // Exeption safety is important for move operations. Consider the failure modes involved on throwing:
+                variant tmp(std::move(*this));  // this may get stuck in the moved-out state
+                *this = std::move(other);       // this may become valueless; other may get stuck in the moved-out state
+                other = std::move(tmp);         // other may become valueless
+            }
+        }
+    }
 
     /// The index of the currently held alternative, or \ref variant_npos if the variant is valueless.
     CETL_NODISCARD constexpr std::size_t index() const noexcept
