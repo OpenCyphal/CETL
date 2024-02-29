@@ -613,6 +613,8 @@ constexpr size_t variant_size_v = variant_size<V>::value;
 // --------------------------------------------------------------------------------------------------------------------
 
 /// An implementation of \ref std::variant.
+/// In this implementation, the address of the variant object is equivalent to the address of the active alternative;
+/// this can sometimes be useful for low-level debugging.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
@@ -707,14 +709,58 @@ public:
     }
 
     /// Assignment 1
+    /// If the current alternative is different and the copy constructor throws, the variant becomes valueless.
     variant& operator=(const variant& rhs) = default;
 
     /// Assignment 2
+    /// If the current alternative is different and the move constructor throws, the variant becomes valueless.
     variant& operator=(variant&& rhs) noexcept(tys::nothrow_move_constructible&& tys::nothrow_move_assignable) =
         default;
 
     /// Assignment 3
     // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
+
+    /// These methods only participate in overload resolution if the template parameters are valid.
+    /// The type-based overloads only participate if the type is unique in the variant.
+    /// If the constructor throws, the variant becomes valueless.
+    /// @{
+    template <typename T,
+              typename... Args,
+              std::size_t Ix                                                  = index_of<T>,
+              std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
+    T& emplace(Args&&... ar)
+    {
+        return this->template construct<Ix>(std::forward<Args>(ar)...);
+    }
+    template <typename T,
+              typename U,
+              typename... Args,
+              std::size_t Ix                                                  = index_of<T>,
+              std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
+    T& emplace(const std::initializer_list<U> il, Args&&... ar)
+    {
+        return this->template construct<Ix>(il, std::forward<Args>(ar)...);
+    }
+    template <std::size_t Ix,
+              typename... Args,
+              std::enable_if_t<(Ix < sizeof...(Ts)), int>                     = 0,
+              typename T                                                      = variant_alternative_t<Ix, variant>,
+              std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
+    T& emplace(Args&&... ar)
+    {
+        return this->template construct<Ix>(std::forward<Args>(ar)...);
+    }
+    template <std::size_t Ix,
+              typename U,
+              typename... Args,
+              std::enable_if_t<(Ix < sizeof...(Ts)), int>                     = 0,
+              typename T                                                      = variant_alternative_t<Ix, variant>,
+              std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
+    T& emplace(const std::initializer_list<U> il, Args&&... ar)
+    {
+        return this->template construct<Ix>(il, std::forward<Args>(ar)...);
+    }
+    /// @}
 
     /// The index of the currently held alternative, or \ref variant_npos if the variant is valueless.
     CETL_NODISCARD constexpr std::size_t index() const noexcept

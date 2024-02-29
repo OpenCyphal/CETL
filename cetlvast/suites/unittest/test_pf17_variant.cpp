@@ -392,4 +392,8 @@ TYPED_TEST(test_smf_policy_combinations, basics)
                                 v1,
                                 v2,
                                 v3));
+
+    v4.template emplace<monostate>();
+    EXPECT_EQ(2, v4.index());
+    EXPECT_TRUE(holds_alternative<monostate>(v4));
 }
