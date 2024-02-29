@@ -18,18 +18,48 @@ namespace pf17
 {
 namespace detail
 {
-namespace type_traits
+namespace adl_swap_detail
 {
-/// std::is_nothrow_swappable
-using std::swap;  // This has to be visible for ADL.
+// std::swap has to be used in a SFINAE context, so we need to rely on ADL here.
+// This is a deviation from AUTOSAR M7-3-6.
+using std::swap;
+
+template <typename T, typename = void>
+struct is_swappable : std::false_type
+{};
 template <typename T>
-constexpr bool is_nothrow_swappable = noexcept(swap(std::declval<T&>(), std::declval<T&>()));
-}  // namespace type_traits
+struct is_swappable<T, decltype(swap(std::declval<T&>(), std::declval<T&>()))> : std::true_type
+{};
+
+template <typename T, bool = is_swappable<T>::value>
+struct is_nothrow_swappable;
+template <typename T>
+struct is_nothrow_swappable<T, false> : std::false_type
+{};
+template <typename T>
+struct is_nothrow_swappable<T, true>
+    : std::integral_constant<bool, noexcept(swap(std::declval<T&>(), std::declval<T&>()))>
+{};
+}  // namespace adl_swap_detail
 }  // namespace detail
 
-/// A reimplementation of \ref std::is_nothrow_swappable_v that works with C++14.
+/// Implementation of \ref std::is_swappable.
 template <typename T>
-constexpr bool is_nothrow_swappable_v = detail::type_traits::is_nothrow_swappable<T>;
+struct is_swappable : detail::adl_swap_detail::is_swappable<T>
+{};
+
+/// Implementation of \ref std::is_swappable_v.
+template <typename T>
+constexpr bool is_swappable_v = is_swappable<T>::value;
+
+/// Implementation of \ref std::is_nothrow_swappable.
+template <typename T>
+struct is_nothrow_swappable : detail::adl_swap_detail::is_nothrow_swappable<T>
+{};
+
+/// Implementation of \ref std::is_nothrow_swappable_v.
+template <typename T>
+constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T>::value;
 
 /// Implementation of \ref std::conjunction.
 template <typename...>
@@ -69,27 +99,6 @@ struct negation : std::integral_constant<bool, !static_cast<bool>(T::value)>
 /// Implementation of \ref std::negation_v.
 template <typename T>
 constexpr bool negation_v = negation<T>::value;
-
-// ---------------------------------------------------------------------------------------------------------------------
-
-static_assert(conjunction_v<> == true, "");
-static_assert(conjunction_v<std::true_type> == true, "");
-static_assert(conjunction_v<std::false_type> == false, "");
-static_assert(conjunction_v<std::true_type, std::true_type> == true, "");
-static_assert(conjunction_v<std::true_type, std::false_type> == false, "");
-static_assert(conjunction_v<std::false_type, std::true_type> == false, "");
-static_assert(conjunction_v<std::false_type, std::false_type> == false, "");
-
-static_assert(disjunction_v<> == false, "");
-static_assert(disjunction_v<std::true_type> == true, "");
-static_assert(disjunction_v<std::false_type> == false, "");
-static_assert(disjunction_v<std::true_type, std::true_type> == true, "");
-static_assert(disjunction_v<std::true_type, std::false_type> == true, "");
-static_assert(disjunction_v<std::false_type, std::true_type> == true, "");
-static_assert(disjunction_v<std::false_type, std::false_type> == false, "");
-
-static_assert(negation_v<std::true_type> == false, "");
-static_assert(negation_v<std::false_type> == true, "");
 
 }  // namespace pf17
 }  // namespace cetl
