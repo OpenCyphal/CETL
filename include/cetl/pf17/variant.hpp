@@ -900,6 +900,60 @@ decltype(auto) visit(F&& fun, Vs&&... vars)
     return detail::var::visit(std::forward<F>(fun), std::forward<Vs>(vars)...);
 }
 
+// --------------------------------------------------------------------------------------------------------------------
+
+template <typename... Ts>
+constexpr bool operator==(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    return (lhs.index() == rhs.index()) && (lhs.index() != variant_npos) &&
+           detail::var::chronomorphize<sizeof...(Ts)>(lhs.index(), [&lhs, &rhs](const auto index) {
+               return static_cast<bool>(get<index.value>(lhs) == get<index.value>(rhs));
+           });
+}
+template <typename... Ts>
+constexpr bool operator!=(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    return !(lhs == rhs);
+}
+template <typename... Ts>
+constexpr bool operator<(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    if (rhs.valueless_by_exception())
+    {
+        return false;
+    }
+    if (lhs.valueless_by_exception())
+    {
+        return true;
+    }
+    if (lhs.index() < rhs.index())
+    {
+        return true;
+    }
+    if (lhs.index() > rhs.index())
+    {
+        return false;
+    }
+    return detail::var::chronomorphize<sizeof...(Ts)>(lhs.index(), [&lhs, &rhs](const auto index) {
+        return get<index.value>(lhs) < get<index.value>(rhs);
+    });
+}
+template <typename... Ts>
+constexpr bool operator>(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    return rhs < lhs;
+}
+template <typename... Ts>
+constexpr bool operator<=(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    return !(rhs < lhs);
+}
+template <typename... Ts>
+constexpr bool operator>=(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
+{
+    return !(lhs < rhs);
+}
+
 }  // namespace pf17
 }  // namespace cetl
 
