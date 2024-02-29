@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/pf17/variant.hpp>
+#include <cetlvast/helpers.hpp>
 #include <cetlvast/typelist.hpp>
 #include <cetlvast/smf_policies.hpp>
 #include <gtest/gtest.h>
@@ -47,6 +48,8 @@ static_assert(types<dtor_policy<policy_trivial>>::avail_dtor == smf_trivial, "")
 static_assert(types<dtor_policy<policy_nontrivial>>::avail_dtor == smf_nontrivial, "");
 }  // namespace test_detail_types
 
+// --------------------------------------------------------------------------------------------
+
 namespace test_variant_alternative
 {
 using cetl::pf17::variant;
@@ -71,6 +74,8 @@ static_assert(std::is_same<monostate* const, variant_alternative_t<2, const vari
               "");
 }  // namespace test_variant_alternative
 
+// --------------------------------------------------------------------------------------------
+
 namespace test_variant_size
 {
 using cetl::pf17::variant;
@@ -88,6 +93,8 @@ static_assert(sizeof(variant<std::size_t, monostate>) == (2 * sizeof(std::size_t
 static_assert(sizeof(variant<std::size_t, monostate, std::int64_t>) == (sizeof(std::int64_t) + sizeof(std::size_t)),
               "");
 }  // namespace test_variant_size
+
+// --------------------------------------------------------------------------------------------
 
 namespace test_smf_availability_basics
 {
@@ -129,6 +136,8 @@ static_assert(!std::is_trivially_destructible<variant<monostate, restricted>>::v
 static_assert(!std::is_trivially_copyable<variant<monostate, restricted>>::value, "");
 }  // namespace test_smf_availability_basics
 
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;
@@ -168,6 +177,8 @@ TEST(test_variant, chronomorphize)
     }
 }
 
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, monostate)
 {
     using cetl::pf17::monostate;
@@ -178,6 +189,8 @@ TEST(test_variant, monostate)
     EXPECT_TRUE(monostate{} <= monostate{});
     EXPECT_TRUE(monostate{} >= monostate{});
 }
+
+// --------------------------------------------------------------------------------------------
 
 TEST(test_variant, basic_operations)
 {
@@ -227,6 +240,8 @@ TEST(test_variant, basic_operations)
                                 variant<double, char>{in_place_index<1>, 'a'}));
 }
 
+// --------------------------------------------------------------------------------------------
+
 namespace smf_policy_combinations
 {
 using cetlvast::smf_policies::copy_ctor_policy;
@@ -266,35 +281,18 @@ class test_smf_policy_combinations : public ::testing::Test
 {};
 TYPED_TEST_SUITE(test_smf_policy_combinations, smf_policy_combinations::testing_types, );
 
-/// This test checks common behaviors that are independent of the SMF policies.
-TYPED_TEST(test_smf_policy_combinations, basics)
+// --------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_smf_policy_combinations, smf_asserts)
 {
     using cetl::pf17::variant;
     using cetl::pf17::monostate;
-    using cetl::pf17::visit;
-    using cetl::pf17::holds_alternative;
-    using cetl::pf17::get;
-    using cetl::pf17::get_if;
-    using cetl::pf17::make_overloaded;
-    using cetl::pf17::in_place_index;
-    using cetl::pf17::in_place_type;
 
-    struct T : public TypeParam
-    {
-        explicit T(const std::int64_t val)
-            : value(val)
-        {
-        }
-        T(const std::initializer_list<std::int64_t> il)
-            : value(static_cast<std::int64_t>(il.size()))
-        {
-        }
-        std::int64_t value = 0;
-    };
+    using T = TypeParam;
 
     // Enrich the variant with SMF-trivial types to ensure we always pick the most restrictive policy.
     using V = variant<int, T, monostate, T>;
-    static_assert(sizeof(V) == sizeof(T) + sizeof(std::size_t), "");
+    static_assert(sizeof(V) == (cetlvast::align_size_up(sizeof(T), sizeof(std::size_t)) + sizeof(std::size_t)), "");
 
     // Ensure trivial copy/move policies are correctly inherited from the value type.
     // copy ctor
@@ -326,75 +324,90 @@ TYPED_TEST(test_smf_policy_combinations, basics)
                   "");
     // dtor
     static_assert(std::is_trivially_destructible<T>::value == std::is_trivially_destructible<V>::value, "");
-
-    V v1;
-    EXPECT_EQ(0, v1.index());
-    EXPECT_FALSE(v1.valueless_by_exception());
-
-    EXPECT_TRUE(holds_alternative<int>(v1));
-    // EXPECT_FALSE(holds_alternative<T>(v1));  // ill-formed due to ambiguity
-    EXPECT_FALSE(holds_alternative<monostate>(v1));
-
-    EXPECT_TRUE(get_if<int>(&v1));
-    EXPECT_TRUE(get_if<0>(&v1));
-    EXPECT_FALSE(get_if<1>(&v1));
-    EXPECT_FALSE(get_if<monostate>(&v1));
-
-    get<int>(v1) = 42;
-    EXPECT_EQ(42, *get_if<int>(&v1));
-    EXPECT_EQ(42, get<int>(v1));
-    EXPECT_EQ(42, *get_if<0>(&v1));
-    EXPECT_EQ(42, get<0>(v1));
-
-#if __cpp_exceptions
-    const auto sink = [](auto&&) {};  // Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
-    EXPECT_THROW(sink(get<1>(v1)), cetl::pf17::bad_variant_access);
-    EXPECT_THROW(sink(get<monostate>(v1)), cetl::pf17::bad_variant_access);
-#endif
-
-    const V v2{in_place_index<1>, 1234};
-    EXPECT_EQ(1, v2.index());
-    EXPECT_FALSE(v2.valueless_by_exception());
-
-    EXPECT_FALSE(holds_alternative<int>(v2));
-    // EXPECT_TRUE(holds_alternative<T>(v2));  // ill-formed due to ambiguity
-    EXPECT_FALSE(holds_alternative<monostate>(v2));
-
-    EXPECT_FALSE(get_if<int>(&v2));
-    EXPECT_TRUE(get_if<1>(&v2));
-    EXPECT_FALSE(get_if<monostate>(&v2));
-
-    EXPECT_EQ(1234, get<1>(v2).value);
-
-#if __cpp_exceptions
-    EXPECT_THROW(sink(get<int>(v2)), cetl::pf17::bad_variant_access);
-    EXPECT_THROW(sink(get<2>(v2)), cetl::pf17::bad_variant_access);
-#endif
-
-    // This is an optional feature that might be useful in some scenarios:
-    // the address of the value is always the same as the address of the variant.
-    EXPECT_EQ(static_cast<const void*>(&v1), static_cast<const void*>(get_if<int>(&v1)));
-    EXPECT_EQ(static_cast<const void*>(&v2), static_cast<const void*>(get_if<1>(&v2)));
-
-    V v3{in_place_index<1>, std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}};
-    EXPECT_EQ(1, v3.index());
-    EXPECT_EQ(5, get<1>(v3).value);
-
-    V v4{in_place_type<monostate>};
-    EXPECT_EQ(2, v4.index());
-    EXPECT_TRUE(holds_alternative<monostate>(v4));
-    EXPECT_TRUE(get_if<monostate>(&v4));
-
-    // visitation
-    EXPECT_EQ(42 + 1234 + 5,
-              cetl::pf17::visit(make_overloaded([](const auto&, const auto&, const auto&) { return 0; },
-                                                [](int a, const T& b, const T& c) { return a + b.value + c.value; }),
-                                v1,
-                                v2,
-                                v3));
-
-    // emplacement
-    v4.template emplace<int>(123);
-    EXPECT_EQ(0, v4.index());
-    EXPECT_EQ(123, get<int>(v4));
 }
+
+// --------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_smf_policy_combinations, ctor_1)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::holds_alternative;
+    using cetl::pf17::get;
+    using cetl::pf17::get_if;
+
+    struct T : public TypeParam
+    {
+        explicit T(const monostate) {}
+    };
+
+    static_assert(std::is_default_constructible<variant<int>>::value, "");
+    static_assert(!std::is_default_constructible<variant<T>>::value, "");
+
+    using V = variant<std::int64_t, T, monostate, T>;
+    V var;  // The first alternative shall be value-initialized.
+    EXPECT_EQ(0, var.index());
+    EXPECT_FALSE(var.valueless_by_exception());
+    EXPECT_TRUE(holds_alternative<std::int64_t>(var));
+    EXPECT_FALSE(holds_alternative<monostate>(var));
+
+    EXPECT_EQ(0, get<std::int64_t>(var));  // value-initialized
+    EXPECT_EQ(0, get<0>(var));             // value-initialized
+    EXPECT_TRUE(get_if<std::int64_t>(&var));
+    EXPECT_FALSE(get_if<monostate>(&var));
+    EXPECT_TRUE(get_if<0>(&var));
+}
+
+// --------------------------------------------------------------------------------------------
+
+template <typename SMF, std::uint8_t CopyCtorPolicy = SMF::copy_ctor_policy_value>
+struct test_ctor_2
+{
+    struct T : SMF
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        std::int64_t value = 0;
+    };
+    static void test()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::in_place_type;
+        using cetl::pf17::get;
+        using cetl::pf17::monostate;
+        using cetlvast::smf_policies::policy_nontrivial;
+        std::uint32_t destructed = 0;
+        {
+            const variant<T, std::int64_t, monostate> v1(in_place_type<T>, 123456);
+            EXPECT_EQ(123456, get<T>(v1).value);
+            get<T>(v1).configure_destruction_counter(&destructed);
+            {
+                variant<T, std::int64_t, monostate> v2(v1);
+                EXPECT_EQ((T::copy_ctor_policy_value == policy_nontrivial) ? 1 : 0, get<T>(v2).get_copy_ctor_count());
+                EXPECT_EQ(123456, get<T>(v2).value);
+                EXPECT_EQ(0, destructed);
+                v2.template emplace<std::int64_t>(789);
+                EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+            }
+            EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
+        // The valueless state cannot occur in a ctor test.
+    }
+};
+template <typename SMF>
+struct test_ctor_2<SMF, cetlvast::smf_policies::policy_deleted>
+{
+    static_assert(!std::is_copy_constructible<SMF>::value, "");
+    static_assert(!std::is_copy_constructible<cetl::pf17::variant<SMF>>::value, "");
+    static void test() {}
+};
+
+TYPED_TEST(test_smf_policy_combinations, ctor_2)
+{
+    test_ctor_2<TypeParam>::test();
+}
+
+// --------------------------------------------------------------------------------------------

@@ -654,6 +654,9 @@ constexpr size_t variant_size_v = variant_size<V>::value;
 // --------------------------------------------------------------------------------------------------------------------
 
 /// An implementation of \ref std::variant.
+///
+/// The valueless state cannot occur unless exceptions are enabled.
+///
 /// In this implementation, the address of the variant object is equivalent to the address of the active alternative;
 /// this can sometimes be useful for low-level debugging.
 template <typename... Ts>
@@ -693,7 +696,7 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 
 public:
     /// Constructor 1
-    template <std::enable_if_t<std::is_default_constructible<nth_type<0>>::value, int> = 0>
+    template <typename T = nth_type<0>, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
         : variant(in_place_index<0>)
     {

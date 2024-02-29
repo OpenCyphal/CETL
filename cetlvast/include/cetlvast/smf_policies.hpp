@@ -246,17 +246,17 @@ struct dtor_policy<policy_nontrivial>
             ++*destructed;
         }
     }
-    void configure_destruction_counter(std::uint32_t* const counter)
+    void configure_destruction_counter(std::uint32_t* const counter) const
     {
         destructed = counter;
     }
-    std::uint32_t* destructed = nullptr;
+    mutable std::uint32_t* destructed = nullptr;
 };
 template <>
 struct dtor_policy<policy_trivial>
 {
     static constexpr auto dtor_policy_value = policy_trivial;
-    void                  configure_destruction_counter(std::uint32_t* const) {}
+    void                  configure_destruction_counter(std::uint32_t* const) const {}
 };
 template <>
 struct dtor_policy<policy_deleted>
@@ -268,7 +268,7 @@ struct dtor_policy<policy_deleted>
     dtor_policy& operator=(const dtor_policy&) = default;
     dtor_policy& operator=(dtor_policy&&)      = default;
     ~dtor_policy()                             = delete;
-    void configure_destruction_counter(std::uint32_t* const) {}
+    void configure_destruction_counter(std::uint32_t* const) const {}
 };
 
 /// Creates a new type that inherits from all the given types in the specified order.
