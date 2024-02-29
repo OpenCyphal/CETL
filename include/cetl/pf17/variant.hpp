@@ -45,7 +45,7 @@ inline constexpr bool operator>=(const monostate, const monostate) noexcept { re
 class bad_variant_access : public std::exception
 {
 public:
-    const char* what() const noexcept override
+    CETL_NODISCARD const char* what() const noexcept override
     {
         return "bad_variant_access";
     }
@@ -414,6 +414,31 @@ struct base_move_construction<types<Ts...>, smf_deleted> : base_copy_constructio
 // --------------------------------------------------------------------------------------------------------------------
 
 /// COPY ASSIGNMENT POLICY
+/// This is a tricky case. The specification prescribes:
+///
+/// - If both *this and rhs are valueless by exception, does nothing.
+///
+/// - Otherwise, if rhs is valueless, but *this is not, destroys the value contained in *this and makes it valueless.
+///
+/// - Otherwise, if rhs holds the same alternative as *this, assigns the value contained in rhs to the value
+///   contained in *this. If an exception is thrown, *this does not become valueless:
+///   the value depends on the exception safety guarantee of the alternative's copy assignment.
+///
+/// - Otherwise, if the alternative held by rhs is either nothrow copy constructible or not
+///   nothrow move constructible (as determined by std::is_nothrow_copy_constructible and
+///   std::is_nothrow_move_constructible, respectively), equivalent to
+///   this->emplace<rhs.index()>(*std::get_if<rhs.index()>(std::addressof(rhs))).
+///   *this may become valueless_by_exception if an exception is thrown on the copy-construction
+///   inside emplace.
+///
+/// - Otherwise, equivalent to this->operator=(variant(rhs)).
+///
+/// The meaning of the last two cases is that we want to minimize the likelihood of the valueless outcome.
+/// If T is nothrow copyable, we simply invoke the copy ctor via construct<>(); otherwise, if T is not nothrow move
+/// constructible, there's no way to do it better so we do the same thing -- invoke the copy ctor via construct<>().
+/// However, if T is nothrow move constructible, we can do better by creating a temporary copy on the side,
+/// which can throw safely without the risk of making this valueless, and then (if that succeeded) we
+/// nothrow-move it into this.
 template <typename Seq,
           int = smf_all_trivial<Seq::avail_copy_ctor, Seq::avail_copy_assign, Seq::avail_dtor>
                     ? smf_trivial
@@ -443,11 +468,9 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
         }
         else if (!other.is_valueless())  // Invoke copy constructor.
         {
-            // Here, this may or may not be valueless; either way we don't care about its state as it
-            // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
             other.chronomorphize([this, &other](const auto index) {
                 assert(index.value == other.m_index);
-                this->construct<index.value>(other.template as<index.value>());
+                invoke_copy_ctor<index.value>(*this, other.template as<index.value>());
             });
         }
         else
@@ -459,6 +482,23 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
     }
     base_copy_assignment& operator=(base_copy_assignment&&) = default;
     ~base_copy_assignment() noexcept                        = default;
+
+    template <typename U>
+    static constexpr bool direct_copy_constructible = std::is_nothrow_copy_constructible<U>::value ||  //
+                                                      (!std::is_nothrow_move_constructible<U>::value);
+
+    template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
+    static std::enable_if_t<direct_copy_constructible<U>> invoke_copy_ctor(base_copy_assignment& self, const U& alt)  //
+        noexcept(std::is_nothrow_copy_constructible<U>::value)
+    {
+        self.construct<Ix>(alt);
+    }
+    template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
+    static std::enable_if_t<!direct_copy_constructible<U>> invoke_copy_ctor(base_copy_assignment& self, const U& alt)
+    {  // This is never noexcept, otherwise we would have chosen the simpler case.
+        static_assert(std::is_nothrow_move_constructible<U>::value, "");
+        self.construct<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
+    }
 };
 template <typename... Ts>
 struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<types<Ts...>>
