@@ -496,7 +496,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
     static std::enable_if_t<!direct_copy_constructible<U>> invoke_copy_ctor(base_copy_assignment& self, const U& alt)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
-        static_assert(std::is_nothrow_move_constructible<U>::value, "");
+        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
         self.construct<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
     }
 };

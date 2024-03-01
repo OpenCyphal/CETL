@@ -411,3 +411,73 @@ TYPED_TEST(test_smf_policy_combinations, ctor_2)
 }
 
 // --------------------------------------------------------------------------------------------
+
+// Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
+// satisfy std::is_move_constructible.
+template <typename SMF,
+          std::uint8_t CopyCtorPolicy = SMF::copy_ctor_policy_value,
+          std::uint8_t MoveCtorPolicy = SMF::move_ctor_policy_value>
+struct test_ctor_3
+{
+    struct T : SMF
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        T(T&& other) noexcept
+            : SMF(std::forward<T>(other))
+            , value(other.value)
+        {
+            other.value = 0;
+        }
+        std::int64_t value = 0;
+    };
+    static void test()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::in_place_type;
+        using cetl::pf17::get;
+        using cetl::pf17::monostate;
+        using cetlvast::smf_policies::policy_nontrivial;
+        using cetlvast::smf_policies::policy_deleted;
+        std::uint32_t destructed = 0;
+        {
+            variant<T, std::int64_t, monostate> v1(in_place_type<T>, 123456);
+            EXPECT_EQ(123456, get<T>(v1).value);
+            get<T>(v1).configure_destruction_counter(&destructed);
+            {
+                variant<T, std::int64_t, monostate> v2(std::move(v1));
+                EXPECT_EQ(((T::move_ctor_policy_value == policy_deleted) &&
+                           (T::copy_ctor_policy_value == policy_nontrivial))
+                              ? 1
+                              : 0,
+                          get<T>(v2).get_copy_ctor_count());
+                EXPECT_EQ((T::move_ctor_policy_value == policy_nontrivial) ? 1 : 0, get<T>(v2).get_move_ctor_count());
+                EXPECT_EQ(0, get<T>(v1).value);  // moved out
+                EXPECT_EQ(123456, get<T>(v2).value);
+                EXPECT_EQ(0, destructed);
+                v2.template emplace<std::int64_t>(789);
+                EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+                EXPECT_EQ(789, get<std::int64_t>(v2));
+            }
+            EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
+        // The valueless state cannot occur in a ctor test.
+    }
+};
+template <typename SMF>
+struct test_ctor_3<SMF, cetlvast::smf_policies::policy_deleted, cetlvast::smf_policies::policy_deleted>
+{
+    // Caveat: types without a move constructor but with a copy constructor that accepts const T& arguments,
+    // satisfy std::is_move_constructible.
+    static_assert(!std::is_move_constructible<SMF>::value, "");
+    static_assert(!std::is_move_constructible<cetl::pf17::variant<SMF>>::value, "");
+    static void test() {}
+};
+
+TYPED_TEST(test_smf_policy_combinations, ctor_3)
+{
+    test_ctor_3<TypeParam>::test();
+}
