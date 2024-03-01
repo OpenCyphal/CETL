@@ -612,3 +612,90 @@ TYPED_TEST(test_smf_policy_combinations, ctor_8)
     }
     EXPECT_EQ((T::dtor_policy_value == cetlvast::smf_policies::policy_nontrivial) ? 1 : 0, destructed);
 }
+
+// --------------------------------------------------------------------------------------------
+
+/// For the copy assignment to work, T shall be both copy-constructible and copy-assignable. Also destructible.
+template <typename T,
+          std::uint8_t CopyCtorPolicy       = T::copy_ctor_policy_value,
+          std::uint8_t CopyAssignmentPolicy = T::copy_assignment_policy_value>
+struct test_assignment_1
+{
+    struct U : T
+    {};
+    static void test()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::get;
+        using cetl::pf17::in_place_type;
+        using cetlvast::smf_policies::policy_nontrivial;
+        std::uint32_t destructed = 0;
+        // Matching alternative.
+        {
+            variant<T, std::int64_t> v1;
+            variant<T, std::int64_t> v2;
+            get<T>(v1).configure_destruction_counter(&destructed);
+            get<T>(v2).configure_destruction_counter(&destructed);
+            v1 = v2;                   // Invoke copy assignment.
+            EXPECT_EQ(0, destructed);  // Copy assignment does not destroy the source.
+            EXPECT_EQ(0, get<T>(v1).get_copy_ctor_count());
+            EXPECT_EQ(0, get<T>(v1).get_move_ctor_count());
+            EXPECT_EQ((T::copy_assignment_policy_value == policy_nontrivial) ? 1 : 0,
+                      get<T>(v1).get_copy_assignment_count());
+            EXPECT_EQ(0, get<T>(v1).get_move_assignment_count());
+            EXPECT_EQ(0, get<T>(v2).get_copy_ctor_count());
+            EXPECT_EQ(0, get<T>(v2).get_move_ctor_count());
+            EXPECT_EQ(0, get<T>(v2).get_copy_assignment_count());
+            EXPECT_EQ(0, get<T>(v2).get_move_assignment_count());
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
+        destructed = 0;
+        // Non-matching alternative.
+        {
+            variant<T, U> v1(in_place_type<T>);
+            variant<T, U> v2(in_place_type<U>);
+            get<T>(v1).configure_destruction_counter(&destructed);
+            get<U>(v2).configure_destruction_counter(&destructed);
+            v1 = v2;  // Invoke copy ctor.
+            EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+            EXPECT_EQ((T::copy_ctor_policy_value == policy_nontrivial) ? 1 : 0, get<U>(v1).get_copy_ctor_count());
+            EXPECT_EQ(0, get<U>(v1).get_move_ctor_count());
+            EXPECT_EQ(0, get<U>(v1).get_copy_assignment_count());
+            EXPECT_EQ(0, get<U>(v1).get_move_assignment_count());
+            EXPECT_EQ(0, get<U>(v2).get_copy_ctor_count());
+            EXPECT_EQ(0, get<U>(v2).get_move_ctor_count());
+            EXPECT_EQ(0, get<U>(v2).get_copy_assignment_count());
+            EXPECT_EQ(0, get<U>(v2).get_move_assignment_count());
+        }
+        EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 3 : 0, destructed);
+    }
+};
+template <typename T, std::uint8_t CopyCtorPolicy>
+struct test_assignment_1<T, CopyCtorPolicy, cetlvast::smf_policies::policy_deleted>
+{
+    static_assert(!std::is_copy_assignable<T>::value, "");
+    static_assert(!std::is_copy_assignable<cetl::pf17::variant<int, T>>::value, "");
+    static void test() {}
+};
+template <typename T, std::uint8_t CopyAssignmentPolicy>
+struct test_assignment_1<T, cetlvast::smf_policies::policy_deleted, CopyAssignmentPolicy>
+{
+    static_assert(!std::is_copy_constructible<T>::value, "");
+    static_assert(!std::is_copy_constructible<cetl::pf17::variant<int, T>>::value, "");
+    static_assert(!std::is_copy_assignable<cetl::pf17::variant<int, T>>::value, "");
+    static void test() {}
+};
+template <typename T>  // This is to avoid specialization ambiguity.
+struct test_assignment_1<T, cetlvast::smf_policies::policy_deleted, cetlvast::smf_policies::policy_deleted>
+{
+    static_assert(!std::is_copy_assignable<T>::value, "");
+    static_assert(!std::is_copy_constructible<T>::value, "");
+    static_assert(!std::is_copy_constructible<cetl::pf17::variant<int, T>>::value, "");
+    static_assert(!std::is_copy_assignable<cetl::pf17::variant<int, T>>::value, "");
+    static void test() {}
+};
+
+TYPED_TEST(test_smf_policy_combinations, assignment_1)
+{
+    test_assignment_1<TypeParam>::test();
+}

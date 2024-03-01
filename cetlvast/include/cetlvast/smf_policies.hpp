@@ -15,6 +15,7 @@
 
 namespace cetlvast
 {
+/// All special method functions are noexcept. If you want them to be non-noexcept, make a wrapper type.
 namespace smf_policies
 {
 /// This has to be an old-style enum because C++14 requires it to be convertible to int.
@@ -32,16 +33,16 @@ template <>
 struct copy_ctor_policy<policy_nontrivial>
 {
     static constexpr auto copy_ctor_policy_value = policy_nontrivial;
-    copy_ctor_policy()                           = default;
-    copy_ctor_policy(const copy_ctor_policy& other)
+    copy_ctor_policy() noexcept                  = default;
+    copy_ctor_policy(const copy_ctor_policy& other) noexcept
         : copy_constructed{other.copy_constructed + 1U}
     {
     }
-    copy_ctor_policy(copy_ctor_policy&&)                 = default;
-    copy_ctor_policy& operator=(const copy_ctor_policy&) = default;
-    copy_ctor_policy& operator=(copy_ctor_policy&&)      = default;
-    ~copy_ctor_policy()                                  = default;
-    CETL_NODISCARD auto get_copy_ctor_count() const
+    copy_ctor_policy(copy_ctor_policy&&) noexcept                 = default;
+    copy_ctor_policy& operator=(const copy_ctor_policy&) noexcept = default;
+    copy_ctor_policy& operator=(copy_ctor_policy&&) noexcept      = default;
+    ~copy_ctor_policy() noexcept                                  = default;
+    CETL_NODISCARD auto get_copy_ctor_count() const noexcept
     {
         return copy_constructed;
     }
@@ -51,7 +52,7 @@ template <>
 struct copy_ctor_policy<policy_trivial>
 {
     static constexpr auto copy_ctor_policy_value = policy_trivial;
-    CETL_NODISCARD auto   get_copy_ctor_count() const
+    CETL_NODISCARD auto   get_copy_ctor_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -60,14 +61,14 @@ struct copy_ctor_policy<policy_trivial>
 template <>
 struct copy_ctor_policy<policy_deleted>
 {
-    static constexpr auto copy_ctor_policy_value         = policy_deleted;
-    copy_ctor_policy()                                   = default;
-    copy_ctor_policy(const copy_ctor_policy&)            = delete;
-    copy_ctor_policy(copy_ctor_policy&&)                 = default;
-    copy_ctor_policy& operator=(const copy_ctor_policy&) = default;
-    copy_ctor_policy& operator=(copy_ctor_policy&&)      = default;
-    ~copy_ctor_policy()                                  = default;
-    CETL_NODISCARD auto get_copy_ctor_count() const
+    static constexpr auto copy_ctor_policy_value                  = policy_deleted;
+    copy_ctor_policy() noexcept                                   = default;
+    copy_ctor_policy(const copy_ctor_policy&)                     = delete;
+    copy_ctor_policy(copy_ctor_policy&&) noexcept                 = default;
+    copy_ctor_policy& operator=(const copy_ctor_policy&) noexcept = default;
+    copy_ctor_policy& operator=(copy_ctor_policy&&) noexcept      = default;
+    ~copy_ctor_policy() noexcept                                  = default;
+    CETL_NODISCARD auto get_copy_ctor_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -80,17 +81,17 @@ struct move_ctor_policy;
 template <>
 struct move_ctor_policy<policy_nontrivial>
 {
-    static constexpr auto move_ctor_policy_value = policy_nontrivial;
-    move_ctor_policy()                           = default;
-    move_ctor_policy(const move_ctor_policy&)    = default;
+    static constexpr auto move_ctor_policy_value       = policy_nontrivial;
+    move_ctor_policy() noexcept                        = default;
+    move_ctor_policy(const move_ctor_policy&) noexcept = default;
     move_ctor_policy(move_ctor_policy&& other) noexcept
         : move_constructed{other.move_constructed + 1U}
     {
     }
-    move_ctor_policy& operator=(const move_ctor_policy&) = default;
-    move_ctor_policy& operator=(move_ctor_policy&&)      = default;
-    ~move_ctor_policy()                                  = default;
-    CETL_NODISCARD auto get_move_ctor_count() const
+    move_ctor_policy& operator=(const move_ctor_policy&) noexcept = default;
+    move_ctor_policy& operator=(move_ctor_policy&&) noexcept      = default;
+    ~move_ctor_policy() noexcept                                  = default;
+    CETL_NODISCARD auto get_move_ctor_count() const noexcept
     {
         return move_constructed;
     }
@@ -100,7 +101,7 @@ template <>
 struct move_ctor_policy<policy_trivial>
 {
     static constexpr auto move_ctor_policy_value = policy_trivial;
-    CETL_NODISCARD auto   get_move_ctor_count() const
+    CETL_NODISCARD auto   get_move_ctor_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -109,14 +110,14 @@ struct move_ctor_policy<policy_trivial>
 template <>
 struct move_ctor_policy<policy_deleted>
 {
-    static constexpr auto move_ctor_policy_value         = policy_deleted;
-    move_ctor_policy()                                   = default;
-    move_ctor_policy(const move_ctor_policy&)            = default;
-    move_ctor_policy(move_ctor_policy&&)                 = delete;
-    move_ctor_policy& operator=(const move_ctor_policy&) = default;
-    move_ctor_policy& operator=(move_ctor_policy&&)      = default;
-    ~move_ctor_policy()                                  = default;
-    CETL_NODISCARD auto get_move_ctor_count() const
+    static constexpr auto move_ctor_policy_value                  = policy_deleted;
+    move_ctor_policy() noexcept                                   = default;
+    move_ctor_policy(const move_ctor_policy&) noexcept            = default;
+    move_ctor_policy(move_ctor_policy&&)                          = delete;
+    move_ctor_policy& operator=(const move_ctor_policy&) noexcept = default;
+    move_ctor_policy& operator=(move_ctor_policy&&) noexcept      = default;
+    ~move_ctor_policy() noexcept                                  = default;
+    CETL_NODISCARD auto get_move_ctor_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -129,17 +130,17 @@ struct copy_assignment_policy;
 template <>
 struct copy_assignment_policy<policy_nontrivial>
 {
-    static constexpr auto copy_assignment_policy_value    = policy_nontrivial;
-    copy_assignment_policy()                              = default;
-    copy_assignment_policy(const copy_assignment_policy&) = default;
-    copy_assignment_policy(copy_assignment_policy&&)      = default;
-    copy_assignment_policy& operator=(const copy_assignment_policy& other)
+    static constexpr auto copy_assignment_policy_value             = policy_nontrivial;
+    copy_assignment_policy() noexcept                              = default;
+    copy_assignment_policy(const copy_assignment_policy&) noexcept = default;
+    copy_assignment_policy(copy_assignment_policy&&) noexcept      = default;
+    copy_assignment_policy& operator=(const copy_assignment_policy& other) noexcept
     {
         copy_assigned = other.copy_assigned + 1U;
         return *this;
     }
-    copy_assignment_policy& operator=(copy_assignment_policy&&) = default;
-    ~copy_assignment_policy()                                   = default;
+    copy_assignment_policy& operator=(copy_assignment_policy&&) noexcept = default;
+    ~copy_assignment_policy() noexcept                                   = default;
     CETL_NODISCARD auto get_copy_assignment_count() const
     {
         return copy_assigned;
@@ -150,7 +151,7 @@ template <>
 struct copy_assignment_policy<policy_trivial>
 {
     static constexpr auto copy_assignment_policy_value = policy_trivial;
-    CETL_NODISCARD auto   get_copy_assignment_count() const
+    CETL_NODISCARD auto   get_copy_assignment_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -159,14 +160,14 @@ struct copy_assignment_policy<policy_trivial>
 template <>
 struct copy_assignment_policy<policy_deleted>
 {
-    static constexpr auto copy_assignment_policy_value               = policy_deleted;
-    copy_assignment_policy()                                         = default;
-    copy_assignment_policy(const copy_assignment_policy&)            = default;
-    copy_assignment_policy(copy_assignment_policy&&)                 = default;
-    copy_assignment_policy& operator=(const copy_assignment_policy&) = delete;
-    copy_assignment_policy& operator=(copy_assignment_policy&&)      = default;
-    ~copy_assignment_policy()                                        = default;
-    CETL_NODISCARD auto get_copy_assignment_count() const
+    static constexpr auto copy_assignment_policy_value                   = policy_deleted;
+    copy_assignment_policy() noexcept                                    = default;
+    copy_assignment_policy(const copy_assignment_policy&) noexcept       = default;
+    copy_assignment_policy(copy_assignment_policy&&) noexcept            = default;
+    copy_assignment_policy& operator=(const copy_assignment_policy&)     = delete;
+    copy_assignment_policy& operator=(copy_assignment_policy&&) noexcept = default;
+    ~copy_assignment_policy() noexcept                                   = default;
+    CETL_NODISCARD auto get_copy_assignment_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -179,18 +180,18 @@ struct move_assignment_policy;
 template <>
 struct move_assignment_policy<policy_nontrivial>
 {
-    static constexpr auto move_assignment_policy_value               = policy_nontrivial;
-    move_assignment_policy()                                         = default;
-    move_assignment_policy(const move_assignment_policy&)            = default;
-    move_assignment_policy(move_assignment_policy&&)                 = default;
-    move_assignment_policy& operator=(const move_assignment_policy&) = default;
+    static constexpr auto move_assignment_policy_value                        = policy_nontrivial;
+    move_assignment_policy() noexcept                                         = default;
+    move_assignment_policy(const move_assignment_policy&) noexcept            = default;
+    move_assignment_policy(move_assignment_policy&&) noexcept                 = default;
+    move_assignment_policy& operator=(const move_assignment_policy&) noexcept = default;
     move_assignment_policy& operator=(move_assignment_policy&& other) noexcept
     {
         move_assigned = other.move_assigned + 1U;
         return *this;
     }
     ~move_assignment_policy() = default;
-    CETL_NODISCARD auto get_move_assignment_count() const
+    CETL_NODISCARD auto get_move_assignment_count() const noexcept
     {
         return move_assigned;
     }
@@ -200,7 +201,7 @@ template <>
 struct move_assignment_policy<policy_trivial>
 {
     static constexpr auto move_assignment_policy_value = policy_trivial;
-    CETL_NODISCARD auto   get_move_assignment_count() const
+    CETL_NODISCARD auto   get_move_assignment_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -209,14 +210,14 @@ struct move_assignment_policy<policy_trivial>
 template <>
 struct move_assignment_policy<policy_deleted>
 {
-    static constexpr auto move_assignment_policy_value               = policy_deleted;
-    move_assignment_policy()                                         = default;
-    move_assignment_policy(const move_assignment_policy&)            = default;
-    move_assignment_policy(move_assignment_policy&&)                 = default;
-    move_assignment_policy& operator=(const move_assignment_policy&) = default;
-    move_assignment_policy& operator=(move_assignment_policy&&)      = delete;
-    ~move_assignment_policy()                                        = default;
-    CETL_NODISCARD auto get_move_assignment_count() const
+    static constexpr auto move_assignment_policy_value                        = policy_deleted;
+    move_assignment_policy() noexcept                                         = default;
+    move_assignment_policy(const move_assignment_policy&) noexcept            = default;
+    move_assignment_policy(move_assignment_policy&&) noexcept                 = default;
+    move_assignment_policy& operator=(const move_assignment_policy&) noexcept = default;
+    move_assignment_policy& operator=(move_assignment_policy&&)               = delete;
+    ~move_assignment_policy() noexcept                                        = default;
+    CETL_NODISCARD auto get_move_assignment_count() const noexcept
     {
         (void) this;
         return 0U;
@@ -233,20 +234,20 @@ struct dtor_policy;
 template <>
 struct dtor_policy<policy_nontrivial>
 {
-    static constexpr auto dtor_policy_value        = policy_nontrivial;
-    dtor_policy()                                  = default;
-    dtor_policy(const dtor_policy&)                = default;
-    dtor_policy(dtor_policy&&) noexcept            = default;
-    dtor_policy& operator=(const dtor_policy&)     = default;
-    dtor_policy& operator=(dtor_policy&&) noexcept = default;
-    ~dtor_policy()
+    static constexpr auto dtor_policy_value             = policy_nontrivial;
+    dtor_policy() noexcept                              = default;
+    dtor_policy(const dtor_policy&) noexcept            = default;
+    dtor_policy(dtor_policy&&) noexcept                 = default;
+    dtor_policy& operator=(const dtor_policy&) noexcept = default;
+    dtor_policy& operator=(dtor_policy&&) noexcept      = default;
+    ~dtor_policy() noexcept
     {
         if (nullptr != destructed)
         {
             ++*destructed;
         }
     }
-    void configure_destruction_counter(std::uint32_t* const counter) const
+    void configure_destruction_counter(std::uint32_t* const counter) const noexcept
     {
         destructed = counter;
     }
@@ -256,19 +257,19 @@ template <>
 struct dtor_policy<policy_trivial>
 {
     static constexpr auto dtor_policy_value = policy_trivial;
-    void                  configure_destruction_counter(std::uint32_t* const) const {}
+    void                  configure_destruction_counter(std::uint32_t* const) const noexcept {}
 };
 template <>
 struct dtor_policy<policy_deleted>
 {
-    static constexpr auto dtor_policy_value    = policy_deleted;
-    dtor_policy()                              = default;
-    dtor_policy(const dtor_policy&)            = default;
-    dtor_policy(dtor_policy&&)                 = default;
-    dtor_policy& operator=(const dtor_policy&) = default;
-    dtor_policy& operator=(dtor_policy&&)      = default;
-    ~dtor_policy()                             = delete;
-    void configure_destruction_counter(std::uint32_t* const) const {}
+    static constexpr auto dtor_policy_value             = policy_deleted;
+    dtor_policy() noexcept                              = default;
+    dtor_policy(const dtor_policy&) noexcept            = default;
+    dtor_policy(dtor_policy&&) noexcept                 = default;
+    dtor_policy& operator=(const dtor_policy&) noexcept = default;
+    dtor_policy& operator=(dtor_policy&&) noexcept      = default;
+    ~dtor_policy()                                      = delete;
+    void configure_destruction_counter(std::uint32_t* const) const noexcept {}
 };
 
 /// Creates a new type that inherits from all the given types in the specified order.
