@@ -753,7 +753,9 @@ public:
     }
 
     /// Assignment 1
-    /// If the current alternative is different and the copy constructor throws, the variant becomes valueless.
+    /// If the current alternative is different and the new alternative is not nothrow-move-constructible
+    /// and the copy constructor throws, the variant becomes valueless. If nothrow move construction is possible,
+    /// an intermediate temporary copy be constructed to avoid the valueless outcome even if the copy ctor throws.
     variant& operator=(const variant& rhs) = default;
 
     /// Assignment 2
