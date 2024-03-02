@@ -463,7 +463,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
             other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                this->template as<index.value>() = other.template as<index.value>();
+                (void) this->template as<index.value>() = other.template as<index.value>();
             });
         }
         else if (!other.is_valueless())  // Invoke copy constructor.
