@@ -470,7 +470,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
         {
             other.chronomorphize([this, &other](const auto index) {
                 assert(index.value == other.m_index);
-                invoke_copy_ctor<index.value>(*this, other.template as<index.value>());
+                this->template construct_copy<index.value>(other.template as<index.value>());
             });
         }
         else
@@ -488,16 +488,16 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
                                                       (!std::is_nothrow_move_constructible<U>::value);
 
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
-    static std::enable_if_t<direct_copy_constructible<U>> invoke_copy_ctor(base_copy_assignment& self, const U& alt)  //
+    std::enable_if_t<direct_copy_constructible<U>> construct_copy(const U& alt)  //
         noexcept(std::is_nothrow_copy_constructible<U>::value)
     {
-        self.template construct<Ix>(alt);
+        this->template construct<Ix>(alt);
     }
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
-    static std::enable_if_t<!direct_copy_constructible<U>> invoke_copy_ctor(base_copy_assignment& self, const U& alt)
+    std::enable_if_t<!direct_copy_constructible<U>> construct_copy(const U& alt)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
         static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
-        self.template construct<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
+        this->template construct<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
     }
 };
 template <typename... Ts>
@@ -755,7 +755,7 @@ public:
     /// Assignment 1
     /// If the current alternative is different and the new alternative is not nothrow-move-constructible
     /// and the copy constructor throws, the variant becomes valueless. If nothrow move construction is possible,
-    /// an intermediate temporary copy be constructed to avoid the valueless outcome even if the copy ctor throws.
+    /// an intermediate temporary copy will be constructed to avoid the valueless outcome even if the copy ctor throws.
     variant& operator=(const variant& rhs) = default;
 
     /// Assignment 2
