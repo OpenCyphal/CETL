@@ -427,15 +427,15 @@ struct base_move_construction<types<Ts...>, smf_deleted> : base_copy_constructio
 /// - Otherwise, if the alternative held by rhs is either nothrow copy constructible or not
 ///   nothrow move constructible (as determined by std::is_nothrow_copy_constructible and
 ///   std::is_nothrow_move_constructible, respectively), equivalent to
-///   this->emplace<rhs.index()>(*std::get_if<rhs.index()>(std::addressof(rhs))).
+///   `this->emplace<rhs.index()>(*std::get_if<rhs.index()>(std::addressof(rhs)))`.
 ///   *this may become valueless_by_exception if an exception is thrown on the copy-construction
 ///   inside emplace.
 ///
-/// - Otherwise, equivalent to this->operator=(variant(rhs)).
+/// - Otherwise, equivalent to `this->operator=(variant(rhs))`.
 ///
 /// The meaning of the last two cases is that we want to minimize the likelihood of the valueless outcome.
-/// If T is nothrow copyable, we simply invoke the copy ctor via construct<>(); otherwise, if T is not nothrow move
-/// constructible, there's no way to do it better so we do the same thing -- invoke the copy ctor via construct<>().
+/// If T is nothrow copyable, we simply invoke the copy ctor via `construct<>()`; otherwise, if T is not nothrow move
+/// constructible, there's no way to do it better so we do the same thing -- invoke the copy ctor via `construct<>()`.
 /// However, if T is nothrow move constructible, we can do better by creating a temporary copy on the side,
 /// which can throw safely without the risk of making this valueless, and then (if that succeeded) we
 /// nothrow-move it into this.
@@ -550,7 +550,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
             other.chronomorphize([this, &other](const auto index) {
                 assert(index.value == other.m_index);
-                this->construct<index.value>(std::move(other.template as<index.value>()));
+                this->template construct<index.value>(std::move(other.template as<index.value>()));
             });
         }
         else
