@@ -363,21 +363,21 @@ TYPED_TEST(test_smf_policy_combinations, ctor_1)
 template <typename SMF, std::uint8_t CopyCtorPolicy = SMF::copy_ctor_policy_value>
 struct test_ctor_2
 {
-    struct T : SMF
-    {
-        explicit T(const std::int64_t val)
-            : value(val)
-        {
-        }
-        std::int64_t value = 0;
-    };
-    static void test()
+    static void test_basic()
     {
         using cetl::pf17::variant;
         using cetl::pf17::in_place_type;
         using cetl::pf17::get;
         using cetl::pf17::monostate;
         using cetlvast::smf_policies::policy_nontrivial;
+        struct T : SMF
+        {
+            explicit T(const std::int64_t val)
+                : value(val)
+            {
+            }
+            std::int64_t value = 0;
+        };
         std::uint32_t destructed = 0;
         {
             const variant<T, std::int64_t, monostate> v1(in_place_type<T>, 123456);
@@ -395,6 +395,45 @@ struct test_ctor_2
         }
         EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
         // The valueless state cannot occur in a ctor test.
+    }
+
+    static void test_valueless()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::variant_npos;
+        using cetl::pf17::get;
+        using cetlvast::smf_policies::policy_nontrivial;
+        struct T : SMF
+        {};
+        struct U : SMF
+        {
+            U()
+            {
+                throw std::exception();
+            }
+        };
+        std::uint32_t destructed = 0;
+        {
+            variant<T, U> v1;
+            get<T>(v1).configure_destruction_counter(&destructed);
+            EXPECT_ANY_THROW(v1.template emplace<U>());
+            EXPECT_EQ((U::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+            EXPECT_TRUE(v1.valueless_by_exception());
+            {
+                const variant<T, U> v2(v1);  // NOLINT(*-unnecessary-copy-initialization)
+                EXPECT_TRUE(v1.valueless_by_exception());
+                EXPECT_TRUE(v2.valueless_by_exception());
+                EXPECT_EQ(variant_npos, v1.index());
+                EXPECT_EQ(variant_npos, v2.index());
+            }
+        }
+        EXPECT_EQ((U::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);  // Same.
+    }
+
+    static void test()
+    {
+        test_basic();
+        test_valueless();
     }
 };
 template <typename SMF>
@@ -419,21 +458,7 @@ template <typename SMF,
           std::uint8_t MoveCtorPolicy = SMF::move_ctor_policy_value>
 struct test_ctor_3
 {
-    struct T : SMF
-    {
-        explicit T(const std::int64_t val)
-            : value(val)
-        {
-        }
-        T(T&& other) noexcept
-            : SMF(std::forward<T>(other))
-            , value(other.value)
-        {
-            other.value = 0;
-        }
-        std::int64_t value = 0;
-    };
-    static void test()
+    static void test_basic()
     {
         using cetl::pf17::variant;
         using cetl::pf17::in_place_type;
@@ -441,6 +466,20 @@ struct test_ctor_3
         using cetl::pf17::monostate;
         using cetlvast::smf_policies::policy_nontrivial;
         using cetlvast::smf_policies::policy_deleted;
+        struct T : SMF
+        {
+            explicit T(const std::int64_t val)
+                : value(val)
+            {
+            }
+            T(T&& other) noexcept
+                : SMF(std::forward<T>(other))
+                , value(other.value)
+            {
+                other.value = 0;
+            }
+            std::int64_t value = 0;
+        };
         std::uint32_t destructed = 0;
         {
             variant<T, std::int64_t, monostate> v1(in_place_type<T>, 123456);
@@ -465,6 +504,45 @@ struct test_ctor_3
         }
         EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 2 : 0, destructed);
         // The valueless state cannot occur in a ctor test.
+    }
+
+    static void test_valueless()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::variant_npos;
+        using cetl::pf17::get;
+        using cetlvast::smf_policies::policy_nontrivial;
+        struct T : SMF
+        {};
+        struct U : SMF
+        {
+            U()
+            {
+                throw std::exception();
+            }
+        };
+        std::uint32_t destructed = 0;
+        {
+            variant<T, U> v1;
+            get<T>(v1).configure_destruction_counter(&destructed);
+            EXPECT_ANY_THROW(v1.template emplace<U>());
+            EXPECT_EQ((U::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);
+            EXPECT_TRUE(v1.valueless_by_exception());
+            {
+                const variant<T, U> v2(std::move(v1));
+                EXPECT_TRUE(v1.valueless_by_exception());  // NOLINT(*-use-after-move)
+                EXPECT_TRUE(v2.valueless_by_exception());
+                EXPECT_EQ(variant_npos, v1.index());
+                EXPECT_EQ(variant_npos, v2.index());
+            }
+        }
+        EXPECT_EQ((U::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);  // Same.
+    }
+
+    static void test()
+    {
+        test_basic();
+        test_valueless();
     }
 };
 template <typename SMF>
@@ -1297,3 +1375,12 @@ TYPED_TEST(test_smf_policy_combinations, assignment_2)
 {
     test_assignment_2<TypeParam>::test();
 }
+
+// --------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_smf_policy_combinations, assignment_3)
+{
+    // TODO FIXME NOT IMPLEMENTED
+}
+
+// --------------------------------------------------------------------------------------------
