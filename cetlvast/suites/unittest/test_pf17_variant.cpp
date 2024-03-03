@@ -1631,10 +1631,88 @@ TYPED_TEST(test_smf_policy_combinations, get)
     EXPECT_EQ(&get<0>(var), get_if<0>(static_cast<const V*>(&var)));
     EXPECT_EQ(nullptr, get_if<1>(&var));
     EXPECT_EQ(nullptr, get_if<1>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<0>(static_cast<V*>(nullptr)));
+    EXPECT_EQ(nullptr, get_if<0>(static_cast<const V*>(nullptr)));
 
     // get_if<T>
     EXPECT_EQ(&get<T>(var), get_if<T>(&var));
     EXPECT_EQ(&get<T>(var), get_if<T>(static_cast<const V*>(&var)));
     EXPECT_EQ(nullptr, get_if<U>(&var));
     EXPECT_EQ(nullptr, get_if<U>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<T>(static_cast<V*>(nullptr)));
+    EXPECT_EQ(nullptr, get_if<T>(static_cast<const V*>(nullptr)));
+}
+
+// --------------------------------------------------------------------------------------------
+
+TEST(test_variant, visit)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::bad_variant_access;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::get;
+    using cetl::pf17::visit;
+    using cetl::pf17::monostate;
+    using cetl::pf17::make_overloaded;
+    struct anchored
+    {
+        explicit anchored(const std::int64_t val)
+            : value(val)
+        {
+        }
+        anchored(const anchored&)               = delete;
+        anchored(anchored&&)                    = delete;
+        anchored&    operator=(const anchored&) = delete;
+        anchored&    operator=(anchored&&)      = delete;
+        std::int64_t value                      = 0;
+    };
+
+    // Visit const variants.
+    EXPECT_EQ(123456LL + (987654LL * 147852LL),
+              visit(make_overloaded(
+                        [](const anchored& a, const std::int64_t& b, const anchored& c) {
+                            return a.value + (b * c.value);  //
+                        },
+                        [](const auto&, const auto&, const auto&) {
+                            std::terminate();
+                            return 0;
+                        }),
+                    variant<anchored, std::int64_t, anchored>(in_place_index<0>, 123456),
+                    variant<anchored, std::int64_t>(in_place_index<1>, 987654),
+                    variant<std::int64_t, anchored>(in_place_index<1>, 147852)));
+
+    // Visit mutable variants.
+    variant<anchored, std::int64_t, anchored> a(in_place_index<2>, 654321);
+    variant<std::int64_t, anchored>           b(in_place_index<0>, 1234);
+    std::int64_t                              div = 0;
+    visit(make_overloaded(
+              [&div](anchored& a, std::int64_t& b) {
+                  div = a.value / b;
+                  std::swap(a.value, b);
+              },
+              [](const auto&, const auto&) { std::terminate(); }),
+          a,
+          b);
+    EXPECT_EQ(530, div);
+    EXPECT_EQ(1234, get<2>(a).value);
+    EXPECT_EQ(654321, get<0>(b));
+
+    // Special case: empty visitor.
+    EXPECT_EQ(42, visit([]() { return 42; }));
+
+    // Exception handling.
+#if __cpp_exceptions
+    struct panicky : anchored
+    {
+        panicky()
+            : anchored(0)
+        {
+            throw std::exception();
+        }
+    };
+    variant<monostate, anchored, panicky> var;
+    EXPECT_ANY_THROW(var.emplace<panicky>());
+    EXPECT_TRUE(var.valueless_by_exception());
+    EXPECT_THROW(visit([](auto&&) {}, var), bad_variant_access);
+#endif
 }
