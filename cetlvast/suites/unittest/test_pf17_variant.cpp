@@ -510,6 +510,7 @@ struct test_ctor_3
 
     static void test_valueless()
     {
+#if __cpp_exceptions
         using cetl::pf17::variant;
         using cetl::pf17::variant_npos;
         using cetl::pf17::get;
@@ -539,6 +540,7 @@ struct test_ctor_3
             }
         }
         EXPECT_EQ((U::dtor_policy_value == policy_nontrivial) ? 1 : 0, destructed);  // Same.
+#endif
     }
 
     static void test()
