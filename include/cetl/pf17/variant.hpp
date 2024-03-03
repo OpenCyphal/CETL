@@ -464,8 +464,10 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
             other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                auto& dest = this->template as<index.value>();  // We need to store this into a temporary due to a
-                dest       = other.template as<index.value>();  // GCC bug.
+                // We need these temporaries to work around a GCC bug where it complains about unused result of as().
+                auto&       dst = this->template as<index.value>();
+                const auto& src = other.template as<index.value>();
+                dst             = src;
             });
         }
         else if (!other.is_valueless())  // Invoke copy constructor.
@@ -543,7 +545,9 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             // the value depends on the exception safety guarantee of the alternative's move assignment.
             other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                this->template as<index.value>() = std::move(other.template as<index.value>());
+                // We need the temporary to work around a GCC bug where it complains about unused result of as().
+                auto& dst = this->template as<index.value>();
+                dst       = std::move(other.template as<index.value>());
             });
         }
         else if (!other.is_valueless())  // Invoke move constructor.
