@@ -139,6 +139,77 @@ static_assert(!std::is_trivially_copyable<variant<monostate, restricted>>::value
 
 // --------------------------------------------------------------------------------------------
 
+namespace test_noexcept_propagation
+{
+using cetl::pf17::variant;
+using cetl::pf17::monostate;
+
+// These are noexcept because they are all trivial.
+// The variant specification does not require noexcept copy ctor/assignment if they are nontrivial.
+// Noexcept move ctor/assignment, however, are possible depending on Ts.
+static_assert(std::is_nothrow_copy_constructible<variant<monostate>>::value, "");
+static_assert(std::is_nothrow_move_constructible<variant<monostate>>::value, "");
+static_assert(std::is_nothrow_copy_assignable<variant<monostate>>::value, "");
+static_assert(std::is_nothrow_move_assignable<variant<monostate>>::value, "");
+
+// Copy is throwing but move is still noexcept.
+struct throw_copy_ctor
+{
+    throw_copy_ctor() = default;
+    throw_copy_ctor(const throw_copy_ctor&);
+    throw_copy_ctor(throw_copy_ctor&&) noexcept;
+    throw_copy_ctor& operator=(const throw_copy_ctor&) noexcept;
+    throw_copy_ctor& operator=(throw_copy_ctor&&) noexcept;
+};
+static_assert(!std::is_nothrow_copy_constructible<variant<monostate, throw_copy_ctor>>::value, "");
+static_assert(std::is_nothrow_move_constructible<variant<monostate, throw_copy_ctor>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<variant<monostate, throw_copy_ctor>>::value, "");
+static_assert(std::is_nothrow_move_assignable<variant<monostate, throw_copy_ctor>>::value, "");
+
+// Move is throwing; copy is noexcept but this is not propagated to the variant (see the spec).
+struct throw_move_ctor
+{
+    throw_move_ctor() = default;
+    throw_move_ctor(const throw_move_ctor&) noexcept;
+    throw_move_ctor(throw_move_ctor&&);
+    throw_move_ctor& operator=(const throw_move_ctor&) noexcept;
+    throw_move_ctor& operator=(throw_move_ctor&&) noexcept;
+};
+static_assert(!std::is_nothrow_copy_constructible<variant<monostate, throw_move_ctor>>::value, "");  // nontrivial
+static_assert(!std::is_nothrow_move_constructible<variant<monostate, throw_move_ctor>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<variant<monostate, throw_move_ctor>>::value, "");
+static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_ctor>>::value, "");
+
+struct throw_copy_assignment
+{
+    throw_copy_assignment() = default;
+    throw_copy_assignment(const throw_copy_assignment&) noexcept;
+    throw_copy_assignment(throw_copy_assignment&&) noexcept;
+    throw_copy_assignment& operator=(const throw_copy_assignment&);
+    throw_copy_assignment& operator=(throw_copy_assignment&&) noexcept;
+};
+static_assert(!std::is_nothrow_copy_constructible<variant<monostate, throw_copy_assignment>>::value, "");  // nontrivial
+static_assert(std::is_nothrow_move_constructible<variant<monostate, throw_copy_assignment>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<variant<monostate, throw_copy_assignment>>::value, "");
+static_assert(std::is_nothrow_move_assignable<variant<monostate, throw_copy_assignment>>::value, "");
+
+struct throw_move_assignment
+{
+    throw_move_assignment() = default;
+    throw_move_assignment(const throw_move_assignment&) noexcept;
+    throw_move_assignment(throw_move_assignment&&) noexcept;
+    throw_move_assignment& operator=(const throw_move_assignment&) noexcept;
+    throw_move_assignment& operator=(throw_move_assignment&&);
+};
+static_assert(!std::is_nothrow_copy_constructible<variant<monostate, throw_move_assignment>>::value, "");  // nontrivial
+static_assert(std::is_nothrow_move_constructible<variant<monostate, throw_move_assignment>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<variant<monostate, throw_move_assignment>>::value, "");
+static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_assignment>>::value, "");
+
+}  // namespace test_noexcept_propagation
+
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;

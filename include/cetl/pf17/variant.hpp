@@ -712,7 +712,7 @@ public:
     variant(const variant& other) = default;
 
     /// Constructor 3
-    variant(variant&& other) noexcept(std::is_nothrow_move_constructible<nth_type<0>>::value) = default;
+    variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
 
     /// Constructor 4
     // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/variant
