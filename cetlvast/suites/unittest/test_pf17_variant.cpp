@@ -1569,5 +1569,69 @@ TYPED_TEST(test_smf_policy_combinations, swap)
 
 TYPED_TEST(test_smf_policy_combinations, get)
 {
-    // TODO FIXME NOT IMPLEMENTED
+    using cetl::pf17::variant;
+    using cetl::pf17::bad_variant_access;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::get;
+    using cetl::pf17::get_if;
+    using cetl::pf17::holds_alternative;
+    struct T : TypeParam
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        std::int64_t value = 0;
+    };
+    struct U : TypeParam
+    {
+        explicit U(const std::int16_t val)
+            : value(val)
+        {
+        }
+        std::int16_t value = 0;
+    };
+
+    using V = variant<T, U>;
+    V var(in_place_index<0>, 123456);
+
+    // holds_alternative
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_FALSE(holds_alternative<U>(var));
+
+    // get<I>
+    EXPECT_EQ(123456, get<0>(var).value);
+    EXPECT_EQ(123456, get<0>(static_cast<const V&>(var)).value);
+    EXPECT_EQ(123456, get<0>(std::move(var)).value);
+    EXPECT_EQ(123456, get<0>(std::move(static_cast<const V&>(var))).value);
+#if __cpp_exceptions
+    EXPECT_THROW(([](U&) {})(get<1>(var)), bad_variant_access);
+    EXPECT_THROW(([](const U&) {})(get<1>(static_cast<const V&>(var))), bad_variant_access);
+    EXPECT_THROW(([](U&&) {})(get<1>(std::move(var))), bad_variant_access);
+    EXPECT_THROW(([](const U&&) {})(get<1>(std::move(static_cast<const V&>(var)))), bad_variant_access);
+#endif
+
+    // get<T>
+    EXPECT_EQ(123456, get<T>(var).value);
+    EXPECT_EQ(123456, get<T>(static_cast<const V&>(var)).value);
+    EXPECT_EQ(123456, get<T>(std::move(var)).value);
+    EXPECT_EQ(123456, get<T>(std::move(static_cast<const V&>(var))).value);
+#if __cpp_exceptions
+    EXPECT_THROW(([](U&) {})(get<U>(var)), bad_variant_access);
+    EXPECT_THROW(([](const U&) {})(get<U>(static_cast<const V&>(var))), bad_variant_access);
+    EXPECT_THROW(([](U&&) {})(get<U>(std::move(var))), bad_variant_access);
+    EXPECT_THROW(([](const U&&) {})(get<U>(std::move(static_cast<const V&>(var)))), bad_variant_access);
+#endif
+
+    // get_if<I>
+    EXPECT_EQ(&get<0>(var), get_if<0>(&var));
+    EXPECT_EQ(&get<0>(var), get_if<0>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<1>(&var));
+    EXPECT_EQ(nullptr, get_if<1>(static_cast<const V*>(&var)));
+
+    // get_if<T>
+    EXPECT_EQ(&get<T>(var), get_if<T>(&var));
+    EXPECT_EQ(&get<T>(var), get_if<T>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<U>(&var));
+    EXPECT_EQ(nullptr, get_if<U>(static_cast<const V*>(&var)));
 }
