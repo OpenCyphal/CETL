@@ -475,7 +475,8 @@ struct test_ctor_3
                 : value(val)
             {
             }
-            T(T&& other) noexcept
+            T(T&& other)
+            noexcept
                 : SMF(std::forward<T>(other))
                 , value(other.value)
             {
@@ -1570,11 +1571,13 @@ TYPED_TEST(test_smf_policy_combinations, swap)
 TYPED_TEST(test_smf_policy_combinations, get)
 {
     using cetl::pf17::variant;
-    using cetl::pf17::bad_variant_access;
     using cetl::pf17::in_place_index;
     using cetl::pf17::get;
     using cetl::pf17::get_if;
     using cetl::pf17::holds_alternative;
+#if __cpp_exceptions
+    using cetl::pf17::bad_variant_access;
+#endif
     struct T : TypeParam
     {
         explicit T(const std::int64_t val)
