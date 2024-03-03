@@ -43,14 +43,6 @@ jobs:
       with:
         path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - name: set up a swap file
-      run: |
-        free -h
-        sudo fallocate -l 8G /swapfile
-        sudo chmod 600 /swapfile
-        sudo mkswap /swapfile
-        sudo swapon /swapfile
-        free -h
     - name: run tests
       run: >
         ./build-tools/bin/verify.py
