@@ -5,6 +5,7 @@
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
+// CSpell: words chronomorphize borked
 
 #include <cetl/pf17/variant.hpp>
 #include <cetlvast/helpers.hpp>
@@ -23,9 +24,9 @@ using cetlvast::smf_policies::policy_deleted;
 using cetlvast::smf_policies::policy_trivial;
 using cetlvast::smf_policies::policy_nontrivial;
 using cetl::pf17::detail::var::types;
-using cetl::pf17::detail::var::smf_availability::smf_deleted;
-using cetl::pf17::detail::var::smf_availability::smf_trivial;
-using cetl::pf17::detail::var::smf_availability::smf_nontrivial;
+using cetl::pf17::detail::var::smf_deleted;
+using cetl::pf17::detail::var::smf_trivial;
+using cetl::pf17::detail::var::smf_nontrivial;
 
 static_assert(types<copy_ctor_policy<policy_deleted>>::avail_copy_ctor == smf_deleted, "");
 static_assert(types<copy_ctor_policy<policy_trivial>>::avail_copy_ctor == smf_trivial, "");
@@ -894,7 +895,7 @@ struct test_assignment_1
             get<1>(v2).configure_destruction_counter(&dtor2);
             EXPECT_ANY_THROW(v1 = v2);  // Invoke copy ctor. This time we use a temporary side-copy, which throws.
             // The side-copy got borked but v1 is retained in its original state. The dtor counter goes up anyway
-            // beacuse we throw the exception from the copy ctor after the base is already fully constructed;
+            // because we throw the exception from the copy ctor after the base is already fully constructed;
             // when the exception is throw, the base destructor is called, which causes the counter to go up by one.
             EXPECT_EQ(0, dtor1);
             EXPECT_EQ((T::dtor_policy_value == policy_nontrivial) ? 1 : 0, dtor2);
@@ -1565,3 +1566,8 @@ TYPED_TEST(test_smf_policy_combinations, swap)
 }
 
 // --------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_smf_policy_combinations, get)
+{
+    // TODO FIXME NOT IMPLEMENTED
+}

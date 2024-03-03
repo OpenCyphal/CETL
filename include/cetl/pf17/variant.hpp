@@ -4,6 +4,7 @@
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
+// CSpell: words chronomorphize
 
 #ifndef CETL_PF17_VARIANT_HPP_INCLUDED
 #define CETL_PF17_VARIANT_HPP_INCLUDED
@@ -463,7 +464,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
             other.chronomorphize([this, &other](const auto index) {
                 assert((index.value == other.m_index) && (index.value == this->m_index));
-                auto& dest = this->template as<index.value>();  // We need to store this into a demporary due to a
+                auto& dest = this->template as<index.value>();  // We need to store this into a temporary due to a
                 dest       = other.template as<index.value>();  // GCC bug.
             });
         }
@@ -829,7 +830,7 @@ public:
             }
             else
             {
-                // Exeption safety is important for move operations. Consider the failure modes involved on throwing:
+                // Exception safety is important for move operations. Consider the failure modes involved on throwing:
                 variant tmp(std::move(*this));  // this may get stuck in the moved-out state
                 *this = std::move(other);       // this may become valueless; other may get stuck in the moved-out state
                 other = std::move(tmp);         // other may become valueless
