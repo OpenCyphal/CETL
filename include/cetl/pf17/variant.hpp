@@ -956,10 +956,18 @@ decltype(auto) visit(F&& fun, Vs&&... vars)
 template <typename... Ts>
 constexpr bool operator==(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
 {
-    return (lhs.index() == rhs.index()) && (lhs.index() != variant_npos) &&
-           detail::var::chronomorphize<sizeof...(Ts)>(lhs.index(), [&lhs, &rhs](const auto index) {
-               return static_cast<bool>(get<index.value>(lhs) == get<index.value>(rhs));
-           });
+    if (lhs.index() != rhs.index())
+    {
+        return false;
+    }
+    if (lhs.valueless_by_exception())
+    {
+        return true;
+    }
+    return detail::var::chronomorphize<sizeof...(
+        Ts)>([&lhs,
+              &rhs](const auto index) { return static_cast<bool>(get<index.value>(lhs) == get<index.value>(rhs)); },
+             lhs.index());
 }
 template <typename... Ts>
 constexpr bool operator!=(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
@@ -985,9 +993,10 @@ constexpr bool operator<(const variant<Ts...>& lhs, const variant<Ts...>& rhs)
     {
         return false;
     }
-    return detail::var::chronomorphize<sizeof...(Ts)>(lhs.index(), [&lhs, &rhs](const auto index) {
-        return static_cast<bool>(get<index.value>(lhs) < get<index.value>(rhs));
-    });
+    return detail::var::chronomorphize<sizeof...(
+        Ts)>([&lhs,
+              &rhs](const auto index) { return static_cast<bool>(get<index.value>(lhs) < get<index.value>(rhs)); },
+             lhs.index());
 }
 template <typename... Ts>
 constexpr bool operator>(const variant<Ts...>& lhs, const variant<Ts...>& rhs)

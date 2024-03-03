@@ -1648,12 +1648,14 @@ TYPED_TEST(test_smf_policy_combinations, get)
 TEST(test_variant, visit)
 {
     using cetl::pf17::variant;
-    using cetl::pf17::bad_variant_access;
     using cetl::pf17::in_place_index;
     using cetl::pf17::get;
     using cetl::pf17::visit;
     using cetl::pf17::monostate;
     using cetl::pf17::make_overloaded;
+#if __cpp_exceptions
+    using cetl::pf17::bad_variant_access;
+#endif
     struct anchored
     {
         explicit anchored(const std::int64_t val)
@@ -1714,5 +1716,106 @@ TEST(test_variant, visit)
     EXPECT_ANY_THROW(var.emplace<panicky>());
     EXPECT_TRUE(var.valueless_by_exception());
     EXPECT_THROW(visit([](auto&&) {}, var), bad_variant_access);
+#endif
+
+    // Check result types.
+    const auto ovd1 = make_overloaded([](const std::int64_t) -> std::int64_t { return {}; },
+                                      [](const anchored&) -> const std::int32_t& {
+                                          static std::int32_t x;
+                                          return x;
+                                      });
+    static_assert(std::is_same<std::int64_t, decltype(visit(ovd1, variant<std::int64_t, anchored>()))>::value, "");
+
+    const auto ovd2 = make_overloaded([](const std::int64_t) -> std::int64_t* { return nullptr; },
+                                      [](const anchored&) -> const void* { return nullptr; });
+    static_assert(std::is_same<const void*, decltype(visit(ovd2, variant<std::int64_t, anchored>()))>::value, "");
+}
+
+TEST(test_variant, comparison)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::in_place_index;
+
+    using V       = variant<std::int8_t, std::int16_t>;
+    const auto v0 = [](const std::int8_t alt) { return V(in_place_index<0>, alt); };
+    const auto v1 = [](const std::int16_t alt) { return V(in_place_index<1>, alt); };
+
+    EXPECT_TRUE(v0(1) == v0(1));
+    EXPECT_FALSE(v0(1) == v1(1));
+    EXPECT_FALSE(v1(1) == v0(1));
+    EXPECT_FALSE(v0(1) == v0(2));
+
+    EXPECT_FALSE(v0(1) != v0(1));
+    EXPECT_TRUE(v0(1) != v1(1));
+    EXPECT_TRUE(v1(1) != v0(1));
+    EXPECT_TRUE(v0(1) != v0(2));
+
+    EXPECT_TRUE(v0(1) < v0(2));
+    EXPECT_FALSE(v0(2) < v0(1));
+    EXPECT_TRUE(v0(2) < v1(1));
+    EXPECT_FALSE(v1(1) < v0(2));
+    EXPECT_TRUE(v0(1) < v1(2));
+    EXPECT_FALSE(v1(2) < v0(1));
+
+    EXPECT_TRUE(v0(1) <= v0(2));
+    EXPECT_FALSE(v0(2) <= v0(1));
+    EXPECT_TRUE(v0(2) <= v1(1));
+    EXPECT_FALSE(v1(1) <= v0(2));
+    EXPECT_TRUE(v0(1) <= v1(2));
+    EXPECT_FALSE(v1(2) <= v0(1));
+
+    EXPECT_FALSE(v0(1) > v0(2));
+    EXPECT_TRUE(v0(2) > v0(1));
+    EXPECT_FALSE(v0(2) > v1(1));
+    EXPECT_TRUE(v1(1) > v0(2));
+    EXPECT_FALSE(v0(1) > v1(2));
+    EXPECT_TRUE(v1(2) > v0(1));
+
+    EXPECT_FALSE(v0(1) >= v0(2));
+    EXPECT_TRUE(v0(2) >= v0(1));
+    EXPECT_FALSE(v0(2) >= v1(1));
+    EXPECT_TRUE(v1(1) >= v0(2));
+    EXPECT_FALSE(v0(1) >= v1(2));
+    EXPECT_TRUE(v1(2) >= v0(1));
+
+#if __cpp_exceptions
+    struct panicky
+    {
+        panicky()
+        {
+            throw std::exception();
+        }
+        bool operator<(const panicky&) const
+        {
+            return false;
+        }
+        bool operator==(const panicky&) const
+        {
+            return true;
+        }
+    };
+    const variant<std::int64_t, panicky> ok;
+    variant<std::int64_t, panicky>       ex;
+    EXPECT_ANY_THROW(ex.emplace<panicky>());
+    EXPECT_TRUE(ex.valueless_by_exception());
+
+    EXPECT_TRUE(ex == ex);
+    EXPECT_FALSE(ex == ok);
+    EXPECT_FALSE(ok == ex);
+    EXPECT_FALSE(ex != ex);
+    EXPECT_TRUE(ex != ok);
+    EXPECT_TRUE(ok != ex);
+    EXPECT_FALSE(ex < ex);
+    EXPECT_TRUE(ex < ok);
+    EXPECT_FALSE(ok < ex);
+    EXPECT_TRUE(ex <= ex);
+    EXPECT_TRUE(ex <= ok);
+    EXPECT_FALSE(ok <= ex);
+    EXPECT_FALSE(ex > ex);
+    EXPECT_FALSE(ex > ok);
+    EXPECT_TRUE(ok > ex);
+    EXPECT_TRUE(ex >= ex);
+    EXPECT_FALSE(ex >= ok);
+    EXPECT_TRUE(ok >= ex);
 #endif
 }
