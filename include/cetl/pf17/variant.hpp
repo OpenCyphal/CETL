@@ -887,7 +887,7 @@ public:
         }
         else
         {
-            this->template convert_from<Ix, U>(std::forward<U>(from));
+            this->template convert_from<Ix>(std::forward<U>(from));
         }
         return *this;
     }

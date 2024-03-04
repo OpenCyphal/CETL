@@ -5,12 +5,20 @@
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
-// CSpell: words chronomorphize borked
+// CSpell: words chronomorphize
 
-#include <cetl/pf17/variant.hpp>
-#include <cetlvast/smf_policies.hpp>
-#include <gtest/gtest.h>
+#include <cetl/pf17/variant.hpp>  // The tested header always goes first.
+#include "test_pf17_variant.hpp"
+#include <cetlvast/helpers.hpp>
 
+namespace cetlvast
+{
+namespace unittest
+{
+namespace pf17
+{
+namespace variant
+{
 namespace test_detail_types
 {
 using cetlvast::smf_policies::copy_ctor_policy;
@@ -356,6 +364,228 @@ TEST(test_variant, monostate)
 
 // --------------------------------------------------------------------------------------------
 
+TYPED_TEST(test_smf_policy_combinations, smf_asserts)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+
+    using T = TypeParam;
+
+    // Enrich the variant with SMF-trivial types to ensure we always pick the most restrictive policy.
+    using V = variant<int, T, monostate, T>;
+    static_assert(sizeof(V) == (cetlvast::align_size_up(sizeof(T), sizeof(std::size_t)) + sizeof(std::size_t)), "");
+
+    // Ensure trivial copy/move policies are correctly inherited from the value type.
+    // copy ctor
+    static_assert(std::is_copy_constructible<T>::value == std::is_copy_constructible<V>::value, "");
+    static_assert(std::is_trivially_copy_constructible<T>::value == std::is_trivially_copy_constructible<V>::value, "");
+    // move ctor
+    static_assert(std::is_move_constructible<T>::value == std::is_move_constructible<V>::value, "");
+    static_assert(std::is_trivially_move_constructible<T>::value == std::is_trivially_move_constructible<V>::value, "");
+    // copy assign
+    // We don't check is_trivially_copyable because this check operates on memory representation rather than
+    // the availability of the corresponding SMFs. As such, the is_trivially_copyable can be true even if the
+    // copy ctor is deleted.
+    static_assert((std::is_copy_assignable<T>::value &&     //
+                   std::is_copy_constructible<T>::value &&  //
+                   std::is_destructible<T>::value) == std::is_copy_assignable<V>::value,
+                  "");
+    static_assert((std::is_trivially_copy_assignable<T>::value &&     //
+                   std::is_trivially_copy_constructible<T>::value &&  //
+                   std::is_trivially_destructible<T>::value) == std::is_trivially_copy_assignable<V>::value,
+                  "");
+    // move assign
+    static_assert((std::is_move_assignable<T>::value &&     //
+                   std::is_move_constructible<T>::value &&  //
+                   std::is_destructible<T>::value) == std::is_move_assignable<V>::value,
+                  "");
+    static_assert((std::is_trivially_move_assignable<T>::value &&     //
+                   std::is_trivially_move_constructible<T>::value &&  //
+                   std::is_trivially_destructible<T>::value) == std::is_trivially_move_assignable<V>::value,
+                  "");
+    // dtor
+    static_assert(std::is_trivially_destructible<T>::value == std::is_trivially_destructible<V>::value, "");
+}
+
+// --------------------------------------------------------------------------------------------
+
+TYPED_TEST(test_smf_policy_combinations, emplace)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::get;
+    using cetl::pf17::holds_alternative;
+    struct T : TypeParam
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        T(const std::initializer_list<std::int64_t> il, const std::int64_t val)
+            : value(static_cast<std::int64_t>(il.size()) + val)
+        {
+        }
+        std::int64_t value = 0;
+    };
+    variant<monostate, T, monostate, std::int64_t, std::int64_t> var;
+
+    EXPECT_EQ(123456, var.template emplace<T>(123456).value);
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_EQ(123456, get<T>(var).value);
+    monostate* mono = &var.template emplace<0>();
+    (void) mono;
+
+    EXPECT_EQ(992, var.template emplace<T>(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}, 987).value);
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_EQ(992, get<T>(var).value);
+    mono = &var.template emplace<0>();
+    (void) mono;
+
+    EXPECT_EQ(123456, var.template emplace<1>(123456).value);
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_EQ(123456, get<1>(var).value);
+    mono = &var.template emplace<0>();
+    (void) mono;
+
+    EXPECT_EQ(992, var.template emplace<1>(std::initializer_list<std::int64_t>{1, 2, 3, 4, 5}, 987).value);
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_EQ(992, get<1>(var).value);
+    mono = &var.template emplace<0>();
+    (void) mono;
+}
+
+// --------------------------------------------------------------------------------------------
+
+template <typename T, bool = cetl::pf17::is_swappable_v<T>>
+struct test_swap;
+template <typename T>
+struct test_swap<T, true>
+{
+    static void test_noexcept()
+    {
+        using cetl::pf17::variant;
+        using cetl::pf17::get;
+        using cetl::pf17::in_place_type;
+        struct U : T
+        {
+            explicit U(const std::int64_t val)
+                : value(val)
+            {
+            }
+            std::int64_t value = 0;
+        };
+        variant<U, std::int64_t> v1(in_place_type<U>, 123456);
+        variant<U, std::int64_t> v2(in_place_type<U>, 987654);
+        // For the case where both variants have the same active alternative we provide no exception safety
+        // guarantee because these concerns are delegated to the ADL-selected swap implementation,
+        // which we don't care about.
+        EXPECT_EQ(123456, get<U>(v1).value);
+        EXPECT_EQ(987654, get<U>(v2).value);
+        v1.swap(v2);
+        EXPECT_EQ(987654, get<U>(v1).value);
+        EXPECT_EQ(123456, get<U>(v2).value);
+
+        v1.template emplace<1>(147852);
+        EXPECT_EQ(147852, get<1>(v1));
+        EXPECT_EQ(123456, get<U>(v2).value);
+        v2.swap(v1);
+        EXPECT_EQ(123456, get<U>(v1).value);
+        EXPECT_EQ(147852, get<1>(v2));
+    }
+
+    static void test_throwing()
+    {
+#if __cpp_exceptions
+        using cetl::pf17::variant;
+        using cetl::pf17::in_place_type;
+        using cetl::pf17::in_place_index;
+        using cetl::pf17::get;
+        struct U : T
+        {
+            U()                  = default;
+            U(const U&) noexcept = default;
+            U(U&& other)                        // NOLINT(*-noexcept-move-constructor)
+                : T(std::move(other))           // Note that this may get resolved to the copy ctor.
+                , move_throw(other.move_throw)  // NOLINT(*-use-after-move)
+            {
+                if (move_throw)
+                {
+                    throw std::exception();
+                }
+            }
+            U& operator=(const U&) noexcept = default;
+            U& operator=(U&& other)  // NOLINT(*-noexcept-move-constructor)
+            {
+                if (move_throw || other.move_throw)
+                {
+                    throw std::exception();
+                }
+                T::operator=(std::move(other));
+                move_throw = other.move_throw;  // NOLINT(*-use-after-move)
+                return *this;
+            }
+            bool move_throw = false;
+        };
+        struct W : T
+        {
+            W()
+            {
+                throw std::exception();
+            }
+        };
+        variant<U, std::int64_t, W> v1(in_place_type<U>);
+        variant<U, std::int64_t, W> v2(in_place_index<1>);
+
+        // Swap two distinct types.
+        EXPECT_EQ(0, v1.index());
+        EXPECT_EQ(1, v2.index());
+        v1.swap(v2);
+        EXPECT_EQ(1, v1.index());
+        EXPECT_EQ(0, v2.index());
+
+        // Induce valueless state in one of the operands.
+        get<U>(v2).move_throw = true;
+        EXPECT_ANY_THROW(v1.swap(v2));
+        EXPECT_TRUE(v1.valueless_by_exception());
+        EXPECT_FALSE(v2.valueless_by_exception());
+
+        // Swap a normal with a valueless type.
+        get<U>(v2).move_throw = false;
+        v1.swap(v2);
+        EXPECT_FALSE(v1.valueless_by_exception());
+        EXPECT_TRUE(v2.valueless_by_exception());
+
+        // Swap two valueless.
+        EXPECT_ANY_THROW(v1.template emplace<W>());
+        EXPECT_TRUE(v1.valueless_by_exception());
+        EXPECT_TRUE(v2.valueless_by_exception());
+        v1.swap(v2);
+        EXPECT_TRUE(v1.valueless_by_exception());
+        EXPECT_TRUE(v2.valueless_by_exception());
+#endif
+    }
+
+    static void test()
+    {
+        test_noexcept();
+        test_throwing();
+    }
+};
+template <typename T>
+struct test_swap<T, false>
+{
+    static_assert(!cetl::pf17::is_swappable_v<T>, "");
+    static_assert(!cetl::pf17::is_swappable_v<cetl::pf17::variant<T>>, "");
+    static void test() {}
+};
+
+TYPED_TEST(test_smf_policy_combinations, swap)
+{
+    test_swap<TypeParam>::test();
+}
+
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, basic_operations)
 {
     using cetl::pf17::variant;
@@ -670,3 +900,8 @@ TEST(test_variant, comparison)
     EXPECT_TRUE(ok >= ex);
 #endif
 }
+
+}  // namespace variant
+}  // namespace pf17
+}  // namespace unittest
+}  // namespace cetlvast
