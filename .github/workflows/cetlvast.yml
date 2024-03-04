@@ -137,7 +137,7 @@ jobs:
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
     - uses: actions/download-artifact@v3
       with:
-        name: Coverage-no-exceptions-14-gcc
+        name: Coverage-exceptions-14-gcc
         path: build
     - name: Run sonar-scanner
       env:
