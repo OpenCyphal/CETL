@@ -622,11 +622,11 @@ struct is_viable_alternative_conversion<
     To,
     std::void_t<decltype(std::array<To, 1>{{std::forward<From>(std::declval<From>())}})>> : std::true_type
 {};
-static_assert(!is_viable_alternative_conversion<long, signed char>::value);
-static_assert(is_viable_alternative_conversion<signed char, long>::value);
-static_assert(!is_viable_alternative_conversion<double, float>::value);
-static_assert(!is_viable_alternative_conversion<double, char>::value);
-static_assert(is_viable_alternative_conversion<float, double>::value);
+static_assert(!is_viable_alternative_conversion<long, signed char>::value, "");
+static_assert(is_viable_alternative_conversion<signed char, long>::value, "");
+static_assert(!is_viable_alternative_conversion<double, float>::value, "");
+static_assert(!is_viable_alternative_conversion<double, char>::value, "");
+static_assert(is_viable_alternative_conversion<float, double>::value, "");
 
 template <typename U, typename... Ts>
 struct match_ctor
@@ -641,6 +641,22 @@ static_assert(match_ctor<float, long, float, double, bool>::index == 1, "");
 static_assert(match_ctor<double, long, float, double, bool>::index == 2, "");
 static_assert(!match_ctor<float, long, float, double, bool>::ok, "");  // not unique
 static_assert(match_ctor<double, long, float, double, bool>::ok, "");
+
+template <typename U, typename... Ts>
+struct match_assignment
+{
+    template <typename T>
+    struct predicate : conjunction<std::is_assignable<T&, U>,  //
+                                   std::is_constructible<T, U>,
+                                   is_viable_alternative_conversion<U, T>>
+    {};
+    static constexpr std::size_t index = find_v<predicate, Ts...>;
+    static constexpr bool        ok    = count_v<predicate, Ts...> == 1;
+};
+static_assert(match_assignment<float, long, float, double, bool>::index == 1, "");
+static_assert(match_assignment<double, long, float, double, bool>::index == 2, "");
+static_assert(!match_assignment<float, long, float, double, bool>::ok, "");  // not unique
+static_assert(match_assignment<double, long, float, double, bool>::ok, "");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -767,26 +783,28 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 public:
     /// Constructor 1 -- default constructor
     template <typename T = nth_type<0>, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
+    constexpr variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
         : variant(in_place_index<0>)
     {
     }
 
     /// Constructor 2 -- copy constructor
-    variant(const variant& other) = default;
+    constexpr variant(const variant& other) = default;
 
     /// Constructor 3 -- move constructor
-    variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
+    constexpr variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
 
     /// Constructor 4 -- converting constructor
     template <typename U,
               std::enable_if_t<detail::var::match_ctor<U, Ts...>::ok, int> = 0,
               std::size_t Ix                                               = detail::var::match_ctor<U, Ts...>::index,
+              typename Alt                                                 = nth_type<Ix>,
+              std::enable_if_t<std::is_constructible<Alt, U>::value, int>  = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int> = 0,
               std::enable_if_t<!is_in_place_type<std::decay_t<U>>::value, int>      = 0,
               std::enable_if_t<!is_in_place_index<std::decay_t<U>>::value, int>     = 0>
     constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
-        noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value)
+        noexcept(std::is_nothrow_constructible<Alt, U>::value)
     {
         this->template construct<Ix>(std::forward<U>(from));
     }
@@ -795,7 +813,7 @@ public:
     template <typename T,
               typename... Args,
               std::enable_if_t<is_unique<T> && std::is_constructible<T, Args...>::value, int> = 0>
-    explicit variant(const in_place_type_t<T>, Args&&... args)
+    constexpr explicit variant(const in_place_type_t<T>, Args&&... args)
     {
         this->template construct<index_of<T>>(std::forward<Args>(args)...);
     }
@@ -806,7 +824,7 @@ public:
         typename U,
         typename... Args,
         std::enable_if_t<is_unique<T> && std::is_constructible<T, std::initializer_list<U>&, Args...>::value, int> = 0>
-    explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
+    constexpr explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
     {
         this->template construct<index_of<T>>(il, std::forward<Args>(args)...);
     }
@@ -815,7 +833,7 @@ public:
     template <std::size_t Ix,
               typename... Args,
               std::enable_if_t<(Ix < sizeof...(Ts)) && std::is_constructible<nth_type<Ix>, Args...>::value, int> = 0>
-    explicit variant(const in_place_index_t<Ix>, Args&&... args)
+    constexpr explicit variant(const in_place_index_t<Ix>, Args&&... args)
     {
         this->template construct<Ix>(std::forward<Args>(args)...);
     }
@@ -827,7 +845,7 @@ public:
               std::enable_if_t<(Ix < sizeof...(Ts)) &&
                                    std::is_constructible<nth_type<Ix>, std::initializer_list<U>&, Args...>::value,
                                int> = 0>
-    explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
+    constexpr explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
     {
         this->template construct<Ix>(il, std::forward<Args>(args)...);
     }
@@ -836,15 +854,35 @@ public:
     /// If the current alternative is different and the new alternative is not nothrow-move-constructible
     /// and the copy constructor throws, the variant becomes valueless. If nothrow move construction is possible,
     /// an intermediate temporary copy will be constructed to avoid the valueless outcome even if the copy ctor throws.
-    variant& operator=(const variant& rhs) = default;
+    constexpr variant& operator=(const variant& rhs) = default;
 
     /// Assignment 2 -- move assignment
     /// If the current alternative is different and the move constructor throws, the variant becomes valueless.
-    variant& operator=(variant&& rhs) noexcept(tys::nothrow_move_constructible&& tys::nothrow_move_assignable) =
-        default;
+    constexpr variant& operator=(variant&& rhs) noexcept(
+        tys::nothrow_move_constructible&& tys::nothrow_move_assignable) = default;
 
     /// Assignment 3 -- converting assignment
-    // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
+    template <typename U,
+              std::enable_if_t<detail::var::match_assignment<U, Ts...>::ok, int> = 0,
+              std::size_t Ix = detail::var::match_assignment<U, Ts...>::index,
+              typename Alt   = nth_type<Ix>,
+              std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
+              std::enable_if_t<!is_in_place_type<std::decay_t<U>>::value, int>                                  = 0,
+              std::enable_if_t<!is_in_place_index<std::decay_t<U>>::value, int>                                 = 0>
+    constexpr variant& operator=(U&& from) noexcept(
+        std::is_nothrow_constructible<Alt, U>::value&& std::is_nothrow_assignable<Alt&, U>::value)
+    {
+        if (Ix == this->m_index)
+        {
+            this->template as<Ix>() = std::forward<U>(from);
+        }
+        else
+        {
+            this->template convert_from<Ix, U>(std::forward<U>(from));
+        }
+        return *this;
+    }
 
     /// These methods only participate in overload resolution if the template parameters are valid.
     /// The type-based overloads only participate if the type is unique in the variant.
@@ -926,6 +964,29 @@ public:
     CETL_NODISCARD constexpr bool valueless_by_exception() const noexcept
     {
         return this->is_valueless();
+    }
+
+private:
+    /// See https://en.cppreference.com/w/cpp/utility/variant/operator%3D:
+    /// - Otherwise, if std::is_nothrow_constructible_v<T_j, T> || !std::is_nothrow_move_constructible_v<T_j> is true,
+    ///   equivalent to this->emplace<j>(std::forward<T>(t)). *this may become valueless_by_exception
+    ///   if an exception is thrown on the initialization inside emplace.
+    /// - Otherwise, equivalent to this->emplace<j>(T_j(std::forward<T>(t))).
+    template <typename From, typename To>
+    static constexpr bool allows_direct_conversion = std::is_nothrow_constructible<To, From>::value ||  //
+                                                     (!std::is_nothrow_move_constructible<To>::value);
+
+    template <std::size_t Ix, typename U, typename Alt = nth_type<Ix>>
+    std::enable_if_t<allows_direct_conversion<U, Alt>> convert_from(U&& from) noexcept(
+        std::is_nothrow_constructible<Alt, U>::value)
+    {
+        this->template construct<Ix>(std::forward<U>(from));
+    }
+    template <std::size_t Ix, typename U, typename Alt = nth_type<Ix>>
+    std::enable_if_t<!allows_direct_conversion<U, Alt>> convert_from(U&& from)
+    {  // This is never noexcept, otherwise we would have chosen the simpler case.
+        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
+        this->template construct<Ix>(Alt(std::forward<U>(from)));
     }
 };
 
