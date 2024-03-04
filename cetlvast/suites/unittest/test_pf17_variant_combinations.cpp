@@ -339,7 +339,32 @@ TYPED_TEST(test_smf_policy_combinations, ctor_3)
 
 TYPED_TEST(test_smf_policy_combinations, ctor_4)
 {
-    // TODO FIXME NOT IMPLEMENTED
+    using cetl::pf17::variant;
+    using cetl::pf17::get;
+    using cetl::pf17::monostate;
+    struct tag_t
+    {
+        tag_t()                        = default;
+        tag_t(const tag_t&)            = delete;
+        tag_t(tag_t&&)                 = delete;
+        tag_t& operator=(const tag_t&) = delete;
+        tag_t& operator=(tag_t&&)      = delete;
+        ~tag_t()                       = default;
+    } const tag;
+    struct T : TypeParam
+    {
+        T(const tag_t&) {}  // NOLINT(*-explicit-constructor)
+    };
+    using V = variant<std::int64_t, float, double, T, monostate>;
+    EXPECT_EQ(0, V(123456).index());
+    EXPECT_EQ(2, V(123.456).index());
+    EXPECT_EQ(3, V(tag).index());
+    EXPECT_EQ(4, V(monostate{}).index());
+    static_assert(!std::is_constructible<V, float>::value, "");  // Float cannot be selected due to ambiguity.
+
+    // Example from cppreference
+    variant<float, long, double> v4 = 0;
+    EXPECT_EQ(0, get<long>(v4));
 }
 
 // --------------------------------------------------------------------------------------------

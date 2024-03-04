@@ -208,6 +208,59 @@ static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_ass
 
 // --------------------------------------------------------------------------------------------
 
+namespace test_find
+{
+using cetl::pf17::detail::var::find_v;
+using cetl::pf17::detail::var::count_v;
+
+static_assert(find_v<std::is_integral, int, char, double, std::int64_t, std::int16_t, std::int8_t> == 0, "");
+static_assert(find_v<std::is_integral, double, float, std::int64_t, std::int16_t, std::int8_t> == 2, "");
+static_assert(find_v<std::is_integral, double, float> == std::numeric_limits<std::size_t>::max(), "");
+
+static_assert(count_v<std::is_integral, int, char, double, std::int64_t, std::int16_t, std::int8_t> == 5, "");
+static_assert(count_v<std::is_integral, double, float, std::int64_t, std::int16_t, std::int8_t> == 3, "");
+static_assert(count_v<std::is_integral, double, float> == 0, "");
+}  // namespace test_find
+
+// --------------------------------------------------------------------------------------------
+
+namespace test_match_ctor
+{
+using cetl::pf17::detail::var::match_ctor;
+
+struct A
+{};
+struct B
+{
+    B(std::int8_t);  // NOLINT(*-explicit-constructor)
+};
+struct C
+{
+    C(double);  // NOLINT(*-explicit-constructor)
+};
+
+static_assert(match_ctor<std::int8_t, A>::index == std::numeric_limits<std::size_t>::max(), "");
+static_assert(match_ctor<std::int8_t, A, B>::index == 1, "");
+static_assert(match_ctor<std::int8_t, A, B>::ok, "");
+
+static_assert(match_ctor<std::int8_t, A, B, C>::index == 1, "");
+static_assert(match_ctor<std::int8_t, C, B>::index == 0, "");
+static_assert(match_ctor<std::int8_t, B, C>::index == 0, "");
+static_assert(!match_ctor<std::int8_t, A, B, C>::ok, "");  // not unique
+
+// Ensure narrowing conversions are not considered; see https://en.cppreference.com/w/cpp/utility/variant/operator%3D
+static_assert(match_ctor<std::int32_t, A, B, C>::index == 1, "");
+static_assert(match_ctor<std::int32_t, C, B>::index == 0, "");
+static_assert(!match_ctor<std::int32_t, A, B, C>::ok, "");
+static_assert(match_ctor<float, std::int32_t, float, double, bool>::index == 1, "");
+static_assert(match_ctor<double, std::int32_t, float, double, bool>::index == 2, "");
+static_assert(!match_ctor<float, std::int32_t, float, double, bool>::ok, "");  // not unique
+static_assert(match_ctor<double, std::int32_t, float, double, bool>::ok, "");
+
+}  // namespace test_match_ctor
+
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;

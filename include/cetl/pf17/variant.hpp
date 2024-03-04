@@ -582,6 +582,68 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 
 // --------------------------------------------------------------------------------------------------------------------
 
+template <template <typename> class, std::size_t, typename...>
+struct find_impl;
+template <template <typename> class Predicate, std::size_t Ix>
+struct find_impl<Predicate, Ix>
+{
+    static constexpr std::size_t first_match_index = std::numeric_limits<std::size_t>::max();
+    static constexpr std::size_t match_count       = 0;
+};
+template <template <typename> class Predicate, std::size_t Ix, typename Head, typename... Tail>
+struct find_impl<Predicate, Ix, Head, Tail...> : find_impl<Predicate, Ix + 1, Tail...>
+{
+    using base                                     = find_impl<Predicate, Ix + 1, Tail...>;
+    static constexpr std::size_t first_match_index = (Predicate<Head>::value ? Ix : base::first_match_index);
+    static constexpr std::size_t match_count       = (Predicate<Head>::value ? 1 : 0) + base::match_count;
+};
+
+/// Index of the first type in the typelist for which the predicate is true.
+template <template <typename> class Predicate, typename... Ts>
+static constexpr std::size_t find_v = find_impl<Predicate, 0, Ts...>::first_match_index;
+
+/// Number of types in the typelist for which the predicate is true.
+template <template <typename> class Predicate, typename... Ts>
+static constexpr std::size_t count_v = find_impl<Predicate, 0, Ts...>::match_count;
+
+// --------------------------------------------------------------------------------------------------------------------
+
+/// The spec says:
+///     An overload F(T_i) is only considered if the declaration T_i x[] = { std::forward<T>(t) };
+///     is valid for some invented variable x;
+/// This trait checks if the aforementioned declaration is valid as:
+///     To x[] = { std::forward<From>(from) };
+template <typename From, typename To, typename = void>
+struct is_viable_alternative_conversion : std::false_type
+{};
+template <typename From, typename To>
+struct is_viable_alternative_conversion<
+    From,
+    To,
+    std::void_t<decltype(std::array<To, 1>{{std::forward<From>(std::declval<From>())}})>> : std::true_type
+{};
+static_assert(!is_viable_alternative_conversion<long, signed char>::value);
+static_assert(is_viable_alternative_conversion<signed char, long>::value);
+static_assert(!is_viable_alternative_conversion<double, float>::value);
+static_assert(!is_viable_alternative_conversion<double, char>::value);
+static_assert(is_viable_alternative_conversion<float, double>::value);
+
+template <typename U, typename... Ts>
+struct match_ctor
+{
+    template <typename T>
+    struct predicate : conjunction<std::is_constructible<T, U>, is_viable_alternative_conversion<U, T>>
+    {};
+    static constexpr std::size_t index = find_v<predicate, Ts...>;
+    static constexpr bool        ok    = count_v<predicate, Ts...> == 1;
+};
+static_assert(match_ctor<float, long, float, double, bool>::index == 1, "");
+static_assert(match_ctor<double, long, float, double, bool>::index == 2, "");
+static_assert(!match_ctor<float, long, float, double, bool>::ok, "");  // not unique
+static_assert(match_ctor<double, long, float, double, bool>::ok, "");
+
+// --------------------------------------------------------------------------------------------------------------------
+
 template <typename F>
 decltype(auto) visit(F&& fun)  // For some reason the standard requires this silly overload.
 {
@@ -665,6 +727,8 @@ constexpr size_t variant_size_v = variant_size<V>::value;
 ///
 /// In this implementation, the address of the variant object is equivalent to the address of the active alternative;
 /// this can sometimes be useful for low-level debugging.
+///
+/// In order to support C++14, some member functions that are constexpr in \ref std::variant are not constexpr here.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
@@ -701,21 +765,31 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
     friend decltype(auto) detail::var::visit(F&& fun, V&& var);
 
 public:
-    /// Constructor 1
+    /// Constructor 1 -- default constructor
     template <typename T = nth_type<0>, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
     variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
         : variant(in_place_index<0>)
     {
     }
 
-    /// Constructor 2
+    /// Constructor 2 -- copy constructor
     variant(const variant& other) = default;
 
-    /// Constructor 3
+    /// Constructor 3 -- move constructor
     variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
 
-    /// Constructor 4
-    // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/variant
+    /// Constructor 4 -- converting constructor
+    template <typename U,
+              std::enable_if_t<detail::var::match_ctor<U, Ts...>::ok, int> = 0,
+              std::size_t Ix                                               = detail::var::match_ctor<U, Ts...>::index,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int> = 0,
+              std::enable_if_t<!is_in_place_type<std::decay_t<U>>::value, int>      = 0,
+              std::enable_if_t<!is_in_place_index<std::decay_t<U>>::value, int>     = 0>
+    constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
+        noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value)
+    {
+        this->template construct<Ix>(std::forward<U>(from));
+    }
 
     /// Constructor 5
     template <typename T,
@@ -758,18 +832,18 @@ public:
         this->template construct<Ix>(il, std::forward<Args>(args)...);
     }
 
-    /// Assignment 1
+    /// Assignment 1 -- copy assignment
     /// If the current alternative is different and the new alternative is not nothrow-move-constructible
     /// and the copy constructor throws, the variant becomes valueless. If nothrow move construction is possible,
     /// an intermediate temporary copy will be constructed to avoid the valueless outcome even if the copy ctor throws.
     variant& operator=(const variant& rhs) = default;
 
-    /// Assignment 2
+    /// Assignment 2 -- move assignment
     /// If the current alternative is different and the move constructor throws, the variant becomes valueless.
     variant& operator=(variant&& rhs) noexcept(tys::nothrow_move_constructible&& tys::nothrow_move_assignable) =
         default;
 
-    /// Assignment 3
+    /// Assignment 3 -- converting assignment
     // TODO FIXME IMPLEMENT https://en.cppreference.com/w/cpp/utility/variant/operator%3D
 
     /// These methods only participate in overload resolution if the template parameters are valid.
