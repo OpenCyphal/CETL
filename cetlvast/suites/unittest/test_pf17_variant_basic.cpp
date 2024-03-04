@@ -244,13 +244,14 @@ static_assert(match_ctor<std::int8_t, A, B>::index == 1, "");
 static_assert(match_ctor<std::int8_t, A, B>::ok, "");
 
 static_assert(match_ctor<std::int8_t, A, B, C>::index == 1, "");
-static_assert(match_ctor<std::int8_t, C, B>::index == 0, "");
+static_assert(match_ctor<std::int8_t, C, B>::index == 1, "");
 static_assert(match_ctor<std::int8_t, B, C>::index == 0, "");
-static_assert(!match_ctor<std::int8_t, A, B, C>::ok, "");  // not unique
+static_assert(match_ctor<std::int8_t, A, B, C>::ok, "");
+static_assert(!match_ctor<std::int8_t, A, B, C, B>::ok, "");  // not unique
 
 // Ensure narrowing conversions are not considered; see https://en.cppreference.com/w/cpp/utility/variant/operator%3D
-static_assert(match_ctor<std::int32_t, A, B, C>::index == 1, "");
-static_assert(match_ctor<std::int32_t, C, B>::index == 0, "");
+static_assert(match_ctor<std::int32_t, A, B, C>::index == std::numeric_limits<std::size_t>::max(), "");
+static_assert(match_ctor<std::int32_t, C, B>::index == std::numeric_limits<std::size_t>::max(), "");
 static_assert(!match_ctor<std::int32_t, A, B, C>::ok, "");
 static_assert(match_ctor<float, std::int32_t, float, double, bool>::index == 1, "");
 static_assert(match_ctor<double, std::int32_t, float, double, bool>::index == 2, "");
@@ -282,13 +283,16 @@ static_assert(match_assignment<std::int8_t, A, B>::index == 1, "");
 static_assert(match_assignment<std::int8_t, A, B>::ok, "");
 
 static_assert(match_assignment<std::int8_t, A, B, C>::index == 1, "");
-static_assert(match_assignment<std::int8_t, C, B>::index == 0, "");
+static_assert(match_assignment<std::int8_t, C, B>::index == 1, "");
 static_assert(match_assignment<std::int8_t, B, C>::index == 0, "");
-static_assert(!match_assignment<std::int8_t, A, B, C>::ok, "");  // not unique
+static_assert(match_assignment<std::int8_t, A, B, C>::ok, "");
+static_assert(!match_assignment<std::int8_t, A, B, C, B>::ok, "");  // not unique
 
 // Ensure narrowing conversions are not considered; see https://en.cppreference.com/w/cpp/utility/variant/operator%3D
-static_assert(match_assignment<std::int32_t, A, B, C>::index == 1, "");
-static_assert(match_assignment<std::int32_t, C, B>::index == 0, "");
+static_assert(match_assignment<std::int32_t, A, B, C>::index == std::numeric_limits<std::size_t>::max(), "");
+static_assert(match_assignment<std::int8_t, A, B, C>::index == 1, "");
+static_assert(match_assignment<std::int32_t, C, B>::index == std::numeric_limits<std::size_t>::max(), "");
+static_assert(match_assignment<double, C, B>::index == 0, "");
 static_assert(!match_assignment<std::int32_t, A, B, C>::ok, "");
 static_assert(match_assignment<float, std::int32_t, float, double, bool>::index == 1, "");
 static_assert(match_assignment<double, std::int32_t, float, double, bool>::index == 2, "");
