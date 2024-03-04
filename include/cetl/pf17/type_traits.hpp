@@ -61,6 +61,8 @@ struct is_nothrow_swappable : detail::adl_swap_detail::is_nothrow_swappable<T>
 template <typename T>
 constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T>::value;
 
+// --------------------------------------------------------------------------------------------
+
 /// Implementation of \ref std::conjunction.
 template <typename...>
 struct conjunction : std::true_type
@@ -75,6 +77,8 @@ struct conjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), co
 /// Implementation of \ref std::conjunction_v.
 template <typename... Ts>
 constexpr bool conjunction_v = conjunction<Ts...>::value;
+
+// --------------------------------------------------------------------------------------------
 
 /// Implementation of \ref std::disjunction.
 template <typename...>
@@ -91,6 +95,8 @@ struct disjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), A,
 template <typename... Ts>
 constexpr bool disjunction_v = disjunction<Ts...>::value;
 
+// --------------------------------------------------------------------------------------------
+
 /// Implementation of \ref std::negation.
 template <typename T>
 struct negation : std::integral_constant<bool, !static_cast<bool>(T::value)>
@@ -99,6 +105,12 @@ struct negation : std::integral_constant<bool, !static_cast<bool>(T::value)>
 /// Implementation of \ref std::negation_v.
 template <typename T>
 constexpr bool negation_v = negation<T>::value;
+
+// --------------------------------------------------------------------------------------------
+
+/// Implementation of \ref std::void_t.
+template <typename...>
+using void_t = void;
 
 }  // namespace pf17
 }  // namespace cetl
