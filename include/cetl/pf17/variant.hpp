@@ -622,7 +622,9 @@ struct is_viable_alternative_conversion<
     To,
     // The number of braces is of an essential importance here: {{ }} creates a temporary before invoking the
     // move ctor, while {{{ }}} constructs the object in place. Incorrect usage of the braces will cause
-    // incorrect detection of the applicable conversion.
+    // incorrect detection of the applicable conversion, which is the case in the GNU libstdc++ implementation.
+    // Notice that there is a subtle difference between C++14 and the newer standards with the guaranteed copy
+    // elision: a double-brace conversion is invalid in C++14 for noncopyable types while in C++17+ it is valid.
     // An alternative way to test the conversion is to define a function that accepts an array rvalue:
     //  static void test_conversion(To (&&)[1]);
     // And check if it is invocable with the argument of type From.

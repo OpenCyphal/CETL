@@ -24,7 +24,7 @@ jobs:
         toolchain: [gcc, clang]
         include:
           - build_flavor: Coverage
-            exceptions: no-exceptions
+            exceptions: exceptions
             std: 14
             toolchain: gcc
         exclude:
