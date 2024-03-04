@@ -617,10 +617,10 @@ template <typename From, typename To, typename = void>
 struct is_viable_alternative_conversion : std::false_type
 {};
 template <typename From, typename To>
-struct is_viable_alternative_conversion<
-    From,
-    To,
-    std::void_t<decltype(std::array<To, 1>{{std::forward<From>(std::declval<From>())}})>> : std::true_type
+struct is_viable_alternative_conversion<From,
+                                        To,
+                                        void_t<decltype(std::array<To, 1>{{std::forward<From>(std::declval<From>())}})>>
+    : std::true_type
 {};
 static_assert(!is_viable_alternative_conversion<long, signed char>::value, "");
 static_assert(is_viable_alternative_conversion<signed char, long>::value, "");
