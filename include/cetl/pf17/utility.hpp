@@ -16,15 +16,18 @@ namespace cetl
 {
 namespace pf17
 {
-
 /// Polyfill for std::in_place_t.
 struct in_place_t
 {
     explicit in_place_t() = default;
 };
 
+// --------------------------------------------------------------------------------------------
+
 /// Polyfill for std::in_place.
 constexpr in_place_t in_place{};
+
+// --------------------------------------------------------------------------------------------
 
 /// Implementation of \ref std::in_place_type_t.
 template <typename T>
@@ -37,6 +40,8 @@ struct in_place_type_t
 template <typename T>
 constexpr in_place_type_t<T> in_place_type{};
 
+// --------------------------------------------------------------------------------------------
+
 /// Implementation of \ref std::in_place_index_t.
 template <std::size_t I>
 struct in_place_index_t
@@ -47,6 +52,38 @@ struct in_place_index_t
 /// Implementation of \ref std::in_place_index.
 template <std::size_t I>
 constexpr in_place_index_t<I> in_place_index{};
+
+// --------------------------------------------------------------------------------------------
+
+template <typename>
+struct is_in_place_type_impl : std::false_type
+{};
+template <typename T>
+struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
+{};
+/// A SFINAE helper for detecting \ref in_place_type_t.
+template <typename T>
+struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
+{};
+static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "");
+static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "");
+
+// --------------------------------------------------------------------------------------------
+
+template <typename>
+struct is_in_place_index_impl : std::false_type
+{};
+template <std::size_t I>
+struct is_in_place_index_impl<in_place_index_t<I>> : std::true_type
+{};
+/// A SFINAE helper for detecting \ref in_place_index_t.
+template <typename T>
+struct is_in_place_index : is_in_place_index_impl<std::decay_t<T>>
+{};
+static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "");
+static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "");
+
+// --------------------------------------------------------------------------------------------
 
 /// This is a helper for use with \ref visit that uses standard overload resolution to pick the best overload
 /// among a set of lambdas given by the user. Unfortunately, in C++14 we have to use it with a factory function;
