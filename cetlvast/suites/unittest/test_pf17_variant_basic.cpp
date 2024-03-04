@@ -169,7 +169,7 @@ struct throw_move_ctor
 {
     throw_move_ctor() = default;
     throw_move_ctor(const throw_move_ctor&) noexcept;
-    throw_move_ctor(throw_move_ctor&&);
+    throw_move_ctor(throw_move_ctor&&);  // NOLINT(*-noexcept-move-constructor)
     throw_move_ctor& operator=(const throw_move_ctor&) noexcept;
     throw_move_ctor& operator=(throw_move_ctor&&) noexcept;
 };
@@ -197,7 +197,7 @@ struct throw_move_assignment
     throw_move_assignment(const throw_move_assignment&) noexcept;
     throw_move_assignment(throw_move_assignment&&) noexcept;
     throw_move_assignment& operator=(const throw_move_assignment&) noexcept;
-    throw_move_assignment& operator=(throw_move_assignment&&);
+    throw_move_assignment& operator=(throw_move_assignment&&);  // NOLINT(*-noexcept-move-constructor)
 };
 static_assert(!std::is_nothrow_copy_constructible<variant<monostate, throw_move_assignment>>::value, "");  // nontrivial
 static_assert(std::is_nothrow_move_constructible<variant<monostate, throw_move_assignment>>::value, "");
@@ -308,6 +308,94 @@ TEST(test_variant, basic_operations)
                                                 [](monostate, char) { return 0; }),
                                 var,
                                 variant<double, char>{in_place_index<1>, 'a'}));
+}
+
+// --------------------------------------------------------------------------------------------
+
+TEST(test_variant, get)
+{
+    // NOLINTBEGIN(*-use-after-move)
+    using cetl::pf17::variant;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::get;
+    using cetl::pf17::get_if;
+    using cetl::pf17::holds_alternative;
+#if __cpp_exceptions
+    using cetl::pf17::bad_variant_access;
+#endif
+    struct anchored
+    {
+        anchored()                           = default;
+        anchored(const anchored&)            = delete;
+        anchored(anchored&&)                 = delete;
+        anchored& operator=(const anchored&) = delete;
+        anchored& operator=(anchored&&)      = delete;
+        ~anchored()                          = default;
+    };
+    struct T : anchored
+    {
+        explicit T(const std::int64_t val)
+            : value(val)
+        {
+        }
+        std::int64_t value = 0;
+    };
+    struct U : anchored
+    {
+        explicit U(const std::int16_t val)
+            : value(val)
+        {
+        }
+        std::int16_t value = 0;
+    };
+
+    using V = variant<T, U>;
+    V var(in_place_index<0>, 123456);
+
+    // holds_alternative
+    EXPECT_TRUE(holds_alternative<T>(var));
+    EXPECT_FALSE(holds_alternative<U>(var));
+
+    // get<I>
+    EXPECT_EQ(123456, get<0>(var).value);
+    EXPECT_EQ(123456, get<0>(static_cast<const V&>(var)).value);
+    EXPECT_EQ(123456, get<0>(std::move(var)).value);
+    EXPECT_EQ(123456, get<0>(std::move(static_cast<const V&>(var))).value);
+#if __cpp_exceptions
+    EXPECT_THROW(([](U&) {})(get<1>(var)), bad_variant_access);
+    EXPECT_THROW(([](const U&) {})(get<1>(static_cast<const V&>(var))), bad_variant_access);
+    EXPECT_THROW(([](U&&) {})(get<1>(std::move(var))), bad_variant_access);
+    EXPECT_THROW(([](const U&&) {})(get<1>(std::move(static_cast<const V&>(var)))), bad_variant_access);
+#endif
+
+    // get<T>
+    EXPECT_EQ(123456, get<T>(var).value);
+    EXPECT_EQ(123456, get<T>(static_cast<const V&>(var)).value);
+    EXPECT_EQ(123456, get<T>(std::move(var)).value);
+    EXPECT_EQ(123456, get<T>(std::move(static_cast<const V&>(var))).value);
+#if __cpp_exceptions
+    EXPECT_THROW(([](U&) {})(get<U>(var)), bad_variant_access);
+    EXPECT_THROW(([](const U&) {})(get<U>(static_cast<const V&>(var))), bad_variant_access);
+    EXPECT_THROW(([](U&&) {})(get<U>(std::move(var))), bad_variant_access);
+    EXPECT_THROW(([](const U&&) {})(get<U>(std::move(static_cast<const V&>(var)))), bad_variant_access);
+#endif
+
+    // get_if<I>
+    EXPECT_EQ(&get<0>(var), get_if<0>(&var));
+    EXPECT_EQ(&get<0>(var), get_if<0>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<1>(&var));
+    EXPECT_EQ(nullptr, get_if<1>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<0>(static_cast<V*>(nullptr)));
+    EXPECT_EQ(nullptr, get_if<0>(static_cast<const V*>(nullptr)));
+
+    // get_if<T>
+    EXPECT_EQ(&get<T>(var), get_if<T>(&var));
+    EXPECT_EQ(&get<T>(var), get_if<T>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<U>(&var));
+    EXPECT_EQ(nullptr, get_if<U>(static_cast<const V*>(&var)));
+    EXPECT_EQ(nullptr, get_if<T>(static_cast<V*>(nullptr)));
+    EXPECT_EQ(nullptr, get_if<T>(static_cast<const V*>(nullptr)));
+    // NOLINTEND(*-use-after-move)
 }
 
 // --------------------------------------------------------------------------------------------
