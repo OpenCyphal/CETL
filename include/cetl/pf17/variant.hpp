@@ -883,7 +883,9 @@ public:
     {
         if (Ix == this->m_index)
         {
-            this->template as<Ix>() = std::forward<U>(from);
+            // We need the temporary to work around a GCC bug where it complains about unused result of as().
+            auto& dst = this->template as<Ix>();
+            dst       = std::forward<U>(from);
         }
         else
         {
