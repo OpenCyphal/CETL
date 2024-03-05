@@ -55,36 +55,6 @@ constexpr in_place_index_t<I> in_place_index{};
 
 // --------------------------------------------------------------------------------------------
 
-template <typename>
-struct is_in_place_type_impl : std::false_type
-{};
-template <typename T>
-struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
-{};
-/// A SFINAE helper for detecting \ref in_place_type_t.
-template <typename T>
-struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
-{};
-static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "");
-static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "");
-
-// --------------------------------------------------------------------------------------------
-
-template <typename>
-struct is_in_place_index_impl : std::false_type
-{};
-template <std::size_t I>
-struct is_in_place_index_impl<in_place_index_t<I>> : std::true_type
-{};
-/// A SFINAE helper for detecting \ref in_place_index_t.
-template <typename T>
-struct is_in_place_index : is_in_place_index_impl<std::decay_t<T>>
-{};
-static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "");
-static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "");
-
-// --------------------------------------------------------------------------------------------
-
 /// This is a helper for use with \ref visit that uses standard overload resolution to pick the best overload
 /// among a set of lambdas given by the user. Unfortunately, in C++14 we have to use it with a factory function;
 /// please see \ref make_overloaded for details. In C++17 this can be used without the factory in a much simpler way.
@@ -130,6 +100,41 @@ overloaded<Ts...> make_overloaded(Ts&&... ts)
 {
     return overloaded<Ts...>(std::forward<Ts>(ts)...);
 }
+
+// --------------------------------------------------------------------------------------------
+
+// Non-standard extensions for internal use.
+// We keep the definitions here to make it clear they are designed to detect the above-defined types, not std:: ones.
+namespace detail
+{
+template <typename>
+struct is_in_place_type_impl : std::false_type
+{};
+template <typename T>
+struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
+{};
+/// A SFINAE helper for detecting \ref in_place_type_t.
+template <typename T>
+struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
+{};
+static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "");
+static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "");
+
+// --------------------------------------------------------------------------------------------
+
+template <typename>
+struct is_in_place_index_impl : std::false_type
+{};
+template <std::size_t I>
+struct is_in_place_index_impl<in_place_index_t<I>> : std::true_type
+{};
+/// A SFINAE helper for detecting \ref in_place_index_t.
+template <typename T>
+struct is_in_place_index : is_in_place_index_impl<std::decay_t<T>>
+{};
+static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "");
+static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "");
+}  // namespace detail
 
 }  // namespace pf17
 }  // namespace cetl

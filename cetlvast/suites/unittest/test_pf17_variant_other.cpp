@@ -216,22 +216,6 @@ static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_ass
 
 // --------------------------------------------------------------------------------------------
 
-namespace test_find
-{
-using cetl::pf17::detail::var::find_v;
-using cetl::pf17::detail::var::count_v;
-
-static_assert(find_v<std::is_integral, int, char, double, std::int64_t, std::int16_t, std::int8_t> == 0, "");
-static_assert(find_v<std::is_integral, double, float, std::int64_t, std::int16_t, std::int8_t> == 2, "");
-static_assert(find_v<std::is_integral, double, float> == std::numeric_limits<std::size_t>::max(), "");
-
-static_assert(count_v<std::is_integral, int, char, double, std::int64_t, std::int16_t, std::int8_t> == 5, "");
-static_assert(count_v<std::is_integral, double, float, std::int64_t, std::int16_t, std::int8_t> == 3, "");
-static_assert(count_v<std::is_integral, double, float> == 0, "");
-}  // namespace test_find
-
-// --------------------------------------------------------------------------------------------
-
 namespace test_match_ctor
 {
 using cetl::pf17::detail::var::match_ctor;

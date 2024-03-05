@@ -12,6 +12,7 @@
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/type_traits.hpp>
 #include <cetl/pf17/attribute.hpp>
+#include <cetl/type_traits_ext.hpp>
 
 #include <tuple>
 #include <array>
@@ -100,47 +101,28 @@ decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_
 
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename, typename...>
-struct count_occurrences_impl;
-template <typename T, typename A>
-struct count_occurrences_impl<T, A> : std::integral_constant<std::size_t, std::is_same<T, A>::value ? 1 : 0>
-{};
-template <typename T, typename A, typename B, typename... C>
-struct count_occurrences_impl<T, A, B, C...>
-    : std::integral_constant<std::size_t,
-                             count_occurrences_impl<T, A>::value + count_occurrences_impl<T, B, C...>::value>
-{};
 /// Counts the occurrences of T in Ts.
 template <typename T, typename... Ts>
-constexpr std::size_t count_occurrences = count_occurrences_impl<T, Ts...>::value;
-static_assert(0 == count_occurrences<int, char>, "");
-static_assert(1 == count_occurrences<int, int, char>, "");
-static_assert(2 == count_occurrences<int, char, int, double, int>, "");
-
-// --------------------------------------------------------------------------------------------------------------------
-
-template <typename T, typename... Ts>
-struct first_index_of_impl;
-template <typename T, typename... Ts>
-struct first_index_of_impl<T, T, Ts...> : std::integral_constant<std::size_t, 0>
-{};
-template <typename T, typename U, typename... Ts>
-struct first_index_of_impl<T, U, Ts...> : std::integral_constant<std::size_t, 1 + first_index_of_impl<T, Ts...>::value>
-{};
+constexpr std::size_t count_occurrences_v =
+    type_traits_ext::count_v<type_traits_ext::partial<std::is_same, T>::template type, Ts...>;
+static_assert(0 == count_occurrences_v<int, char>, "");
+static_assert(1 == count_occurrences_v<int, int, char>, "");
+static_assert(2 == count_occurrences_v<int, char, int, double, int>, "");
 
 /// Find the index of the first occurrence of T in Ts. Fails compilation if T is not found in Ts.
 template <typename T, typename... Ts>
-constexpr std::size_t first_index_of = first_index_of_impl<T, Ts...>::value;
+constexpr std::size_t first_index_of_v =
+    type_traits_ext::find_v<type_traits_ext::partial<std::is_same, T>::template type, Ts...>;
+static_assert(2 == first_index_of_v<char, int, double, char, char>, "");
 
 /// Find the index of T in Ts. Fails compilation if T is not found in Ts or if T is found more than once.
 template <typename T, typename... Ts>
-constexpr std::enable_if_t<count_occurrences<T, Ts...> == 1, std::size_t> unique_index_of = first_index_of<T, Ts...>;
-
-static_assert(0 == unique_index_of<int, int>, "");
-static_assert(0 == unique_index_of<int, int, double, char>, "");
-static_assert(1 == unique_index_of<double, int, double, char>, "");
-static_assert(2 == unique_index_of<char, int, double, char>, "");
-static_assert(2 == first_index_of<char, int, double, char, char>, "");
+constexpr std::enable_if_t<1 == count_occurrences_v<T, Ts...>, std::size_t> unique_index_of_v =
+    first_index_of_v<T, Ts...>;
+static_assert(0 == unique_index_of_v<int, int>, "");
+static_assert(0 == unique_index_of_v<int, int, double, char>, "");
+static_assert(1 == unique_index_of_v<double, int, double, char>, "");
+static_assert(2 == unique_index_of_v<char, int, double, char>, "");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -582,32 +564,6 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 
 // --------------------------------------------------------------------------------------------------------------------
 
-template <template <typename> class, std::size_t, typename...>
-struct find_impl;
-template <template <typename> class Predicate, std::size_t Ix>
-struct find_impl<Predicate, Ix>
-{
-    static constexpr std::size_t first_match_index = std::numeric_limits<std::size_t>::max();
-    static constexpr std::size_t match_count       = 0;
-};
-template <template <typename> class Predicate, std::size_t Ix, typename Head, typename... Tail>
-struct find_impl<Predicate, Ix, Head, Tail...> : find_impl<Predicate, Ix + 1, Tail...>
-{
-    using base                                     = find_impl<Predicate, Ix + 1, Tail...>;
-    static constexpr std::size_t first_match_index = (Predicate<Head>::value ? Ix : base::first_match_index);
-    static constexpr std::size_t match_count       = (Predicate<Head>::value ? 1 : 0) + base::match_count;
-};
-
-/// Index of the first type in the typelist for which the predicate is true.
-template <template <typename> class Predicate, typename... Ts>
-static constexpr std::size_t find_v = find_impl<Predicate, 0, Ts...>::first_match_index;
-
-/// Number of types in the typelist for which the predicate is true.
-template <template <typename> class Predicate, typename... Ts>
-static constexpr std::size_t count_v = find_impl<Predicate, 0, Ts...>::match_count;
-
-// --------------------------------------------------------------------------------------------------------------------
-
 /// The spec says:
 ///     An overload F(T_i) is only considered if the declaration T_i x[] = { std::forward<T>(t) };
 ///     is valid for some invented variable x;
@@ -642,8 +598,8 @@ struct match_ctor
     template <typename T>
     struct predicate : conjunction<std::is_constructible<T, U>, is_viable_alternative_conversion<U, T>>
     {};
-    static constexpr std::size_t index = find_v<predicate, Ts...>;
-    static constexpr bool        ok    = count_v<predicate, Ts...> == 1;
+    static constexpr std::size_t index = type_traits_ext::find_v<predicate, Ts...>;
+    static constexpr bool        ok    = type_traits_ext::count_v<predicate, Ts...> == 1;
 };
 static_assert(match_ctor<float, long, float, double, bool>::index == 1, "");
 static_assert(match_ctor<double, long, float, double, bool>::index == 2, "");
@@ -658,8 +614,8 @@ struct match_assignment
                                    std::is_constructible<T, U>,
                                    is_viable_alternative_conversion<U, T>>
     {};
-    static constexpr std::size_t index = find_v<predicate, Ts...>;
-    static constexpr bool        ok    = count_v<predicate, Ts...> == 1;
+    static constexpr std::size_t index = type_traits_ext::find_v<predicate, Ts...>;
+    static constexpr bool        ok    = type_traits_ext::count_v<predicate, Ts...> == 1;
 };
 static_assert(match_assignment<float, long, float, double, bool>::index == 1, "");
 static_assert(match_assignment<double, long, float, double, bool>::index == 2, "");
@@ -762,9 +718,9 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
     template <std::size_t N>
     using nth_type = detail::var::nth_type<N, Ts...>;
     template <typename T>
-    static constexpr std::size_t index_of = detail::var::unique_index_of<T, Ts...>;
+    static constexpr std::size_t index_of = detail::var::unique_index_of_v<T, Ts...>;
     template <typename T>
-    static constexpr bool is_unique = (detail::var::count_occurrences<T, Ts...> == 1);
+    static constexpr bool is_unique = (detail::var::count_occurrences_v<T, Ts...> == 1);
 
     // get_if<>() friends
     template <std::size_t Ix, typename... Us>
@@ -808,9 +764,9 @@ public:
               std::size_t Ix                                               = detail::var::match_ctor<U, Ts...>::index,
               typename Alt                                                 = nth_type<Ix>,
               std::enable_if_t<std::is_constructible<Alt, U>::value, int>  = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int> = 0,
-              std::enable_if_t<!is_in_place_type<std::decay_t<U>>::value, int>      = 0,
-              std::enable_if_t<!is_in_place_index<std::decay_t<U>>::value, int>     = 0>
+              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
+              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
+              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
     constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<Alt, U>::value)
     {
@@ -876,8 +832,8 @@ public:
               typename Alt   = nth_type<Ix>,
               std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
-              std::enable_if_t<!is_in_place_type<std::decay_t<U>>::value, int>                                  = 0,
-              std::enable_if_t<!is_in_place_index<std::decay_t<U>>::value, int>                                 = 0>
+              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,
+              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int>                         = 0>
     constexpr variant& operator=(U&& from) noexcept(
         std::is_nothrow_constructible<Alt, U>::value&& std::is_nothrow_assignable<Alt&, U>::value)
     {
@@ -1006,7 +962,7 @@ private:
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr bool holds_alternative(const variant<Ts...>& var) noexcept
 {
-    return detail::var::unique_index_of<T, Ts...> == var.index();
+    return detail::var::unique_index_of_v<T, Ts...> == var.index();
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -1028,12 +984,12 @@ CETL_NODISCARD constexpr std::add_pointer_t<const variant_alternative_t<Ix, vari
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr std::add_pointer_t<T> get_if(variant<Ts...>* const var) noexcept
 {
-    return get_if<detail::var::unique_index_of<T, Ts...>>(var);
+    return get_if<detail::var::unique_index_of_v<T, Ts...>>(var);
 }
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr std::add_pointer_t<const T> get_if(const variant<Ts...>* const var) noexcept
 {
-    return get_if<detail::var::unique_index_of<T, Ts...>>(var);
+    return get_if<detail::var::unique_index_of_v<T, Ts...>>(var);
 }
 /// @}
 
@@ -1068,22 +1024,22 @@ CETL_NODISCARD constexpr const variant_alternative_t<Ix, variant<Ts...>>&& get(c
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr T& get(variant<Ts...>& var)
 {
-    return get<detail::var::unique_index_of<T, Ts...>>(var);
+    return get<detail::var::unique_index_of_v<T, Ts...>>(var);
 }
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr T&& get(variant<Ts...>&& var)
 {
-    return get<detail::var::unique_index_of<T, Ts...>>(std::move(var));
+    return get<detail::var::unique_index_of_v<T, Ts...>>(std::move(var));
 }
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr const T& get(const variant<Ts...>& var)
 {
-    return get<detail::var::unique_index_of<T, Ts...>>(var);
+    return get<detail::var::unique_index_of_v<T, Ts...>>(var);
 }
 template <typename T, typename... Ts>
 CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var)
 {
-    return get<detail::var::unique_index_of<T, Ts...>>(std::move(var));
+    return get<detail::var::unique_index_of_v<T, Ts...>>(std::move(var));
 }
 /// @}
 
