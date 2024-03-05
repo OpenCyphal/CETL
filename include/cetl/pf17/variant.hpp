@@ -69,17 +69,26 @@ template <std::size_t... Is>
 struct chronomorphize_impl<std::index_sequence<Is...>>
 {
     template <typename F, typename... Args>
-    static decltype(auto) lookup(F&& fun, const std::size_t index, Args&&... ar)
+#if __cplusplus >= 201703L
+    constexpr
+#endif
+        static decltype(auto)
+        lookup(F&& fun, const std::size_t index, Args&&... ar)
     {
         using R = std::common_type_t<decltype(std::forward<F>(fun)(std::integral_constant<std::size_t, Is>{},
                                                                    std::forward<Args>(ar)...))...>;
-        // The lookup table can be made constexpr starting with C++17. Perhaps we should use some kind of conditional
-        // macro here like CETL_CONSTEXPR_17 that expands into constexpr if C++17 is available.
-        static const std::array<R (*)(F&&, Args && ...), sizeof...(Is)> lut = {
-            [](F&& fn, Args&&... ar) -> R {
-                return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{}, std::forward<Args>(ar)...);
-            }...,
-        };
+#if __cplusplus >= 201703L
+        constexpr
+#else
+        static const  // 'static' cannot occur in a constexpr context until C++23.
+#endif
+            std::array<R (*)(F&&, Args && ...), sizeof...(Is)>
+                lut = {
+                    [](F&& fn, Args&&... ar) -> R {
+                        return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{},
+                                                   std::forward<Args>(ar)...);
+                    }...,
+                };
         return lut.at(index)(std::forward<F>(fun), std::forward<Args>(ar)...);
     }
 };
@@ -92,7 +101,7 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
 /// If `index>=N`, behaves like `std::array<...,N>::at(index)`.
 /// The time complexity is constant.
 template <std::size_t N, typename F, typename... Args>
-decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_args)
+constexpr decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_args)
 {
     return chronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<F>(fun),
                                                                     index,
@@ -216,7 +225,7 @@ struct storage  // NOLINT(*-pro-type-member-init)
 {
     /// If the constructor throws, the instance will be left valueless.
     template <std::size_t N, typename T = nth_type<N, Ts...>, typename... Args>
-    auto& construct(Args&&... args)
+    constexpr auto& construct(Args&&... args)
     {
         destroy();
         auto* const p = new (this->m_data) T(std::forward<Args>(args)...);  // If constructor throws, stay valueless.
@@ -239,7 +248,7 @@ struct storage  // NOLINT(*-pro-type-member-init)
     }
     /// Invoke \c fun(integral_constant<size_t, index>); throws bad_variant_access if valueless.
     template <typename F>
-    decltype(auto) chronomorphize(F&& fun) const
+    constexpr decltype(auto) chronomorphize(F&& fun) const
     {
         bad_access_unless(m_index != variant_npos);
         return detail::var::chronomorphize<sizeof...(Ts)>(
@@ -251,33 +260,33 @@ struct storage  // NOLINT(*-pro-type-member-init)
             },
             m_index);
     }
-    CETL_NODISCARD bool is_valueless() const noexcept
+    CETL_NODISCARD constexpr bool is_valueless() const noexcept
     {
         return m_index == variant_npos;
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD T& as() & noexcept
+    CETL_NODISCARD constexpr T& as() & noexcept
     {
         static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
         assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return *reinterpret_cast<T*>(m_data);
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD const T& as() const& noexcept
+    CETL_NODISCARD constexpr const T& as() const& noexcept
     {
         static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
         assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return *reinterpret_cast<const T*>(m_data);
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD T&& as() && noexcept
+    CETL_NODISCARD constexpr T&& as() && noexcept
     {
         static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
         assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
         return std::move(*reinterpret_cast<T*>(m_data));
     }
     template <std::size_t N, typename T = nth_type<N, Ts...>>
-    CETL_NODISCARD const T&& as() const&& noexcept
+    CETL_NODISCARD constexpr const T&& as() const&& noexcept
     {
         static_assert(N < sizeof...(Ts), "Variant alternative index is out of range");
         assert(N == m_index);  // Internal contract check; the caller is responsible for the correctness of N.
@@ -328,7 +337,7 @@ template <typename... Ts>
 struct base_copy_construction<types<Ts...>, smf_nontrivial> : base_destruction<types<Ts...>>
 {
     base_copy_construction() = default;
-    base_copy_construction(const base_copy_construction& other)
+    constexpr base_copy_construction(const base_copy_construction& other)
     {
         if (!other.is_valueless())
         {
@@ -368,7 +377,7 @@ struct base_move_construction<types<Ts...>, smf_nontrivial> : base_copy_construc
 {
     base_move_construction()                              = default;
     base_move_construction(const base_move_construction&) = default;
-    base_move_construction(base_move_construction&& other) noexcept(types<Ts...>::nothrow_move_constructible)
+    constexpr base_move_construction(base_move_construction&& other) noexcept(types<Ts...>::nothrow_move_constructible)
     {
         if (!other.is_valueless())
         {
@@ -437,7 +446,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
     base_copy_assignment()                            = default;
     base_copy_assignment(const base_copy_assignment&) = default;
     base_copy_assignment(base_copy_assignment&&)      = default;
-    base_copy_assignment& operator=(const base_copy_assignment& other)
+    constexpr base_copy_assignment& operator=(const base_copy_assignment& other)
     {
         if ((!this->is_valueless()) && (this->m_index == other.m_index))  // Invoke copy assignment.
         {
@@ -474,13 +483,13 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
                                                       (!std::is_nothrow_move_constructible<U>::value);
 
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
-    std::enable_if_t<direct_copy_constructible<U>> construct_copy(const U& alt)  //
+    constexpr std::enable_if_t<direct_copy_constructible<U>> construct_copy(const U& alt)  //
         noexcept(std::is_nothrow_copy_constructible<U>::value)
     {
         this->template construct<Ix>(alt);
     }
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
-    std::enable_if_t<!direct_copy_constructible<U>> construct_copy(const U& alt)
+    constexpr std::enable_if_t<!direct_copy_constructible<U>> construct_copy(const U& alt)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
         static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
         this->template construct<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
@@ -512,12 +521,12 @@ struct base_move_assignment<types<Ts...>, smf_trivial> : base_copy_assignment<ty
 template <typename... Ts>
 struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment<types<Ts...>>
 {
-    using tys                                                    = types<Ts...>;
-    base_move_assignment()                                       = default;
-    base_move_assignment(const base_move_assignment&)            = default;
-    base_move_assignment(base_move_assignment&&)                 = default;
-    base_move_assignment& operator=(const base_move_assignment&) = default;
-    base_move_assignment& operator=(base_move_assignment&& other) noexcept(
+    using tys                                                              = types<Ts...>;
+    base_move_assignment()                                                 = default;
+    base_move_assignment(const base_move_assignment&)                      = default;
+    base_move_assignment(base_move_assignment&&)                           = default;
+    base_move_assignment&           operator=(const base_move_assignment&) = default;
+    constexpr base_move_assignment& operator=(base_move_assignment&& other) noexcept(
         tys::nothrow_move_constructible&& tys::nothrow_move_assignable)
     {
         if ((!this->is_valueless()) && (this->m_index == other.m_index))  // Invoke move assignment.
@@ -625,12 +634,12 @@ static_assert(match_assignment<double, long, float, double, bool>::ok, "");
 // --------------------------------------------------------------------------------------------------------------------
 
 template <typename F>
-decltype(auto) visit(F&& fun)  // For some reason the standard requires this silly overload.
+constexpr decltype(auto) visit(F&& fun)  // For some reason the standard requires this silly overload.
 {
     return std::forward<F>(fun)();
 }
 template <typename F, typename V>
-decltype(auto) visit(F&& fun, V&& var)
+constexpr decltype(auto) visit(F&& fun, V&& var)
 {
     // https://twitter.com/PavelKirienko/status/1761525562370040002
     return std::forward<V>(var).chronomorphize([&fun, &var](const auto index) {
@@ -638,7 +647,7 @@ decltype(auto) visit(F&& fun, V&& var)
     });
 }
 template <typename F, typename V0, typename... Vs, std::enable_if_t<(sizeof...(Vs) > 0), int> = 0>
-decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
+constexpr decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
 {
     // Instead of generating a multidimensional vtable as it is commonly done, we use recursive visiting;
     // this allows us to achieve a similar result with much less code at the expense of one extra call indirection
@@ -707,8 +716,6 @@ constexpr size_t variant_size_v = variant_size<V>::value;
 ///
 /// In this implementation, the address of the variant object is equivalent to the address of the active alternative;
 /// this can sometimes be useful for low-level debugging.
-///
-/// In order to support C++14, some member functions that are constexpr in \ref std::variant are not constexpr here.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
@@ -742,7 +749,7 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 
     // visit() friends
     template <typename F, typename V>
-    friend decltype(auto) detail::var::visit(F&& fun, V&& var);
+    friend constexpr decltype(auto) detail::var::visit(F&& fun, V&& var);
 
 public:
     /// Constructor 1 -- default constructor
@@ -858,7 +865,7 @@ public:
               typename... Args,
               std::size_t Ix                                                  = index_of<T>,
               std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
-    T& emplace(Args&&... ar)
+    constexpr T& emplace(Args&&... ar)
     {
         return this->template construct<Ix>(std::forward<Args>(ar)...);
     }
@@ -867,7 +874,7 @@ public:
               typename... Args,
               std::size_t Ix                                                  = index_of<T>,
               std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
-    T& emplace(const std::initializer_list<U> il, Args&&... ar)
+    constexpr T& emplace(const std::initializer_list<U> il, Args&&... ar)
     {
         return this->template construct<Ix>(il, std::forward<Args>(ar)...);
     }
@@ -876,7 +883,7 @@ public:
               std::enable_if_t<(Ix < sizeof...(Ts)), int>                     = 0,
               typename T                                                      = variant_alternative_t<Ix, variant>,
               std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
-    T& emplace(Args&&... ar)
+    constexpr T& emplace(Args&&... ar)
     {
         return this->template construct<Ix>(std::forward<Args>(ar)...);
     }
@@ -886,7 +893,7 @@ public:
               std::enable_if_t<(Ix < sizeof...(Ts)), int>                     = 0,
               typename T                                                      = variant_alternative_t<Ix, variant>,
               std::enable_if_t<std::is_constructible<T, Args...>::value, int> = 0>
-    T& emplace(const std::initializer_list<U> il, Args&&... ar)
+    constexpr T& emplace(const std::initializer_list<U> il, Args&&... ar)
     {
         return this->template construct<Ix>(il, std::forward<Args>(ar)...);
     }
@@ -897,7 +904,7 @@ public:
     /// the swap function called.
     /// In the second case, if the move constructor or the move assignment operator throw,
     /// either or both variants may become valueless.
-    void swap(variant& other) noexcept(tys::nothrow_move_constructible&& tys::nothrow_swappable)
+    constexpr void swap(variant& other) noexcept(tys::nothrow_move_constructible&& tys::nothrow_swappable)
     {
         if ((!this->is_valueless()) || (!other.is_valueless()))
         {
@@ -943,13 +950,13 @@ private:
                                                      (!std::is_nothrow_move_constructible<To>::value);
 
     template <std::size_t Ix, typename U, typename Alt = nth_type<Ix>>
-    std::enable_if_t<allows_direct_conversion<U, Alt>> convert_from(U&& from) noexcept(
+    constexpr std::enable_if_t<allows_direct_conversion<U, Alt>> convert_from(U&& from) noexcept(
         std::is_nothrow_constructible<Alt, U>::value)
     {
         this->template construct<Ix>(std::forward<U>(from));
     }
     template <std::size_t Ix, typename U, typename Alt = nth_type<Ix>>
-    std::enable_if_t<!allows_direct_conversion<U, Alt>> convert_from(U&& from)
+    constexpr std::enable_if_t<!allows_direct_conversion<U, Alt>> convert_from(U&& from)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
         static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
         this->template construct<Ix>(Alt(std::forward<U>(from)));
@@ -1047,7 +1054,7 @@ CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var)
 
 /// Implementation of \ref std::visit.
 template <typename F, typename... Vs>
-decltype(auto) visit(F&& fun, Vs&&... vars)
+constexpr decltype(auto) visit(F&& fun, Vs&&... vars)
 {
     return detail::var::visit(std::forward<F>(fun), std::forward<Vs>(vars)...);
 }

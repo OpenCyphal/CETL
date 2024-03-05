@@ -68,7 +68,7 @@ struct overloaded<T> : public T
     using T::operator();
     // SFINAE is needed to ensure this constructor does not hide the copy/move constructors.
     template <typename A, std::enable_if_t<!std::is_same<overloaded<T>, std::decay_t<A>>::value, int> = 0>
-    explicit overloaded(A&& arg)
+    constexpr explicit overloaded(A&& arg)
         : T(std::forward<A>(arg))
     {
     }
@@ -80,7 +80,7 @@ struct overloaded<T, Ts...> : public T, public overloaded<Ts...>
     using overloaded<Ts...>::operator();
     // If B were empty, the ctor would need sfinae to avoid hiding the copy/move ctors; ensure this is not so.
     template <typename A, typename... B, std::enable_if_t<(sizeof...(B) > 0), int> = 0>
-    explicit overloaded(A&& a, B&&... b)
+    constexpr explicit overloaded(A&& a, B&&... b)
         : T(std::forward<A>(a))
         , overloaded<B...>(std::forward<B>(b)...)
     {
@@ -96,7 +96,7 @@ struct overloaded<T, Ts...> : public T, public overloaded<Ts...>
 /// ), variant);
 /// @endcode
 template <typename... Ts>
-overloaded<Ts...> make_overloaded(Ts&&... ts)
+constexpr overloaded<Ts...> make_overloaded(Ts&&... ts)
 {
     return overloaded<Ts...>(std::forward<Ts>(ts)...);
 }
