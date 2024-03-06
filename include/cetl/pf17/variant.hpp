@@ -150,6 +150,8 @@ enum smf_availability
 template <typename... Ts>
 struct types final
 {
+    static constexpr std::size_t count = sizeof...(Ts);
+
     template <template <typename> class F>
     static constexpr bool all_satisfy = conjunction_v<F<Ts>...>;
 
@@ -339,14 +341,6 @@ struct base_storage<types<Ts...>, smf_trivial>
     {
         m_index = variant_npos;
     }
-    template <typename F>
-    constexpr decltype(auto) chronomorphize(F&& fun) const
-    {
-        bad_access_unless(m_index != variant_npos);  // https://twitter.com/PavelKirienko/status/1761525562370040002
-        return var::chronomorphize<sizeof...(Ts)>([&fun](const auto index)
-                                                      -> decltype(auto) { return std::forward<F>(fun)(index); },
-                                                  m_index);
-    }
     arena<0, types<Ts...>> m_arena;
     std::size_t            m_index = variant_npos;
 };
@@ -387,27 +381,35 @@ struct base_storage<types<Ts...>, smf_nontrivial>
         call_dtor_unless_valueless();
         m_index = variant_npos;
     }
-    template <typename F>
-    constexpr decltype(auto) chronomorphize(F&& fun) const
-    {
-        bad_access_unless(m_index != variant_npos);  // https://twitter.com/PavelKirienko/status/1761525562370040002
-        return var::chronomorphize<sizeof...(Ts)>([&fun](const auto index)
-                                                      -> decltype(auto) { return std::forward<F>(fun)(index); },
-                                                  m_index);
-    }
     void call_dtor_unless_valueless()
     {
         if (m_index != variant_npos)
         {
-            this->chronomorphize([this](const auto index) {
-                using T = nth_type<index.value, Ts...>;
-                alt<index.value>(m_arena).~T();
-            });
+            chronomorphize<sizeof...(Ts)>(
+                [this](const auto index) {
+                    assert(index.value == m_index);
+                    using T = nth_type<index.value, Ts...>;
+                    alt<index.value>(m_arena).~T();
+                },
+                m_index);
         }
     }
     arena<0, types<Ts...>> m_arena;
     std::size_t            m_index = variant_npos;
 };
+
+/// A safe helper for chronomorphizing the storage base.
+/// Throws bad_variant_access if the variant is valueless.
+template <typename F, typename Seq, int P>
+constexpr decltype(auto) chronomorphize(F&& fun, const base_storage<Seq, P>& self)
+{
+    bad_access_unless(self.m_index != variant_npos);  // https://twitter.com/PavelKirienko/status/1761525562370040002
+    return chronomorphize<Seq::count>(
+        [&fun](const auto index) -> decltype(auto) {
+            return std::forward<F>(fun)(index);  //
+        },
+        self.m_index);
+}
 
 /// Alternative accessors extracted from the base_storage policy for two reasons:
 ///     - Requires less typing to use because a freestanding function doesn't require the template keyword.
@@ -455,8 +457,11 @@ struct base_copy_construction<types<Ts...>, smf_nontrivial> : base_storage<types
     {
         if (other.m_index != variant_npos)
         {
-            other.chronomorphize(
-                [this, &other](const auto index) { this->template init<index.value>(alt<index.value>(other)); });
+            chronomorphize(
+                [this, &other](const auto index) {
+                    this->template init<index.value>(alt<index.value>(other));  //
+                },
+                other);
             this->m_index = other.m_index;
         }
     }
@@ -495,9 +500,11 @@ struct base_move_construction<types<Ts...>, smf_nontrivial> : base_copy_construc
     {
         if (other.m_index != variant_npos)
         {
-            other.chronomorphize([this, &other](const auto index) {
-                this->template init<index.value>(std::move(alt<index.value>(other)));  //
-            });
+            chronomorphize(
+                [this, &other](const auto index) {
+                    this->template init<index.value>(std::move(alt<index.value>(other)));  //
+                },
+                other);
             this->m_index = other.m_index;
         }
     }
@@ -568,19 +575,23 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
             assert(other.m_index != variant_npos);
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
-            other.chronomorphize([this, &other](const auto index) {
-                assert((index.value == other.m_index) && (index.value == this->m_index));
-                // We need these temporaries to work around a GCC bug where it complains about unused result of as().
-                auto&       dst = alt<index.value>(*this);
-                const auto& src = alt<index.value>(other);
-                dst             = src;
-            });
+            chronomorphize(
+                [this, &other](const auto index) {
+                    assert((index.value == other.m_index) && (index.value == this->m_index));
+                    // We need the temporaries to work around a GCC bug where it complains about unused result of as()
+                    auto&       dst = alt<index.value>(*this);
+                    const auto& src = alt<index.value>(other);
+                    dst             = src;
+                },
+                other);
         }
         else if (other.m_index != variant_npos)  // Invoke copy constructor.
         {
-            other.chronomorphize([this, &other](const auto index) {
-                this->template construct_copy<index.value>(alt<index.value>(other));
-            });
+            chronomorphize(
+                [this, &other](const auto index) {
+                    this->template construct_copy<index.value>(alt<index.value>(other));  //
+                },
+                other);
         }
         else
         {
@@ -650,20 +661,23 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             assert(other.m_index != variant_npos);
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's move assignment.
-            other.chronomorphize([this, &other](const auto index) {
-                assert((index.value == other.m_index) && (index.value == this->m_index));
-                // We need the temporary to work around a GCC bug where it complains about unused result of as().
-                auto& dst = alt<index.value>(*this);
-                dst       = std::move(alt<index.value>(other));
-            });
+            chronomorphize(
+                [this, &other](const auto index) {
+                    assert((index.value == other.m_index) && (index.value == this->m_index));
+                    // We need the temporary to work around a GCC bug where it complains about unused result of as().
+                    auto& dst = alt<index.value>(*this);
+                    dst       = std::move(alt<index.value>(other));
+                },
+                other);
         }
         else if (other.m_index != variant_npos)  // Invoke move constructor.
         {
             // Here, this may or may not be valueless; either way we don't care about its state as it
             // needs to be replaced. If an exception is thrown, *this becomes valueless inside construct().
-            other.chronomorphize([this, &other](const auto index) {
-                this->template set<index.value>(std::move(alt<index.value>(other)));
-            });
+            chronomorphize([this,
+                            &other](const auto
+                                        index) { this->template set<index.value>(std::move(alt<index.value>(other))); },
+                           other);
         }
         else
         {
@@ -756,8 +770,11 @@ template <typename F, typename V>
 constexpr decltype(auto) visit(F&& fun, V&& var)
 {
     // https://twitter.com/PavelKirienko/status/1761525562370040002
-    return std::forward<V>(var).chronomorphize(
-        [&fun, &var](const auto index) { return std::forward<F>(fun)(alt<index.value>(std::forward<V>(var))); });
+    return chronomorphize(
+        [&fun, &var](const auto index) {
+            return std::forward<F>(fun)(alt<index.value>(std::forward<V>(var)));  //
+        },
+        var);
 }
 template <typename F, typename V0, typename... Vs, std::enable_if_t<(sizeof...(Vs) > 0), int> = 0>
 constexpr decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
@@ -1031,10 +1048,12 @@ public:
             {
                 // If an exception is thrown, the state of the values depends on the exception safety
                 // of the swap function called.
-                this->chronomorphize([this, &other](const auto index) {
-                    using std::swap;  // Engage ADL
-                    swap(detail::var::alt<index.value>(*this), detail::var::alt<index.value>(other));
-                });
+                chronomorphize(
+                    [this, &other](const auto index) {
+                        using std::swap;  // Engage ADL
+                        swap(detail::var::alt<index.value>(*this), detail::var::alt<index.value>(other));
+                    },
+                    *this);
             }
             else
             {
