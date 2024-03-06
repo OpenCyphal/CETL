@@ -232,11 +232,11 @@ inline void bad_access_unless(const bool condition)
 template <std::size_t, typename Seq, int = Seq::avail_dtor>
 union arena;
 template <std::size_t Ix, int DtorAvail>
-union arena<Ix, types<>, DtorAvail>
+union arena<Ix, types<>, DtorAvail> final
 {
 };
 template <std::size_t Ix, typename Head, typename... Tail>
-union arena<Ix, types<Head, Tail...>, smf_trivial>
+union arena<Ix, types<Head, Tail...>, smf_trivial> final
 {
     using head_type = Head;
     constexpr arena() noexcept
@@ -258,7 +258,7 @@ union arena<Ix, types<Head, Tail...>, smf_trivial>
     head_type                     head;
 };
 template <std::size_t Ix, typename Head, typename... Tail>
-union arena<Ix, types<Head, Tail...>, smf_nontrivial>
+union arena<Ix, types<Head, Tail...>, smf_nontrivial> final
 {
     using head_type = Head;
     constexpr arena() noexcept
@@ -275,7 +275,7 @@ union arena<Ix, types<Head, Tail...>, smf_nontrivial>
         : tail(in_place_index<N>, std::forward<Args>(ar)...)
     {
     }
-    ~arena() noexcept {}
+    ~arena() noexcept {}  // default dtor deleted because at least one member is non-trivially destructible
     arena<Ix + 1, types<Tail...>> tail{};
     head_type                     head;
 };
@@ -292,7 +292,8 @@ auto& construct(arena<S, Seq, DtorAvail>& self, Args&&... ar)
     return construct<N>(self.tail, std::forward<Args>(ar)...);
 }
 
-/// Arena alternative accessors (all constexpr) are moved here to avoid duplication.
+/// Arena alternative accessors (all constexpr) are moved here to avoid duplication and support simpler invocation
+/// without the template keyword.
 // clang-format off
 template<std::size_t N,std::size_t S,typename L,int D,req<N==S> =0>constexpr       auto&  alt(      arena<S,L,D>& x)noexcept{return x.head; }
 template<std::size_t N,std::size_t S,typename L,int D,req<N!=S> =0>constexpr       auto&  alt(      arena<S,L,D>& x)noexcept{return alt<N>(x.tail); }
@@ -992,7 +993,7 @@ public:
         }
         else
         {
-            this->template convert_from<Ix>(std::forward<U>(from));
+            convert_from<Ix>(std::forward<U>(from));
         }
         return *this;
     }

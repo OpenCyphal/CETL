@@ -348,6 +348,52 @@ TEST(test_variant, monostate)
 
 // --------------------------------------------------------------------------------------------
 
+TEST(test_variant, arena)
+{
+    using cetl::pf17::detail::var::types;
+    using cetl::pf17::detail::var::arena;
+    using cetl::pf17::detail::var::alt;
+    using cetl::pf17::detail::var::construct;
+    struct anchored
+    {
+        explicit anchored(const std::int64_t val)
+            : value(val)
+        {
+        }
+        anchored(const anchored&)            = delete;
+        anchored(anchored&&)                 = delete;
+        anchored& operator=(const anchored&) = delete;
+        anchored& operator=(anchored&&)      = delete;
+        ~anchored()                          = default;
+        std::int64_t value                   = 0;
+    };
+    using my_arena = arena<0, types<int, const char*, anchored>>;
+    my_arena arn;
+    static_assert(std::is_same<decltype(alt<0>(arn)), int&>::value, "");
+    static_assert(std::is_same<decltype(alt<1>(arn)), const char*&>::value, "");
+    static_assert(std::is_same<decltype(alt<2>(arn)), anchored&>::value, "");
+    static_assert(std::is_same<decltype(alt<0>(static_cast<const my_arena&>(arn))), const int&>::value, "");
+    static_assert(std::is_same<decltype(alt<1>(static_cast<const my_arena&>(arn))), const char* const&>::value, "");
+    static_assert(std::is_same<decltype(alt<2>(static_cast<const my_arena&>(arn))), const anchored&>::value, "");
+    static_assert(std::is_same<decltype(alt<0>(std::move(arn))), int&&>::value, "");  // NOLINT(*-move-const-arg)
+    static_assert(std::is_same<decltype(alt<2>(std::move(arn))), anchored&&>::value, "");
+    static_assert(std::is_same<decltype(alt<0>(
+                                   std::move(static_cast<const my_arena&>(arn)))),  // NOLINT(*-move-const-arg)
+                               const int&&>::value,
+                  "");
+    static_assert(std::is_same<decltype(alt<2>(std::move(static_cast<const my_arena&>(arn)))), const anchored&&>::value,
+                  "");
+
+    EXPECT_EQ(123, construct<0>(arn, 123));
+    EXPECT_EQ(123, alt<0>(arn));
+    EXPECT_STREQ("abc", construct<1>(arn, "abc"));
+    EXPECT_STREQ("abc", alt<1>(arn));
+    EXPECT_EQ(9876543210, construct<2>(arn, 9876543210).value);
+    EXPECT_EQ(9876543210, alt<2>(arn).value);
+}
+
+// --------------------------------------------------------------------------------------------
+
 TYPED_TEST(test_smf_policy_combinations, smf_asserts)
 {
     using cetl::pf17::variant;
