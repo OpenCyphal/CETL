@@ -103,3 +103,12 @@ will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
 
 Note that if the job you requested is dependent on other jobs that are not triggered, it will not run; 
 for example, if `sonar` requires `docs`, pushing a commit with `#sonar` alone will not make it run.
+
+# IDE-specific notes
+
+## CLion
+
+Ensure that the memory limit for clangd is set to at least 12 GiB;
+a lower limit will cause the IDE to kill clangd frequently, causing the indexing context to be lost.
+To change the limit, open the Registry (Shift+Shift -> type `Registry`) and adjust
+`clion.clangd.max.memory`.
