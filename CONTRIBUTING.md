@@ -112,3 +112,4 @@ Ensure that the memory limit for clangd is set to at least 12 GiB;
 a lower limit will cause the IDE to kill clangd frequently, causing the indexing context to be lost.
 To change the limit, open the Registry (Shift+Shift -> type `Registry`) and adjust
 `clion.clangd.max.memory`.
+The IDE needs at least 20 GiB of memory overall to open the project correctly.
