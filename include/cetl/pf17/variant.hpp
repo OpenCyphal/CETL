@@ -452,8 +452,10 @@ struct base_copy_construction<types<Ts...>, smf_trivial> : base_storage<types<Ts
 template <typename... Ts>
 struct base_copy_construction<types<Ts...>, smf_nontrivial> : base_storage<types<Ts...>>
 {
-    using base_storage<types<Ts...>>::base_storage;
+    using base = base_storage<types<Ts...>>;
+    using base::base;
     base_copy_construction(const base_copy_construction& other)
+        : base()
     {
         if (other.m_index != variant_npos)
         {
@@ -494,9 +496,11 @@ struct base_move_construction<types<Ts...>, smf_trivial> : base_copy_constructio
 template <typename... Ts>
 struct base_move_construction<types<Ts...>, smf_nontrivial> : base_copy_construction<types<Ts...>>
 {
-    using base_copy_construction<types<Ts...>>::base_copy_construction;
+    using base = base_copy_construction<types<Ts...>>;
+    using base::base;
     base_move_construction(const base_move_construction&) = default;
     base_move_construction(base_move_construction&& other) noexcept(types<Ts...>::nothrow_move_constructible)
+        : base()
     {
         if (other.m_index != variant_npos)
         {
