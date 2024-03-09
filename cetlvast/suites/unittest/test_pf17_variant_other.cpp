@@ -308,7 +308,7 @@ constexpr std::int64_t test_a(const variant<int, bool> left, const variant<long,
     {
         return *a + get<long>(right);
     }
-    return get<bool>(left) ? right.index() : get<char>(right);
+    return get<bool>(left) ? static_cast<std::int64_t>(right.index()) : static_cast<std::int64_t>(get<char>(right));
 }
 static_assert(579 == test_a(123, 456), "");
 static_assert('a' == test_a(false, 'a'), "");

@@ -166,7 +166,6 @@ using cetl::pf17::void_t;
 // variant
 using cetl::pf17::variant;
 using cetl::pf17::monostate;
-using cetl::pf17::bad_variant_access;
 using cetl::pf17::variant_size;
 using cetl::pf17::variant_size_v;
 using cetl::pf17::variant_alternative;
@@ -176,6 +175,9 @@ using cetl::pf17::get;
 using cetl::pf17::get_if;
 using cetl::pf17::visit;
 using cetl::pf17::holds_alternative;
+#    if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
+using cetl::pf17::bad_variant_access;
+#    endif
 
 }  // namespace cetl
 #endif

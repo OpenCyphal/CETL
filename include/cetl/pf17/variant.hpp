@@ -208,7 +208,7 @@ static_assert(!smf_any_deleted<smf_trivial, smf_trivial, smf_trivial>, "self-tes
 
 // --------------------------------------------------------------------------------------------------------------------
 
-inline void bad_access_unless(const bool condition)
+constexpr inline void bad_access_unless(const bool condition)
 {
     if (!condition)
     {
