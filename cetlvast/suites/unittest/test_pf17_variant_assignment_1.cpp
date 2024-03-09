@@ -393,7 +393,7 @@ static constexpr auto test_assignment_1_constexpr()
         constexpr U(U&&) noexcept                 = delete;
         constexpr U& operator=(const U&) noexcept = default;
         constexpr U& operator=(U&&) noexcept      = delete;
-        constexpr ~U() noexcept                   = default;
+        ~U() noexcept                             = default;
         std::int64_t value                        = 0;
     };
     constexpr variant<monostate, U> v1(in_place_index<1>, 123456);

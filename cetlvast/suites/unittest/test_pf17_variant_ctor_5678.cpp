@@ -46,7 +46,7 @@ TYPED_TEST(test_smf_policy_combinations, ctor_5)
     EXPECT_EQ((T::dtor_policy_value == cetlvast::smf_policies::policy_nontrivial) ? 1 : 0, destructed);
 }
 
-static_assert(cetl::pf17::variant<int, void*, double>(cetl::pf17::in_place_type<double>).index() == 2);
+static_assert(cetl::pf17::variant<int, void*, double>(cetl::pf17::in_place_type<double>).index() == 2, "");
 
 // --------------------------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ TYPED_TEST(test_smf_policy_combinations, ctor_7)
     EXPECT_EQ((T::dtor_policy_value == cetlvast::smf_policies::policy_nontrivial) ? 1 : 0, destructed);
 }
 
-static_assert(cetl::pf17::variant<int, void*, double>(cetl::pf17::in_place_index<2>).index() == 2);
+static_assert(cetl::pf17::variant<int, void*, double>(cetl::pf17::in_place_index<2>).index() == 2, "");
 
 // --------------------------------------------------------------------------------------------
 

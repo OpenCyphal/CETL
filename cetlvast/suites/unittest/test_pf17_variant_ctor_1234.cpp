@@ -48,7 +48,7 @@ TYPED_TEST(test_smf_policy_combinations, ctor_1)
     EXPECT_TRUE(get_if<0>(&var));
 }
 
-static_assert(cetl::pf17::variant<int, void*>().index() == 0);
+static_assert(cetl::pf17::variant<int, void*>().index() == 0, "");
 
 // --------------------------------------------------------------------------------------------
 
@@ -158,7 +158,7 @@ static constexpr auto test_ctor_2_constexpr()
         constexpr U(U&&) noexcept                 = delete;
         constexpr U& operator=(const U&) noexcept = delete;
         constexpr U& operator=(U&&) noexcept      = delete;
-        constexpr ~U() noexcept                   = default;
+        ~U() noexcept                             = default;
         std::int64_t value                        = 0;
     };
     constexpr variant<monostate, U> v1(in_place_index<1>, 123456);
@@ -296,7 +296,7 @@ static constexpr auto test_ctor_3_constexpr()
         constexpr U(U&&) noexcept                 = default;
         constexpr U& operator=(const U&) noexcept = delete;
         constexpr U& operator=(U&&) noexcept      = delete;
-        constexpr ~U() noexcept                   = default;
+        ~U() noexcept                             = default;
         std::int64_t value                        = 0;
     };
     variant<monostate, U> v1(in_place_index<1>, 123456);
@@ -343,8 +343,8 @@ TYPED_TEST(test_smf_policy_combinations, ctor_4)
     EXPECT_EQ(0, (variant<std::string, void*>("abc").index()));
 }
 
-static_assert(cetl::pf17::variant<int, void*, double>(123).index() == 0);
-static_assert(cetl::pf17::variant<int, void*, double>(123.0).index() == 2);
+static_assert(cetl::pf17::variant<int, void*, double>(123).index() == 0, "");
+static_assert(cetl::pf17::variant<int, void*, double>(123.0).index() == 2, "");
 
 }  // namespace variant
 }  // namespace pf17

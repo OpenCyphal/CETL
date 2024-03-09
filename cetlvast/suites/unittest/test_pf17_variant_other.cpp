@@ -427,7 +427,7 @@ TEST(test_variant, arena)
 
     // Check constexpr operation.
     using cetl::pf17::in_place_index;
-    static_assert(alt<2>(my_arena(in_place_index<2>, 123456)).value == 123456);
+    static_assert(alt<2>(my_arena(in_place_index<2>, 123456)).value == 123456, "");
 }
 
 // --------------------------------------------------------------------------------------------
@@ -733,7 +733,7 @@ TEST(test_variant, get)
         anchored(anchored&&)                 = delete;
         anchored& operator=(const anchored&) = delete;
         anchored& operator=(anchored&&)      = delete;
-        constexpr ~anchored()                = default;
+        ~anchored()                          = default;
     };
     struct T : anchored
     {
@@ -897,7 +897,6 @@ TEST(test_variant, visit)
     // Constexpr visitation is not possible in C++14.
 #if __cplusplus >= 201703L
     using cetl::pf17::make_overloaded;
-    using cetl::pf17::in_place_index;
     using cetl::pf17::in_place_type;
     static_assert(1110 == visit(make_overloaded([](const std::int8_t a,
                                                    const float       b) { return a + static_cast<std::int64_t>(b); },
@@ -998,12 +997,9 @@ TEST(test_variant, comparison)
 #endif
 
     // constexpr operation
-    static_assert(v0(1) == v0(1), "");
-    static_assert(v0(1) != v1(1), "");
-    static_assert(v0(1) < v0(2), "");
-    static_assert(v0(1) <= v0(2), "");
-    static_assert(v0(2) > v0(1), "");
-    static_assert(v0(2) >= v0(1), "");
+    static_assert(variant<std::uint64_t, std::int64_t>(in_place_index<0>) !=
+                      variant<std::uint64_t, std::int64_t>(in_place_index<1>),
+                  "");
 }
 
 }  // namespace variant
