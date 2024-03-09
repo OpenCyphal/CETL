@@ -57,7 +57,7 @@ static constexpr std::size_t count_v = count<Predicate, Ts...>::value;
 
 // --------------------------------------------------------------------------------------------
 
-/// Partially apply a template by holding the Left type arguments fixed.
+/// Partially instantiate a template by holding the Left type arguments fixed.
 /// The resulting template is accessible via the member template alias named \c type.
 /// For correct usage don't forget to prefix the \c type member with \c template; e.g.:
 /// @code
