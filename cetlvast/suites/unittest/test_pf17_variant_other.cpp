@@ -296,6 +296,29 @@ static_assert(best_converting_assignment_index_v<bool, int, bool> == 1, "");
 
 // --------------------------------------------------------------------------------------------
 
+namespace test_constexpr
+{
+using cetl::pf17::variant;
+using cetl::pf17::get;
+using cetl::pf17::get_if;
+
+constexpr std::int64_t test_a(const variant<int, bool> left, const variant<long, char> right)
+{
+    if (const auto* const a = get_if<int>(&left))
+    {
+        return *a + get<long>(right);
+    }
+    return get<bool>(left) ? right.index() : get<char>(right);
+}
+static_assert(579 == test_a(123, 456), "");
+static_assert('a' == test_a(false, 'a'), "");
+static_assert(0 == test_a(true, 123), "");
+static_assert(1 == test_a(true, 'a'), "");
+
+}  // namespace test_constexpr
+
+// --------------------------------------------------------------------------------------------
+
 TEST(test_variant, chronomorphize)
 {
     using namespace cetl::pf17::detail::var;
