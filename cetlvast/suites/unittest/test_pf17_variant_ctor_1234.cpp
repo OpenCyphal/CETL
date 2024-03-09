@@ -48,6 +48,8 @@ TYPED_TEST(test_smf_policy_combinations, ctor_1)
     EXPECT_TRUE(get_if<0>(&var));
 }
 
+static_assert(cetl::pf17::variant<int, void*>().index() == 0);
+
 // --------------------------------------------------------------------------------------------
 
 template <typename SMF, std::uint8_t CopyCtorPolicy = SMF::copy_ctor_policy_value>
@@ -140,6 +142,30 @@ TYPED_TEST(test_smf_policy_combinations, ctor_2)
 {
     test_ctor_2<TypeParam>::test();
 }
+
+static constexpr auto test_ctor_2_constexpr()
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::in_place_index;
+    struct U
+    {
+        constexpr explicit U(const std::int64_t value)
+            : value(value)
+        {
+        }
+        constexpr U(const U&) noexcept            = default;
+        constexpr U(U&&) noexcept                 = delete;
+        constexpr U& operator=(const U&) noexcept = delete;
+        constexpr U& operator=(U&&) noexcept      = delete;
+        constexpr ~U() noexcept                   = default;
+        std::int64_t value                        = 0;
+    };
+    constexpr variant<monostate, U> v1(in_place_index<1>, 123456);
+    variant<monostate, U>           v2(v1);
+    return v2;
+}
+static_assert(cetl::pf17::get<1>(test_ctor_2_constexpr()).value == 123456, "");
 
 // --------------------------------------------------------------------------------------------
 
@@ -254,6 +280,31 @@ TYPED_TEST(test_smf_policy_combinations, ctor_3)
     test_ctor_3<TypeParam>::test();
 }
 
+static constexpr auto test_ctor_3_constexpr()
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::get;
+    struct U
+    {
+        constexpr explicit U(const std::int64_t value)
+            : value(value)
+        {
+        }
+        constexpr U(const U&) noexcept            = delete;
+        constexpr U(U&&) noexcept                 = default;
+        constexpr U& operator=(const U&) noexcept = delete;
+        constexpr U& operator=(U&&) noexcept      = delete;
+        constexpr ~U() noexcept                   = default;
+        std::int64_t value                        = 0;
+    };
+    variant<monostate, U> v1(in_place_index<1>, 123456);
+    variant<monostate, U> v2(std::move(v1));
+    return get<1>(v2).value;
+}
+static_assert(test_ctor_3_constexpr() == 123456, "");
+
 // --------------------------------------------------------------------------------------------
 
 TYPED_TEST(test_smf_policy_combinations, ctor_4)
@@ -291,6 +342,9 @@ TYPED_TEST(test_smf_policy_combinations, ctor_4)
     EXPECT_EQ(1, (variant<std::string, void const*>("abc").index()));
     EXPECT_EQ(0, (variant<std::string, void*>("abc").index()));
 }
+
+static_assert(cetl::pf17::variant<int, void*, double>(123).index() == 0);
+static_assert(cetl::pf17::variant<int, void*, double>(123.0).index() == 2);
 
 }  // namespace variant
 }  // namespace pf17

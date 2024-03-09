@@ -339,6 +339,32 @@ TYPED_TEST(test_smf_policy_combinations, assignment_2)
     test_assignment_2<TypeParam>::test();
 }
 
+static constexpr auto test_assignment_2_constexpr()
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::monostate;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::get;
+    struct U
+    {
+        constexpr explicit U(const std::int64_t value)
+            : value(value)
+        {
+        }
+        constexpr U(const U&) noexcept            = delete;
+        constexpr U(U&&) noexcept                 = default;
+        constexpr U& operator=(const U&) noexcept = delete;
+        constexpr U& operator=(U&&) noexcept      = default;
+        constexpr ~U() noexcept                   = default;
+        std::int64_t value                        = 0;
+    };
+    variant<monostate, U> v1(in_place_index<1>, 123456);
+    variant<monostate, U> v2;
+    v2 = std::move(v1);
+    return get<1>(v2).value;
+}
+static_assert(test_assignment_2_constexpr() == 123456, "");
+
 }  // namespace variant
 }  // namespace pf17
 }  // namespace unittest

@@ -305,7 +305,7 @@ using cetl::pf17::get_if;
 constexpr std::int64_t test_a(const variant<int, bool> pre_left, variant<long, char> pre_right)
 {
     variant<int, bool>  left  = pre_left;
-    variant<long, char> right = std::move(pre_right);
+    variant<long, char> right = std::move(pre_right);  // NOLINT(*-move-const-arg)
     if (const auto* const a = get_if<int>(&left))
     {
         return *a + get<long>(right);
@@ -317,18 +317,6 @@ static_assert('a' == test_a(false, 'a'), "");
 static_assert(0 == test_a(true, 123), "");
 static_assert(1 == test_a(true, 'a'), "");
 
-// Constexpr visitation is not possible in C++14.
-#if __cplusplus >= 201703L
-using cetl::pf17::make_overloaded;
-using cetl::pf17::in_place_index;
-using cetl::pf17::in_place_type;
-static_assert(1110 ==
-              visit(make_overloaded([](const std::int8_t a, const float b) { return a + static_cast<std::int64_t>(b); },
-                                    [](const auto&, const auto&) { return 0; }),
-                    variant<float, std::int8_t>(in_place_index<1>, static_cast<std::int8_t>(123)),
-                    variant<float, bool>(in_place_type<float>, 987.0F)));
-#endif
-
 }  // namespace test_constexpr
 
 // --------------------------------------------------------------------------------------------
@@ -339,11 +327,11 @@ TEST(test_variant, chronomorphize)
     struct checker final
     {
         // clang-format off
-        auto operator()(const std::integral_constant<std::size_t, 0> ix) { return check(decltype(ix)::value); }
-        auto operator()(const std::integral_constant<std::size_t, 1> ix) { return check(decltype(ix)::value); }
-        auto operator()(const std::integral_constant<std::size_t, 2> ix) { return check(decltype(ix)::value); }
+        constexpr auto operator()(const std::integral_constant<std::size_t,0> ix){ return check(decltype(ix)::value); }
+        constexpr auto operator()(const std::integral_constant<std::size_t,1> ix){ return check(decltype(ix)::value); }
+        constexpr auto operator()(const std::integral_constant<std::size_t,2> ix){ return check(decltype(ix)::value); }
         // clang-format on
-        std::size_t check(const std::size_t value)
+        constexpr std::size_t check(const std::size_t value)
         {
             if ((!armed) || (value != expected_value))
             {
@@ -370,6 +358,12 @@ TEST(test_variant, chronomorphize)
         EXPECT_EQ(2, chronomorphize<3>(chk, 2));
         EXPECT_FALSE(chk.armed);
     }
+    // Constexpr is not available in C++14.
+#if __cplusplus >= 201703L
+    static_assert(0 == chronomorphize<3>(checker{0, true}, 0));
+    static_assert(1 == chronomorphize<3>(checker{1, true}, 1));
+    static_assert(2 == chronomorphize<3>(checker{2, true}, 2));
+#endif
 }
 
 // --------------------------------------------------------------------------------------------
@@ -383,6 +377,7 @@ TEST(test_variant, monostate)
     EXPECT_FALSE(monostate{} > monostate{});
     EXPECT_TRUE(monostate{} <= monostate{});
     EXPECT_TRUE(monostate{} >= monostate{});
+    static_assert(monostate{} >= monostate{}, "");
 }
 
 // --------------------------------------------------------------------------------------------
@@ -395,7 +390,7 @@ TEST(test_variant, arena)
     using cetl::pf17::detail::var::construct;
     struct anchored
     {
-        explicit anchored(const std::int64_t val)
+        constexpr explicit anchored(const std::int64_t val)
             : value(val)
         {
         }
@@ -429,6 +424,10 @@ TEST(test_variant, arena)
     EXPECT_STREQ("abc", alt<1>(arn));
     EXPECT_EQ(9876543210, construct<2>(arn, 9876543210).value);
     EXPECT_EQ(9876543210, alt<2>(arn).value);
+
+    // Check constexpr operation.
+    using cetl::pf17::in_place_index;
+    static_assert(alt<2>(my_arena(in_place_index<2>, 123456)).value == 123456);
 }
 
 // --------------------------------------------------------------------------------------------
@@ -653,6 +652,17 @@ TYPED_TEST(test_smf_policy_combinations, swap)
     test_swap<TypeParam>::test();
 }
 
+// constexpr swap is a C++20 feature.
+#if __cplusplus >= 202002L
+constexpr auto test_swap_constexpr(cetl::pf17::variant<float, std::int64_t> a,
+                                   cetl::pf17::variant<float, std::int64_t> b)
+{
+    a.swap(b);
+    return a;
+}
+static_assert(cetl::pf17::get<1>(test_swap_constexpr(123456, 987654)) == 987654, "");
+#endif
+
 // --------------------------------------------------------------------------------------------
 
 TEST(test_variant, basic_operations)
@@ -718,16 +728,16 @@ TEST(test_variant, get)
 #endif
     struct anchored
     {
-        anchored()                           = default;
+        constexpr anchored()                 = default;
         anchored(const anchored&)            = delete;
         anchored(anchored&&)                 = delete;
         anchored& operator=(const anchored&) = delete;
         anchored& operator=(anchored&&)      = delete;
-        ~anchored()                          = default;
+        constexpr ~anchored()                = default;
     };
     struct T : anchored
     {
-        explicit T(const std::int64_t val)
+        constexpr explicit T(const std::int64_t val)
             : value(val)
         {
         }
@@ -735,7 +745,7 @@ TEST(test_variant, get)
     };
     struct U : anchored
     {
-        explicit U(const std::int16_t val)
+        constexpr explicit U(const std::int16_t val)
             : value(val)
         {
         }
@@ -789,6 +799,12 @@ TEST(test_variant, get)
     EXPECT_EQ(nullptr, get_if<T>(static_cast<V*>(nullptr)));
     EXPECT_EQ(nullptr, get_if<T>(static_cast<const V*>(nullptr)));
     // NOLINTEND(*-use-after-move)
+
+    // Check constexpr operation.
+    constexpr V cxv(in_place_index<0>, 123456);
+    static_assert(123456 == get<0>(cxv).value, "");
+    static_assert(123456 == get_if<0>(&cxv)->value, "");
+    static_assert(nullptr == get_if<1>(&cxv), "");
 }
 
 // --------------------------------------------------------------------------------------------
@@ -877,6 +893,18 @@ TEST(test_variant, visit)
     const auto ovd2 = make_overloaded([](const std::int64_t) -> std::int64_t* { return nullptr; },
                                       [](const anchored&) -> const void* { return nullptr; });
     static_assert(std::is_same<const void*, decltype(visit(ovd2, variant<std::int64_t, anchored>()))>::value, "");
+
+    // Constexpr visitation is not possible in C++14.
+#if __cplusplus >= 201703L
+    using cetl::pf17::make_overloaded;
+    using cetl::pf17::in_place_index;
+    using cetl::pf17::in_place_type;
+    static_assert(1110 == visit(make_overloaded([](const std::int8_t a,
+                                                   const float       b) { return a + static_cast<std::int64_t>(b); },
+                                                [](const auto&, const auto&) { return 0; }),
+                                variant<float, std::int8_t>(in_place_index<1>, static_cast<std::int8_t>(123)),
+                                variant<float, bool>(in_place_type<float>, 987.0F)));
+#endif
 }
 
 // --------------------------------------------------------------------------------------------
@@ -968,6 +996,14 @@ TEST(test_variant, comparison)
     EXPECT_FALSE(ex >= ok);
     EXPECT_TRUE(ok >= ex);
 #endif
+
+    // constexpr operation
+    static_assert(v0(1) == v0(1), "");
+    static_assert(v0(1) != v1(1), "");
+    static_assert(v0(1) < v0(2), "");
+    static_assert(v0(1) <= v0(2), "");
+    static_assert(v0(2) > v0(1), "");
+    static_assert(v0(2) >= v0(1), "");
 }
 
 }  // namespace variant
