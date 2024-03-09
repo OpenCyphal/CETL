@@ -706,63 +706,37 @@ struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<ty
 
 // --------------------------------------------------------------------------------------------------------------------
 
-/// The spec says:
-///     An overload F(T_i) is only considered if the declaration T_i x[] = { std::forward<T>(t) };
-///     is valid for some invented variable x;
-/// This trait checks if the aforementioned declaration is valid as:
-///     To x[] = { std::forward<From>(from) };
-template <typename From, typename To, typename = void>
-struct is_viable_alternative_conversion : std::false_type
-{};
 template <typename From, typename To>
-struct is_viable_alternative_conversion<
-    From,
-    To,
-    // The number of braces is of an essential importance here: {{ }} creates a temporary before invoking the
-    // move ctor, while {{{ }}} constructs the object in place. Incorrect usage of the braces will cause
-    // incorrect detection of the applicable conversion, which is the case in the GNU libstdc++ implementation.
-    // Notice that there is a subtle difference between C++14 and the newer standards with the guaranteed copy
-    // elision: a double-brace conversion is invalid in C++14 for noncopyable types while in C++17+ it is valid.
-    // An alternative way to test the conversion is to define a function that accepts an array rvalue:
-    //  static void test_conversion(To (&&)[1]);
-    // And check if it is invocable with the argument of type From.
-    void_t<decltype(std::array<To, 1>{{{std::forward<From>(std::declval<From>())}}})>> : std::true_type
+struct best_converting_ctor_predicate : conjunction<std::is_constructible<To, From>,  //
+                                                    type_traits_ext::is_convertible_without_narrowing<From, To>>
 {};
-static_assert(!is_viable_alternative_conversion<long, signed char>::value, "");
-static_assert(is_viable_alternative_conversion<signed char, long>::value, "");
-static_assert(!is_viable_alternative_conversion<double, float>::value, "");
-static_assert(!is_viable_alternative_conversion<double, char>::value, "");
-static_assert(is_viable_alternative_conversion<float, double>::value, "");
 
+/// Determines the best constructor in Ts that accepts an argument of type U following the rules specified in
+/// https://en.cppreference.com/w/cpp/utility/variant/variant, avoiding narrowing conversions.
+/// The value is std::numeric_limits<std::size_t>::max() if there is no suitable constructor.
 template <typename U, typename... Ts>
-struct match_ctor
-{
-    template <typename T>
-    struct predicate : conjunction<std::is_constructible<T, U>, is_viable_alternative_conversion<U, T>>
-    {};
-    static constexpr std::size_t index = type_traits_ext::find_v<predicate, Ts...>;
-    static constexpr bool        ok    = type_traits_ext::count_v<predicate, Ts...> == 1;
-};
-static_assert(match_ctor<float, long, float, double, bool>::index == 1, "");
-static_assert(match_ctor<double, long, float, double, bool>::index == 2, "");
-static_assert(!match_ctor<float, long, float, double, bool>::ok, "");  // not unique
-static_assert(match_ctor<double, long, float, double, bool>::ok, "");
+constexpr std::size_t best_converting_ctor_index_v = type_traits_ext::
+    best_conversion_index_v<type_traits_ext::partial<best_converting_ctor_predicate, U>::template type, U, Ts...>;
 
+static_assert(best_converting_ctor_index_v<float, long, float, bool> == 1, "");
+static_assert(best_converting_ctor_index_v<double, long, float, double, bool> == 2, "");
+
+// --------------------------------------------------------------------------------------------------------------------
+
+template <typename From, typename To>
+struct best_converting_assignment_predicate : conjunction<best_converting_ctor_predicate<From, To>,  //
+                                                          std::is_assignable<To&, From>>
+{};
+
+/// Determines the best assignment operator in Ts that accepts an argument of type U following the rules specified in
+/// https://en.cppreference.com/w/cpp/utility/variant/operator%3D, avoiding narrowing conversions.
+/// The value is std::numeric_limits<std::size_t>::max() if there is no suitable operator.
 template <typename U, typename... Ts>
-struct match_assignment
-{
-    template <typename T>
-    struct predicate : conjunction<std::is_assignable<T&, U>,  //
-                                   std::is_constructible<T, U>,
-                                   is_viable_alternative_conversion<U, T>>
-    {};
-    static constexpr std::size_t index = type_traits_ext::find_v<predicate, Ts...>;
-    static constexpr bool        ok    = type_traits_ext::count_v<predicate, Ts...> == 1;
-};
-static_assert(match_assignment<float, long, float, double, bool>::index == 1, "");
-static_assert(match_assignment<double, long, float, double, bool>::index == 2, "");
-static_assert(!match_assignment<float, long, float, double, bool>::ok, "");  // not unique
-static_assert(match_assignment<double, long, float, double, bool>::ok, "");
+constexpr std::size_t best_converting_assignment_index_v = type_traits_ext::
+    best_conversion_index_v<type_traits_ext::partial<best_converting_assignment_predicate, U>::template type, U, Ts...>;
+
+static_assert(best_converting_assignment_index_v<float, long, float, bool> == 1, "");
+static_assert(best_converting_assignment_index_v<double, long, float, double, bool> == 2, "");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -904,10 +878,10 @@ public:
 
     /// Constructor 4 -- converting constructor
     template <typename U,
-              std::enable_if_t<detail::var::match_ctor<U, Ts...>::ok, int> = 0,
-              std::size_t Ix                                               = detail::var::match_ctor<U, Ts...>::index,
-              typename Alt                                                 = nth_type<Ix>,
-              std::enable_if_t<std::is_constructible<Alt, U>::value, int>  = 0,
+              std::size_t Ix = detail::var::best_converting_ctor_index_v<U, Ts...>,
+              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int>     = 0,
+              typename Alt                                                              = nth_type<Ix>,
+              std::enable_if_t<std::is_constructible<Alt, U>::value, int>               = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
               std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
               std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
@@ -975,9 +949,9 @@ public:
 
     /// Assignment 3 -- converting assignment
     template <typename U,
-              std::enable_if_t<detail::var::match_assignment<U, Ts...>::ok, int> = 0,
-              std::size_t Ix = detail::var::match_assignment<U, Ts...>::index,
-              typename Alt   = nth_type<Ix>,
+              std::size_t Ix = detail::var::best_converting_assignment_index_v<U, Ts...>,
+              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int> = 0,
+              typename Alt                                                          = nth_type<Ix>,
               std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
               std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,

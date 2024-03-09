@@ -8,6 +8,7 @@
 
 #include <cetl/pf17/variant.hpp>  // The tested header always goes first.
 #include "test_pf17_variant.hpp"
+#include <string>
 
 namespace cetlvast
 {
@@ -273,16 +274,22 @@ TYPED_TEST(test_smf_policy_combinations, ctor_4)
     {
         T(const tag_t&) {}  // NOLINT(*-explicit-constructor)
     };
-    using V = variant<std::int64_t, float, double, T, monostate>;
+    using V = variant<std::int64_t, float, T, monostate>;
     EXPECT_EQ(0, V(123456).index());
-    EXPECT_EQ(2, V(123.456).index());
-    EXPECT_EQ(3, V(tag).index());
-    EXPECT_EQ(4, V(monostate{}).index());
-    static_assert(!std::is_constructible<V, float>::value, "");  // Float cannot be selected due to ambiguity.
+    EXPECT_EQ(1, V(123.456F).index());
+    EXPECT_EQ(2, V(tag).index());
+    EXPECT_EQ(3, V(monostate{}).index());
+    static_assert(!std::is_constructible<V, double>::value, "");  // Ambiguity!
+
+    static_assert(1 == variant<int, bool>(true).index(), "");
 
     // Example from cppreference
     variant<float, long, double> v4 = 0;
     EXPECT_EQ(0, get<long>(v4));
+
+    // Example from Scott
+    EXPECT_EQ(1, (variant<std::string, void const*>("abc").index()));
+    EXPECT_EQ(0, (variant<std::string, void*>("abc").index()));
 }
 
 // --------------------------------------------------------------------------------------------

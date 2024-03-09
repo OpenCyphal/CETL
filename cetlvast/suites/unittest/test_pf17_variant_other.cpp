@@ -218,7 +218,8 @@ static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_ass
 
 namespace test_match_ctor
 {
-using cetl::pf17::detail::var::match_ctor;
+using cetl::pf17::detail::var::best_converting_ctor_index_v;
+constexpr auto bad = std::numeric_limits<std::size_t>::max();
 
 struct A
 {};
@@ -231,31 +232,32 @@ struct C
     C(double);  // NOLINT(*-explicit-constructor)
 };
 
-static_assert(match_ctor<std::int8_t, A>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(match_ctor<std::int8_t, A, B>::index == 1, "");
-static_assert(match_ctor<std::int8_t, A, B>::ok, "");
+static_assert(best_converting_ctor_index_v<std::int8_t, A> == bad, "");
+static_assert(best_converting_ctor_index_v<std::int8_t, A, B> == 1, "");
 
-static_assert(match_ctor<std::int8_t, A, B, C>::index == 1, "");
-static_assert(match_ctor<std::int8_t, C, B>::index == 1, "");
-static_assert(match_ctor<std::int8_t, B, C>::index == 0, "");
-static_assert(match_ctor<std::int8_t, A, B, C>::ok, "");
-static_assert(!match_ctor<std::int8_t, A, B, C, B>::ok, "");  // not unique
+static_assert(best_converting_ctor_index_v<std::int8_t, A, B, C> == 1, "");
+static_assert(best_converting_ctor_index_v<std::int8_t, C, B> == 1, "");
+static_assert(best_converting_ctor_index_v<std::int8_t, B, C> == 0, "");
+static_assert(best_converting_ctor_index_v<std::int8_t, A, B, C, B> == bad, "");  // not unique
 
 // Ensure narrowing conversions are not considered; see https://en.cppreference.com/w/cpp/utility/variant/operator%3D
-static_assert(match_ctor<std::int32_t, A, B, C>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(match_ctor<std::int32_t, C, B>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(!match_ctor<std::int32_t, A, B, C>::ok, "");
-static_assert(match_ctor<float, std::int32_t, float, double, bool>::index == 1, "");
-static_assert(match_ctor<double, std::int32_t, float, double, bool>::index == 2, "");
-static_assert(!match_ctor<float, std::int32_t, float, double, bool>::ok, "");  // not unique
-static_assert(match_ctor<double, std::int32_t, float, double, bool>::ok, "");
+static_assert(best_converting_ctor_index_v<std::int32_t, A, B, C> == bad, "");
+static_assert(best_converting_ctor_index_v<std::int32_t, C, B> == bad, "");
+static_assert(best_converting_ctor_index_v<float, std::int32_t, float, double, bool> == 1, "");
+static_assert(best_converting_ctor_index_v<double, std::int32_t, float, double, bool> == 2, "");
+static_assert(best_converting_ctor_index_v<float, std::int32_t, long double, double, bool> == 2, "");
+static_assert(best_converting_ctor_index_v<char, float, double, bool> == bad, "");  // not unique
+
+static_assert(best_converting_ctor_index_v<int, int, bool> == 0, "");
+static_assert(best_converting_ctor_index_v<bool, int, bool> == 1, "");
 }  // namespace test_match_ctor
 
 // --------------------------------------------------------------------------------------------
 
 namespace test_match_assignment
 {
-using cetl::pf17::detail::var::match_assignment;
+using cetl::pf17::detail::var::best_converting_assignment_index_v;
+constexpr auto bad = std::numeric_limits<std::size_t>::max();
 
 struct A
 {};
@@ -270,26 +272,26 @@ struct C
     C& operator=(double);
 };
 
-static_assert(match_assignment<std::int8_t, A>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(match_assignment<std::int8_t, A, B>::index == 1, "");
-static_assert(match_assignment<std::int8_t, A, B>::ok, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, A> == bad, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, A, B> == 1, "");
 
-static_assert(match_assignment<std::int8_t, A, B, C>::index == 1, "");
-static_assert(match_assignment<std::int8_t, C, B>::index == 1, "");
-static_assert(match_assignment<std::int8_t, B, C>::index == 0, "");
-static_assert(match_assignment<std::int8_t, A, B, C>::ok, "");
-static_assert(!match_assignment<std::int8_t, A, B, C, B>::ok, "");  // not unique
+static_assert(best_converting_assignment_index_v<std::int8_t, A, B, C> == 1, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, C, B> == 1, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, B, C> == 0, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, A, B, C, B> == bad, "");  // not unique
 
 // Ensure narrowing conversions are not considered; see https://en.cppreference.com/w/cpp/utility/variant/operator%3D
-static_assert(match_assignment<std::int32_t, A, B, C>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(match_assignment<std::int8_t, A, B, C>::index == 1, "");
-static_assert(match_assignment<std::int32_t, C, B>::index == std::numeric_limits<std::size_t>::max(), "");
-static_assert(match_assignment<double, C, B>::index == 0, "");
-static_assert(!match_assignment<std::int32_t, A, B, C>::ok, "");
-static_assert(match_assignment<float, std::int32_t, float, double, bool>::index == 1, "");
-static_assert(match_assignment<double, std::int32_t, float, double, bool>::index == 2, "");
-static_assert(!match_assignment<float, std::int32_t, float, double, bool>::ok, "");  // not unique
-static_assert(match_assignment<double, std::int32_t, float, double, bool>::ok, "");
+static_assert(best_converting_assignment_index_v<std::int32_t, A, B, C> == bad, "");
+static_assert(best_converting_assignment_index_v<std::int8_t, A, B, C> == 1, "");
+static_assert(best_converting_assignment_index_v<std::int32_t, C, B> == bad, "");
+static_assert(best_converting_assignment_index_v<double, C, B> == 0, "");
+static_assert(best_converting_assignment_index_v<float, std::int32_t, float, double, bool> == 1, "");
+static_assert(best_converting_assignment_index_v<double, std::int32_t, float, double, bool> == 2, "");
+static_assert(best_converting_assignment_index_v<float, std::int32_t, long double, double, bool> == 2, "");
+static_assert(best_converting_assignment_index_v<char, float, double, bool> == bad, "");  // not unique
+
+static_assert(best_converting_assignment_index_v<int, int, bool> == 0, "");
+static_assert(best_converting_assignment_index_v<bool, int, bool> == 1, "");
 }  // namespace test_match_assignment
 
 // --------------------------------------------------------------------------------------------

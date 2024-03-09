@@ -738,7 +738,7 @@ TYPED_TEST(test_smf_policy_combinations, assignment_3)
             copyable_may_throw& operator=(copyable_may_throw&&) noexcept = default;
         } dummy;
     };
-    using V                  = variant<std::int64_t, float, double, T, monostate>;
+    using V                  = variant<std::int64_t, float, T, monostate>;
     std::uint32_t dtor_count = 0;
 
     // Default-initialize.
@@ -749,34 +749,34 @@ TYPED_TEST(test_smf_policy_combinations, assignment_3)
     var = 123;
     EXPECT_EQ(123, get<0>(var));
 
-    // Switch to double.
-    var = 123.456;
-    EXPECT_DOUBLE_EQ(123.456, get<double>(var));
+    // Switch to float.
+    var = 123.456F;
+    EXPECT_FLOAT_EQ(123.456F, get<float>(var));
 
     // Change value of the same alternative (no ctor invoked).
-    var = 789.012;
-    EXPECT_DOUBLE_EQ(789.012, get<double>(var));
+    var = 789.012F;
+    EXPECT_FLOAT_EQ(789.012F, get<float>(var));
 
     // Switch to T.
     var = tag;
-    EXPECT_EQ(3, var.index());
+    EXPECT_EQ(2, var.index());
     get<T>(var).configure_destruction_counter(&dtor_count);
     EXPECT_EQ(0, dtor_count);
 
     // Assign the same alternative (no ctor invoked).
     var = tag;
-    EXPECT_EQ(3, var.index());
+    EXPECT_EQ(2, var.index());
     EXPECT_EQ(0, dtor_count);
 
     // Switch to monostate.
     var = monostate{};
-    EXPECT_EQ(4, var.index());
+    EXPECT_EQ(3, var.index());
     EXPECT_EQ((T::dtor_policy_value == smf_policies::policy_nontrivial) ? 1 : 0,  // T is dead baby, T is dead.
               dtor_count);
 
     // Float cannot be selected due to ambiguity.
-    static_assert(!std::is_constructible<V, float>::value, "");
-    static_assert(!std::is_assignable<V&, float>::value, "");
+    static_assert(!std::is_constructible<V, double>::value, "");
+    static_assert(!std::is_assignable<V&, double>::value, "");
 
     // Example from https://en.cppreference.com/w/cpp/utility/variant/operator%3D
     variant<float, long, double> v4;

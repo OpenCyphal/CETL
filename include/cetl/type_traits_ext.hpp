@@ -202,7 +202,7 @@ struct impl<Q, F, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, 
 ///
 /// Hint: to weed out narrowing conversions, use \ref is_convertible_without_narrowing in the predicate.
 ///
-/// If no suitable conversion is available, the value is std::numeric_limits<std::size_t>::max().
+/// If no suitable conversion is available, the value is `std::numeric_limits<std::size_t>::max()`.
 ///
 /// \code
 /// best_conversion_index_v<universal_predicate, long, float> == 0
