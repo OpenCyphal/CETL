@@ -122,8 +122,8 @@ struct is_convertible_without_narrowing<
     // And check if it is invocable with the argument of type From.
     void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
 {};
-static_assert(is_convertible_without_narrowing<int, long long>::value, "");
-static_assert(!is_convertible_without_narrowing<long long, int>::value, "");
+static_assert(is_convertible_without_narrowing<int, long long>::value, "self-test failure");
+static_assert(!is_convertible_without_narrowing<long long, int>::value, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
 

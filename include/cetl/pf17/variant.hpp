@@ -117,24 +117,24 @@ constexpr decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&
 template <typename T, typename... Ts>
 constexpr std::size_t count_occurrences_v =
     type_traits_ext::count_v<type_traits_ext::partial<std::is_same, T>::template type, Ts...>;
-static_assert(0 == count_occurrences_v<int, char>, "");
-static_assert(1 == count_occurrences_v<int, int, char>, "");
-static_assert(2 == count_occurrences_v<int, char, int, double, int>, "");
+static_assert(0 == count_occurrences_v<int, char>, "self-test failure");
+static_assert(1 == count_occurrences_v<int, int, char>, "self-test failure");
+static_assert(2 == count_occurrences_v<int, char, int, double, int>, "self-test failure");
 
 /// Find the index of the first occurrence of T in Ts. Fails compilation if T is not found in Ts.
 template <typename T, typename... Ts>
 constexpr std::size_t first_index_of_v =
     type_traits_ext::find_v<type_traits_ext::partial<std::is_same, T>::template type, Ts...>;
-static_assert(2 == first_index_of_v<char, int, double, char, char>, "");
+static_assert(2 == first_index_of_v<char, int, double, char, char>, "self-test failure");
 
 /// Find the index of T in Ts. Fails compilation if T is not found in Ts or if T is found more than once.
 template <typename T, typename... Ts>
 constexpr std::enable_if_t<1 == count_occurrences_v<T, Ts...>, std::size_t> unique_index_of_v =
     first_index_of_v<T, Ts...>;
-static_assert(0 == unique_index_of_v<int, int>, "");
-static_assert(0 == unique_index_of_v<int, int, double, char>, "");
-static_assert(1 == unique_index_of_v<double, int, double, char>, "");
-static_assert(2 == unique_index_of_v<char, int, double, char>, "");
+static_assert(0 == unique_index_of_v<int, int>, "self-test failure");
+static_assert(0 == unique_index_of_v<int, int, double, char>, "self-test failure");
+static_assert(1 == unique_index_of_v<double, int, double, char>, "self-test failure");
+static_assert(2 == unique_index_of_v<char, int, double, char>, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -194,17 +194,17 @@ struct types final
 /// True iff all SMF availability values are trivial.
 template <int... Vs>
 constexpr bool smf_all_trivial = conjunction_v<std::integral_constant<bool, (smf_trivial == Vs)>...>;
-static_assert(smf_all_trivial<smf_trivial, smf_trivial, smf_trivial>, "");
-static_assert(!smf_all_trivial<smf_trivial, smf_nontrivial, smf_trivial>, "");
-static_assert(!smf_all_trivial<smf_deleted, smf_trivial, smf_trivial>, "");
+static_assert(smf_all_trivial<smf_trivial, smf_trivial, smf_trivial>, "self-test failure");
+static_assert(!smf_all_trivial<smf_trivial, smf_nontrivial, smf_trivial>, "self-test failure");
+static_assert(!smf_all_trivial<smf_deleted, smf_trivial, smf_trivial>, "self-test failure");
 
 /// True iff any SMF availability value is deleted.
 template <int... Vs>
 constexpr bool smf_any_deleted = disjunction_v<std::integral_constant<bool, (smf_deleted == Vs)>...>;
-static_assert(smf_any_deleted<smf_deleted, smf_trivial, smf_trivial>, "");
-static_assert(smf_any_deleted<smf_trivial, smf_deleted, smf_trivial>, "");
-static_assert(smf_any_deleted<smf_trivial, smf_trivial, smf_deleted>, "");
-static_assert(!smf_any_deleted<smf_trivial, smf_trivial, smf_trivial>, "");
+static_assert(smf_any_deleted<smf_deleted, smf_trivial, smf_trivial>, "self-test failure");
+static_assert(smf_any_deleted<smf_trivial, smf_deleted, smf_trivial>, "self-test failure");
+static_assert(smf_any_deleted<smf_trivial, smf_trivial, smf_deleted>, "self-test failure");
+static_assert(!smf_any_deleted<smf_trivial, smf_trivial, smf_trivial>, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -621,7 +621,8 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
     template <std::size_t Ix, typename U = nth_type<Ix, Ts...>>
     std::enable_if_t<!direct_copy_constructible<U>> construct_copy(const U& alt)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
-        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
+        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value,
+                      "U shall be nothrow move constructible in this context; the implementation appears broken");
         this->template set<Ix>(U(alt));  // use a side copy to avoid a valueless outcome
     }
 };
@@ -718,8 +719,8 @@ template <typename U, typename... Ts>
 constexpr std::size_t best_converting_ctor_index_v = type_traits_ext::
     best_conversion_index_v<type_traits_ext::partial<best_converting_ctor_predicate, U>::template type, U, Ts...>;
 
-static_assert(best_converting_ctor_index_v<float, long, float, bool> == 1, "");
-static_assert(best_converting_ctor_index_v<double, long, float, double, bool> == 2, "");
+static_assert(best_converting_ctor_index_v<float, long, float, bool> == 1, "self-test failure");
+static_assert(best_converting_ctor_index_v<double, long, float, double, bool> == 2, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -735,8 +736,8 @@ template <typename U, typename... Ts>
 constexpr std::size_t best_converting_assignment_index_v = type_traits_ext::
     best_conversion_index_v<type_traits_ext::partial<best_converting_assignment_predicate, U>::template type, U, Ts...>;
 
-static_assert(best_converting_assignment_index_v<float, long, float, bool> == 1, "");
-static_assert(best_converting_assignment_index_v<double, long, float, double, bool> == 2, "");
+static_assert(best_converting_assignment_index_v<float, long, float, bool> == 1, "self-test failure");
+static_assert(best_converting_assignment_index_v<double, long, float, double, bool> == 2, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -825,13 +826,15 @@ constexpr size_t variant_size_v = variant_size<V>::value;
 ///
 /// In this implementation, the address of the variant object is equivalent to the address of the active alternative;
 /// this can sometimes be useful for low-level debugging.
+///
+/// \tparam Ts The list of alternatives. At least one alternative is required.
 template <typename... Ts>
 class variant : private detail::var::base_move_assignment<detail::var::types<Ts...>>
 {
     using tys  = detail::var::types<Ts...>;
     using base = detail::var::base_move_assignment<tys>;
 
-    static_assert(sizeof...(Ts) > 0, "");
+    static_assert(sizeof...(Ts) > 0, "At least one alternative is required");
 
     template <std::size_t N>
     using nth_type = detail::var::nth_type<N, Ts...>;
@@ -1075,7 +1078,8 @@ private:
     template <std::size_t Ix, typename U, typename Alt = nth_type<Ix>>
     std::enable_if_t<!allows_direct_conversion<U, Alt>> convert_from(U&& from)
     {  // This is never noexcept, otherwise we would have chosen the simpler case.
-        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value, "");
+        static_assert(std::is_move_constructible<U>::value && std::is_nothrow_move_constructible<U>::value,
+                      "U shall be nothrow move constructible in this context; the implementation appears broken");
         this->template set<Ix>(Alt(std::forward<U>(from)));
     }
 };

@@ -117,8 +117,8 @@ struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
 template <typename T>
 struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
 {};
-static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "");
-static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "");
+static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "self-test failure");
+static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
 
@@ -132,8 +132,8 @@ struct is_in_place_index_impl<in_place_index_t<I>> : std::true_type
 template <typename T>
 struct is_in_place_index : is_in_place_index_impl<std::decay_t<T>>
 {};
-static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "");
-static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "");
+static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "self-test failure");
+static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "self-test failure");
 }  // namespace detail
 
 }  // namespace pf17
