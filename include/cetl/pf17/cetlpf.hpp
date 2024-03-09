@@ -41,6 +41,7 @@
 #    include <memory_resource>
 #    include <cstddef>
 #    include <optional>
+#    include <variant>
 
 namespace cetl
 {

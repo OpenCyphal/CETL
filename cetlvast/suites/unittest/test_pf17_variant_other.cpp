@@ -302,8 +302,10 @@ using cetl::pf17::variant;
 using cetl::pf17::get;
 using cetl::pf17::get_if;
 
-constexpr std::int64_t test_a(const variant<int, bool> left, const variant<long, char> right)
+constexpr std::int64_t test_a(const variant<int, bool> pre_left, variant<long, char> pre_right)
 {
+    variant<int, bool>  left  = pre_left;
+    variant<long, char> right = std::move(pre_right);
     if (const auto* const a = get_if<int>(&left))
     {
         return *a + get<long>(right);
@@ -314,6 +316,18 @@ static_assert(579 == test_a(123, 456), "");
 static_assert('a' == test_a(false, 'a'), "");
 static_assert(0 == test_a(true, 123), "");
 static_assert(1 == test_a(true, 'a'), "");
+
+// Constexpr visitation is not possible in C++14.
+#if __cplusplus >= 201703L
+using cetl::pf17::make_overloaded;
+using cetl::pf17::in_place_index;
+using cetl::pf17::in_place_type;
+static_assert(1110 ==
+              visit(make_overloaded([](const std::int8_t a, const float b) { return a + static_cast<std::int64_t>(b); },
+                                    [](const auto&, const auto&) { return 0; }),
+                    variant<float, std::int8_t>(in_place_index<1>, static_cast<std::int8_t>(123)),
+                    variant<float, bool>(in_place_type<float>, 987.0F)));
+#endif
 
 }  // namespace test_constexpr
 
