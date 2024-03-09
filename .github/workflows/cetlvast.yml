@@ -44,6 +44,8 @@ jobs:
         path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
     - name: run tests
+      env:
+        GTEST_COLOR: yes
       run: >
         ./build-tools/bin/verify.py
         -v
