@@ -24,7 +24,7 @@ constexpr std::size_t type_id_size = 16;
 
 /// A 16-byte UUID (GUID) that uniquely identifies a type.
 /// The user is responsible for ensuring that each type that has opted into this RTTI capability has a unique type ID
-/// exposed via a public method <tt>static constexpr cetl::type_id _get_static_type_id_() noexcept</tt>.
+/// exposed via a public method <tt>static constexpr cetl::type_id _get_type_id_() noexcept</tt>.
 using type_id = std::array<std::uint8_t, type_id_size>;
 
 /// This is used for representing the type ID of a type as a type, similar to \ref std::integral_constant.
@@ -36,18 +36,11 @@ using type_id_type = std::integer_sequence<std::uint8_t, Bytes...>;
 
 namespace detail
 {
-// has_static_type_id_impl
+// has_type_id_impl
 template <typename T>
-auto has_static_type_id_impl(int) -> decltype(std::decay_t<T>::_get_static_type_id_(), std::true_type{});
+auto has_type_id_impl(int) -> decltype(std::decay_t<T>::_get_type_id_(), std::true_type{});
 template <typename>
-std::false_type has_static_type_id_impl(...);
-
-// has_polymorphic_type_id_impl
-template <typename T>
-auto has_polymorphic_type_id_impl(int)
-    -> decltype(std::declval<std::decay_t<T>&>()._get_polymorphic_type_id_(), std::true_type{});
-template <typename>
-std::false_type has_polymorphic_type_id_impl(...);
+std::false_type has_type_id_impl(...);
 
 // has_cast_impl
 template <typename T>
@@ -63,17 +56,9 @@ constexpr type_id type_id_type_value_impl(const type_id_type<Bytes...>) noexcept
 }
 }  // namespace detail
 
-/// True iff \c T has a public static method \c _get_static_type_id_().
+/// True iff \c T has a public static method \c _get_type_id_().
 template <typename T>
-constexpr bool has_static_type_id = decltype(detail::has_static_type_id_impl<std::decay_t<T>>(0))::value;
-
-/// True iff \c T has a public method \c _get_polymorphic_type_id_().
-/// One could argue that instead of relying on this trait, we could just use `const rtti&` or
-/// `std::is_base_of<rtti, T>`.
-/// This won't work in the presence of multiple inheritance because it makes implicit conversion
-/// to the base class ambiguous.
-template <typename T>
-constexpr bool has_polymorphic_type_id = decltype(detail::has_polymorphic_type_id_impl<std::decay_t<T>>(0))::value;
+constexpr bool has_type_id = decltype(detail::has_type_id_impl<std::decay_t<T>>(0))::value;
 
 /// True iff \c T has a public method \c _cast_().
 template <typename T>
@@ -82,6 +67,12 @@ constexpr bool is_rtti_convertible = decltype(detail::has_cast_impl<std::decay_t
 /// A helper that converts \ref cetl::type_id_type to \ref cetl::type_id.
 template <typename TypeIDType>
 constexpr type_id type_id_type_value = detail::type_id_type_value_impl(TypeIDType{});
+
+/// The type ID value of the given type.
+/// This helper is provided for regularity; it has the same value as \c T::_get_type_id_().
+/// The type shall satisfy \ref cetl::has_type_id.
+template <typename T>
+constexpr type_id type_id_value = T::_get_type_id_();
 
 /// An alternative implementation of simple runtime type information (RTTI) capability designed for high-integrity
 /// real-time systems, where the use of the standard C++ RTTI is discouraged.
@@ -96,36 +87,67 @@ constexpr type_id type_id_type_value = detail::type_id_type_value_impl(TypeIDTyp
 /// that is, <tt>T</tt> and <tt>const T&</tt> are considered the same type.
 ///
 /// In order to support this RTTI capability, a type must at least define a public method
-/// <tt>static constexpr cetl::type_id _get_static_type_id_() noexcept</tt> that
+/// <tt>static constexpr cetl::type_id _get_type_id_() noexcept</tt> that
 /// returns the type ID (i.e., the UUID) of the type it is defined on.
-/// Types that provide said method satisfy \ref cetl::has_static_type_id.
-/// If the type is polymorphic, it should publicly inherit from \ref cetl::rtti_helper, which will provide the
-/// necessary implementation of the RTTI-related methods along with the aforementioned
-/// \c _get_static_type_id_() method.
+/// Types that provide said method satisfy \ref cetl::has_type_id.
+///
+/// If the type is polymorphic, it should either manually implement \ref cetl::rtti through \e virtual inheritance,
+/// or use the \ref cetl::rtti_helper helper which will provide the necessary implementation of the RTTI-related
+/// methods along with the aforementioned \c _get_type_id_() method. More about the latter option in its documentation.
+///
+/// \attention Use only virtual inheritance when deriving from this type.
 ///
 /// RTTI-related members are named with surrounding underscores to avoid name clashes with user-defined members,
 /// including the members of DSDL types (where identifiers surrounded with underscores are reserved).
 /// The user code should not invoke such underscored methods directly but instead use the free functions defined here.
+///
+/// A basic usage example with a class implementing multiple interfaces or inheriting from multiple bases:
+/// \code
+/// class CatDog final : public Tabby, public Boxer
+/// {
+///  public:
+///     void* _cast_(const type_id& id) & noexcept override
+///     {
+///         if (void* const p = Tabby::_cast_(id)) { return p; }
+///         return Boxer::_cast_(id);
+///     }
+///     const void* _cast_(const type_id& id) const& noexcept override
+///     {
+///         if (const void* const p = Tabby::_cast_(id)) { return p; }
+///         return Boxer::_cast_(id);
+///     }
+/// };
+/// \endcode
+///
+/// A similar example with composition:
+/// \code
+/// class CatDog final : public virtual cetl::rtti
+/// {
+/// public:
+///     void* _cast_(const type_id& id) & noexcept override
+///     {
+///         if (void* const p = m_cat._cast_(id)) { return p; }
+///         return m_dog._cast_(id);
+///     }
+///     const void* _cast_(const type_id& id) const& noexcept override
+///     {
+///         if (const void* const p = m_cat._cast_(id)) { return p; }
+///         return m_dog._cast_(id);
+///     }
+/// private:
+///     Tabby m_cat{};
+///     Boxer m_dog{};
+/// };
+/// \endcode
 class rtti
 {
 public:
-    /// Implementations are adivsed to use \ref cetl::rtti_helper instead of implementing this manually.
-    /// If manual implementation is preferred, then the method body should simply forward the result of this
-    /// type's static \c _get_static_type_id_ method:
-    ///
-    /// @code
-    /// return _get_static_type_id_();
-    /// @endcode
-    ///
-    /// This method should not be invoked directly; instead, use \ref cetl::get_type_id.
-    CETL_NODISCARD virtual type_id _get_polymorphic_type_id_() const noexcept = 0;
-
-    /// Implementations are adivsed to use \ref cetl::rtti_helper instead of implementing this manually.
+    /// Implementations can choose to use \ref cetl::rtti_helper instead of implementing this manually.
     /// If manual implementation is preferred, then the method body should be implemented as follows
     /// (add \c const in the const overload):
     ///
     /// @code
-    /// return (id == _get_static_type_id_()) ? static_cast<void*>(this) : base::_cast_(id);
+    /// return (id == _get_type_id_()) ? static_cast<void*>(this) : base::_cast_(id);
     /// @endcode
     ///
     /// Where \c base is the base class of the current class that implements this method;
@@ -139,16 +161,8 @@ public:
     ///
     /// This method should not be invoked directly; instead, use \ref cetl::rtti_cast.
     /// @{
-    CETL_NODISCARD virtual void* _cast_(const type_id& id) & noexcept
-    {
-        (void) id;
-        return nullptr;
-    }
-    CETL_NODISCARD virtual const void* _cast_(const type_id& id) const& noexcept
-    {
-        (void) id;
-        return nullptr;
-    }
+    CETL_NODISCARD virtual void*       _cast_(const type_id& id) & noexcept      = 0;
+    CETL_NODISCARD virtual const void* _cast_(const type_id& id) const& noexcept = 0;
     /// @}
 
 protected:
@@ -160,13 +174,13 @@ protected:
     rtti& operator=(rtti&&)      = default;
 };
 
-/// Non-polymorphic types that want to support RTTI should simply provide a \c _get_static_type_id_()
+/// Non-polymorphic types that want to support RTTI should simply provide a \c _get_type_id_()
 /// method that returns \ref cetl::type_id; there is no need for them to use this helper.
 ///
 /// Polymorphic types, on the other hand, are trickier because their runtime type may not be the same as their
-/// static type; for this reason, they should publicly inherit from this helper class,
-/// which will provide the necessary implementation of the RTTI-related methods
-/// along with the aforementioned \c _get_static_type_id_ method.
+/// static type; for this reason, they should either implement \ref cetl::rtti manually, or, alternatively,
+/// publicly inherit from this helper class, which will provide the necessary implementation of the
+/// RTTI-related methods along with the aforementioned \c _get_type_id_ method.
 ///
 /// This helper shall be the first base class in the inheritance list. This is because it assumes the equivalency
 /// between a pointer to itself and a pointer to the derived type, which is only guaranteed if it is the first base.
@@ -181,112 +195,79 @@ protected:
 /// Conversion to an ambiguous base class is not allowed in C++ (except for the case of virtual inheritance
 ///
 /// \tparam TypeIDType The type ID encoded via \ref cetl::type_id_type.
-/// \tparam FirstBase  An optional base class that implements the \ref cetl::rtti interface.
-/// \tparam OtherBases Other base classes that implement the \ref cetl::rtti interface, if any.
-template <typename TypeIDType, typename FirstBase = cetl::rtti, typename... OtherBases>
-struct rtti_helper : public FirstBase, public OtherBases...
+/// \tparam Bases An optional list of base class that implement the \ref cetl::rtti interface.
+///         If this helper is used, base classes that implement the \ref cetl::rtti interface can only be inherited
+///         via this helper, not directly. If this is for whatever reason not possible, the user should implement
+///         the \ref cetl::rtti interface manually.
+template <typename TypeIDType, typename... Bases>
+struct rtti_helper : public virtual cetl::rtti, public Bases...
 {
-    static constexpr type_id _get_static_type_id_() noexcept
+    static constexpr type_id _get_type_id_() noexcept
     {
         return type_id_type_value<TypeIDType>;
     }
-    type_id _get_polymorphic_type_id_() const noexcept override
-    {
-        return _get_static_type_id_();
-    }
     void* _cast_(const type_id& id) & noexcept override
     {
-        return (id == _get_static_type_id_()) ? static_cast<void*>(this) : search<FirstBase, OtherBases...>(id);
+        return (id == _get_type_id_()) ? static_cast<void*>(this) : search<Bases...>(id);
     }
     const void* _cast_(const cetl::type_id& id) const& noexcept override
     {
-        return (id == _get_static_type_id_()) ? static_cast<const void*>(this) : search<FirstBase, OtherBases...>(id);
+        return (id == _get_type_id_()) ? static_cast<const void*>(this) : search<Bases...>(id);
     }
 
 private:
     // Exhaustively search for a matching conversion throughout the entire type hierarchy tree.
     // Template parameter pack expansion is not available in C++14 so we do it the hard way.
-    template <typename T>
-    void* search(const type_id& id) noexcept
+    template <typename... E, typename = std::enable_if_t<sizeof...(E) == 0>>
+    void* search(const type_id&) const noexcept
     {
-        return T::_cast_(id);
+        return nullptr;
     }
-    template <typename A, typename B, typename... C>
+    template <typename Head, typename... Tail>
     void* search(const type_id& id) noexcept
     {
-        if (void* const p = search<A>(id))
+        if (void* const p = Head::_cast_(id))
         {
             return p;
         }
-        return search<B, C...>(id);
+        return search<Tail...>(id);
     }
-    // Same but const.
-    template <typename T>
+    template <typename Head, typename... Tail>
     const void* search(const type_id& id) const noexcept
     {
-        return T::_cast_(id);
-    }
-    template <typename A, typename B, typename... C>
-    const void* search(const type_id& id) const noexcept
-    {
-        if (const void* const p = search<A>(id))
+        if (const void* const p = Head::_cast_(id))
         {
             return p;
         }
-        return search<B, C...>(id);
+        return search<Tail...>(id);
     }
 };
 
-/// Returns the type ID of the given type.
-/// This function is provided for regularity; it simply forwards the call to \c T::_get_static_type_id_().
-/// The type shall satisfy \ref cetl::has_static_type_id.
-template <typename T>
-CETL_NODISCARD constexpr type_id get_type_id() noexcept
-{
-    return std::decay_t<T>::_get_static_type_id_();
-}
-/// Returns the type ID of the given object.
-/// This overload is for objects that implement the \ref cetl::rtti interface; it simply forwards the result of the
-/// \ref cetl::rtti::_get_polymorphic_type_id_() method.
-template <typename T, std::enable_if_t<has_polymorphic_type_id<T>, int> = 0>
-CETL_NODISCARD type_id get_type_id(const T& obj) noexcept
-{
-    return obj._get_polymorphic_type_id_();
-}
-/// Returns the type ID of the given object.
-/// This overload is selected for objects that do not implement the \ref cetl::rtti interface but satisfy
-/// \ref cetl::has_static_type_id.
-template <typename T, std::enable_if_t<has_static_type_id<T> && !has_polymorphic_type_id<T>, int> = 0>
-CETL_NODISCARD constexpr type_id get_type_id(const T&) noexcept
-{
-    return get_type_id<T>();
-}
-
 /// Performs a safe dynamic type up-/down-conversion in constant time by invoking \ref cetl::rtti::_cast_.
-/// \c T shall be a pointer and \c std::remove_pointer_t<T> shall satisfy \ref cetl::has_static_type_id.
+/// \c T shall be a pointer and \c std::remove_pointer_t<T> shall satisfy \ref cetl::has_type_id.
 /// Returns \c nullptr if a safe dynamic type conversion to \c T is not possible.
 /// @{
 template <typename T, typename _from>
 CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
                                     std::is_pointer<T>::value &&  //
-                                    has_static_type_id<std::remove_pointer_t<T>>,
+                                    has_type_id<std::remove_pointer_t<T>>,
                                 T>
                rtti_cast(_from* const obj) noexcept
 {
     return (obj == nullptr)  //
                ? nullptr
-               : static_cast<T>(obj->_cast_(get_type_id<std::remove_pointer_t<T>>()));
+               : static_cast<T>(obj->_cast_(type_id_value<std::remove_pointer_t<T>>));
 }
 template <typename T, typename _from>
 CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
                                     std::is_pointer<T>::value &&  //
-                                    has_static_type_id<std::remove_pointer_t<T>>,
+                                    has_type_id<std::remove_pointer_t<T>>,
                                 const std::remove_pointer_t<T>*>
                rtti_cast(const _from* const obj) noexcept
 {
     return (obj == nullptr)  //
                ? nullptr
-               : static_cast<const std::remove_pointer_t<T>*>(obj->_cast_(get_type_id<std::remove_pointer_t<T>>()));
+               : static_cast<const std::remove_pointer_t<T>*>(obj->_cast_(type_id_value<std::remove_pointer_t<T>>));
 }
 /// @}
 
@@ -303,12 +284,12 @@ CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_u>, bool> is_instance_of(co
     return nullptr != obj._cast_(id);
 }
 /// Detects whether the given polymorphic object is an instance of the given type.
-/// T shall satisfy \ref cetl::has_static_type_id.
+/// T shall satisfy \ref cetl::has_type_id.
 /// Refer to the non-template overload for details.
 template <typename Q, typename _u>
 CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_u>, bool> is_instance_of(const _u& obj) noexcept
 {
-    return is_instance_of(obj, get_type_id<Q>());
+    return is_instance_of(obj, type_id_value<Q>);
 }
 
 }  // namespace cetl
