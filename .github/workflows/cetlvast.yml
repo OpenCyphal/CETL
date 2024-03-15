@@ -3,7 +3,9 @@ name: "CETLVaSt"
 on:
   push:  # Further filtering is done in the jobs.
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
+      - 'issue/*'
   release:
     types: [ published ]
   workflow_dispatch:
@@ -13,6 +15,7 @@ jobs:
     if: >
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
@@ -72,6 +75,7 @@ jobs:
     if: >
       contains(github.event.head_commit.message, '#docs') ||
       contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts22.4.3
@@ -114,6 +118,7 @@ jobs:
     if: >
       contains(github.event.head_commit.message, '#sonar') ||
       contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     needs:
     - verification
