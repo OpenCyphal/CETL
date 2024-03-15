@@ -1,6 +1,8 @@
 /// @file
-/// A simple runtime type information (RTTI) support designed for high-integrity
-/// real-time systems, where the use of the standard C++ RTTI is discouraged.
+/// An explicit mechanism for implementing dynamic type introspection for high-integrity systems.
+/// This should be used instead of standard C++ RunTime Type Information (RTTI) (i.e. -fno-rtti)
+/// where a codebase must trace from lines of source back to verifications (correctness)
+/// and requirements (suitability).
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
