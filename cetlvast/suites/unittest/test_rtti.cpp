@@ -28,8 +28,8 @@ struct PolymorphB : cetl::rtti_helper<cetl::type_id_type<0x1, 0x1>, PolymorphA>
 };
 struct PolymorphC : cetl::rtti_helper<cetl::type_id_type<0x2, 0x1>, PolymorphB>
 {
-    char        value = 'c';
-    const char& value_a() const
+    char                       value = 'c';
+    CETL_NODISCARD const char& value_a() const
     {
         return PolymorphA::value;
     }

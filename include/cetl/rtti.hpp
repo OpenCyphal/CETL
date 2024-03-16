@@ -103,8 +103,50 @@ constexpr type_id type_id_value = T::_get_type_id_();
 /// including the members of DSDL types (where identifiers surrounded with underscores are reserved).
 /// The user code should not invoke such underscored methods directly but instead use the free functions defined here.
 ///
-/// A basic usage example with a class implementing multiple interfaces or inheriting from multiple bases:
+/// A basic usage example:
 /// \code
+/// class ICat final : public virtual cetl::rtti  // <-- use virtual inheritance when implementing cetl::rtti
+/// {
+/// public:
+///     static constexpr cetl::type_id _get_type_id_() noexcept { return cetl::type_id_type_value<0x12>; }
+///     void* _cast_(const cetl::type_id& id) & noexcept override
+///     {
+///         return (id == _get_type_id_()) ? static_cast<void*>(this) : nullptr;
+///     }
+///     const void* _cast_(const cetl::type_id& id) const& noexcept override
+///     {
+///         return (id == _get_type_id_()) ? static_cast<const void*>(this) : nullptr;
+///     }
+/// };
+///
+/// class Tabby final : public ICat
+/// {
+/// public:
+///     static constexpr cetl::type_id _get_type_id_() noexcept { return cetl::type_id_type_value<0x34>; }
+///     void* _cast_(const cetl::type_id& id) & noexcept override
+///     {
+///         if (id == _get_type_id_()) { return static_cast<void*>(this); }
+///         return ICat::_cast_(id);
+///     }
+///     const void* _cast_(const cetl::type_id& id) const& noexcept override
+///     {
+///         if (id == _get_type_id_()) { return static_cast<const void*>(this); }
+///         return ICat::_cast_(id);
+///     }
+/// };
+///
+/// void foo(ICat& some_cat)
+/// {
+///     // you can query the cat directly:
+///     const is_tabby = cetl::is_instance_of<Tabby>(some_cat);
+///     // or you can try converting it and see if it succeeds:
+///     Tabby* maybe_tabby = cetl::rtti_cast<Tabby*>(&some_cat);
+/// }
+/// \endcode
+///
+/// A basic usage example with a class implementing multiple interfaces:
+/// \code
+/// // Assume that Tabby and Boxer are polymorphic types that implement the cetl::rtti interface.
 /// class CatDog final : public Tabby, public Boxer
 /// {
 ///  public:
@@ -137,6 +179,7 @@ constexpr type_id type_id_value = T::_get_type_id_();
 ///         return m_dog._cast_(id);
 ///     }
 /// private:
+///     // Assume that Tabby and Boxer are polymorphic types that implement the cetl::rtti interface.
 ///     Tabby m_cat{};
 ///     Boxer m_dog{};
 /// };
@@ -152,7 +195,7 @@ public:
     /// return (id == _get_type_id_()) ? static_cast<void*>(this) : base::_cast_(id);
     /// @endcode
     ///
-    /// Where \c base is the base class of the current class that implements this method;
+    /// Where \c base is the base class of the current class that implements this method, if any;
     /// if there is more than one base available, all of those that implement this \ref cetl::rtti interface
     /// should be checked in the same way one by one and the first match (non-nullptr result) should be returned.
     ///
@@ -208,11 +251,11 @@ struct rtti_helper : public virtual cetl::rtti, public Bases...
     {
         return type_id_type_value<TypeIDType>;
     }
-    void* _cast_(const type_id& id) & noexcept override
+    CETL_NODISCARD void* _cast_(const type_id& id) & noexcept override
     {
         return (id == _get_type_id_()) ? static_cast<void*>(this) : search<Bases...>(id);
     }
-    const void* _cast_(const cetl::type_id& id) const& noexcept override
+    CETL_NODISCARD const void* _cast_(const cetl::type_id& id) const& noexcept override
     {
         return (id == _get_type_id_()) ? static_cast<const void*>(this) : search<Bases...>(id);
     }
@@ -221,7 +264,7 @@ private:
     // Exhaustively search for a matching conversion throughout the entire type hierarchy tree.
     // Template parameter pack expansion is not available in C++14 so we do it the hard way.
     template <typename... E, typename = std::enable_if_t<sizeof...(E) == 0>>
-    void* search(const type_id&) const noexcept
+    CETL_NODISCARD void* search(const type_id&) const noexcept
     {
         return nullptr;
     }
@@ -235,7 +278,7 @@ private:
         return search<Tail...>(id);
     }
     template <typename Head, typename... Tail>
-    const void* search(const type_id& id) const noexcept
+    CETL_NODISCARD const void* search(const type_id& id) const noexcept
     {
         if (const void* const p = Head::_cast_(id))
         {
