@@ -188,8 +188,7 @@ struct impl : std::integral_constant<std::size_t, std::numeric_limits<std::size_
 {};
 template <template <typename...> class Q, typename F, typename... Ts>
 struct impl<Q, F, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>()))>>
-    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>()))
-{};
+    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>())){};
 }  // namespace best_conversion_index
 }  // namespace detail
 
