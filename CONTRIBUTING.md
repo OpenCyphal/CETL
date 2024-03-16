@@ -82,6 +82,16 @@ ninja help
 ninja release
 ```
 
+### Format the sources
+
+Clang-Format may format the sources differently depending on the version used.
+To ensure that the formatting matches the expectations of the CI suite,
+invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
+
+```
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
+```
+
 # `issue/*` and hashtag-based CI triggering
 
 Normally, the CI will only run on pull requests (PR), releases, and perhaps some other special occasions on `main` branch.
@@ -94,3 +104,13 @@ will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
 
 Note that if the job you requested is dependent on other jobs that are not triggered, it will not run; 
 for example, if `sonar` requires `docs`, pushing a commit with `#sonar` alone will not make it run.
+
+# IDE-specific notes
+
+## CLion
+
+Ensure that the memory limit for clangd is set to at least 12 GiB;
+a lower limit will cause the IDE to kill clangd frequently, causing the indexing context to be lost.
+To change the limit, open the Registry (Shift+Shift -> type `Registry`) and adjust
+`clion.clangd.max.memory`.
+The IDE needs at least 20 GiB of memory overall to open the project correctly.

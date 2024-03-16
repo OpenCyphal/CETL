@@ -150,6 +150,19 @@ public:
     using from = typename impl<Ts...>::type;
 };
 
+// ------------------------------------------------------------------------------------------------
+
+/// Takes two arguments: a single-argument template F and a typelist Q.
+/// Creates a new typelist of the same container type as Q by applying F to each type in Q.
+/// E.g., map<std::add_pointer_t, std::tuple<int, char>> results in std::tuple<int*, char*>.
+template <template <typename> class, typename>
+struct map;
+template <template <typename> class F, template <typename...> class Q, typename... Ts>
+struct map<F, Q<Ts...>>
+{
+    using type = Q<F<Ts>...>;
+};
+
 }  // namespace typelist
 }  // namespace cetlvast
 

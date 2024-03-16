@@ -51,6 +51,12 @@ constexpr bool is_aligned(T* object)
     return is_aligned<T>(object, alignof(T));
 }
 
+/// Result undefined unless `alignment > 0`.
+constexpr std::size_t align_size_up(std::size_t size, std::size_t alignment) noexcept
+{
+    return ((size + alignment - 1U) / alignment) * alignment;
+}
+
 }  // namespace cetlvast
 
 #endif  // CETLVAST_HELPERS_H_INCLUDED
