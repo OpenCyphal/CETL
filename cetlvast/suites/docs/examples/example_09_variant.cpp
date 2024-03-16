@@ -9,10 +9,7 @@
 #include "cetl/pf17/variant.hpp"
 #include <string>
 #include <algorithm>
-#include <cassert>
 #include <iostream>
-#include <string>
-
 #include <gtest/gtest.h>
 
 TEST(example_09_variant, basic_usage)
@@ -23,7 +20,7 @@ TEST(example_09_variant, basic_usage)
     cetl::pf17::variant<int, float> v, w;
     v     = 42;  // v contains int
     int i = cetl::pf17::get<int>(v);
-    assert(42 == i);  // succeeds
+    EXPECT_EQ(42, i);
     w = cetl::pf17::get<int>(v);
     w = cetl::pf17::get<0>(v);  // same effect as the previous line
     w = v;                      // same effect as the previous line
@@ -42,8 +39,8 @@ TEST(example_09_variant, basic_usage)
 
     cetl::pf17::variant<std::string, void const*> y("abc");
     // casts to void const * when passed a char const *
-    assert(cetl::pf17::holds_alternative<void const*>(y));  // succeeds
+    EXPECT_TRUE(cetl::pf17::holds_alternative<void const*>(y));
     y = "xyz"s;
-    assert(cetl::pf17::holds_alternative<std::string>(y));  // succeeds
+    EXPECT_TRUE(cetl::pf17::holds_alternative<std::string>(y));
     //! [example_09_basic_usage]
 }
