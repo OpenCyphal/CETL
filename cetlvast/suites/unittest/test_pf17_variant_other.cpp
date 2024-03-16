@@ -250,6 +250,8 @@ static_assert(best_converting_ctor_index_v<char, float, double, bool> == bad, ""
 
 static_assert(best_converting_ctor_index_v<int, int, bool> == 0, "");
 static_assert(best_converting_ctor_index_v<bool, int, bool> == 1, "");
+static_assert(best_converting_ctor_index_v<int, float, int> == 1, "");
+static_assert(best_converting_ctor_index_v<int&, float, int> == 1, "");
 }  // namespace test_match_ctor
 
 // --------------------------------------------------------------------------------------------

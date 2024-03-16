@@ -162,6 +162,9 @@ struct candidate
 {
     template <typename DependentT = T, std::enable_if_t<Q<DependentT>::value, int> = 0>
     static std::integral_constant<std::size_t, N> match(T&&);
+    // Currently, we don't differentiate between value categories of T, but it may be useful in the future.
+    template <typename DependentT = T, std::enable_if_t<Q<DependentT>::value, int> = 0>
+    static std::integral_constant<std::size_t, N> match(const T&);
 };
 template <template <typename...> class Q, std::size_t N, typename... Ts>
 struct resolver : resolver<Q, N - 1, Ts...>, candidate<Q, N, std::tuple_element_t<N, std::tuple<Ts...>>>
