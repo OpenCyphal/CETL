@@ -247,10 +247,14 @@ protected:
 template <typename TypeIDType, typename... Bases>
 struct rtti_helper : public virtual cetl::rtti, public Bases...
 {
+    /// The recommended implementation that simply returns the value of the \c TypeIDType template parameter.
     static constexpr type_id _get_type_id_() noexcept
     {
         return type_id_type_value<TypeIDType>;
     }
+    /// The recommended implementation that performs an exhaustive search for a matching conversion
+    /// throughout the entire type hierarchy tree in the presence of multiple inheritance.
+    /// @{
     CETL_NODISCARD void* _cast_(const type_id& id) & noexcept override
     {
         return (id == _get_type_id_()) ? static_cast<void*>(this) : search<Bases...>(id);
@@ -259,6 +263,7 @@ struct rtti_helper : public virtual cetl::rtti, public Bases...
     {
         return (id == _get_type_id_()) ? static_cast<const void*>(this) : search<Bases...>(id);
     }
+    /// @}
 
 private:
     // Exhaustively search for a matching conversion throughout the entire type hierarchy tree.
