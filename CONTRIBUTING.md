@@ -92,12 +92,13 @@ invoke Clang-Format of the correct version from the container (be sure to use th
 docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.3 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
 ```
 
-# Hashtag-based CI triggering
+# `issue/*` and hashtag-based CI triggering
 
-Normally, the CI will only run on pull requests, releases, and perhaps some other special occasions.
+Normally, the CI will only run on pull requests (PR), releases, and perhaps some other special occasions on `main` branch.
 Often, however, you will want to run it on your branch before proposing the changes to ensure all checks are
-green and test coverage is adequate.
-To do that, add a hashtag with the name of the workflow you need to run to the head commit;
+green and test coverage is adequate - to do that:
+- either target your PR to any `issue/NN_LABEL` branch, where `NN` is the issue number and `LABEL` is a small title giving context (like `issue/83_any`)
+- or add a hashtag with the name of the workflow you need to run to the head commit;
 for example, making a commit with a message like `Add feature such and such #verification #docs #sonar`
 will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
 
