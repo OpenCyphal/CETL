@@ -336,8 +336,7 @@ public:
 #if (__cplusplus >= 201703L)
     [[nodiscard]]
 #endif
-    constexpr bool
-    empty() const noexcept
+    constexpr bool empty() const noexcept
     {
         return (Extent == 0);
     }
@@ -694,8 +693,7 @@ public:
 #if (__cplusplus >= 201703L)
     [[nodiscard]]
 #endif
-    constexpr bool
-    empty() const noexcept
+    constexpr bool empty() const noexcept
     {
         return (size_ == 0);
     }
