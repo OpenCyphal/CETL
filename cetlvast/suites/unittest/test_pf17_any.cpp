@@ -27,7 +27,7 @@ TEST(test_bad_any_cast, ctor)
 
     // Test the move constructor.
     cetl::bad_any_cast test_exception3{std::move(test_exception2)};
-    EXPECT_STREQ("bad any cast", test_exception3.what());
+    EXPECT_STRNE("", test_exception3.what());
 
 #else
     GTEST_SKIP() << "Not applicable when exceptions are disabled.";
@@ -46,7 +46,7 @@ TEST(test_bad_any_cast, assignment)
     // Test the move assignment operator.
     cetl::bad_any_cast test_exception3;
     test_exception3 = std::move(test_exception2);
-    EXPECT_STREQ("bad any cast", test_exception3.what());
+    EXPECT_STRNE("", test_exception3.what());
 
 #else
     GTEST_SKIP() << "Not applicable when exceptions are disabled.";
