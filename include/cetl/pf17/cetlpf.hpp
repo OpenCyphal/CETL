@@ -42,6 +42,7 @@
 #    include <cstddef>
 #    include <optional>
 #    include <variant>
+#    include <any>
 
 namespace cetl
 {
@@ -105,9 +106,13 @@ using std::get_if;
 using std::visit;
 using std::holds_alternative;
 
+// any
+using std::bad_any_cast;
+
 }  // namespace cetl
 
 #else
+#    include "cetl/pf17/any.hpp"
 #    include "cetl/pf17/byte.hpp"
 #    include "cetl/pf17/utility.hpp"
 #    include "cetl/pf17/optional.hpp"
@@ -178,6 +183,11 @@ using cetl::pf17::visit;
 using cetl::pf17::holds_alternative;
 #    if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 using cetl::pf17::bad_variant_access;
+#    endif
+
+// any
+#    if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
+using cetl::pf17::bad_any_cast;
 #    endif
 
 }  // namespace cetl
