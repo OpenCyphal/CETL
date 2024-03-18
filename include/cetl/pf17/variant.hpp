@@ -85,7 +85,7 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
 #else
         static const  // 'static' cannot occur in a constexpr context until C++23.
 #endif
-            std::array<R (*)(F&&, Args&&...), sizeof...(Is)>
+            std::array<R (*)(F&&, Args && ...), sizeof...(Is)>
                 lut = {
                     [](F&& fn, Args&&... ar) -> R {
                         return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{},
@@ -659,8 +659,8 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
     base_move_assignment(const base_move_assignment&)            = default;
     base_move_assignment(base_move_assignment&&)                 = default;
     base_move_assignment& operator=(const base_move_assignment&) = default;
-    base_move_assignment& operator=(base_move_assignment&& other) noexcept(tys::nothrow_move_constructible &&
-                                                                           tys::nothrow_move_assignable)
+    base_move_assignment& operator=(base_move_assignment&& other) noexcept(
+        tys::nothrow_move_constructible&& tys::nothrow_move_assignable)
     {
         if ((variant_npos != this->m_index) && (this->m_index == other.m_index))  // Invoke move assignment.
         {
@@ -947,8 +947,8 @@ public:
     /// Assignment 2 -- move assignment
     /// If the current alternative is different and the move constructor throws, the variant becomes valueless.
     /// This is constexpr only if all Ts are trivially move assignable.
-    constexpr variant& operator=(variant&& rhs) noexcept(tys::nothrow_move_constructible &&
-                                                         tys::nothrow_move_assignable) = default;
+    constexpr variant& operator=(variant&& rhs) noexcept(
+        tys::nothrow_move_constructible&& tys::nothrow_move_assignable) = default;
 
     /// Assignment 3 -- converting assignment
     template <typename U,
@@ -959,8 +959,8 @@ public:
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
               std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,
               std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int>                         = 0>
-    variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<Alt, U>::value &&
-                                          std::is_nothrow_assignable<Alt&, U>::value)
+    variant& operator=(U&& from) noexcept(
+        std::is_nothrow_constructible<Alt, U>::value&& std::is_nothrow_assignable<Alt&, U>::value)
     {
         if (Ix == this->m_index)
         {
@@ -1022,7 +1022,7 @@ public:
     /// the swap function called.
     /// In the second case, if the move constructor or the move assignment operator throw,
     /// either or both variants may become valueless.
-    constexpr void swap(variant& other) noexcept(tys::nothrow_move_constructible && tys::nothrow_swappable)
+    constexpr void swap(variant& other) noexcept(tys::nothrow_move_constructible&& tys::nothrow_swappable)
     {
         if ((!valueless_by_exception()) || (!other.valueless_by_exception()))
         {
