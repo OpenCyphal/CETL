@@ -5,10 +5,10 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef CETL_PF17_ANY_HPP_INCLUDED
-#define CETL_PF17_ANY_HPP_INCLUDED
+#ifndef CETL_ANY_HPP_INCLUDED
+#define CETL_ANY_HPP_INCLUDED
 
-#include <cetl/pf17/attribute.hpp>
+#include "pf17/attribute.hpp"
 
 #include <algorithm>
 #include <type_traits>
@@ -16,8 +16,6 @@
 #include <exception>  // We need this even if exceptions are disabled for `std::terminate`.
 
 namespace cetl  // NOLINT(*-concat-nested-namespaces) TODO: Fix this when C++17.
-{
-namespace pf17
 {
 
 // Forward declarations
@@ -246,7 +244,6 @@ std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept
     return static_cast<ReturnType>(ptr);
 }
 
-}  // namespace pf17
 }  // namespace cetl
 
-#endif  // CETL_PF17_ANY_HPP_INCLUDED
+#endif  // CETL_ANY_HPP_INCLUDED
