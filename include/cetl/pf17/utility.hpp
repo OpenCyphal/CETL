@@ -76,7 +76,7 @@ struct overloaded<T> : public T
 template <typename T, typename... Ts>
 struct overloaded<T, Ts...> : public T, public overloaded<Ts...>
 {
-    using T::                operator();
+    using T::operator();
     using overloaded<Ts...>::operator();
     // If B were empty, the ctor would need sfinae to avoid hiding the copy/move ctors; ensure this is not so.
     template <typename A, typename... B, std::enable_if_t<(sizeof...(B) > 0), int> = 0>
@@ -117,10 +117,8 @@ struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
 template <typename T>
 struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
 {};
-template <typename T>
-inline constexpr bool is_in_place_type_v = is_in_place_type<T>::value;
-static_assert(is_in_place_type_v<decltype(in_place_type<int>)>, "self-test failure");
-static_assert(!is_in_place_type_v<decltype(in_place_index<0>)>, "self-test failure");
+static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "self-test failure");
+static_assert(!is_in_place_type<decltype(in_place_index<0>)>::value, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
 
@@ -134,10 +132,8 @@ struct is_in_place_index_impl<in_place_index_t<I>> : std::true_type
 template <typename T>
 struct is_in_place_index : is_in_place_index_impl<std::decay_t<T>>
 {};
-template <typename T>
-inline constexpr bool is_in_place_index_v = is_in_place_index<T>::value;
-static_assert(is_in_place_index_v<decltype(in_place_index<0>)>, "self-test failure");
-static_assert(!is_in_place_index_v<decltype(in_place_type<int>)>, "self-test failure");
+static_assert(is_in_place_index<decltype(in_place_index<0>)>::value, "self-test failure");
+static_assert(!is_in_place_index<decltype(in_place_type<int>)>::value, "self-test failure");
 }  // namespace detail
 
 }  // namespace pf17

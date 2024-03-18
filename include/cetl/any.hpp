@@ -115,8 +115,8 @@ public:
 
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
-              typename =
-                  std::enable_if_t<!std::is_same<Tp, any>::value && !cetl::pf17::detail::is_in_place_type_v<ValueType>>>
+              typename    = std::enable_if_t<!std::is_same<Tp, any>::value &&
+                                             !cetl::pf17::detail::is_in_place_type<ValueType>::value>>
     any(ValueType&& value)
     {
         soo_handler<Tp>::create(*this, std::forward<ValueType>(value));

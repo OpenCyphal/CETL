@@ -13,34 +13,44 @@
 namespace
 {
 
-using cetl::bad_any_cast;
-
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
 TEST(test_bad_any_cast, ctor)
 {
+#if defined(__cpp_exceptions)
+
     // Test the default constructor.
-    bad_any_cast test_exception1;
+    cetl::bad_any_cast test_exception1;
 
     // Test the copy constructor.
-    bad_any_cast test_exception2{test_exception1};
+    cetl::bad_any_cast test_exception2{test_exception1};
 
     // Test the move constructor.
-    bad_any_cast test_exception3{std::move(test_exception2)};
+    cetl::bad_any_cast test_exception3{std::move(test_exception2)};
     EXPECT_STREQ("bad any cast", test_exception3.what());
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
 }
 
 TEST(test_bad_any_cast, assignment)
 {
+#if defined(__cpp_exceptions)
+
     // Test the copy assignment operator.
-    bad_any_cast test_exception1;
-    bad_any_cast test_exception2;
+    cetl::bad_any_cast test_exception1;
+    cetl::bad_any_cast test_exception2;
     test_exception2 = test_exception1;
 
     // Test the move assignment operator.
-    bad_any_cast test_exception3;
+    cetl::bad_any_cast test_exception3;
     test_exception3 = std::move(test_exception2);
     EXPECT_STREQ("bad any cast", test_exception3.what());
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
 }
 
 }  // namespace

@@ -882,12 +882,12 @@ public:
     /// Constructor 4 -- converting constructor
     template <typename U,
               std::size_t Ix = detail::var::best_converting_ctor_index_v<U, Ts...>,
-              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int> = 0,
-              typename Alt                                                          = nth_type<Ix>,
-              std::enable_if_t<std::is_constructible<Alt, U>::value, int>           = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int> = 0,
-              std::enable_if_t<!detail::is_in_place_type_v<std::decay_t<U>>, int>   = 0,
-              std::enable_if_t<!detail::is_in_place_index_v<std::decay_t<U>>, int>  = 0>
+              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int>     = 0,
+              typename Alt                                                              = nth_type<Ix>,
+              std::enable_if_t<std::is_constructible<Alt, U>::value, int>               = 0,
+              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
+              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
+              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
     constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<Alt, U>::value)
         : base(in_place_index<Ix>, std::forward<U>(from))
@@ -957,8 +957,8 @@ public:
               typename Alt                                                          = nth_type<Ix>,
               std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
-              std::enable_if_t<!detail::is_in_place_type_v<std::decay_t<U>>, int>                               = 0,
-              std::enable_if_t<!detail::is_in_place_index_v<std::decay_t<U>>, int>                              = 0>
+              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,
+              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int>                         = 0>
     variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<Alt, U>::value &&
                                           std::is_nothrow_assignable<Alt&, U>::value)
     {

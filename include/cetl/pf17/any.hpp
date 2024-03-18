@@ -40,7 +40,7 @@ public:
 
 #endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
-}   // namespace pf17
-}   // namespace cetl
+}  // namespace pf17
+}  // namespace cetl
 
 #endif  // CETL_PF17_ANY_HPP_INCLUDED

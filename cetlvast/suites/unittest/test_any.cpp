@@ -19,7 +19,6 @@ namespace
 
 using cetl::any;
 using cetl::any_cast;
-using cetl::bad_any_cast;
 using cetl::in_place_type_t;
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
@@ -279,7 +278,7 @@ TEST(test_any, any_cast_4_const_ptr)
     uut a{147};
 
     auto intPtr = any_cast<int>(&a);
-    static_assert(std::is_same_v<const int*, decltype(intPtr)>);
+    static_assert(std::is_same<const int*, decltype(intPtr)>::value, "");
 
     EXPECT_TRUE(intPtr);
     EXPECT_EQ(147, *intPtr);
@@ -294,7 +293,7 @@ TEST(test_any, any_cast_5_non_const_ptr)
     uut a{'Y'};
 
     auto charPtr = any_cast<char>(&a);
-    static_assert(std::is_same_v<char*, decltype(charPtr)>);
+    static_assert(std::is_same<char*, decltype(charPtr)>::value, "");
     EXPECT_TRUE(charPtr);
     EXPECT_EQ('Y', *charPtr);
 
