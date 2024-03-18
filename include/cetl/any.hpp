@@ -8,7 +8,8 @@
 #ifndef CETL_ANY_HPP_INCLUDED
 #define CETL_ANY_HPP_INCLUDED
 
-#include "pf17/any.hpp"
+#include "pf17/cetlpf.hpp"
+#include "pf17/attribute.hpp"
 
 #include <algorithm>
 #include <type_traits>
@@ -82,6 +83,7 @@ public:
 enum class action
 {
     Get,
+    Copy,
     Destroy
 };
 
@@ -93,10 +95,24 @@ class any : private detail::base_move<Footprint, Copyable, Movable>
 public:
     constexpr any() noexcept = default;
 
+    any(const any& other)
+    {
+        if (other.has_value())
+        {
+            other.handle(detail::action::Copy, this);
+        }
+    }
+
     template <typename ValueType, typename Tp = std::decay_t<ValueType>>
     any(ValueType&& value)
     {
         soo_handler<Tp>::create(*this, std::forward<ValueType>(value));
+    }
+
+    template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
+    explicit any(cetl::in_place_type_t<ValueType>, Args&&... args)
+    {
+        soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
     ~any()
@@ -123,7 +139,7 @@ public:
 
 private:
     // Type-erased handler.
-    using any_handler = void* (*) (detail::action, const any* /*self*/);
+    using any_handler = void* (*) (detail::action, const any* /*self*/, any* /*other*/);
 
     // Small Object Optimization (SOO) handler.
     template <typename Tp>
@@ -131,13 +147,21 @@ private:
     {
         static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
 
-        static void* handle(detail::action action, const any* self)
+        static void* handle(detail::action action, const any* self, any* other)
         {
             switch (action)
             {
             case detail::action::Get:
+
                 return get(const_cast<any&>(*self));
+
+            case detail::action::Copy:
+
+                copy(*other, *self);
+                return nullptr;
+
             case detail::action::Destroy:
+
                 destroy(const_cast<any&>(*self));
                 return nullptr;
             }
@@ -159,6 +183,12 @@ private:
             return static_cast<void*>(&self.buffer_);
         }
 
+        static void copy(any& self, const any& source)
+        {
+            const Tp* src = static_cast<const Tp*>(static_cast<const void*>(&source.buffer_));
+            create(self, *src);
+        }
+
         static void destroy(any& self)
         {
             Tp* ptr = static_cast<Tp*>(static_cast<void*>(&self.buffer_));
@@ -171,14 +201,20 @@ private:
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
-    void* handle(detail::action action) const
+    void* handle(detail::action action, any* other = nullptr) const
     {
-        return handler_ ? handler_(action, this) : nullptr;
+        return handler_ ? handler_(action, this, other) : nullptr;
     }
 
     any_handler handler_ = nullptr;
 
 };  // class any
+
+template <typename ValueType, typename Any, typename... Args>
+inline Any make_any(Args&&... args)
+{
+    return Any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...);
+}
 
 /// \brief Performs type-safe access to the `const` contained object.
 ///
