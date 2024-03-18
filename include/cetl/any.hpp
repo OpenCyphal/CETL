@@ -9,6 +9,7 @@
 #define CETL_ANY_HPP_INCLUDED
 
 #include "pf17/cetlpf.hpp"
+#include "pf17/utility.hpp"
 #include "pf17/attribute.hpp"
 
 #include <algorithm>
@@ -84,6 +85,7 @@ enum class action
 {
     Get,
     Copy,
+    Move,
     Destroy
 };
 
@@ -103,7 +105,18 @@ public:
         }
     }
 
-    template <typename ValueType, typename Tp = std::decay_t<ValueType>>
+    any(any&& other) noexcept
+    {
+        if (other.has_value())
+        {
+            other.handle(detail::action::Move, this);
+        }
+    }
+
+    template <
+        typename ValueType,
+        typename Tp = std::decay_t<ValueType>,
+        typename    = std::enable_if_t<!std::is_same_v<Tp, any> && !cetl::pf17::detail::is_in_place_type_v<ValueType>>>
     any(ValueType&& value)
     {
         soo_handler<Tp>::create(*this, std::forward<ValueType>(value));
@@ -160,6 +173,11 @@ private:
                 copy(*other, *self);
                 return nullptr;
 
+            case detail::action::Move:
+
+                move(*other, const_cast<any&>(*self));
+                return nullptr;
+
             case detail::action::Destroy:
 
                 destroy(const_cast<any&>(*self));
@@ -189,6 +207,13 @@ private:
             create(self, *src);
         }
 
+        static void move(any& self, any& source)
+        {
+            Tp* src = static_cast<Tp*>(static_cast<void*>(&source.buffer_));
+            create(self, std::move(*src));
+            destroy(source);
+        }
+
         static void destroy(any& self)
         {
             Tp* ptr = static_cast<Tp*>(static_cast<void*>(&self.buffer_));
@@ -210,6 +235,10 @@ private:
 
 };  // class any
 
+/// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
+///
+/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
+///
 template <typename ValueType, typename Any, typename... Args>
 inline Any make_any(Args&&... args)
 {

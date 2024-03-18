@@ -10,6 +10,7 @@
 #include <cetl/pf17/cetlpf.hpp>
 
 #include <complex>
+#include <functional>
 #include <string>
 #include <gtest/gtest.h>
 
@@ -60,11 +61,11 @@ TEST(test_any, ctor_2_copy)
     {
         using uut = any<sizeof(int)>;
 
-        const uut src{42};
-        const uut dst{src};
+        const uut srcAny{42};
+        const uut dstAny{srcAny};
 
-        EXPECT_EQ(42, *any_cast<int>(&src));
-        EXPECT_EQ(42, *any_cast<int>(&dst));
+        EXPECT_EQ(42, *any_cast<int>(&srcAny));
+        EXPECT_EQ(42, *any_cast<int>(&dstAny));
     }
 
     // Copyable
@@ -80,11 +81,52 @@ TEST(test_any, ctor_2_copy)
         };
         using uut = any<sizeof(TestCopyable)>;
 
-        const uut src{TestCopyable{}};
-        const uut dst{src};
+        const uut srcAny{TestCopyable{}};
+        const uut dstAny{srcAny};
 
-        EXPECT_EQ(1, *any_cast<int>(&src));
-        EXPECT_EQ(2, *any_cast<int>(&dst));
+        EXPECT_EQ(1, *any_cast<int>(&srcAny));
+        EXPECT_EQ(2, *any_cast<int>(&dstAny));
+    }
+}
+
+TEST(test_any, ctor_3_move)
+{
+    // Primitive `int`
+    {
+        using uut = any<sizeof(int)>;
+
+        uut       srcAny{42};
+        const uut dstAny{std::move(srcAny)};
+
+        EXPECT_FALSE(srcAny.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+    }
+
+    // Movable
+    {
+        struct TestMovable
+        {
+            int value_     = 0;
+            TestMovable()  = default;
+            ~TestMovable() = default;
+            TestMovable(const TestMovable& other)
+            {
+                value_ = other.value_ + 10;
+            }
+            TestMovable(TestMovable&& other) noexcept
+            {
+                value_ = other.value_ + 1;
+            }
+        };
+        using uut = any<sizeof(TestMovable)>;
+
+        uut srcAny{TestMovable{}};
+        EXPECT_TRUE(srcAny.has_value());
+
+        const uut dstAny{std::move(srcAny)};
+        EXPECT_TRUE(dstAny.has_value());
+        EXPECT_FALSE(srcAny.has_value());
+        EXPECT_EQ(2, *any_cast<int>(&dstAny));
     }
 }
 
@@ -102,9 +144,9 @@ TEST(test_any, ctor_5)
     };
     using uut = any<sizeof(TestType)>;
 
-    const uut src{in_place_type_t<TestType>{}, 'Y', 42};
+    const uut srcAny{in_place_type_t<TestType>{}, 'Y', 42};
 
-    auto ptr = any_cast<TestType>(&src);
+    auto ptr = any_cast<TestType>(&srcAny);
     EXPECT_EQ('Y', ptr->ch_);
     EXPECT_EQ(42, ptr->number_);
 }
@@ -121,6 +163,19 @@ TEST(test_any, make_any_1_cppref_example)
 
     // TODO: Add more from the example when corresponding api will be available.
     // https://en.cppreference.com/w/cpp/utility/any/make_any
+    using lambda     = std::function<const char*(void)>;
+    using any_lambda = any<sizeof(lambda)>;
+
+    any_lambda a2    = [] { return "Lambda #1.\n"; };
+    EXPECT_TRUE(a2.has_value());
+//    auto functionPtr = any_cast<lambda>(&a2);
+//    EXPECT_FALSE(functionPtr);
+
+    auto a3 = cetl::make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
+    EXPECT_TRUE(a3.has_value());
+    auto functionPtr3 = any_cast<lambda>(&a3);
+    EXPECT_TRUE(functionPtr3);
+    EXPECT_STREQ("Lambda #2.\n", (*functionPtr3)());
 }
 
 TEST(test_any, any_cast_4_const_ptr)
@@ -150,18 +205,6 @@ TEST(test_any, any_cast_5_non_const_ptr)
     EXPECT_EQ('Y', *charPtr);
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
-}
-
-TEST(test_any, function_value)
-{
-    // TODO: Try put/get function.
-    GTEST_SKIP() << "Implement me!";
-}
-
-TEST(test_any, lambda_value)
-{
-    // TODO: Try put/get lambda.
-    GTEST_SKIP() << "Implement me!";
 }
 
 }  // namespace
