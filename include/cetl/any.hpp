@@ -44,7 +44,7 @@ public:
 
 #endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
-namespace
+namespace detail
 {
 
 // Move policy.
@@ -109,10 +109,10 @@ enum class action
     Destroy
 };
 
-}  // namespace
+}  // namespace detail
 
 template <std::size_t Footprint, bool Copyable = true, bool Movable = Copyable>
-class any : private base_move<Footprint, Copyable, Movable>
+class any : private detail::base_move<Footprint, Copyable, Movable>
 {
 public:
     constexpr any() noexcept = default;
@@ -137,7 +137,7 @@ public:
 
     void reset() noexcept
     {
-        handle(action::Destroy);
+        handle(detail::action::Destroy);
     }
 
     CETL_NODISCARD bool has_value() const noexcept
@@ -147,7 +147,7 @@ public:
 
 private:
     // Type-erased handler.
-    using any_handler = void* (*) (action, const any* /*self*/);
+    using any_handler = void* (*) (detail::action, const any* /*self*/);
 
     // Small Object Optimization (SOO) handler.
     template <typename Tp>
@@ -155,13 +155,13 @@ private:
     {
         static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
 
-        static void* handle(action action, const any* self)
+        static void* handle(detail::action action, const any* self)
         {
             switch (action)
             {
-            case action::Get:
+            case detail::action::Get:
                 return get(const_cast<any&>(*self));
-            case action::Destroy:
+            case detail::action::Destroy:
                 destroy(const_cast<any&>(*self));
                 return nullptr;
             }
@@ -195,7 +195,7 @@ private:
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
-    void* handle(action action) const
+    void* handle(detail::action action) const
     {
         return handler_ ? handler_(action, this) : nullptr;
     }
@@ -238,7 +238,7 @@ std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept
         return nullptr;
     }
 
-    void* ptr = operand->handle(action::Get);
+    void* ptr = operand->handle(detail::action::Get);
 
     using ReturnType = std::add_pointer_t<ValueType>;
     return static_cast<ReturnType>(ptr);
