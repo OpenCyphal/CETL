@@ -113,10 +113,10 @@ public:
         }
     }
 
-    template <
-        typename ValueType,
-        typename Tp = std::decay_t<ValueType>,
-        typename    = std::enable_if_t<!std::is_same_v<Tp, any> && !cetl::pf17::detail::is_in_place_type_v<ValueType>>>
+    template <typename ValueType,
+              typename Tp = std::decay_t<ValueType>,
+              typename =
+                  std::enable_if_t<!std::is_same<Tp, any>::value && !cetl::pf17::detail::is_in_place_type_v<ValueType>>>
     any(ValueType&& value)
     {
         soo_handler<Tp>::create(*this, std::forward<ValueType>(value));
@@ -128,9 +128,32 @@ public:
         soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
+    // TODO: Add ctor#6 with `std::initializer_list`.
+
     ~any()
     {
         reset();
+    }
+
+    any& operator=(const any& rhs)
+    {
+        any(rhs).swap(*this);
+        return *this;
+    }
+
+    any& operator=(any&& rhs) noexcept
+    {
+        any(std::move(rhs)).swap(*this);
+        return *this;
+    }
+
+    template <typename ValueType,
+              typename Tp = std::decay_t<ValueType>,
+              typename    = std::enable_if_t<!std::is_same<Tp, any>::value>>
+    any& operator=(ValueType&& value)
+    {
+        any(std::forward<ValueType>(value)).swap(*this);
+        return *this;
     }
 
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
@@ -140,9 +163,35 @@ public:
         return soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
+    // TODO: Add emplace#2 with `std::initializer_list`.
+
     void reset() noexcept
     {
         handle(detail::action::Destroy);
+    }
+
+    void swap(any& rhs) noexcept
+    {
+        if (this == &rhs)
+        {
+            return;
+        }
+
+        if (has_value() && rhs.has_value())
+        {
+            any tmp;
+            rhs.handle(detail::action::Move, &tmp);
+            handle(detail::action::Move, &rhs);
+            tmp.handle(detail::action::Move, this);
+        }
+        else if (has_value())
+        {
+            handle(detail::action::Move, &rhs);
+        }
+        else if (rhs.has_value())
+        {
+            rhs.handle(detail::action::Move, this);
+        }
     }
 
     CETL_NODISCARD bool has_value() const noexcept
@@ -244,6 +293,8 @@ inline Any make_any(Args&&... args)
 {
     return Any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...);
 }
+
+// TODO: Add `any_cast` 1, 2 & 3.
 
 /// \brief Performs type-safe access to the `const` contained object.
 ///

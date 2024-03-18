@@ -130,6 +130,30 @@ TEST(test_any, ctor_3_move)
     }
 }
 
+TEST(test_any, ctor_4_move_value)
+{
+    struct TestMovable
+    {
+        int value_     = 0;
+        TestMovable()  = default;
+        ~TestMovable() = default;
+        TestMovable(const TestMovable& other)
+        {
+            value_ = other.value_ + 10;
+        }
+        TestMovable(TestMovable&& other) noexcept
+        {
+            value_ = other.value_ + 1;
+        }
+    };
+    using uut = any<sizeof(TestMovable)>;
+
+    TestMovable test{};
+    const uut   dstAny{std::move(test)};
+    EXPECT_TRUE(dstAny.has_value());
+    EXPECT_EQ(1, *any_cast<int>(&dstAny));
+}
+
 TEST(test_any, ctor_5)
 {
     struct TestType
@@ -151,6 +175,75 @@ TEST(test_any, ctor_5)
     EXPECT_EQ(42, ptr->number_);
 }
 
+TEST(test_any, assign_1_copy)
+{
+    // Primitive `int`
+    {
+        using uut = any<sizeof(int)>;
+
+        const uut srcAny{42};
+        EXPECT_TRUE(srcAny.has_value());
+
+        uut dstAny{};
+        EXPECT_FALSE(dstAny.has_value());
+
+        dstAny = srcAny;
+        EXPECT_TRUE(srcAny.has_value());
+        EXPECT_TRUE(dstAny.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+
+        const uut srcAny2{147};
+        dstAny = srcAny2;
+        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+
+        const uut emptyAny{};
+        dstAny = emptyAny;
+        EXPECT_FALSE(dstAny.has_value());
+    }
+}
+
+TEST(test_any, assign_2_move)
+{
+    // Primitive `int`
+    {
+        using uut = any<sizeof(int)>;
+
+        uut srcAny{42};
+        EXPECT_TRUE(srcAny.has_value());
+
+        uut dstAny{};
+        EXPECT_FALSE(dstAny.has_value());
+
+        dstAny = std::move(srcAny);
+        EXPECT_TRUE(dstAny.has_value());
+        EXPECT_FALSE(srcAny.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+
+        dstAny = uut{147};
+        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+
+        dstAny = uut{};
+        EXPECT_FALSE(dstAny.has_value());
+    }
+}
+
+TEST(test_any, assign_3_move_value)
+{
+    // Primitive `int`
+    {
+        using uut = any<sizeof(int)>;
+
+        uut srcAny{42};
+        EXPECT_TRUE(srcAny.has_value());
+
+        uut dstAny{};
+        EXPECT_FALSE(dstAny.has_value());
+
+        dstAny = 147;
+        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+    }
+}
+
 TEST(test_any, make_any_1_cppref_example)
 {
     using uut = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
@@ -166,10 +259,11 @@ TEST(test_any, make_any_1_cppref_example)
     using lambda     = std::function<const char*(void)>;
     using any_lambda = any<sizeof(lambda)>;
 
-    any_lambda a2    = [] { return "Lambda #1.\n"; };
+    any_lambda a2 = [] { return "Lambda #1.\n"; };
     EXPECT_TRUE(a2.has_value());
-//    auto functionPtr = any_cast<lambda>(&a2);
-//    EXPECT_FALSE(functionPtr);
+    // TODO: Uncomment when RTTI will be available.
+    // auto functionPtr = any_cast<lambda>(&a2);
+    // EXPECT_FALSE(functionPtr);
 
     auto a3 = cetl::make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
     EXPECT_TRUE(a3.has_value());
