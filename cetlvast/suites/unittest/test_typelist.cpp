@@ -23,8 +23,7 @@ template <typename...>
 struct my_typelist
 {};
 
-/// cat
-namespace
+namespace test_cat
 {
 using cetlvast::typelist::cat;
 static_assert(std::is_same<tuple<>, cat<tuple<>>>::value, "");
@@ -51,10 +50,9 @@ static_assert(std::is_same<tuple<tuple<A, B>, tuple<C, A>, D, B, E, F>,  //
                                my_typelist<E, F>,
                                tuple<>>>::value,
               "");
-}  // namespace
+}  // namespace test_cat
 
-/// cartesian_product
-namespace
+namespace test_cartesian_product
 {
 using cetlvast::typelist::_impl_cartesian_product::cons;
 
@@ -132,14 +130,21 @@ static_assert(std::is_same<tuple<tuple<A, C, E>,  //
                                              my_typelist<C, D>,
                                              tuple<E, F>>>::value,
               "");
-}  // namespace
+}  // namespace test_cartesian_product
 
-/// into
-namespace
+namespace test_into
 {
 using cetlvast::typelist::into;
 static_assert(std::is_same<tuple<>, into<tuple>::from<my_typelist<>>>::value, "");
 static_assert(std::is_same<tuple<>, into<tuple>::from<tuple<>>>::value, "");
 static_assert(std::is_same<tuple<A, B, tuple<C>>, into<tuple>::from<my_typelist<A, B, tuple<C>>>>::value, "");
 static_assert(std::is_same<my_typelist<A, B, tuple<C>>, into<my_typelist>::from<tuple<A, B, tuple<C>>>>::value, "");
-}  // namespace
+}  // namespace test_into
+
+namespace test_map
+{
+using cetlvast::typelist::map;
+static_assert(std::is_same<map<std::add_pointer_t, std::tuple<int, char>>::type,  //
+                           std::tuple<int*, char*>>::value,
+              "");
+}  // namespace test_map
