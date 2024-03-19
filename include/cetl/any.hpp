@@ -14,6 +14,7 @@
 
 #include <algorithm>
 #include <type_traits>
+#include <initializer_list>
 
 namespace cetl
 {
@@ -128,7 +129,11 @@ public:
         soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
-    // TODO: Add ctor#6 with `std::initializer_list`.
+    template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
+    explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> ilist, Args&&... args)
+    {
+        soo_handler<Tp>::create(*this, ilist, std::forward<Args>(args)...);
+    }
 
     ~any()
     {
@@ -163,7 +168,12 @@ public:
         return soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
-    // TODO: Add emplace#2 with `std::initializer_list`.
+    template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
+    Tp& emplace(std::initializer_list<Up> ilist, Args&&... args)
+    {
+        reset();
+        return soo_handler<Tp>::create(*this, ilist, std::forward<Args>(args)...);
+    }
 
     void reset() noexcept
     {
@@ -177,16 +187,19 @@ public:
             return;
         }
 
-        if (has_value() && rhs.has_value())
+        if (has_value())
         {
-            any tmp;
-            rhs.handle(detail::action::Move, &tmp);
-            handle(detail::action::Move, &rhs);
-            tmp.handle(detail::action::Move, this);
-        }
-        else if (has_value())
-        {
-            handle(detail::action::Move, &rhs);
+            if (rhs.has_value())
+            {
+                any tmp;
+                rhs.handle(detail::action::Move, &tmp);
+                handle(detail::action::Move, &rhs);
+                tmp.handle(detail::action::Move, this);
+            }
+            else
+            {
+                handle(detail::action::Move, &rhs);
+            }
         }
         else if (rhs.has_value())
         {
@@ -209,7 +222,7 @@ private:
     {
         static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
 
-        static void* handle(detail::action action, const any* self, any* other)
+        static void* handle(const detail::action action, const any* const self, any* const other)
         {
             switch (action)
             {
@@ -279,7 +292,7 @@ private:
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
-    void* handle(detail::action action, any* other = nullptr) const
+    void* handle(const detail::action action, any* const other = nullptr) const
     {
         return handler_ ? handler_(action, this, other) : nullptr;
     }
@@ -295,7 +308,17 @@ private:
 template <typename ValueType, typename Any, typename... Args>
 inline Any make_any(Args&&... args)
 {
-    return Any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...);
+    return Any(in_place_type<ValueType>, std::forward<Args>(args)...);
+}
+
+/// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
+///
+/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, ilist, std::forward<Args>(args)...)`.
+///
+template <typename ValueType, typename Any, typename Up, typename... Args>
+Any make_any(std::initializer_list<Up> ilist, Args&&... args)
+{
+    return Any(in_place_type<ValueType>, ilist, std::forward<Args>(args)...);
 }
 
 // TODO: Add `any_cast` 1, 2 & 3.
@@ -310,7 +333,7 @@ inline Any make_any(Args&&... args)
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noexcept
+std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
 {
     return any_cast<ValueType>(const_cast<Any*>(operand));
 }
@@ -325,7 +348,7 @@ std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noe
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept
+std::add_pointer_t<ValueType> any_cast(Any* const operand) noexcept
 {
     static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
 

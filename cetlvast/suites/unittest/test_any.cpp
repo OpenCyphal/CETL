@@ -9,6 +9,7 @@
 #include <cetl/any.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 
+#include <array>
 #include <complex>
 #include <functional>
 #include <string>
@@ -27,8 +28,8 @@ TEST(test_any, cppref_example)
 {
     using uut = any<sizeof(int)>;
 
-    uut  a{1};
-    auto ptr = any_cast<int>(&a);
+    uut        a{1};
+    const auto ptr = any_cast<int>(&a);
     EXPECT_TRUE(ptr);
     EXPECT_EQ(1, *ptr);
 
@@ -71,7 +72,8 @@ TEST(test_any, ctor_2_copy)
     {
         struct TestCopyable
         {
-            int value_     = 0;
+            int value_         = 0;
+
             TestCopyable() = default;
             TestCopyable(const TestCopyable& other)
             {
@@ -105,9 +107,9 @@ TEST(test_any, ctor_3_move)
     {
         struct TestMovable
         {
-            int value_     = 0;
-            TestMovable()  = default;
-            ~TestMovable() = default;
+            int value_ = 0;
+
+            TestMovable() = default;
             TestMovable(const TestMovable& other)
             {
                 value_ = other.value_ + 10;
@@ -133,9 +135,9 @@ TEST(test_any, ctor_4_move_value)
 {
     struct TestMovable
     {
-        int value_     = 0;
-        TestMovable()  = default;
-        ~TestMovable() = default;
+        int value_ = 0;
+
+        TestMovable() = default;
         TestMovable(const TestMovable& other)
         {
             value_ = other.value_ + 10;
@@ -153,12 +155,13 @@ TEST(test_any, ctor_4_move_value)
     EXPECT_EQ(1, *any_cast<int>(&dstAny));
 }
 
-TEST(test_any, ctor_5)
+TEST(test_any, ctor_5_in_place)
 {
     struct TestType
     {
         char ch_;
         int  number_;
+
         TestType(char ch, int number)
         {
             ch_     = ch;
@@ -169,8 +172,30 @@ TEST(test_any, ctor_5)
 
     const uut srcAny{in_place_type_t<TestType>{}, 'Y', 42};
 
-    auto ptr = any_cast<TestType>(&srcAny);
+    const auto ptr = any_cast<TestType>(&srcAny);
     EXPECT_EQ('Y', ptr->ch_);
+    EXPECT_EQ(42, ptr->number_);
+}
+
+TEST(test_any, ctor_6_in_place_ilist)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(std::initializer_list<char> const chars, int const number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    const uut srcAny{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
+
+    const auto ptr = any_cast<TestType>(&srcAny);
+    EXPECT_EQ(3, ptr->size_);
     EXPECT_EQ(42, ptr->number_);
 }
 
@@ -232,7 +257,7 @@ TEST(test_any, assign_3_move_value)
     {
         using uut = any<sizeof(int)>;
 
-        uut srcAny{42};
+        const uut srcAny{42};
         EXPECT_TRUE(srcAny.has_value());
 
         uut dstAny{};
@@ -258,7 +283,7 @@ TEST(test_any, make_any_1_cppref_example)
     using lambda     = std::function<const char*(void)>;
     using any_lambda = any<sizeof(lambda)>;
 
-    any_lambda a2 = [] { return "Lambda #1.\n"; };
+    const any_lambda a2 = [] { return "Lambda #1.\n"; };
     EXPECT_TRUE(a2.has_value());
     // TODO: Uncomment when RTTI will be available.
     // auto functionPtr = any_cast<lambda>(&a2);
@@ -266,9 +291,38 @@ TEST(test_any, make_any_1_cppref_example)
 
     auto a3 = cetl::make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
     EXPECT_TRUE(a3.has_value());
-    auto functionPtr3 = any_cast<lambda>(&a3);
+    const auto functionPtr3 = any_cast<lambda>(&a3);
     EXPECT_TRUE(functionPtr3);
     EXPECT_STREQ("Lambda #2.\n", (*functionPtr3)());
+}
+
+TEST(test_any, make_any_1)
+{
+    using uut = const any<sizeof(int)>;
+
+    const auto test = cetl::make_any<int, uut>(42);
+    EXPECT_EQ(42, *any_cast<int>(&test));
+}
+
+TEST(test_any, make_any_2_ilist)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(std::initializer_list<char> const chars, int const number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    const auto test   = cetl::make_any<TestType, uut>({'A', 'C'}, 42);
+    auto       tetPtr = any_cast<TestType>(&test);
+    EXPECT_EQ(2, tetPtr->size_);
+    EXPECT_EQ(42, tetPtr->number_);
 }
 
 TEST(test_any, any_cast_4_const_ptr)
@@ -298,6 +352,87 @@ TEST(test_any, any_cast_5_non_const_ptr)
     EXPECT_EQ('Y', *charPtr);
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
+}
+
+TEST(test_any, swap)
+{
+    using uut = any<sizeof(char)>;
+
+    uut empty{};
+    uut a{'A'};
+    uut b{'B'};
+
+    // Self swap
+    a.swap(a);
+    EXPECT_EQ('A', *any_cast<char>(&a));
+
+    a.swap(b);
+    EXPECT_EQ('B', *any_cast<char>(&a));
+    EXPECT_EQ('A', *any_cast<char>(&b));
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_EQ('B', *any_cast<char>(&empty));
+
+    empty.swap(a);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_EQ('B', *any_cast<char>(&a));
+}
+
+TEST(test_any, emplace_1)
+{
+    // Primitive `char`
+    {
+        using uut = any<sizeof(char)>;
+
+        uut a;
+        a.emplace<char>('Y');
+        EXPECT_EQ('Y', *any_cast<char>(&a));
+    }
+
+    // `TestType` with two params ctor.
+    {
+        struct TestType
+        {
+            char ch_;
+            int  number_;
+
+            TestType(char ch, int number)
+            {
+                ch_     = ch;
+                number_ = number;
+            }
+        };
+        using uut = any<sizeof(TestType)>;
+
+        uut t;
+        t.emplace<TestType>('Y', 147);
+        EXPECT_EQ('Y', any_cast<TestType>(&t)->ch_);
+        EXPECT_EQ(147, any_cast<TestType>(&t)->number_);
+    }
+}
+
+TEST(test_any, emplace_2_ilist)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(std::initializer_list<char> const chars, int const number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    uut test;
+    test.emplace<TestType>({'A', 'B', 'C'}, 42);
+
+    const auto testPtr = any_cast<TestType>(&test);
+    EXPECT_EQ(3, testPtr->size_);
+    EXPECT_EQ(42, testPtr->number_);
 }
 
 }  // namespace
