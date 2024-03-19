@@ -13,7 +13,6 @@
 #include "pf17/attribute.hpp"
 
 #include <algorithm>
-#include <type_traits>
 #include <initializer_list>
 
 namespace cetl
@@ -114,17 +113,17 @@ public:
         }
     }
 
-    template <typename ValueType,
-              typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, any>::value &&
-                                          !cetl::pf17::detail::is_in_place_type<ValueType>::value>>
+    template <
+        typename ValueType,
+        typename Tp = std::decay_t<ValueType>,
+        typename = std::enable_if_t<!std::is_same<Tp, any>::value && !pf17::detail::is_in_place_type<ValueType>::value>>
     any(ValueType&& value)
     {
         soo_handler<Tp>::create(*this, std::forward<ValueType>(value));
     }
 
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
-    explicit any(cetl::in_place_type_t<ValueType>, Args&&... args)
+    explicit any(in_place_type_t<ValueType>, Args&&... args)
     {
         soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
@@ -261,7 +260,7 @@ private:
         }
 
     private:
-        static void* get(any& self)
+        CETL_NODISCARD static void* get(any& self)
         {
             // TODO: Add RTTI check here.
             return static_cast<void*>(&self.buffer_);
@@ -306,7 +305,7 @@ private:
 /// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
 ///
 template <typename ValueType, typename Any, typename... Args>
-inline Any make_any(Args&&... args)
+CETL_NODISCARD Any make_any(Args&&... args)
 {
     return Any(in_place_type<ValueType>, std::forward<Args>(args)...);
 }
@@ -333,7 +332,7 @@ Any make_any(std::initializer_list<Up> ilist, Args&&... args)
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
+CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
 {
     return any_cast<ValueType>(const_cast<Any*>(operand));
 }
@@ -348,7 +347,7 @@ std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operan
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-std::add_pointer_t<ValueType> any_cast(Any* const operand) noexcept
+CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexcept
 {
     static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
 
