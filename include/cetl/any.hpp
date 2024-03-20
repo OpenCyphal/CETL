@@ -12,6 +12,7 @@
 #include "pf17/utility.hpp"
 #include "pf17/attribute.hpp"
 
+#include <cassert>
 #include <algorithm>
 #include <initializer_list>
 
@@ -262,6 +263,8 @@ private:
         template <typename... Args>
         static Tp& create(any& dest, Args&&... args)
         {
+            assert(nullptr == dest.handler_);
+
             Tp* ret = static_cast<Tp*>(static_cast<void*>(&dest.buffer_));
             new (ret) Tp(std::forward<Args>(args)...);
             dest.handler_ = handle;
@@ -290,6 +293,8 @@ private:
 
         static void destroy(any& self)
         {
+            assert(nullptr != self.handler_);
+
             Tp* ptr = static_cast<Tp*>(static_cast<void*>(&self.buffer_));
             ptr->~Tp();
             self.handler_ = nullptr;
