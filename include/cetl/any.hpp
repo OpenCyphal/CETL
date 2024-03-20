@@ -12,7 +12,9 @@
 #include "pf17/utility.hpp"
 #include "pf17/attribute.hpp"
 
+#include <cassert>
 #include <algorithm>
+#include <initializer_list>
 
 namespace cetl
 {
@@ -88,6 +90,15 @@ enum class action
     Destroy
 };
 
+[[noreturn]] inline void throw_bad_any_cast()
+{
+#if defined(__cpp_exceptions)
+    throw bad_any_cast();
+#else
+    std::terminate();
+#endif
+}
+
 }  // namespace detail
 
 template <std::size_t Footprint, bool Copyable = true, bool Movable = Copyable>
@@ -127,7 +138,11 @@ public:
         soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
-    // TODO: Add ctor#6 with `std::initializer_list`.
+    template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
+    explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
+    {
+        soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
+    }
 
     ~any()
     {
@@ -162,7 +177,12 @@ public:
         return soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
     }
 
-    // TODO: Add emplace#2 with `std::initializer_list`.
+    template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
+    Tp& emplace(std::initializer_list<Up> list, Args&&... args)
+    {
+        reset();
+        return soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
+    }
 
     void reset() noexcept
     {
@@ -176,16 +196,19 @@ public:
             return;
         }
 
-        if (has_value() && rhs.has_value())
+        if (has_value())
         {
-            any tmp;
-            rhs.handle(detail::action::Move, &tmp);
-            handle(detail::action::Move, &rhs);
-            tmp.handle(detail::action::Move, this);
-        }
-        else if (has_value())
-        {
-            handle(detail::action::Move, &rhs);
+            if (rhs.has_value())
+            {
+                any tmp;
+                rhs.handle(detail::action::Move, &tmp);
+                handle(detail::action::Move, &rhs);
+                tmp.handle(detail::action::Move, this);
+            }
+            else
+            {
+                handle(detail::action::Move, &rhs);
+            }
         }
         else if (rhs.has_value())
         {
@@ -200,7 +223,7 @@ public:
 
 private:
     // Type-erased handler.
-    using any_handler = void* (*) (detail::action, const any* /*self*/, any* /*other*/);
+    using any_handler = void* (*) (detail::action, const any*, any*);
 
     // Small Object Optimization (SOO) handler.
     template <typename Tp>
@@ -208,7 +231,7 @@ private:
     {
         static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
 
-        static void* handle(detail::action action, const any* self, any* other)
+        static void* handle(const detail::action action, const any* const self, any* const other)
         {
             switch (action)
             {
@@ -240,6 +263,8 @@ private:
         template <typename... Args>
         static Tp& create(any& dest, Args&&... args)
         {
+            assert(nullptr == dest.handler_);
+
             Tp* ret = static_cast<Tp*>(static_cast<void*>(&dest.buffer_));
             new (ret) Tp(std::forward<Args>(args)...);
             dest.handler_ = handle;
@@ -268,6 +293,8 @@ private:
 
         static void destroy(any& self)
         {
+            assert(nullptr != self.handler_);
+
             Tp* ptr = static_cast<Tp*>(static_cast<void*>(&self.buffer_));
             ptr->~Tp();
             self.handler_ = nullptr;
@@ -278,7 +305,7 @@ private:
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
-    void* handle(detail::action action, any* other = nullptr) const
+    void* handle(const detail::action action, any* const other = nullptr) const
     {
         return handler_ ? handler_(action, this, other) : nullptr;
     }
@@ -294,10 +321,84 @@ private:
 template <typename ValueType, typename Any, typename... Args>
 CETL_NODISCARD Any make_any(Args&&... args)
 {
-    return Any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...);
+    return Any(in_place_type<ValueType>, std::forward<Args>(args)...);
 }
 
-// TODO: Add `any_cast` 1, 2 & 3.
+/// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
+///
+/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
+///
+template <typename ValueType, typename Any, typename Up, typename... Args>
+CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
+{
+    return Any(in_place_type<ValueType>, list, std::forward<Args>(args)...);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<const U>(&operand))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(const Any& operand)
+{
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    static_assert(std::is_constructible<ValueType, const RawValueType&>::value,
+                  "ValueType is required to be a const lvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(*ptr);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<U>(&operand))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(Any& operand)
+{
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    static_assert(std::is_constructible<ValueType, RawValueType&>::value,
+                  "ValueType is required to be an lvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<RawValueType>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(*ptr);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(std::move(*cetl::any_cast<U>(&operand)))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(Any&& operand)
+{
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    static_assert(std::is_constructible<ValueType, RawValueType>::value,
+                  "ValueType is required to be an rvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<RawValueType>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(std::move(*ptr));
+}
 
 /// \brief Performs type-safe access to the `const` contained object.
 ///
@@ -309,7 +410,7 @@ CETL_NODISCARD Any make_any(Args&&... args)
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noexcept
+CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
 {
     return any_cast<ValueType>(const_cast<Any*>(operand));
 }
@@ -324,7 +425,7 @@ CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const An
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
 template <typename ValueType, typename Any>
-CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept
+CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexcept
 {
     static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
 

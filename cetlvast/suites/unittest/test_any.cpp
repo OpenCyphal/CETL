@@ -27,8 +27,8 @@ TEST(test_any, cppref_example)
 {
     using uut = any<sizeof(int)>;
 
-    uut        a{1};
-    const auto ptr = any_cast<int>(&a);
+    uut        src{1};
+    const auto ptr = any_cast<int>(&src);
     EXPECT_TRUE(ptr);
     EXPECT_EQ(1, *ptr);
 
@@ -156,7 +156,7 @@ TEST(test_any, ctor_4_move_value)
     EXPECT_EQ(1, *any_cast<int>(&dst));
 }
 
-TEST(test_any, ctor_5)
+TEST(test_any, ctor_5_in_place)
 {
     struct TestType
     {
@@ -175,6 +175,28 @@ TEST(test_any, ctor_5)
 
     const auto ptr = any_cast<TestType>(&src);
     EXPECT_EQ('Y', ptr->ch_);
+    EXPECT_EQ(42, ptr->number_);
+}
+
+TEST(test_any, ctor_6_in_place_initializer_list)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(const std::initializer_list<char> chars, const int number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    const uut src{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
+
+    const auto ptr = any_cast<TestType>(&src);
+    EXPECT_EQ(3, ptr->size_);
     EXPECT_EQ(42, ptr->number_);
 }
 
@@ -244,7 +266,7 @@ TEST(test_any, assign_3_move_value)
     }
 }
 
-TEST(test_any, make_any_1_cppref_example)
+TEST(test_any, make_any_cppref_example)
 {
     using uut = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
@@ -262,8 +284,8 @@ TEST(test_any, make_any_1_cppref_example)
     const any_lambda a2 = [] { return "Lambda #1.\n"; };
     EXPECT_TRUE(a2.has_value());
     // TODO: Uncomment when RTTI will be available.
-    // auto function_ptr = any_cast<lambda>(&a2);
-    // EXPECT_FALSE(function_ptr);
+    // auto function2_ptr = any_cast<lambda>(&a2);
+    // EXPECT_FALSE(function2_ptr);
 
     auto a3 = cetl::make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
     EXPECT_TRUE(a3.has_value());
@@ -272,13 +294,128 @@ TEST(test_any, make_any_1_cppref_example)
     EXPECT_STREQ("Lambda #2.\n", (*function3_ptr)());
 }
 
+TEST(test_any, make_any_1)
+{
+    using uut = const any<sizeof(int)>;
+
+    const auto test = cetl::make_any<int, uut>(42);
+    EXPECT_EQ(42, *any_cast<int>(&test));
+}
+
+TEST(test_any, make_any_2_ilist)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(const std::initializer_list<char> chars, const int number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    const auto src      = cetl::make_any<TestType, uut>({'A', 'C'}, 42);
+    const auto test_ptr = any_cast<TestType>(&src);
+    EXPECT_EQ(2, test_ptr->size_);
+    EXPECT_EQ(42, test_ptr->number_);
+}
+
+TEST(test_any, any_cast_cppref_example)
+{
+    using uut = any<std::max(sizeof(int), sizeof(std::string))>;
+
+    auto a1 = uut{12};
+    EXPECT_EQ(12, any_cast<int>(a1));
+
+#if defined(__cpp_exceptions)
+
+    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
+
+#endif
+
+    // Advanced example
+    a1       = std::string("hello");
+    auto& ra = any_cast<std::string&>(a1);  //< reference
+    ra[1]    = 'o';
+    EXPECT_STREQ("hollo", any_cast<const std::string&>(a1).c_str());  //< const reference
+
+    auto s1 = any_cast<std::string&&>(std::move(a1));  //< rvalue reference
+    // Note: `s1` is a move-constructed std::string, `a1` is empty
+    static_assert(std::is_same<decltype(s1), std::string>::value, "");
+    EXPECT_STREQ("hollo", s1.c_str());
+}
+
+TEST(test_any, any_cast_1_const)
+{
+    using uut = any<sizeof(int)>;
+
+#if defined(__cpp_exceptions)
+
+    const uut empty{};
+    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
+
+#endif
+
+    const uut src{42};
+    EXPECT_EQ(42, any_cast<int>(src));
+    // EXPECT_EQ(42, any_cast<int&>(src)); //< won't compile expectedly
+    EXPECT_EQ(42, any_cast<const int>(src));
+    EXPECT_EQ(42, any_cast<const int&>(src));
+}
+
+TEST(test_any, any_cast_2_non_const)
+{
+    using uut = any<sizeof(int)>;
+
+#if defined(__cpp_exceptions)
+
+    uut empty{};
+    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
+
+#endif
+
+    uut src{42};
+    EXPECT_EQ(42, any_cast<int>(src));
+    EXPECT_EQ(42, any_cast<int&>(src));
+    EXPECT_EQ(42, any_cast<const int>(src));
+    EXPECT_EQ(42, any_cast<const int&>(src));
+}
+
+TEST(test_any, any_cast_3_move_primitive_int)
+{
+    using uut = any<sizeof(int)>;
+
+    uut src{147};
+    EXPECT_EQ(147, any_cast<int>(std::move(src)));
+    EXPECT_TRUE(src.has_value());  //< expectedly still contains the value - moved from.
+
+    EXPECT_EQ(42, any_cast<int>(uut{42}));
+    // EXPECT_EQ(42, any_cast<int&>(uut{42})); //< won't compile expectedly
+    EXPECT_EQ(42, any_cast<const int>(uut{42}));
+    EXPECT_EQ(42, any_cast<const int&>(uut{42}));
+}
+
+TEST(test_any, any_cast_3_move_empty_bad_cast)
+{
+#if defined(__cpp_exceptions)
+
+    using uut = any<sizeof(int)>;
+
+    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
+
+#endif
+}
+
 TEST(test_any, any_cast_4_const_ptr)
 {
     using uut = const any<sizeof(int)>;
 
-    uut a{147};
+    uut src{147};
 
-    auto int_ptr = any_cast<int>(&a);
+    auto int_ptr = any_cast<int>(&src);
     static_assert(std::is_same<const int*, decltype(int_ptr)>::value, "");
 
     EXPECT_TRUE(int_ptr);
@@ -291,14 +428,100 @@ TEST(test_any, any_cast_5_non_const_ptr)
 {
     using uut = any<sizeof(char)>;
 
-    uut a{'Y'};
+    uut src{'Y'};
 
-    auto char_ptr = any_cast<char>(&a);
+    auto char_ptr = any_cast<char>(&src);
     static_assert(std::is_same<char*, decltype(char_ptr)>::value, "");
     EXPECT_TRUE(char_ptr);
     EXPECT_EQ('Y', *char_ptr);
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
+}
+
+TEST(test_any, swap)
+{
+    using uut = any<sizeof(char)>;
+
+    uut empty{};
+    uut a{'A'};
+    uut b{'B'};
+
+    // Self swap
+    a.swap(a);
+    EXPECT_EQ('A', *any_cast<char>(&a));
+
+    a.swap(b);
+    EXPECT_EQ('B', *any_cast<char>(&a));
+    EXPECT_EQ('A', *any_cast<char>(&b));
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_EQ('B', *any_cast<char>(&empty));
+
+    empty.swap(a);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_EQ('B', *any_cast<char>(&a));
+
+    uut another_empty{};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+}
+
+TEST(test_any, emplace_1)
+{
+    // Primitive `char`
+    {
+        using uut = any<sizeof(char)>;
+
+        uut src;
+        src.emplace<char>('Y');
+        EXPECT_EQ('Y', *any_cast<char>(&src));
+    }
+
+    // `TestType` with two params ctor.
+    {
+        struct TestType
+        {
+            char ch_;
+            int  number_;
+
+            TestType(char ch, int number)
+            {
+                ch_     = ch;
+                number_ = number;
+            }
+        };
+        using uut = any<sizeof(TestType)>;
+
+        uut t;
+        t.emplace<TestType>('Y', 147);
+        EXPECT_EQ('Y', any_cast<TestType>(&t)->ch_);
+        EXPECT_EQ(147, any_cast<TestType>(&t)->number_);
+    }
+}
+
+TEST(test_any, emplace_2_initializer_list)
+{
+    struct TestType
+    {
+        std::size_t size_;
+        int         number_;
+
+        TestType(const std::initializer_list<char> chars, const int number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using uut = any<sizeof(TestType)>;
+
+    uut src;
+    src.emplace<TestType>({'A', 'B', 'C'}, 42);
+
+    const auto test_ptr = any_cast<TestType>(&src);
+    EXPECT_EQ(3, test_ptr->size_);
+    EXPECT_EQ(42, test_ptr->number_);
 }
 
 }  // namespace
