@@ -509,6 +509,11 @@ TEST(test_any, swap)
     empty.swap(a);
     EXPECT_FALSE(empty.has_value());
     EXPECT_EQ('B', *any_cast<char>(&a));
+
+    uut another_empty{};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
 }
 
 TEST(test_any, emplace_1)
