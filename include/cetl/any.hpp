@@ -222,7 +222,7 @@ public:
 
 private:
     // Type-erased handler.
-    using any_handler = void* (*) (detail::action, const any* /*self*/, any* /*other*/);
+    using any_handler = void* (*) (detail::action, const any*, any*);
 
     // Small Object Optimization (SOO) handler.
     template <typename Tp>
@@ -338,7 +338,7 @@ CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
 template <typename ValueType, typename Any>
 ValueType any_cast(const Any& operand)
 {
-    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, const RawValueType&>::value,
                   "ValueType is required to be a const lvalue reference "
                   "or a CopyConstructible type");
@@ -360,7 +360,7 @@ ValueType any_cast(const Any& operand)
 template <typename ValueType, typename Any>
 ValueType any_cast(Any& operand)
 {
-    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType&>::value,
                   "ValueType is required to be an lvalue reference "
                   "or a CopyConstructible type");
@@ -382,7 +382,7 @@ ValueType any_cast(Any& operand)
 template <typename ValueType, typename Any>
 ValueType any_cast(Any&& operand)
 {
-    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType>::value,
                   "ValueType is required to be an rvalue reference "
                   "or a CopyConstructible type");

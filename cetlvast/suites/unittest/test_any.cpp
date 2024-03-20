@@ -185,7 +185,7 @@ TEST(test_any, ctor_6_in_place_initializer_list)
         std::size_t size_;
         int         number_;
 
-        TestType(std::initializer_list<char> const chars, int const number)
+        TestType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
@@ -309,7 +309,7 @@ TEST(test_any, make_any_2_ilist)
         std::size_t size_;
         int         number_;
 
-        TestType(std::initializer_list<char> const chars, int const number)
+        TestType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
@@ -332,19 +332,7 @@ TEST(test_any, any_cast_cppref_example)
 
 #if defined(__cpp_exceptions)
 
-    try
-    {
-        (void) any_cast<std::string>(uut{});  // throws!
-        FAIL() << "Should have thrown an exception.";
-
-    } catch (const cetl::bad_any_cast& e)
-    {
-        SUCCEED() << "`bad_any_cast` has been caught.";
-
-    } catch (...)
-    {
-        FAIL() << "Should have thrown `bad_any_cast`.";
-    }
+    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
 
 #endif
 
@@ -355,7 +343,7 @@ TEST(test_any, any_cast_cppref_example)
     EXPECT_STREQ("hollo", any_cast<const std::string&>(a1).c_str());  //< const reference
 
     auto s1 = any_cast<std::string&&>(std::move(a1));  //< rvalue reference
-    // Note: “s1” is a move-constructed std::string, “a1” is empty
+    // Note: `s1` is a move-constructed std::string, `a1` is empty
     static_assert(std::is_same<decltype(s1), std::string>::value, "");
     EXPECT_STREQ("hollo", s1.c_str());
 }
@@ -365,20 +353,10 @@ TEST(test_any, any_cast_1_const)
     using uut = any<sizeof(int)>;
 
 #if defined(__cpp_exceptions)
-    try
-    {
-        const uut empty{};
-        (void) any_cast<int>(empty);  // throws!
-        FAIL() << "Should have thrown an exception.";
 
-    } catch (const cetl::bad_any_cast&)
-    {
-        SUCCEED() << "`bad_any_cast` has been caught.";
+    const uut empty{};
+    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
 
-    } catch (...)
-    {
-        FAIL() << "Should have thrown `bad_any_cast`.";
-    }
 #endif
 
     const uut src{42};
@@ -394,20 +372,8 @@ TEST(test_any, any_cast_2_non_const)
 
 #if defined(__cpp_exceptions)
 
-    try
-    {
-        uut empty{};
-        (void) any_cast<int>(empty);  // throws!
-        FAIL() << "Should have thrown an exception.";
-
-    } catch (const cetl::bad_any_cast&)
-    {
-        SUCCEED() << "`bad_any_cast` has been caught.";
-
-    } catch (...)
-    {
-        FAIL() << "Should have thrown `bad_any_cast`.";
-    }
+    uut empty{};
+    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
 
 #endif
 
@@ -438,22 +404,8 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
     using uut = any<sizeof(int)>;
 
-    try
-    {
-        (void) any_cast<int>(uut{});  // throws!
-        FAIL() << "Should have thrown an exception.";
+    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
 
-    } catch (const cetl::bad_any_cast&)
-    {
-        SUCCEED() << "`bad_any_cast` has been caught.";
-
-    } catch (...)
-    {
-        FAIL() << "Should have thrown `bad_any_cast`.";
-    }
-
-#else
-    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
 #endif
 }
 
@@ -556,7 +508,7 @@ TEST(test_any, emplace_2_initializer_list)
         std::size_t size_;
         int         number_;
 
-        TestType(std::initializer_list<char> const chars, int const number)
+        TestType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
