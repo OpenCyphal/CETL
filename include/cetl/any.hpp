@@ -89,6 +89,15 @@ enum class action
     Destroy
 };
 
+[[noreturn]] inline void throw_bad_any_cast()
+{
+#if defined(__cpp_exceptions)
+    throw bad_any_cast();
+#else
+    std::terminate();
+#endif
+}
+
 }  // namespace detail
 
 template <std::size_t Footprint, bool Copyable = true, bool Movable = Copyable>
@@ -129,9 +138,9 @@ public:
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
-    explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> ilist, Args&&... args)
+    explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
-        soo_handler<Tp>::create(*this, ilist, std::forward<Args>(args)...);
+        soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
     }
 
     ~any()
@@ -168,10 +177,10 @@ public:
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
-    Tp& emplace(std::initializer_list<Up> ilist, Args&&... args)
+    Tp& emplace(std::initializer_list<Up> list, Args&&... args)
     {
         reset();
-        return soo_handler<Tp>::create(*this, ilist, std::forward<Args>(args)...);
+        return soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
     }
 
     void reset() noexcept
@@ -312,15 +321,79 @@ CETL_NODISCARD Any make_any(Args&&... args)
 
 /// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
 ///
-/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, ilist, std::forward<Args>(args)...)`.
+/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
 ///
 template <typename ValueType, typename Any, typename Up, typename... Args>
-Any make_any(std::initializer_list<Up> ilist, Args&&... args)
+CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
 {
-    return Any(in_place_type<ValueType>, ilist, std::forward<Args>(args)...);
+    return Any(in_place_type<ValueType>, list, std::forward<Args>(args)...);
 }
 
-// TODO: Add `any_cast` 1, 2 & 3.
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<const U>(&operand))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(const Any& operand)
+{
+    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    static_assert(std::is_constructible<ValueType, const RawValueType&>::value,
+                  "ValueType is required to be a const lvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(*ptr);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<U>(&operand))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(Any& operand)
+{
+    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    static_assert(std::is_constructible<ValueType, RawValueType&>::value,
+                  "ValueType is required to be an lvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<RawValueType>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(*ptr);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \param operand Target any object.
+/// \return Returns `std::static_cast<ValueType>(std::move(*cetl::any_cast<U>(&operand)))`,
+///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
+///
+template <typename ValueType, typename Any>
+ValueType any_cast(Any&& operand)
+{
+    using RawValueType = typename std::remove_cv<typename std::remove_reference<ValueType>::type>::type;
+    static_assert(std::is_constructible<ValueType, RawValueType>::value,
+                  "ValueType is required to be an rvalue reference "
+                  "or a CopyConstructible type");
+
+    auto ptr = any_cast<RawValueType>(&operand);
+    if (ptr == nullptr)
+    {
+        detail::throw_bad_any_cast();
+    }
+    return static_cast<ValueType>(std::move(*ptr));
+}
 
 /// \brief Performs type-safe access to the `const` contained object.
 ///

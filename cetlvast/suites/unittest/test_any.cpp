@@ -72,7 +72,7 @@ TEST(test_any, ctor_2_copy)
     {
         struct TestCopyable
         {
-            int value_         = 0;
+            int value_ = 0;
 
             TestCopyable() = default;
             TestCopyable(const TestCopyable& other)
@@ -177,7 +177,7 @@ TEST(test_any, ctor_5_in_place)
     EXPECT_EQ(42, ptr->number_);
 }
 
-TEST(test_any, ctor_6_in_place_ilist)
+TEST(test_any, ctor_6_in_place_initializer_list)
 {
     struct TestType
     {
@@ -268,7 +268,7 @@ TEST(test_any, assign_3_move_value)
     }
 }
 
-TEST(test_any, make_any_1_cppref_example)
+TEST(test_any, make_any_cppref_example)
 {
     using uut = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
@@ -323,6 +323,140 @@ TEST(test_any, make_any_2_ilist)
     auto       tetPtr = any_cast<TestType>(&test);
     EXPECT_EQ(2, tetPtr->size_);
     EXPECT_EQ(42, tetPtr->number_);
+}
+
+TEST(test_any, any_cast_cppref_example)
+{
+    using uut = any<std::max(sizeof(int), sizeof(std::string))>;
+
+    auto a1 = uut{12};
+    EXPECT_EQ(12, any_cast<int>(a1));
+
+#if defined(__cpp_exceptions)
+
+    try
+    {
+        (void) any_cast<std::string>(uut{});  // throws!
+        FAIL() << "Should have thrown an exception.";
+
+    } catch (const cetl::bad_any_cast& e)
+    {
+        SUCCEED() << "`bad_any_cast` has been caught.";
+
+    } catch (...)
+    {
+        FAIL() << "Should have thrown `bad_any_cast`.";
+    }
+
+#endif
+
+    // Advanced example
+    a1       = std::string("hello");
+    auto& ra = any_cast<std::string&>(a1);  //< reference
+    ra[1]    = 'o';
+    EXPECT_STREQ("hollo", any_cast<const std::string&>(a1).c_str());  //< const reference
+
+    auto s1 = any_cast<std::string&&>(std::move(a1));  //< rvalue reference
+    // Note: “s1” is a move-constructed std::string, “a1” is empty
+    static_assert(std::is_same<decltype(s1), std::string>::value, "");
+    EXPECT_STREQ("hollo", s1.c_str());
+}
+
+TEST(test_any, any_cast_1_const)
+{
+    using uut = any<sizeof(int)>;
+
+#if defined(__cpp_exceptions)
+    try
+    {
+        const uut empty{};
+        (void) any_cast<int>(empty);  // throws!
+        FAIL() << "Should have thrown an exception.";
+
+    } catch (const cetl::bad_any_cast&)
+    {
+        SUCCEED() << "`bad_any_cast` has been caught.";
+
+    } catch (...)
+    {
+        FAIL() << "Should have thrown `bad_any_cast`.";
+    }
+#endif
+
+    const uut a{42};
+    EXPECT_EQ(42, any_cast<int>(a));
+    // EXPECT_EQ(42, any_cast<int&>(a)); //< won't compile expectedly
+    EXPECT_EQ(42, any_cast<const int>(a));
+    EXPECT_EQ(42, any_cast<const int&>(a));
+}
+
+TEST(test_any, any_cast_2_non_const)
+{
+    using uut = any<sizeof(int)>;
+
+#if defined(__cpp_exceptions)
+
+    try
+    {
+        uut empty{};
+        (void) any_cast<int>(empty);  // throws!
+        FAIL() << "Should have thrown an exception.";
+
+    } catch (const cetl::bad_any_cast&)
+    {
+        SUCCEED() << "`bad_any_cast` has been caught.";
+
+    } catch (...)
+    {
+        FAIL() << "Should have thrown `bad_any_cast`.";
+    }
+
+#endif
+
+    uut a{42};
+    EXPECT_EQ(42, any_cast<int>(a));
+    EXPECT_EQ(42, any_cast<int&>(a));
+    EXPECT_EQ(42, any_cast<const int>(a));
+    EXPECT_EQ(42, any_cast<const int&>(a));
+}
+
+TEST(test_any, any_cast_3_move_primitive_int)
+{
+    using uut = any<sizeof(int)>;
+
+    uut a{147};
+    EXPECT_EQ(147, any_cast<int>(std::move(a)));
+    EXPECT_TRUE(a.has_value());  //< expectedly still contains the value - moved from.
+
+    EXPECT_EQ(42, any_cast<int>(uut{42}));
+    // EXPECT_EQ(42, any_cast<int&>(uut{42})); //< won't compile expectedly
+    EXPECT_EQ(42, any_cast<const int>(uut{42}));
+    EXPECT_EQ(42, any_cast<const int&>(uut{42}));
+}
+
+TEST(test_any, any_cast_3_move_empty_bad_cast)
+{
+#if defined(__cpp_exceptions)
+
+    using uut = any<sizeof(int)>;
+
+    try
+    {
+        (void) any_cast<int>(uut{});  // throws!
+        FAIL() << "Should have thrown an exception.";
+
+    } catch (const cetl::bad_any_cast&)
+    {
+        SUCCEED() << "`bad_any_cast` has been caught.";
+
+    } catch (...)
+    {
+        FAIL() << "Should have thrown `bad_any_cast`.";
+    }
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
 }
 
 TEST(test_any, any_cast_4_const_ptr)
@@ -412,7 +546,7 @@ TEST(test_any, emplace_1)
     }
 }
 
-TEST(test_any, emplace_2_ilist)
+TEST(test_any, emplace_2_initializer_list)
 {
     struct TestType
     {
