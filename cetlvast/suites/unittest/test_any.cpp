@@ -105,15 +105,15 @@ TEST(test_any, cppref_example)
 TEST(test_any, ctor_1_default)
 {
     EXPECT_FALSE((any<0>{}.has_value()));
-    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<0>));
+    EXPECT_EQ(alignof(std::max_align_t), alignof(any<0>));
     EXPECT_FALSE((any<0, false>{}.has_value()));
     EXPECT_FALSE((any<0, false, true>{}.has_value()));
     EXPECT_FALSE((any<0, true, false>{}.has_value()));
     EXPECT_FALSE((any<0, true, true, 0>{}.has_value()));
-    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<0, true, true, 0>));
+    EXPECT_EQ(alignof(std::max_align_t), alignof(any<0, true, true, 0>));
 
     EXPECT_FALSE((any<1>{}.has_value()));
-    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<1>));
+    EXPECT_EQ(alignof(std::max_align_t), alignof(any<1>));
     EXPECT_FALSE((any<1, false>{}.has_value()));
     EXPECT_FALSE((any<1, false, true>{}.has_value()));
     EXPECT_FALSE((any<1, true, false>{}.has_value()));
