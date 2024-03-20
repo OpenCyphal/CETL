@@ -20,31 +20,31 @@ namespace cetl
 {
 
 // Forward declarations
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Align>
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 class any;
 
 namespace detail
 {
 
 // Move policy.
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Align>
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 struct base_move;
 
 // Copy policy.
-template <std::size_t Footprint, bool Copyable, std::size_t Align>
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
 struct base_copy;
 
-template <std::size_t Footprint, std::size_t Align>
+template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage
 {
     // We need to align the buffer to the given value (maximum alignment by default).
     // Also, we need to ensure that the buffer is at least 1 byte long.
-    alignas(Align) char buffer_[std::max(Footprint, 1UL)];
+    alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
 };
 
 // Movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Align>
-struct base_move<Footprint, Copyable, true, Align> : base_copy<Footprint, Copyable, Align>
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, Alignment>
 {
 public:
     constexpr base_move()                      = default;
@@ -53,8 +53,8 @@ public:
 };
 
 // Non-movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Align>
-struct base_move<Footprint, Copyable, false, Align> : base_copy<Footprint, Copyable, Align>
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, Alignment>
 {
 public:
     constexpr base_move()                      = default;
@@ -63,8 +63,8 @@ public:
 };
 
 // Copyable case.
-template <std::size_t Footprint, std::size_t Align>
-struct base_copy<Footprint, true, Align> : base_storage<Footprint, Align>
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment>
 {
 public:
     constexpr base_copy()                  = default;
@@ -73,8 +73,8 @@ public:
 };
 
 // Non-copyable case.
-template <std::size_t Footprint, std::size_t Align>
-struct base_copy<Footprint, false, Align> : base_storage<Footprint, Align>
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_copy<Footprint, false, Alignment> : base_storage<Footprint, Alignment>
 {
 public:
     constexpr base_copy()                  = default;
@@ -102,10 +102,10 @@ enum class action
 }  // namespace detail
 
 template <std::size_t Footprint,
-          bool        Copyable = true,
-          bool        Movable  = Copyable,
-          std::size_t Align    = alignof(std::max_align_t)>
-class any : private detail::base_move<Footprint, Copyable, Movable, Align>
+          bool        Copyable  = true,
+          bool        Movable   = Copyable,
+          std::size_t Alignment = alignof(std::max_align_t)>
+class any : private detail::base_move<Footprint, Copyable, Movable, Alignment>
 {
 public:
     constexpr any() noexcept = default;
