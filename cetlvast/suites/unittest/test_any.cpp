@@ -21,6 +21,72 @@ using cetl::any;
 using cetl::any_cast;
 using cetl::in_place_type_t;
 
+/// HELPERS ---------------------------------------------------------------------------------------------------------
+
+struct TestCopyable
+{
+    int value_ = 0;
+
+    TestCopyable() = default;
+    TestCopyable(const TestCopyable& other)
+    {
+        value_ = other.value_ + 10;
+    }
+
+    TestCopyable& operator=(const TestCopyable& other)
+    {
+        value_ = other.value_ + 10;
+        return *this;
+    }
+};
+
+struct TestMovableOnly
+{
+    int value_ = 0;
+
+    TestMovableOnly()                             = default;
+    TestMovableOnly(const TestMovableOnly& other) = delete;
+    TestMovableOnly(TestMovableOnly&& other) noexcept
+    {
+        value_ = other.value_ + 1;
+    }
+    ~TestMovableOnly() = default;
+
+    TestMovableOnly& operator=(const TestMovableOnly& other) = delete;
+    TestMovableOnly& operator=(TestMovableOnly&& other) noexcept
+    {
+        value_ = other.value_ + 1;
+        return *this;
+    }
+};
+
+struct TestCopyableAndMovable
+{
+    int value_ = 0;
+
+    TestCopyableAndMovable() = default;
+    TestCopyableAndMovable(const TestCopyableAndMovable& other)
+    {
+        value_ = other.value_ + 10;
+    }
+    TestCopyableAndMovable(TestCopyableAndMovable&& other) noexcept
+    {
+        value_ = other.value_ + 1;
+    }
+    ~TestCopyableAndMovable() = default;
+
+    TestCopyableAndMovable& operator=(const TestCopyableAndMovable& other)
+    {
+        value_ = other.value_ + 10;
+        return *this;
+    }
+    TestCopyableAndMovable& operator=(TestCopyableAndMovable&& other) noexcept
+    {
+        value_ = other.value_ + 1;
+        return *this;
+    }
+};
+
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
 TEST(test_any, cppref_example)
@@ -39,19 +105,27 @@ TEST(test_any, cppref_example)
 TEST(test_any, ctor_1_default)
 {
     EXPECT_FALSE((any<0>{}.has_value()));
+    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<0>));
     EXPECT_FALSE((any<0, false>{}.has_value()));
     EXPECT_FALSE((any<0, false, true>{}.has_value()));
     EXPECT_FALSE((any<0, true, false>{}.has_value()));
+    EXPECT_FALSE((any<0, true, true, 0>{}.has_value()));
+    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<0, true, true, 0>));
 
     EXPECT_FALSE((any<1>{}.has_value()));
+    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<1>));
     EXPECT_FALSE((any<1, false>{}.has_value()));
     EXPECT_FALSE((any<1, false, true>{}.has_value()));
     EXPECT_FALSE((any<1, true, false>{}.has_value()));
+    EXPECT_FALSE((any<1, true, false, 1>{}.has_value()));
+    EXPECT_EQ(256, alignof(any<1, true, true, 256>));
 
     EXPECT_FALSE((any<13>{}.has_value()));
+    EXPECT_EQ(sizeof(std::max_align_t), alignof(any<13>));
     EXPECT_FALSE((any<13, false>{}.has_value()));
     EXPECT_FALSE((any<13, false, true>{}.has_value()));
     EXPECT_FALSE((any<13, true, false>{}.has_value()));
+    EXPECT_EQ(256, alignof(any<13, true, true, 256>));
 }
 
 TEST(test_any, ctor_2_copy)
@@ -69,23 +143,13 @@ TEST(test_any, ctor_2_copy)
 
     // Copyable
     {
-        struct TestCopyable
-        {
-            int value_ = 0;
-
-            TestCopyable() = default;
-            TestCopyable(const TestCopyable& other)
-            {
-                value_ = other.value_ + 1;
-            }
-        };
         using uut = any<sizeof(TestCopyable)>;
 
         const uut src{TestCopyable{}};
         const uut dst{src};
 
-        EXPECT_EQ(1, *any_cast<int>(&src));
-        EXPECT_EQ(2, *any_cast<int>(&dst));
+        EXPECT_EQ(10, *any_cast<int>(&src));
+        EXPECT_EQ(20, *any_cast<int>(&dst));
     }
 }
 
@@ -102,26 +166,11 @@ TEST(test_any, ctor_3_move)
         EXPECT_EQ(42, *any_cast<int>(&dst));
     }
 
-    // Movable
+    // Copyable and Movable
     {
-        struct TestMovable
-        {
-            int value_ = 0;
+        using uut = any<sizeof(TestCopyableAndMovable)>;
 
-            TestMovable() = default;
-            TestMovable(const TestMovable& other)
-            {
-                value_ = other.value_ + 10;
-            }
-            TestMovable(TestMovable&& other) noexcept
-            {
-                value_ = other.value_ + 1;
-            }
-            ~TestMovable() = default;
-        };
-        using uut = any<sizeof(TestMovable)>;
-
-        uut src{TestMovable{}};
+        uut src{TestCopyableAndMovable{}};
         EXPECT_TRUE(src.has_value());
 
         const uut dst{std::move(src)};
@@ -133,25 +182,10 @@ TEST(test_any, ctor_3_move)
 
 TEST(test_any, ctor_4_move_value)
 {
-    struct TestMovable
-    {
-        int value_ = 0;
+    using uut = any<sizeof(TestCopyableAndMovable)>;
 
-        TestMovable() = default;
-        TestMovable(const TestMovable& other)
-        {
-            value_ = other.value_ + 10;
-        }
-        TestMovable(TestMovable&& other) noexcept
-        {
-            value_ = other.value_ + 1;
-        }
-        ~TestMovable() = default;
-    };
-    using uut = any<sizeof(TestMovable)>;
-
-    TestMovable src{};
-    const uut   dst{std::move(src)};
+    TestCopyableAndMovable src{};
+    const uut              dst{std::move(src)};
     EXPECT_TRUE(dst.has_value());
     EXPECT_EQ(1, *any_cast<int>(&dst));
 }
@@ -302,7 +336,7 @@ TEST(test_any, make_any_1)
     EXPECT_EQ(42, *any_cast<int>(&test));
 }
 
-TEST(test_any, make_any_2_ilist)
+TEST(test_any, make_any_2_list)
 {
     struct TestType
     {
@@ -424,9 +458,10 @@ TEST(test_any, any_cast_4_const_ptr)
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
 }
 
-TEST(test_any, any_cast_5_non_const_ptr)
+TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
 {
-    using uut = any<sizeof(char)>;
+    constexpr std::size_t alignment = 4096;
+    using uut                       = any<sizeof(char), true, true, alignment>;
 
     uut src{'Y'};
 
@@ -434,6 +469,7 @@ TEST(test_any, any_cast_5_non_const_ptr)
     static_assert(std::is_same<char*, decltype(char_ptr)>::value, "");
     EXPECT_TRUE(char_ptr);
     EXPECT_EQ('Y', *char_ptr);
+    EXPECT_EQ(0, reinterpret_cast<intptr_t>(char_ptr) & static_cast<std::intptr_t>(alignment - 1));
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
 }
