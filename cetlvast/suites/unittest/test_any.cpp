@@ -27,8 +27,8 @@ TEST(test_any, cppref_example)
 {
     using uut = any<sizeof(int)>;
 
-    uut  a{1};
-    auto ptr = any_cast<int>(&a);
+    uut        a{1};
+    const auto ptr = any_cast<int>(&a);
     EXPECT_TRUE(ptr);
     EXPECT_EQ(1, *ptr);
 
@@ -60,18 +60,19 @@ TEST(test_any, ctor_2_copy)
     {
         using uut = any<sizeof(int)>;
 
-        const uut srcAny{42};
-        const uut dstAny{srcAny};
+        const uut src{42};
+        const uut dst{src};
 
-        EXPECT_EQ(42, *any_cast<int>(&srcAny));
-        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+        EXPECT_EQ(42, *any_cast<int>(&src));
+        EXPECT_EQ(42, *any_cast<int>(&dst));
     }
 
     // Copyable
     {
         struct TestCopyable
         {
-            int value_     = 0;
+            int value_ = 0;
+
             TestCopyable() = default;
             TestCopyable(const TestCopyable& other)
             {
@@ -80,11 +81,11 @@ TEST(test_any, ctor_2_copy)
         };
         using uut = any<sizeof(TestCopyable)>;
 
-        const uut srcAny{TestCopyable{}};
-        const uut dstAny{srcAny};
+        const uut src{TestCopyable{}};
+        const uut dst{src};
 
-        EXPECT_EQ(1, *any_cast<int>(&srcAny));
-        EXPECT_EQ(2, *any_cast<int>(&dstAny));
+        EXPECT_EQ(1, *any_cast<int>(&src));
+        EXPECT_EQ(2, *any_cast<int>(&dst));
     }
 }
 
@@ -94,20 +95,20 @@ TEST(test_any, ctor_3_move)
     {
         using uut = any<sizeof(int)>;
 
-        uut       srcAny{42};
-        const uut dstAny{std::move(srcAny)};
+        uut       src{42};
+        const uut dst{std::move(src)};
 
-        EXPECT_FALSE(srcAny.has_value());
-        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+        EXPECT_FALSE(src.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dst));
     }
 
     // Movable
     {
         struct TestMovable
         {
-            int value_     = 0;
-            TestMovable()  = default;
-            ~TestMovable() = default;
+            int value_ = 0;
+
+            TestMovable() = default;
             TestMovable(const TestMovable& other)
             {
                 value_ = other.value_ + 10;
@@ -116,16 +117,17 @@ TEST(test_any, ctor_3_move)
             {
                 value_ = other.value_ + 1;
             }
+            ~TestMovable() = default;
         };
         using uut = any<sizeof(TestMovable)>;
 
-        uut srcAny{TestMovable{}};
-        EXPECT_TRUE(srcAny.has_value());
+        uut src{TestMovable{}};
+        EXPECT_TRUE(src.has_value());
 
-        const uut dstAny{std::move(srcAny)};
-        EXPECT_TRUE(dstAny.has_value());
-        EXPECT_FALSE(srcAny.has_value());
-        EXPECT_EQ(2, *any_cast<int>(&dstAny));
+        const uut dst{std::move(src)};
+        EXPECT_TRUE(dst.has_value());
+        EXPECT_FALSE(src.has_value());
+        EXPECT_EQ(2, *any_cast<int>(&dst));
     }
 }
 
@@ -133,9 +135,9 @@ TEST(test_any, ctor_4_move_value)
 {
     struct TestMovable
     {
-        int value_     = 0;
-        TestMovable()  = default;
-        ~TestMovable() = default;
+        int value_ = 0;
+
+        TestMovable() = default;
         TestMovable(const TestMovable& other)
         {
             value_ = other.value_ + 10;
@@ -144,13 +146,14 @@ TEST(test_any, ctor_4_move_value)
         {
             value_ = other.value_ + 1;
         }
+        ~TestMovable() = default;
     };
     using uut = any<sizeof(TestMovable)>;
 
-    TestMovable test{};
-    const uut   dstAny{std::move(test)};
-    EXPECT_TRUE(dstAny.has_value());
-    EXPECT_EQ(1, *any_cast<int>(&dstAny));
+    TestMovable src{};
+    const uut   dst{std::move(src)};
+    EXPECT_TRUE(dst.has_value());
+    EXPECT_EQ(1, *any_cast<int>(&dst));
 }
 
 TEST(test_any, ctor_5)
@@ -159,7 +162,8 @@ TEST(test_any, ctor_5)
     {
         char ch_;
         int  number_;
-        TestType(char ch, int number)
+
+        TestType(const char ch, const int number)
         {
             ch_     = ch;
             number_ = number;
@@ -167,9 +171,9 @@ TEST(test_any, ctor_5)
     };
     using uut = any<sizeof(TestType)>;
 
-    const uut srcAny{in_place_type_t<TestType>{}, 'Y', 42};
+    const uut src{in_place_type_t<TestType>{}, 'Y', 42};
 
-    auto ptr = any_cast<TestType>(&srcAny);
+    const auto ptr = any_cast<TestType>(&src);
     EXPECT_EQ('Y', ptr->ch_);
     EXPECT_EQ(42, ptr->number_);
 }
@@ -180,24 +184,24 @@ TEST(test_any, assign_1_copy)
     {
         using uut = any<sizeof(int)>;
 
-        const uut srcAny{42};
-        EXPECT_TRUE(srcAny.has_value());
+        const uut src{42};
+        EXPECT_TRUE(src.has_value());
 
-        uut dstAny{};
-        EXPECT_FALSE(dstAny.has_value());
+        uut dst{};
+        EXPECT_FALSE(dst.has_value());
 
-        dstAny = srcAny;
-        EXPECT_TRUE(srcAny.has_value());
-        EXPECT_TRUE(dstAny.has_value());
-        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+        dst = src;
+        EXPECT_TRUE(src.has_value());
+        EXPECT_TRUE(dst.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dst));
 
-        const uut srcAny2{147};
-        dstAny = srcAny2;
-        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+        const uut src2{147};
+        dst = src2;
+        EXPECT_EQ(147, *any_cast<int>(&dst));
 
-        const uut emptyAny{};
-        dstAny = emptyAny;
-        EXPECT_FALSE(dstAny.has_value());
+        const uut empty{};
+        dst = empty;
+        EXPECT_FALSE(dst.has_value());
     }
 }
 
@@ -207,22 +211,22 @@ TEST(test_any, assign_2_move)
     {
         using uut = any<sizeof(int)>;
 
-        uut srcAny{42};
-        EXPECT_TRUE(srcAny.has_value());
+        uut src{42};
+        EXPECT_TRUE(src.has_value());
 
-        uut dstAny{};
-        EXPECT_FALSE(dstAny.has_value());
+        uut dst{};
+        EXPECT_FALSE(dst.has_value());
 
-        dstAny = std::move(srcAny);
-        EXPECT_TRUE(dstAny.has_value());
-        EXPECT_FALSE(srcAny.has_value());
-        EXPECT_EQ(42, *any_cast<int>(&dstAny));
+        dst = std::move(src);
+        EXPECT_TRUE(dst.has_value());
+        EXPECT_FALSE(src.has_value());
+        EXPECT_EQ(42, *any_cast<int>(&dst));
 
-        dstAny = uut{147};
-        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+        dst = uut{147};
+        EXPECT_EQ(147, *any_cast<int>(&dst));
 
-        dstAny = uut{};
-        EXPECT_FALSE(dstAny.has_value());
+        dst = uut{};
+        EXPECT_FALSE(dst.has_value());
     }
 }
 
@@ -232,14 +236,11 @@ TEST(test_any, assign_3_move_value)
     {
         using uut = any<sizeof(int)>;
 
-        uut srcAny{42};
-        EXPECT_TRUE(srcAny.has_value());
+        uut dst{};
+        EXPECT_FALSE(dst.has_value());
 
-        uut dstAny{};
-        EXPECT_FALSE(dstAny.has_value());
-
-        dstAny = 147;
-        EXPECT_EQ(147, *any_cast<int>(&dstAny));
+        dst = 147;
+        EXPECT_EQ(147, *any_cast<int>(&dst));
     }
 }
 
@@ -258,17 +259,17 @@ TEST(test_any, make_any_1_cppref_example)
     using lambda     = std::function<const char*(void)>;
     using any_lambda = any<sizeof(lambda)>;
 
-    any_lambda a2 = [] { return "Lambda #1.\n"; };
+    const any_lambda a2 = [] { return "Lambda #1.\n"; };
     EXPECT_TRUE(a2.has_value());
     // TODO: Uncomment when RTTI will be available.
-    // auto functionPtr = any_cast<lambda>(&a2);
-    // EXPECT_FALSE(functionPtr);
+    // auto function_ptr = any_cast<lambda>(&a2);
+    // EXPECT_FALSE(function_ptr);
 
     auto a3 = cetl::make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
     EXPECT_TRUE(a3.has_value());
-    auto functionPtr3 = any_cast<lambda>(&a3);
-    EXPECT_TRUE(functionPtr3);
-    EXPECT_STREQ("Lambda #2.\n", (*functionPtr3)());
+    const auto function3_ptr = any_cast<lambda>(&a3);
+    EXPECT_TRUE(function3_ptr);
+    EXPECT_STREQ("Lambda #2.\n", (*function3_ptr)());
 }
 
 TEST(test_any, any_cast_4_const_ptr)
@@ -277,11 +278,11 @@ TEST(test_any, any_cast_4_const_ptr)
 
     uut a{147};
 
-    auto intPtr = any_cast<int>(&a);
-    static_assert(std::is_same<const int*, decltype(intPtr)>::value, "");
+    auto int_ptr = any_cast<int>(&a);
+    static_assert(std::is_same<const int*, decltype(int_ptr)>::value, "");
 
-    EXPECT_TRUE(intPtr);
-    EXPECT_EQ(147, *intPtr);
+    EXPECT_TRUE(int_ptr);
+    EXPECT_EQ(147, *int_ptr);
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
 }
@@ -292,10 +293,10 @@ TEST(test_any, any_cast_5_non_const_ptr)
 
     uut a{'Y'};
 
-    auto charPtr = any_cast<char>(&a);
-    static_assert(std::is_same<char*, decltype(charPtr)>::value, "");
-    EXPECT_TRUE(charPtr);
-    EXPECT_EQ('Y', *charPtr);
+    auto char_ptr = any_cast<char>(&a);
+    static_assert(std::is_same<char*, decltype(char_ptr)>::value, "");
+    EXPECT_TRUE(char_ptr);
+    EXPECT_EQ('Y', *char_ptr);
 
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
 }
