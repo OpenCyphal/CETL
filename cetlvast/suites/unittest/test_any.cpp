@@ -28,8 +28,8 @@ TEST(test_any, cppref_example)
 {
     using uut = any<sizeof(int)>;
 
-    uut        a{1};
-    const auto ptr = any_cast<int>(&a);
+    uut        src{1};
+    const auto ptr = any_cast<int>(&src);
     EXPECT_TRUE(ptr);
     EXPECT_EQ(1, *ptr);
 
