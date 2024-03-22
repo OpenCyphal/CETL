@@ -94,11 +94,13 @@ struct TestCopyableAndMovable
 
     TestCopyableAndMovable& operator=(const TestCopyableAndMovable& other)
     {
+        moved_ = false;
         value_ = other.value_ + 10;
         return *this;
     }
     TestCopyableAndMovable& operator=(TestCopyableAndMovable&& other) noexcept
     {
+        moved_       = false;
         value_       = other.value_ + 1;
         other.moved_ = true;
         return *this;
