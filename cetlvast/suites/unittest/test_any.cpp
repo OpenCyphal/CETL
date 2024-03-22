@@ -42,27 +42,42 @@ struct TestCopyable
 
 struct TestMovableOnly
 {
-    int value_ = 0;
+    char payload_;
+    int  value_ = 0;
+    bool moved_ = false;
 
-    TestMovableOnly()                             = default;
+    explicit TestMovableOnly(const char payload = '?')
+        : payload_(payload)
+    {
+    }
     TestMovableOnly(const TestMovableOnly& other) = delete;
     TestMovableOnly(TestMovableOnly&& other) noexcept
     {
-        value_ = other.value_ + 1;
+        payload_ = other.payload_;
+        value_   = other.value_ + 1;
+
+        other.moved_   = true;
+        other.payload_ = '\0';
     }
     ~TestMovableOnly() = default;
 
     TestMovableOnly& operator=(const TestMovableOnly& other) = delete;
     TestMovableOnly& operator=(TestMovableOnly&& other) noexcept
     {
-        value_ = other.value_ + 1;
+        payload_ = other.payload_;
+        value_   = other.value_ + 1;
+
+        other.moved_   = true;
+        other.payload_ = '\0';
+
         return *this;
     }
 };
 
 struct TestCopyableAndMovable
 {
-    int value_ = 0;
+    int  value_ = 0;
+    bool moved_ = false;
 
     TestCopyableAndMovable() = default;
     TestCopyableAndMovable(const TestCopyableAndMovable& other)
@@ -71,7 +86,8 @@ struct TestCopyableAndMovable
     }
     TestCopyableAndMovable(TestCopyableAndMovable&& other) noexcept
     {
-        value_ = other.value_ + 1;
+        value_       = other.value_ + 1;
+        other.moved_ = true;
     }
     ~TestCopyableAndMovable() = default;
 
@@ -82,7 +98,8 @@ struct TestCopyableAndMovable
     }
     TestCopyableAndMovable& operator=(TestCopyableAndMovable&& other) noexcept
     {
-        value_ = other.value_ + 1;
+        value_       = other.value_ + 1;
+        other.moved_ = true;
         return *this;
     }
 };
@@ -150,7 +167,10 @@ TEST(test_any, ctor_2_copy)
         EXPECT_EQ(1 + 10 + 10, any_cast<test>(dst).value_);
         EXPECT_EQ(1 + 10, any_cast<test&>(dst).value_);
         EXPECT_EQ(1 + 10, any_cast<const test&>(dst).value_);
+
+        EXPECT_FALSE(any_cast<const test&>(dst).moved_);
         EXPECT_EQ(1 + 10 + 1, any_cast<test>(std::move(dst)).value_);
+        EXPECT_TRUE(any_cast<const test&>(dst).moved_);
     }
 
     // Copyable only `any`
@@ -158,9 +178,9 @@ TEST(test_any, ctor_2_copy)
         using test = TestCopyable;
         using uut  = any<sizeof(test), true, false>;
 
-        const test value{};
-        uut        src{value};
-        const uut  dst{src};
+        constexpr test value{};
+        uut            src{value};
+        const uut      dst{src};
 
         EXPECT_EQ(10 + 10, any_cast<test>(src).value_);
         EXPECT_EQ(10, any_cast<test&>(src).value_);
@@ -175,9 +195,16 @@ TEST(test_any, ctor_2_copy)
         using test = TestMovableOnly;
         // using uut  = any<sizeof(test), false, true>;
 
-        test value{};
+        test value{'X'};
+        EXPECT_FALSE(value.moved_);
+        EXPECT_EQ('X', value.payload_);
+
         test value2{std::move(value)};
+        EXPECT_TRUE(value.moved_);
+        EXPECT_EQ('\0', value.payload_);
+        EXPECT_FALSE(value2.moved_);
         EXPECT_EQ(1, value2.value_);
+        EXPECT_EQ('X', value2.payload_);
         // uut src{value}; //< expectedly won't compile (due to !copyable `test`)
         // uut src{std::move(value)}; //< expectedly won't compile (due to !copyable `any`)
         // const uut  dst{src}; //< expectedly won't compile (due to !copyable `any`)
@@ -219,7 +246,7 @@ TEST(test_any, ctor_3_move)
         const uut dst{std::move(src)};
         EXPECT_TRUE(dst.has_value());
         EXPECT_FALSE(src.has_value());
-        EXPECT_EQ(2, any_cast<int>(dst));
+        EXPECT_EQ(2, any_cast<const TestCopyableAndMovable&>(dst).value_);
     }
 
     // Movable only `any`
@@ -227,11 +254,12 @@ TEST(test_any, ctor_3_move)
         using test = TestMovableOnly;
         using uut  = any<sizeof(test), false, true>;
 
-        uut       src{test{}};
+        uut       src{test{'X'}};
         const uut dst{std::move(src)};
 
         EXPECT_EQ(nullptr, any_cast<test>(&src));
         EXPECT_EQ(2, any_cast<const test&>(dst).value_);
+        EXPECT_EQ('X', any_cast<const test&>(dst).payload_);
         // EXPECT_EQ(2, any_cast<test>(dst).value_); //< expectedly won't compile (due to !copyable)
         // EXPECT_EQ(2, any_cast<test&>(dst).value_); //< expectedly won't compile (due to const)
     }
@@ -256,10 +284,11 @@ TEST(test_any, ctor_4_move_value)
     using test = TestCopyableAndMovable;
     using uut  = any<sizeof(test)>;
 
-    test      src{};
-    const uut dst{std::move(src)};
+    test      value{};
+    const uut dst{std::move(value)};
+    EXPECT_TRUE(value.moved_);
     EXPECT_TRUE(dst.has_value());
-    EXPECT_EQ(1, any_cast<int>(dst));
+    EXPECT_EQ(1, any_cast<const test&>(dst).value_);
 }
 
 TEST(test_any, ctor_5_in_place)
@@ -544,7 +573,7 @@ TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
     EXPECT_FALSE((any_cast<char, uut>(nullptr)));
 }
 
-TEST(test_any, swap)
+TEST(test_any, swap_copyable)
 {
     using uut = any<sizeof(char)>;
 
@@ -570,6 +599,47 @@ TEST(test_any, swap)
 
     uut another_empty{};
     empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+}
+
+TEST(test_any, swap_movable)
+{
+    using test = TestMovableOnly;
+    using uut  = any<sizeof(test)>;
+
+    uut empty{};
+    uut a{'A'};
+    uut b{'B'};
+
+    // Self swap
+    a.swap(std::move(a));
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
+    EXPECT_EQ('A', any_cast<const test&>(a).payload_);
+
+    a.swap(std::move(b));
+    EXPECT_TRUE(a.has_value());
+    EXPECT_TRUE(b.has_value());
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
+    EXPECT_FALSE(any_cast<test&>(b).moved_);
+    EXPECT_EQ('B', any_cast<test&>(a).payload_);
+    EXPECT_EQ('A', any_cast<test&>(b).payload_);
+
+    empty.swap(std::move(a));
+    EXPECT_FALSE(a.has_value());
+    EXPECT_TRUE(empty.has_value());
+    EXPECT_FALSE(any_cast<test&>(empty).moved_);
+    EXPECT_EQ('B', any_cast<test&>(empty).payload_);
+
+    empty.swap(std::move(a));
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
+    EXPECT_EQ('B', any_cast<test&>(a).payload_);
+
+    uut another_empty{};
+    empty.swap(std::move(another_empty));
     EXPECT_FALSE(empty.has_value());
     EXPECT_FALSE(another_empty.has_value());
 }
