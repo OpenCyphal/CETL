@@ -116,7 +116,7 @@ public:
 
             value_mover_(src.get_raw_storage(), get_raw_storage());
 
-            src.reset(false);
+            src.reset();
         }
     }
 
@@ -127,16 +127,16 @@ public:
         value_mover_     = src.value_mover_;
     }
 
-    void reset(const bool destroy = true) noexcept
+    void reset() noexcept
     {
-        if (destroy && value_destroyer_)
+        if (value_destroyer_)
         {
             value_destroyer_(get_raw_storage());
+            value_destroyer_ = nullptr;
         }
 
-        value_destroyer_ = nullptr;
-        value_copier_    = nullptr;
-        value_mover_     = nullptr;
+        value_copier_ = nullptr;
+        value_mover_  = nullptr;
     }
 
 };  // base_storage
@@ -341,7 +341,7 @@ public:
 
     void reset() noexcept
     {
-        base::reset(true);
+        base::reset();
     }
 
     template <typename = std::enable_if<Copyable && !Movable>>
