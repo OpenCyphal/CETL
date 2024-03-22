@@ -64,6 +64,7 @@ struct TestMovableOnly
     TestMovableOnly& operator=(const TestMovableOnly& other) = delete;
     TestMovableOnly& operator=(TestMovableOnly&& other) noexcept
     {
+        moved_   = false;
         payload_ = other.payload_;
         value_   = other.value_ + 1;
 
