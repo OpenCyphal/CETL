@@ -26,69 +26,226 @@ class any;
 namespace detail
 {
 
-// Move policy.
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
-struct base_move;
-
-// Copy policy.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_copy;
-
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage
 {
+private:
     // We need to align the buffer to the given value (maximum alignment by default).
     // Also, we need to ensure that the buffer is at least 1 byte long.
     alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
-};
 
-// Movable case.
+    // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
+    void (*value_destroyer_)(void* self) = nullptr;
+
+public:
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+    base_storage() = default;
+
+    CETL_NODISCARD void* get_raw_storage() noexcept
+    {
+        return static_cast<void*>(buffer_);
+    }
+
+    CETL_NODISCARD const void* get_raw_storage() const noexcept
+    {
+        return static_cast<const void*>(buffer_);
+    }
+
+    CETL_NODISCARD bool has_value() const noexcept
+    {
+        return nullptr != value_destroyer_;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == value_destroyer_);
+
+        value_destroyer_ = [](void* const storage) {
+            const auto ptr = static_cast<Tp*>(storage);
+            ptr->~Tp();
+        };
+    }
+
+    template <typename ValueType>
+    CETL_NODISCARD void* get_ptr() noexcept
+    {
+        if (!has_value())
+        {
+            return nullptr;
+        }
+
+        // TODO: Add RTTI check here.
+        return get_raw_storage();
+    }
+
+    template <typename ValueType>
+    CETL_NODISCARD const void* get_ptr() const noexcept
+    {
+        if (!has_value())
+        {
+            return nullptr;
+        }
+
+        // TODO: Add RTTI check here.
+        return get_raw_storage();
+    }
+
+    void copy_from(const base_storage& src)
+    {
+        if (src.has_value())
+        {
+            copy_handlers_from(src);
+            assert(nullptr != value_copier_);
+
+            value_copier_(src.get_raw_storage(), get_raw_storage());
+        }
+    }
+
+    void move_from(base_storage& src) noexcept
+    {
+        if (src.has_value())
+        {
+            copy_handlers_from(src);
+            assert(nullptr != value_mover_);
+
+            value_mover_(src.get_raw_storage(), get_raw_storage());
+
+            src.reset(false);
+        }
+    }
+
+    void copy_handlers_from(const base_storage& src) noexcept
+    {
+        value_destroyer_ = src.value_destroyer_;
+        value_copier_    = src.value_copier_;
+        value_mover_     = src.value_mover_;
+    }
+
+    void reset(const bool destroy = true) noexcept
+    {
+        if (destroy && value_destroyer_)
+        {
+            value_destroyer_(get_raw_storage());
+        }
+
+        value_destroyer_ = nullptr;
+        value_copier_    = nullptr;
+        value_mover_     = nullptr;
+    }
+
+};  // base_storage
+
+// Copy policy.
+//
 template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, Alignment>
-{
-public:
-    constexpr base_move()                      = default;
-    base_move(base_move&&) noexcept            = default;
-    base_move& operator=(base_move&&) noexcept = default;
-};
-
-// Non-movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, Alignment>
-{
-public:
-    constexpr base_move()                      = default;
-    base_move(base_move&&) noexcept            = delete;
-    base_move& operator=(base_move&&) noexcept = delete;
-};
-
-// Copyable case.
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment>
-{
-public:
-    constexpr base_copy()                  = default;
-    base_copy(const base_copy&)            = default;
-    base_copy& operator=(const base_copy&) = default;
-};
-
+struct base_copy;
+//
 // Non-copyable case.
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_copy<Footprint, false, Alignment> : base_storage<Footprint, Alignment>
 {
-public:
     constexpr base_copy()                  = default;
     base_copy(const base_copy&)            = delete;
     base_copy& operator=(const base_copy&) = delete;
 };
-
-enum class action
+//
+// Copyable case.
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment>
 {
-    Get,
-    Copy,
-    Move,
-    Destroy
+    constexpr base_copy() = default;
+    base_copy(const base_copy& other)
+    {
+        base::copy_from(other);
+    }
+
+    base_copy& operator=(const base_copy& other)
+    {
+        copy_from(other);
+        return *this;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == base::value_copier_);
+
+        base::template make_handlers<Tp>();
+
+        base::value_copier_ = [](const void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(*static_cast<const Tp*>(src));
+        };
+    }
+
+private:
+    using base = base_storage<Footprint, Alignment>;
+
+};  // base_copy
+
+// Move policy.
+//
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
+struct base_move;
+//
+// Non-movable case.
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, Alignment>
+{
+    constexpr base_move()           = default;
+    base_move(const base_move&)     = default;
+    base_move(base_move&&) noexcept = delete;
+
+    base_move& operator=(const base_move&)     = default;
+    base_move& operator=(base_move&&) noexcept = delete;
 };
+//
+// Movable case.
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, Alignment>
+{
+    constexpr base_move()                  = default;
+    base_move(const base_move&)            = default;
+    base_move& operator=(const base_move&) = default;
+
+    base_move(base_move&& other) noexcept
+    {
+        base::move_from(other);
+    }
+
+    base_move& operator=(base_move&& other) noexcept
+    {
+        base::move_from(other);
+        return *this;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == base::value_mover_);
+
+        base::template make_handlers<Tp>();
+
+        base::value_mover_ = [](void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
+        };
+    }
+
+private:
+    using base = base_copy<Footprint, Copyable, Alignment>;
+
+};  // base_move
 
 [[noreturn]] inline void throw_bad_any_cast()
 {
@@ -105,26 +262,12 @@ template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
           std::size_t Alignment = alignof(std::max_align_t)>
-class any : private detail::base_move<Footprint, Copyable, Movable, Alignment>
+class any : detail::base_move<Footprint, Copyable, Movable, Alignment>
 {
 public:
-    constexpr any() noexcept = default;
-
-    any(const any& other)
-    {
-        if (other.has_value())
-        {
-            other.handle(detail::action::Copy, this);
-        }
-    }
-
-    any(any&& other) noexcept
-    {
-        if (other.has_value())
-        {
-            other.handle(detail::action::Move, this);
-        }
-    }
+    constexpr any()           = default;
+    any(const any& other)     = default;
+    any(any&& other) noexcept = default;
 
     template <
         typename ValueType,
@@ -132,19 +275,22 @@ public:
         typename = std::enable_if_t<!std::is_same<Tp, any>::value && !pf17::detail::is_in_place_type<ValueType>::value>>
     any(ValueType&& value)
     {
-        soo_handler<Tp>::create(*this, std::forward<ValueType>(value));
+        base::template make_handlers<Tp>();
+        new (base::get_raw_storage()) Tp(std::forward<ValueType>(value));
     }
 
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, Args&&... args)
     {
-        soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
+        base::template make_handlers<Tp>();
+        new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
-        soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
+        base::template make_handlers<Tp>();
+        new (base::get_raw_storage()) Tp(list, std::forward<Args>(args)...);
     }
 
     ~any()
@@ -154,7 +300,7 @@ public:
 
     any& operator=(const any& rhs)
     {
-        any(rhs).swap(*this);
+        any(rhs).swap(std::move(*this));
         return *this;
     }
 
@@ -177,22 +323,29 @@ public:
     Tp& emplace(Args&&... args)
     {
         reset();
-        return soo_handler<Tp>::create(*this, std::forward<Args>(args)...);
+
+        base::template make_handlers<Tp>();
+        const auto ptr = new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+        return *ptr;
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
     Tp& emplace(std::initializer_list<Up> list, Args&&... args)
     {
         reset();
-        return soo_handler<Tp>::create(*this, list, std::forward<Args>(args)...);
+
+        base::template make_handlers<Tp>();
+        const auto ptr = new (base::get_raw_storage()) Tp(list, std::forward<Args>(args)...);
+        return *ptr;
     }
 
     void reset() noexcept
     {
-        handle(detail::action::Destroy);
+        base::reset(true);
     }
 
-    void swap(any& rhs) noexcept
+    template <typename = std::enable_if<Copyable && !Movable>>
+    void swap(any& rhs)
     {
         if (this == &rhs)
         {
@@ -203,117 +356,63 @@ public:
         {
             if (rhs.has_value())
             {
-                any tmp;
-                rhs.handle(detail::action::Move, &tmp);
-                handle(detail::action::Move, &rhs);
-                tmp.handle(detail::action::Move, this);
+                any tmp{rhs};
+                rhs.copy_from(*this);
+                base::copy_from(tmp);
             }
             else
             {
-                handle(detail::action::Move, &rhs);
+                rhs.copy_from(*this);
+                reset();
             }
         }
         else if (rhs.has_value())
         {
-            rhs.handle(detail::action::Move, this);
+            base::copy_from(rhs);
+            rhs.reset();
+        }
+    }
+
+    template <typename = std::enable_if<Movable>>
+    void swap(any&& rhs) noexcept
+    {
+        if (this == &rhs)
+        {
+            return;
+        }
+
+        if (has_value())
+        {
+            if (rhs.has_value())
+            {
+                any tmp{std::move(rhs)};
+                rhs.move_from(*this);
+                base::move_from(tmp);
+            }
+            else
+            {
+                rhs.move_from(*this);
+            }
+        }
+        else if (rhs.has_value())
+        {
+            base::move_from(rhs);
         }
     }
 
     CETL_NODISCARD bool has_value() const noexcept
     {
-        return handler_ != nullptr;
+        return base::has_value();
     }
 
 private:
-    // Type-erased handler.
-    using any_handler = void* (*) (detail::action, const any*, any*);
-
-    // Small Object Optimization (SOO) handler.
-    template <typename Tp>
-    struct soo_handler
-    {
-        static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
-
-        static void* handle(const detail::action action, const any* const self, any* const other)
-        {
-            switch (action)
-            {
-            case detail::action::Get:
-
-                return get(const_cast<any&>(*self));
-
-            case detail::action::Copy:
-
-                copy(*other, *self);
-                return nullptr;
-
-            case detail::action::Move:
-
-                move(*other, const_cast<any&>(*self));
-                return nullptr;
-
-            case detail::action::Destroy:
-
-                destroy(const_cast<any&>(*self));
-                return nullptr;
-
-            default:
-
-                std::terminate();
-            }
-        }
-
-        template <typename... Args>
-        static Tp& create(any& dest, Args&&... args)
-        {
-            assert(nullptr == dest.handler_);
-
-            Tp* ret = static_cast<Tp*>(static_cast<void*>(&dest.buffer_));
-            new (ret) Tp(std::forward<Args>(args)...);
-            dest.handler_ = handle;
-            return *ret;
-        }
-
-    private:
-        CETL_NODISCARD static void* get(any& self)
-        {
-            // TODO: Add RTTI check here.
-            return static_cast<void*>(&self.buffer_);
-        }
-
-        static void copy(any& self, const any& source)
-        {
-            const Tp* src = static_cast<const Tp*>(static_cast<const void*>(&source.buffer_));
-            create(self, *src);
-        }
-
-        static void move(any& self, any& source)
-        {
-            Tp* src = static_cast<Tp*>(static_cast<void*>(&source.buffer_));
-            create(self, std::move(*src));
-            destroy(source);
-        }
-
-        static void destroy(any& self)
-        {
-            assert(nullptr != self.handler_);
-
-            Tp* ptr = static_cast<Tp*>(static_cast<void*>(&self.buffer_));
-            ptr->~Tp();
-            self.handler_ = nullptr;
-        }
-
-    };  // struct soo_handler
+    using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
 
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
-    void* handle(const detail::action action, any* const other = nullptr) const
-    {
-        return handler_ ? handler_(action, this, other) : nullptr;
-    }
-
-    any_handler handler_ = nullptr;
+    template <typename ValueType, typename Any>
+    friend std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noexcept;
 
 };  // class any
 
@@ -351,7 +450,7 @@ ValueType any_cast(const Any& operand)
                   "ValueType is required to be a const lvalue reference "
                   "or a CopyConstructible type");
 
-    auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
+    const auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_any_cast();
@@ -373,7 +472,7 @@ ValueType any_cast(Any& operand)
                   "ValueType is required to be an lvalue reference "
                   "or a CopyConstructible type");
 
-    auto ptr = any_cast<RawValueType>(&operand);
+    const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_any_cast();
@@ -395,7 +494,7 @@ ValueType any_cast(Any&& operand)
                   "ValueType is required to be an rvalue reference "
                   "or a CopyConstructible type");
 
-    auto ptr = any_cast<RawValueType>(&operand);
+    const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_any_cast();
@@ -415,7 +514,17 @@ ValueType any_cast(Any&& operand)
 template <typename ValueType, typename Any>
 CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
 {
-    return any_cast<ValueType>(const_cast<Any*>(operand));
+    static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
+
+    if (!operand)
+    {
+        return nullptr;
+    }
+
+    const auto ptr = operand->template get_ptr<ValueType>();
+
+    using ReturnType = std::add_pointer_t<std::add_const_t<ValueType>>;
+    return static_cast<ReturnType>(ptr);
 }
 
 /// \brief Performs type-safe access to the contained object.
@@ -437,7 +546,7 @@ CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexce
         return nullptr;
     }
 
-    void* ptr = operand->handle(detail::action::Get);
+    const auto ptr = operand->template get_ptr<ValueType>();
 
     using ReturnType = std::add_pointer_t<ValueType>;
     return static_cast<ReturnType>(ptr);
