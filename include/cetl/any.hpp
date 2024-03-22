@@ -300,7 +300,7 @@ public:
 
     any& operator=(const any& rhs)
     {
-        any(rhs).swap(std::move(*this));
+        any(rhs).swap(*this);
         return *this;
     }
 
@@ -344,7 +344,9 @@ public:
         base::reset();
     }
 
-    template <typename = std::enable_if<Copyable && !Movable>>
+    template <bool CopyableAlias = Copyable,
+              bool MovableAlias  = Movable,
+              typename           = std::enable_if_t<CopyableAlias && !MovableAlias>>
     void swap(any& rhs)
     {
         if (this == &rhs)
@@ -373,8 +375,8 @@ public:
         }
     }
 
-    template <typename = std::enable_if<Movable>>
-    void swap(any&& rhs) noexcept
+    template <bool MovableAlias = Movable, typename = std::enable_if_t<MovableAlias>>
+    void swap(any& rhs) noexcept
     {
         if (this == &rhs)
         {
