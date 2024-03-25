@@ -814,36 +814,36 @@ TEST(test_any, swap_copyable)
 TEST(test_any, swap_movable)
 {
     using test = TestMovableOnly;
-    using uut  = any<sizeof(test)>;
+    using uut  = any<sizeof(test), false, true>;
 
     uut empty{};
-    uut a{'A'};
-    uut b{'B'};
+    uut a{in_place_type_t<test>{}, 'A'};
+    uut b{in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
     EXPECT_TRUE(a.has_value());
-    // EXPECT_FALSE(any_cast<test&>(a).moved_); //< TODO: Figure out why it fails on CI!
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
     EXPECT_EQ('A', any_cast<const test&>(a).payload_);
 
     a.swap(b);
     EXPECT_TRUE(a.has_value());
     EXPECT_TRUE(b.has_value());
-    // EXPECT_FALSE(any_cast<test&>(a).moved_); //< TODO: Figure out why it fails on CI!
-    // EXPECT_FALSE(any_cast<test&>(b).moved_); //< TODO: Figure out why it fails on CI!
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
+    EXPECT_FALSE(any_cast<test&>(b).moved_);
     EXPECT_EQ('B', any_cast<test&>(a).payload_);
     EXPECT_EQ('A', any_cast<test&>(b).payload_);
 
     empty.swap(a);
     EXPECT_FALSE(a.has_value());
     EXPECT_TRUE(empty.has_value());
-    // EXPECT_FALSE(any_cast<test&>(empty).moved_); //< TODO: Figure out why it fails on CI!
+    EXPECT_FALSE(any_cast<test&>(empty).moved_);
     EXPECT_EQ('B', any_cast<test&>(empty).payload_);
 
     empty.swap(a);
     EXPECT_TRUE(a.has_value());
     EXPECT_FALSE(empty.has_value());
-    // EXPECT_FALSE(any_cast<test&>(a).moved_); //< TODO: Figure out why it fails on CI!
+    EXPECT_FALSE(any_cast<test&>(a).moved_);
     EXPECT_EQ('B', any_cast<test&>(a).payload_);
 
     uut another_empty{};
