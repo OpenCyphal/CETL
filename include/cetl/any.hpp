@@ -96,30 +96,6 @@ public:
         return get_raw_storage();
     }
 
-    void copy_from(const base_storage& src)
-    {
-        if (src.has_value())
-        {
-            copy_handlers_from(src);
-            assert(nullptr != value_copier_);
-
-            value_copier_(src.get_raw_storage(), get_raw_storage());
-        }
-    }
-
-    void move_from(base_storage& src) noexcept
-    {
-        if (src.has_value())
-        {
-            copy_handlers_from(src);
-            assert(nullptr != value_mover_);
-
-            value_mover_(src.get_raw_storage(), get_raw_storage());
-
-            src.reset();
-        }
-    }
-
     void copy_handlers_from(const base_storage& src) noexcept
     {
         value_destroyer_ = src.value_destroyer_;
@@ -162,11 +138,12 @@ struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment
     constexpr base_copy() = default;
     base_copy(const base_copy& other)
     {
-        base::copy_from(other);
+        copy_from(other);
     }
 
     base_copy& operator=(const base_copy& other)
     {
+        base::reset();
         copy_from(other);
         return *this;
     }
@@ -188,6 +165,19 @@ struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment
 
 private:
     using base = base_storage<Footprint, Alignment>;
+
+    void copy_from(const base_copy& src)
+    {
+        assert(!base::has_value());
+
+        if (src.has_value())
+        {
+            base::copy_handlers_from(src);
+            assert(nullptr != base::value_copier_);
+
+            base::value_copier_(src.get_raw_storage(), base::get_raw_storage());
+        }
+    }
 
 };  // base_copy
 
@@ -218,12 +208,12 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
 
     base_move(base_move&& other) noexcept
     {
-        base::move_from(other);
+        move_from(other);
     }
 
     base_move& operator=(base_move&& other) noexcept
     {
-        base::move_from(other);
+        move_from(other);
         return *this;
     }
 
@@ -245,6 +235,21 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
 private:
     using base = base_copy<Footprint, Copyable, Alignment>;
 
+    void move_from(base_move& src) noexcept
+    {
+        assert(!base::has_value());
+
+        if (src.has_value())
+        {
+            base::copy_handlers_from(src);
+            assert(nullptr != base::value_mover_);
+
+            base::value_mover_(src.get_raw_storage(), base::get_raw_storage());
+
+            src.reset();
+        }
+    }
+
 };  // base_move
 
 [[noreturn]] inline void throw_bad_any_cast()
@@ -264,6 +269,8 @@ template <std::size_t Footprint,
           std::size_t Alignment = alignof(std::max_align_t)>
 class any : detail::base_move<Footprint, Copyable, Movable, Alignment>
 {
+    using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
+
 public:
     constexpr any()           = default;
     any(const any& other)     = default;
@@ -275,22 +282,19 @@ public:
         typename = std::enable_if_t<!std::is_same<Tp, any>::value && !pf17::detail::is_in_place_type<ValueType>::value>>
     any(ValueType&& value)
     {
-        base::template make_handlers<Tp>();
-        new (base::get_raw_storage()) Tp(std::forward<ValueType>(value));
+        create<Tp>(std::forward<ValueType>(value));
     }
 
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, Args&&... args)
     {
-        base::template make_handlers<Tp>();
-        new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+        create<Tp>(std::forward<Args>(args)...);
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
-        base::template make_handlers<Tp>();
-        new (base::get_raw_storage()) Tp(list, std::forward<Args>(args)...);
+        create<Tp>(list, std::forward<Args>(args)...);
     }
 
     ~any()
@@ -300,13 +304,19 @@ public:
 
     any& operator=(const any& rhs)
     {
-        any(rhs).swap(*this);
+        if (this != &rhs)
+        {
+            any(rhs).swap(*this);
+        }
         return *this;
     }
 
     any& operator=(any&& rhs) noexcept
     {
-        any(std::move(rhs)).swap(*this);
+        if (this != &rhs)
+        {
+            any(std::move(rhs)).swap(*this);
+        }
         return *this;
     }
 
@@ -324,9 +334,7 @@ public:
     {
         reset();
 
-        base::template make_handlers<Tp>();
-        const auto ptr = new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
-        return *ptr;
+        return create<Tp>(std::forward<Args>(args)...);
     }
 
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
@@ -334,11 +342,11 @@ public:
     {
         reset();
 
-        base::template make_handlers<Tp>();
-        const auto ptr = new (base::get_raw_storage()) Tp(list, std::forward<Args>(args)...);
-        return *ptr;
+        return create<Tp>(list, std::forward<Args>(args)...);
     }
 
+    /// \brief If not empty, destroys the contained object.
+    ///
     void reset() noexcept
     {
         base::reset();
@@ -359,18 +367,18 @@ public:
             if (rhs.has_value())
             {
                 any tmp{rhs};
-                rhs.copy_from(*this);
-                base::copy_from(tmp);
+                static_cast<base&>(rhs) = *this;
+                static_cast<base&>(*this) = tmp;
             }
             else
             {
-                rhs.copy_from(*this);
+                static_cast<base&>(rhs) = *this;
                 reset();
             }
         }
         else if (rhs.has_value())
         {
-            base::copy_from(rhs);
+            static_cast<base&>(*this) = rhs;
             rhs.reset();
         }
     }
@@ -388,17 +396,17 @@ public:
             if (rhs.has_value())
             {
                 any tmp{std::move(rhs)};
-                rhs.move_from(*this);
-                base::move_from(tmp);
+                static_cast<base&>(rhs) = std::move(*this);
+                static_cast<base&>(*this) = std::move(tmp);
             }
             else
             {
-                rhs.move_from(*this);
+                static_cast<base&>(rhs) = std::move(*this);
             }
         }
         else if (rhs.has_value())
         {
-            base::move_from(rhs);
+            static_cast<base&>(*this) = std::move(rhs);
         }
     }
 
@@ -408,13 +416,18 @@ public:
     }
 
 private:
-    using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
-
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
 
     template <typename ValueType, typename Any>
     friend std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noexcept;
+
+    template <typename Tp, typename... Args>
+    Tp& create(Args&&... args)
+    {
+        base::template make_handlers<Tp>();
+        return *new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+    }
 
 };  // class any
 
@@ -445,7 +458,7 @@ CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
 template <typename ValueType, typename Any>
-ValueType any_cast(const Any& operand)
+CETL_NODISCARD ValueType any_cast(const Any& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, const RawValueType&>::value,
@@ -467,7 +480,7 @@ ValueType any_cast(const Any& operand)
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
 template <typename ValueType, typename Any>
-ValueType any_cast(Any& operand)
+CETL_NODISCARD ValueType any_cast(Any& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType&>::value,
@@ -489,7 +502,7 @@ ValueType any_cast(Any& operand)
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
 template <typename ValueType, typename Any>
-ValueType any_cast(Any&& operand)
+CETL_NODISCARD ValueType any_cast(Any&& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType>::value,

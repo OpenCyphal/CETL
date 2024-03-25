@@ -9,9 +9,9 @@
 #include <cetl/any.hpp>
 
 #include <complex>
-#include <memory>
 #include <functional>
 #include <string>
+#include <utility>
 #include <gtest/gtest.h>
 
 namespace
@@ -22,6 +22,26 @@ using cetl::any_cast;
 using cetl::in_place_type_t;
 
 /// HELPERS ---------------------------------------------------------------------------------------------------------
+
+#if defined(__cpp_exceptions)
+
+// Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
+// Should be used in the tests where exceptions are expected (see `EXPECT_THROW`).
+const auto sink = [](auto&&) {};
+
+#endif
+
+enum class side_effect_op : char
+{
+    Construct     = '@',
+    CopyConstruct = 'C',
+    MoveConstruct = 'M',
+    CopyAssign    = '=',
+    MoveAssign    = '<',
+    Destruct      = '~',
+    DestructMoved = '_',
+};
+using side_effect_fn = std::function<void(side_effect_op)>;
 
 struct TestCopyable
 {
@@ -40,38 +60,104 @@ struct TestCopyable
     }
 };
 
+struct TestCopyableOnly
+{
+    char           payload_;
+    int            value_ = 0;
+    side_effect_fn side_effect_;
+
+    explicit TestCopyableOnly(const char payload = '?', side_effect_fn side_effect = nullptr)
+        : payload_(payload)
+        , side_effect_(std::move(side_effect))
+    {
+        make_side_effect(side_effect_op::Construct);
+    }
+    TestCopyableOnly(const TestCopyableOnly& other)
+    {
+        payload_     = other.payload_;
+        value_       = other.value_ + 10;
+        side_effect_ = other.side_effect_;
+        make_side_effect(side_effect_op::CopyConstruct);
+    }
+    TestCopyableOnly(TestCopyableOnly&& other) noexcept = delete;
+
+    TestCopyableOnly& operator=(const TestCopyableOnly& other)
+    {
+        payload_     = other.payload_;
+        value_       = other.value_ + 10;
+        side_effect_ = other.side_effect_;
+        make_side_effect(side_effect_op::CopyAssign);
+        return *this;
+    }
+    TestCopyableOnly& operator=(TestCopyableOnly&& other) noexcept = delete;
+
+    ~TestCopyableOnly()
+    {
+        make_side_effect(side_effect_op::Destruct);
+    }
+
+private:
+    void make_side_effect(side_effect_op const op) const
+    {
+        if (side_effect_)
+        {
+            side_effect_(op);
+        }
+    }
+};
+
 struct TestMovableOnly
 {
-    char payload_;
-    int  value_ = 0;
-    bool moved_ = false;
+    char           payload_;
+    int            value_ = 0;
+    bool           moved_ = false;
+    side_effect_fn side_effect_;
 
-    explicit TestMovableOnly(const char payload = '?')
+    explicit TestMovableOnly(const char payload = '?', side_effect_fn side_effect = nullptr)
         : payload_(payload)
+        , side_effect_(std::move(side_effect))
     {
+        make_side_effect(side_effect_op::Construct);
     }
     TestMovableOnly(const TestMovableOnly& other) = delete;
     TestMovableOnly(TestMovableOnly&& other) noexcept
     {
-        payload_ = other.payload_;
-        value_   = other.value_ + 1;
+        payload_     = other.payload_;
+        value_       = other.value_ + 1;
+        side_effect_ = other.side_effect_;
 
         other.moved_   = true;
         other.payload_ = '\0';
+
+        make_side_effect(side_effect_op::MoveConstruct);
     }
-    ~TestMovableOnly() = default;
+    ~TestMovableOnly()
+    {
+        make_side_effect(moved_ ? side_effect_op::DestructMoved : side_effect_op::Destruct);
+    }
 
     TestMovableOnly& operator=(const TestMovableOnly& other) = delete;
     TestMovableOnly& operator=(TestMovableOnly&& other) noexcept
     {
-        moved_   = false;
-        payload_ = other.payload_;
-        value_   = other.value_ + 1;
+        moved_       = false;
+        payload_     = other.payload_;
+        value_       = other.value_ + 1;
+        side_effect_ = other.side_effect_;
 
         other.moved_   = true;
         other.payload_ = '\0';
 
+        make_side_effect(side_effect_op::MoveAssign);
         return *this;
+    }
+
+private:
+    void make_side_effect(side_effect_op const op) const
+    {
+        if (side_effect_)
+        {
+            side_effect_(op);
+        }
     }
 };
 
@@ -363,6 +449,64 @@ TEST(test_any, assign_1_copy)
         dst = empty;
         EXPECT_FALSE(dst.has_value());
     }
+
+    // Copyable only `any`
+    //
+    struct stats
+    {
+        std::string ops;
+        int         assignments = 0;
+        int         constructs  = 0;
+        int         destructs   = 0;
+    } stats;
+    {
+        using test = TestCopyableOnly;
+        using uut  = any<sizeof(test), true, false>;
+
+        auto side_effects = [&stats](side_effect_op op) {
+            stats.ops += static_cast<char>(op);
+            stats.constructs += (op == side_effect_op::Construct) ? 1 : 0;
+            stats.constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
+            stats.constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
+            stats.assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
+            stats.assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
+            stats.destructs += (op == side_effect_op::Destruct) ? 1 : 0;
+        };
+        const test value1{'X', side_effects};
+        EXPECT_STREQ("@", stats.ops.c_str());
+
+        const uut src1{value1};
+        EXPECT_STREQ("@C", stats.ops.c_str());
+
+        uut dst{};
+        dst = src1;
+        EXPECT_STREQ("@CCC~", stats.ops.c_str());
+
+        EXPECT_EQ(10, any_cast<const test&>(src1).value_);
+        EXPECT_EQ('X', any_cast<const test&>(src1).payload_);
+        EXPECT_EQ(30, any_cast<const test&>(dst).value_);
+        EXPECT_EQ('X', any_cast<const test&>(dst).payload_);
+
+        const test value2{'Z', side_effects};
+        EXPECT_STREQ("@CCC~@", stats.ops.c_str());
+
+        const uut src2{value2};
+        EXPECT_STREQ("@CCC~@C", stats.ops.c_str());
+
+        dst = src2;
+        EXPECT_STREQ("@CCC~@CCC~C~C~~", stats.ops.c_str());
+
+        auto dst_ptr = &dst;
+        dst          = *dst_ptr;
+        EXPECT_STREQ("@CCC~@CCC~C~C~~", stats.ops.c_str());
+
+        EXPECT_EQ(10, any_cast<const test&>(src2).value_);
+        EXPECT_EQ('Z', any_cast<const test&>(src2).payload_);
+        EXPECT_EQ(30, any_cast<const test&>(dst).value_);
+        EXPECT_EQ('Z', any_cast<const test&>(dst).payload_);
+    }
+    EXPECT_EQ(stats.constructs, stats.destructs);
+    EXPECT_STREQ("@CCC~@CCC~C~C~~~~~~~", stats.ops.c_str());
 }
 
 TEST(test_any, assign_2_move)
@@ -385,9 +529,61 @@ TEST(test_any, assign_2_move)
         dst = uut{147};
         EXPECT_EQ(147, any_cast<int>(dst));
 
+        auto dst_ptr = &dst;
+        dst          = std::move(*dst_ptr);
+        EXPECT_EQ(147, any_cast<int>(dst));
+
         dst = uut{};
         EXPECT_FALSE(dst.has_value());
     }
+
+    // Movable only `any`
+    //
+    struct stats
+    {
+        std::string ops;
+        int         assignments = 0;
+        int         constructs  = 0;
+        int         destructs   = 0;
+    } stats;
+    {
+        using test = TestMovableOnly;
+        using uut  = any<sizeof(test), false, true>;
+
+        auto side_effects = [&stats](side_effect_op op) {
+            stats.ops += static_cast<char>(op);
+            stats.constructs += (op == side_effect_op::Construct) ? 1 : 0;
+            stats.constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
+            stats.constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
+            stats.assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
+            stats.assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
+            stats.destructs += (op == side_effect_op::Destruct) ? 1 : 0;
+            stats.destructs += (op == side_effect_op::DestructMoved) ? 1 : 0;
+        };
+
+        uut src1{test{'X', side_effects}};
+        EXPECT_STREQ("@M_", stats.ops.c_str());
+
+        uut dst{};
+        dst = std::move(src1);
+        EXPECT_STREQ("@M_M_M_", stats.ops.c_str());
+
+        EXPECT_EQ(nullptr, any_cast<test>(&src1));
+        EXPECT_EQ(3, any_cast<const test&>(dst).value_);
+        EXPECT_EQ('X', any_cast<const test&>(dst).payload_);
+
+        uut src2{test{'Z', side_effects}};
+        EXPECT_STREQ("@M_M_M_@M_", stats.ops.c_str());
+
+        dst = std::move(src2);
+        EXPECT_STREQ("@M_M_M_@M_M_M_M_M_~", stats.ops.c_str());
+
+        EXPECT_EQ(nullptr, any_cast<test>(&src2));
+        EXPECT_EQ(3, any_cast<const test&>(dst).value_);
+        EXPECT_EQ('Z', any_cast<const test&>(dst).payload_);
+    }
+    EXPECT_EQ(stats.constructs, stats.destructs);
+    EXPECT_STREQ("@M_M_M_@M_M_M_M_M_~~", stats.ops.c_str());
 }
 
 TEST(test_any, assign_3_move_value)
@@ -468,7 +664,7 @@ TEST(test_any, any_cast_cppref_example)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(uut{})), cetl::bad_any_cast);
 
 #endif
 
@@ -491,7 +687,7 @@ TEST(test_any, any_cast_1_const)
 #if defined(__cpp_exceptions)
 
     const uut empty{};
-    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_any_cast);
 
 #endif
 
@@ -509,7 +705,7 @@ TEST(test_any, any_cast_2_non_const)
 #if defined(__cpp_exceptions)
 
     uut empty{};
-    EXPECT_THROW(any_cast<std::string>(empty), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_any_cast);
 
 #endif
 
@@ -518,6 +714,13 @@ TEST(test_any, any_cast_2_non_const)
     EXPECT_EQ(42, any_cast<int&>(src));
     EXPECT_EQ(42, any_cast<const int>(src));
     EXPECT_EQ(42, any_cast<const int&>(src));
+
+#if defined(__cpp_exceptions)
+
+    src.reset();
+    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_any_cast);
+
+#endif
 }
 
 TEST(test_any, any_cast_3_move_primitive_int)
@@ -540,7 +743,7 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
     using uut = any<sizeof(int)>;
 
-    EXPECT_THROW(any_cast<std::string>(uut{}), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(uut{})), cetl::bad_any_cast);
 
 #endif
 }
