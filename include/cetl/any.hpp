@@ -113,6 +113,7 @@ private:
 
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
+
 };  // base_storage
 
 // Copy policy.
@@ -365,7 +366,7 @@ public:
             if (rhs.has_value())
             {
                 any tmp{rhs};
-                static_cast<base&>(rhs) = *this;
+                static_cast<base&>(rhs)   = *this;
                 static_cast<base&>(*this) = tmp;
             }
             else
@@ -394,7 +395,7 @@ public:
             if (rhs.has_value())
             {
                 any tmp{std::move(rhs)};
-                static_cast<base&>(rhs) = std::move(*this);
+                static_cast<base&>(rhs)   = std::move(*this);
                 static_cast<base&>(*this) = std::move(tmp);
             }
             else
