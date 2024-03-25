@@ -27,23 +27,8 @@ namespace detail
 {
 
 template <std::size_t Footprint, std::size_t Alignment>
-struct base_storage
+struct base_storage  // NOLINT(*-pro-type-member-init)
 {
-private:
-    // We need to align the buffer to the given value (maximum alignment by default).
-    // Also, we need to ensure that the buffer is at least 1 byte long.
-    alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
-
-    // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
-    void (*value_destroyer_)(void* self) = nullptr;
-
-public:
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
-    void (*value_copier_)(const void* src, void* dst) = nullptr;
-
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
-
     base_storage() = default;
 
     CETL_NODISCARD void* get_raw_storage() noexcept
@@ -139,6 +124,19 @@ public:
         value_mover_  = nullptr;
     }
 
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+private:
+    // We need to align the buffer to the given value (maximum alignment by default).
+    // Also, we need to ensure that the buffer is at least 1 byte long.
+    alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
+
+    // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
+    void (*value_destroyer_)(void* self) = nullptr;
 };  // base_storage
 
 // Copy policy.
@@ -273,7 +271,7 @@ public:
         typename ValueType,
         typename Tp = std::decay_t<ValueType>,
         typename = std::enable_if_t<!std::is_same<Tp, any>::value && !pf17::detail::is_in_place_type<ValueType>::value>>
-    any(ValueType&& value)
+    any(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         base::template make_handlers<Tp>();
         new (base::get_raw_storage()) Tp(std::forward<ValueType>(value));
