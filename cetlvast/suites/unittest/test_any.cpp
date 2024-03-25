@@ -14,6 +14,8 @@
 #include <utility>
 #include <gtest/gtest.h>
 
+// NOLINTBEGIN(*-use-after-move)
+
 namespace
 {
 
@@ -907,3 +909,5 @@ TEST(test_any, emplace_2_initializer_list)
 }
 
 }  // namespace
+
+// NOLINTEND(*-use-after-move)
