@@ -105,8 +105,61 @@ private:
 
 };  // base_storage
 
+//
+//
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
+struct base_handlers;
+//
 template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers : base_storage<Footprint, Alignment>
+struct base_handlers<Footprint, false, false, Alignment> : base_storage<Footprint, Alignment>
+{};
+//
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint, Alignment>
+{
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
+    void copy_handlers_from(const base_handlers& src) noexcept
+    {
+        base::copy_handlers_from(src);
+        value_copier_ = src.value_copier_;
+    }
+
+    void reset() noexcept
+    {
+        value_copier_ = nullptr;
+        base::reset();
+    }
+
+private:
+    using base = base_storage<Footprint, Alignment>;
+};
+//
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint, Alignment>
+{
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+    void copy_handlers_from(const base_handlers& src) noexcept
+    {
+        base::copy_handlers_from(src);
+        value_mover_ = src.value_mover_;
+    }
+
+    void reset() noexcept
+    {
+        value_mover_ = nullptr;
+        base::reset();
+    }
+
+private:
+    using base = base_storage<Footprint, Alignment>;
+};
+//
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint, Alignment>
 {
     // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
     void (*value_copier_)(const void* src, void* dst) = nullptr;
@@ -137,12 +190,12 @@ private:
 
 // Copy policy.
 //
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
+template <std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment>
 struct base_copy;
 //
 // Non-copyable case.
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_copy<Footprint, false, Alignment> : base_handlers<Footprint, Alignment>
+template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
+struct base_copy<Footprint, false, Moveable, Alignment> : base_handlers<Footprint, false, Moveable, Alignment>
 {
     constexpr base_copy()                  = default;
     base_copy(const base_copy&)            = delete;
@@ -150,8 +203,8 @@ struct base_copy<Footprint, false, Alignment> : base_handlers<Footprint, Alignme
 };
 //
 // Copyable case.
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_copy<Footprint, true, Alignment> : base_handlers<Footprint, Alignment>
+template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
+struct base_copy<Footprint, true, Moveable, Alignment> : base_handlers<Footprint, true, Moveable, Alignment>
 {
     constexpr base_copy() = default;
     base_copy(const base_copy& other)
@@ -182,7 +235,7 @@ struct base_copy<Footprint, true, Alignment> : base_handlers<Footprint, Alignmen
     }
 
 private:
-    using base = base_handlers<Footprint, Alignment>;
+    using base = base_handlers<Footprint, true, Moveable, Alignment>;
 
     void copy_from(const base_copy& src)
     {
@@ -206,7 +259,7 @@ struct base_move;
 //
 // Non-movable case.
 template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, Alignment>
+struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, false, Alignment>
 {
     constexpr base_move()           = default;
     base_move(const base_move&)     = default;
@@ -218,7 +271,7 @@ struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, C
 //
 // Movable case.
 template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, Alignment>
+struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, true, Alignment>
 {
     constexpr base_move()                  = default;
     base_move(const base_move&)            = default;
@@ -251,7 +304,7 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
     }
 
 private:
-    using base = base_copy<Footprint, Copyable, Alignment>;
+    using base = base_copy<Footprint, Copyable, true, Alignment>;
 
     void move_from(base_move& src) noexcept
     {
