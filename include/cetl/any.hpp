@@ -117,9 +117,6 @@ struct base_handlers<Footprint, false, false, Alignment> : base_storage<Footprin
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint, Alignment>
 {
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
-    void (*value_copier_)(const void* src, void* dst) = nullptr;
-
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -132,6 +129,9 @@ struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint
         base::reset();
     }
 
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
 private:
     using base = base_storage<Footprint, Alignment>;
 };
@@ -139,9 +139,6 @@ private:
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint, Alignment>
 {
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
-
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -154,6 +151,9 @@ struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint
         base::reset();
     }
 
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
 private:
     using base = base_storage<Footprint, Alignment>;
 };
@@ -161,12 +161,6 @@ private:
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint, Alignment>
 {
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
-    void (*value_copier_)(const void* src, void* dst) = nullptr;
-
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
-
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -182,6 +176,12 @@ struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint,
 
         base::reset();
     }
+
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
     using base = base_storage<Footprint, Alignment>;
