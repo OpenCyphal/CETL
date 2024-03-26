@@ -84,8 +84,6 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     void copy_handlers_from(const base_storage& src) noexcept
     {
         value_destroyer_ = src.value_destroyer_;
-        value_copier_    = src.value_copier_;
-        value_mover_     = src.value_mover_;
     }
 
     void reset() noexcept
@@ -95,16 +93,7 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
             value_destroyer_(get_raw_storage());
             value_destroyer_ = nullptr;
         }
-
-        value_copier_ = nullptr;
-        value_mover_  = nullptr;
     }
-
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
-    void (*value_copier_)(const void* src, void* dst) = nullptr;
-
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
     // We need to align the buffer to the given value (maximum alignment by default).
@@ -116,6 +105,36 @@ private:
 
 };  // base_storage
 
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers : base_storage<Footprint, Alignment>
+{
+    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
+
+    // Holds type-erased value mover. `nullptr` when move operation is not supported.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+    void copy_handlers_from(const base_handlers& src) noexcept
+    {
+        base::copy_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+        value_mover_  = src.value_mover_;
+    }
+
+    void reset() noexcept
+    {
+        value_copier_ = nullptr;
+        value_mover_  = nullptr;
+
+        base::reset();
+    }
+
+private:
+    using base = base_storage<Footprint, Alignment>;
+
+};  // base_handlers
+
 // Copy policy.
 //
 template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
@@ -123,7 +142,7 @@ struct base_copy;
 //
 // Non-copyable case.
 template <std::size_t Footprint, std::size_t Alignment>
-struct base_copy<Footprint, false, Alignment> : base_storage<Footprint, Alignment>
+struct base_copy<Footprint, false, Alignment> : base_handlers<Footprint, Alignment>
 {
     constexpr base_copy()                  = default;
     base_copy(const base_copy&)            = delete;
@@ -132,7 +151,7 @@ struct base_copy<Footprint, false, Alignment> : base_storage<Footprint, Alignmen
 //
 // Copyable case.
 template <std::size_t Footprint, std::size_t Alignment>
-struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment>
+struct base_copy<Footprint, true, Alignment> : base_handlers<Footprint, Alignment>
 {
     constexpr base_copy() = default;
     base_copy(const base_copy& other)
@@ -163,7 +182,7 @@ struct base_copy<Footprint, true, Alignment> : base_storage<Footprint, Alignment
     }
 
 private:
-    using base = base_storage<Footprint, Alignment>;
+    using base = base_handlers<Footprint, Alignment>;
 
     void copy_from(const base_copy& src)
     {
