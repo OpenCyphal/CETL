@@ -112,67 +112,193 @@ struct base_handlers;
 //
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_handlers<Footprint, false, false, Alignment> : base_storage<Footprint, Alignment>
-{};
+{
+    constexpr base_handlers()               = default;
+    base_handlers(const base_handlers&)     = delete;
+    base_handlers(base_handlers&&) noexcept = delete;
+
+    base_handlers& operator=(const base_handlers&)     = delete;
+    base_handlers& operator=(base_handlers&&) noexcept = delete;
+};
 //
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint, Alignment>
 {
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
-    void (*value_copier_)(const void* src, void* dst) = nullptr;
-
-    void copy_handlers_from(const base_handlers& src) noexcept
+    constexpr base_handlers() = default;
+    base_handlers(const base_handlers& other)
     {
-        base::copy_handlers_from(src);
-        value_copier_ = src.value_copier_;
+        copy_from(other);
+    }
+
+    base_handlers& operator=(const base_handlers& other)
+    {
+        base::reset();
+        copy_from(other);
+        return *this;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == value_copier_);
+
+        base::template make_handlers<Tp>();
+
+        value_copier_ = [](const void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(*static_cast<const Tp*>(src));
+        };
     }
 
     void reset() noexcept
     {
         value_copier_ = nullptr;
+
         base::reset();
     }
 
 private:
     using base = base_storage<Footprint, Alignment>;
-};
-//
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint, Alignment>
-{
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
 
-    void copy_handlers_from(const base_handlers& src) noexcept
-    {
-        base::copy_handlers_from(src);
-        value_mover_ = src.value_mover_;
-    }
-
-    void reset() noexcept
-    {
-        value_mover_ = nullptr;
-        base::reset();
-    }
-
-private:
-    using base = base_storage<Footprint, Alignment>;
-};
-//
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint, Alignment>
-{
-    // Holds type-erased value copyer. `nullptr` when copy operation is not supported.
+    // Holds type-erased value copyer.
     void (*value_copier_)(const void* src, void* dst) = nullptr;
-
-    // Holds type-erased value mover. `nullptr` when move operation is not supported.
-    void (*value_mover_)(void* src, void* dst) = nullptr;
 
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
 
         value_copier_ = src.value_copier_;
-        value_mover_  = src.value_mover_;
+    }
+
+    void copy_from(const base_handlers& src)
+    {
+        assert(!base::has_value());
+
+        if (src.has_value())
+        {
+            copy_handlers_from(src);
+            assert(nullptr != value_copier_);
+
+            value_copier_(src.get_raw_storage(), base::get_raw_storage());
+        }
+    }
+};
+//
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint, Alignment>
+{
+    constexpr base_handlers()           = default;
+    base_handlers(const base_handlers&) = delete;
+    base_handlers(base_handlers&& other) noexcept
+    {
+        move_from(other);
+    }
+
+    base_handlers& operator=(const base_handlers&) = delete;
+    base_handlers& operator=(base_handlers&& other) noexcept
+    {
+        move_from(other);
+        return *this;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == value_mover_);
+
+        base::template make_handlers<Tp>();
+
+        value_mover_ = [](void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
+        };
+    }
+
+    void reset() noexcept
+    {
+        value_mover_ = nullptr;
+
+        base::reset();
+    }
+
+private:
+    using base = base_storage<Footprint, Alignment>;
+
+    // Holds type-erased value mover.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+    void copy_handlers_from(const base_handlers& src) noexcept
+    {
+        base::copy_handlers_from(src);
+
+        value_mover_ = src.value_mover_;
+    }
+
+    void move_from(base_handlers& src) noexcept
+    {
+        assert(!base::has_value());
+
+        if (src.has_value())
+        {
+            copy_handlers_from(src);
+            assert(nullptr != value_mover_);
+
+            value_mover_(src.get_raw_storage(), base::get_raw_storage());
+
+            src.reset();
+        }
+    }
+};
+//
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint, Alignment>
+{
+    constexpr base_handlers() = default;
+    base_handlers(const base_handlers& other)
+    {
+        copy_from(other);
+    }
+    base_handlers(base_handlers&& other) noexcept
+    {
+        move_from(other);
+    }
+
+    base_handlers& operator=(const base_handlers& other)
+    {
+        base::reset();
+        copy_from(other);
+        return *this;
+    }
+    base_handlers& operator=(base_handlers&& other) noexcept
+    {
+        move_from(other);
+        return *this;
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        assert(nullptr == value_copier_);
+        assert(nullptr == value_mover_);
+
+        base::template make_handlers<Tp>();
+
+        value_copier_ = [](const void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(*static_cast<const Tp*>(src));
+        };
+        value_mover_ = [](void* const src, void* const dst) {
+            assert(nullptr != src);
+            assert(nullptr != dst);
+
+            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
+        };
     }
 
     void reset() noexcept
@@ -186,142 +312,49 @@ struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint,
 private:
     using base = base_storage<Footprint, Alignment>;
 
-};  // base_handlers
+    // Holds type-erased value copyer.
+    void (*value_copier_)(const void* src, void* dst) = nullptr;
 
-// Copy policy.
-//
-template <std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment>
-struct base_copy;
-//
-// Non-copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
-struct base_copy<Footprint, false, Moveable, Alignment> : base_handlers<Footprint, false, Moveable, Alignment>
-{
-    constexpr base_copy()                  = default;
-    base_copy(const base_copy&)            = delete;
-    base_copy& operator=(const base_copy&) = delete;
-};
-//
-// Copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
-struct base_copy<Footprint, true, Moveable, Alignment> : base_handlers<Footprint, true, Moveable, Alignment>
-{
-    constexpr base_copy() = default;
-    base_copy(const base_copy& other)
+    // Holds type-erased value mover.
+    void (*value_mover_)(void* src, void* dst) = nullptr;
+
+    void copy_handlers_from(const base_handlers& src) noexcept
     {
-        copy_from(other);
+        base::copy_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+        value_mover_  = src.value_mover_;
     }
 
-    base_copy& operator=(const base_copy& other)
-    {
-        base::reset();
-        copy_from(other);
-        return *this;
-    }
-
-    template <typename Tp>
-    void make_handlers() noexcept
-    {
-        assert(nullptr == base::value_copier_);
-
-        base::template make_handlers<Tp>();
-
-        base::value_copier_ = [](const void* const src, void* const dst) {
-            assert(nullptr != src);
-            assert(nullptr != dst);
-
-            new (dst) Tp(*static_cast<const Tp*>(src));
-        };
-    }
-
-private:
-    using base = base_handlers<Footprint, true, Moveable, Alignment>;
-
-    void copy_from(const base_copy& src)
+    void copy_from(const base_handlers& src)
     {
         assert(!base::has_value());
 
         if (src.has_value())
         {
-            base::copy_handlers_from(src);
-            assert(nullptr != base::value_copier_);
+            copy_handlers_from(src);
+            assert(nullptr != value_copier_);
 
-            base::value_copier_(src.get_raw_storage(), base::get_raw_storage());
+            value_copier_(src.get_raw_storage(), base::get_raw_storage());
         }
     }
 
-};  // base_copy
-
-// Move policy.
-//
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
-struct base_move;
-//
-// Non-movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, false, Alignment>
-{
-    constexpr base_move()           = default;
-    base_move(const base_move&)     = default;
-    base_move(base_move&&) noexcept = delete;
-
-    base_move& operator=(const base_move&)     = default;
-    base_move& operator=(base_move&&) noexcept = delete;
-};
-//
-// Movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, true, Alignment>
-{
-    constexpr base_move()                  = default;
-    base_move(const base_move&)            = default;
-    base_move& operator=(const base_move&) = default;
-
-    base_move(base_move&& other) noexcept
-    {
-        move_from(other);
-    }
-
-    base_move& operator=(base_move&& other) noexcept
-    {
-        move_from(other);
-        return *this;
-    }
-
-    template <typename Tp>
-    void make_handlers() noexcept
-    {
-        assert(nullptr == base::value_mover_);
-
-        base::template make_handlers<Tp>();
-
-        base::value_mover_ = [](void* const src, void* const dst) {
-            assert(nullptr != src);
-            assert(nullptr != dst);
-
-            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
-        };
-    }
-
-private:
-    using base = base_copy<Footprint, Copyable, true, Alignment>;
-
-    void move_from(base_move& src) noexcept
+    void move_from(base_handlers& src) noexcept
     {
         assert(!base::has_value());
 
         if (src.has_value())
         {
-            base::copy_handlers_from(src);
-            assert(nullptr != base::value_mover_);
+            copy_handlers_from(src);
+            assert(nullptr != value_mover_);
 
-            base::value_mover_(src.get_raw_storage(), base::get_raw_storage());
+            value_mover_(src.get_raw_storage(), base::get_raw_storage());
 
             src.reset();
         }
     }
 
-};  // base_move
+};  // base_handlers
 
 [[noreturn]] inline void throw_bad_any_cast()
 {
@@ -338,9 +371,9 @@ template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
           std::size_t Alignment = alignof(std::max_align_t)>
-class any : detail::base_move<Footprint, Copyable, Movable, Alignment>
+class any : detail::base_handlers<Footprint, Copyable, Movable, Alignment>
 {
-    using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
+    using base = detail::base_handlers<Footprint, Copyable, Movable, Alignment>;
 
 public:
     constexpr any()           = default;
