@@ -848,9 +848,9 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
 TEST(test_any, any_cast_4_const_ptr)
 {
-    using uut = const any<sizeof(int)>;
+    using any = const any<sizeof(int)>;
 
-    uut src{147};
+    any src{147};
 
     auto int_ptr = any_cast<int>(&src);
     static_assert(std::is_same<const int*, decltype(int_ptr)>::value, "");
@@ -858,15 +858,16 @@ TEST(test_any, any_cast_4_const_ptr)
     EXPECT_TRUE(int_ptr);
     EXPECT_EQ(147, *int_ptr);
 
-    EXPECT_FALSE((any_cast<char, uut>(nullptr)));
+    EXPECT_FALSE((any_cast<char, any>(nullptr)));
 }
 
 TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
 {
     constexpr std::size_t alignment = 4096;
-    using uut                       = any<sizeof(char), true, true, alignment>;
 
-    uut src{'Y'};
+    using any = any<sizeof(char), true, true, alignment>;
+
+    any src{'Y'};
 
     auto char_ptr = any_cast<char>(&src);
     static_assert(std::is_same<char*, decltype(char_ptr)>::value, "");
@@ -874,10 +875,10 @@ TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
     EXPECT_EQ('Y', *char_ptr);
     EXPECT_EQ(0, reinterpret_cast<intptr_t>(char_ptr) & static_cast<std::intptr_t>(alignment - 1));
 
-    EXPECT_FALSE((any_cast<char, uut>(nullptr)));
+    EXPECT_FALSE((any_cast<char, any>(static_cast<any*>(nullptr))));
 }
 
-TEST(test_any, polymorphic)
+TEST(test_any, any_cast_polymorphic)
 {
     side_effect_stats stats;
     {
@@ -909,30 +910,31 @@ TEST(test_any, polymorphic)
 
 TEST(test_any, swap_copyable)
 {
-    using uut = any<sizeof(char)>;
+    using test = TestCopyableOnly;
+    using any  = any<sizeof(test), true, false>;
 
-    uut empty{};
-    uut a{'A'};
-    uut b{'B'};
+    any empty{};
+    any a{in_place_type_t<test>{}, 'A'};
+    any b{in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
-    EXPECT_EQ('A', any_cast<char>(a));
-    // EXPECT_EQ(nullptr, any_cast<double>(&a)); //< won't compile expectedly b/c footprint is `char`
+    EXPECT_EQ('A', any_cast<const test&>(a).payload_);
+    // EXPECT_EQ(nullptr, any_cast<TestCopyableAndMovable>(&a)); //< won't compile expectedly b/c footprint is smaller
 
     a.swap(b);
-    EXPECT_EQ('B', any_cast<char>(a));
-    EXPECT_EQ('A', any_cast<char>(b));
+    EXPECT_EQ('B', any_cast<test&>(a).payload_);
+    EXPECT_EQ('A', any_cast<test&>(b).payload_);
 
     empty.swap(a);
     EXPECT_FALSE(a.has_value());
-    EXPECT_EQ('B', any_cast<char>(empty));
+    EXPECT_EQ('B', any_cast<test&>(empty).payload_);
 
     empty.swap(a);
     EXPECT_FALSE(empty.has_value());
-    EXPECT_EQ('B', any_cast<char>(a));
+    EXPECT_EQ('B', any_cast<test&>(a).payload_);
 
-    uut another_empty{};
+    any another_empty{};
     empty.swap(another_empty);
     EXPECT_FALSE(empty.has_value());
     EXPECT_FALSE(another_empty.has_value());
