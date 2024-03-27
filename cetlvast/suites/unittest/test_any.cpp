@@ -50,6 +50,31 @@ enum class side_effect_op : char
 };
 using side_effect_fn = std::function<void(side_effect_op)>;
 
+struct side_effect_stats
+{
+    std::string ops;
+    int         assignments = 0;
+    int         constructs  = 0;
+    int         destructs   = 0;
+
+    auto make_side_effect_fn()
+    {
+        return [this](side_effect_op op) {
+            ops += static_cast<char>(op);
+
+            constructs += (op == side_effect_op::Construct) ? 1 : 0;
+            constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
+            constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
+
+            assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
+            assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
+
+            destructs += (op == side_effect_op::Destruct) ? 1 : 0;
+            destructs += (op == side_effect_op::DestructMoved) ? 1 : 0;
+        };
+    }
+};
+
 struct TestBase : rtti_helper<type_id_type<0x0>>
 {
     char payload_;
@@ -516,26 +541,13 @@ TEST(test_any, assign_1_copy)
 
     // Copyable only `any`
     //
-    struct stats
-    {
-        std::string ops;
-        int         assignments = 0;
-        int         constructs  = 0;
-        int         destructs   = 0;
-    } stats;
+    side_effect_stats stats;
     {
         using test = TestCopyableOnly;
         using uut  = any<sizeof(test), true, false>;
 
-        auto side_effects = [&stats](side_effect_op op) {
-            stats.ops += static_cast<char>(op);
-            stats.constructs += (op == side_effect_op::Construct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
-            stats.destructs += (op == side_effect_op::Destruct) ? 1 : 0;
-        };
+        auto side_effects = stats.make_side_effect_fn();
+
         const test value1{'X', side_effects};
         EXPECT_STREQ("@", stats.ops.c_str());
 
@@ -603,27 +615,12 @@ TEST(test_any, assign_2_move)
 
     // Movable only `any`
     //
-    struct stats
-    {
-        std::string ops;
-        int         assignments = 0;
-        int         constructs  = 0;
-        int         destructs   = 0;
-    } stats;
+    side_effect_stats stats;
     {
         using test = TestMovableOnly;
         using uut  = any<sizeof(test), false, true>;
 
-        auto side_effects = [&stats](side_effect_op op) {
-            stats.ops += static_cast<char>(op);
-            stats.constructs += (op == side_effect_op::Construct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
-            stats.destructs += (op == side_effect_op::Destruct) ? 1 : 0;
-            stats.destructs += (op == side_effect_op::DestructMoved) ? 1 : 0;
-        };
+        auto side_effects = stats.make_side_effect_fn();
 
         uut src1{test{'X', side_effects}};
         EXPECT_STREQ("@M_", stats.ops.c_str());
@@ -882,26 +879,11 @@ TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
 
 TEST(test_any, polymorphic)
 {
-    struct stats
-    {
-        std::string ops;
-        int         assignments = 0;
-        int         constructs  = 0;
-        int         destructs   = 0;
-    } stats;
+    side_effect_stats stats;
     {
         using any = any<sizeof(TestCopyableAndMovable)>;
 
-        auto side_effects = [&stats](side_effect_op op) {
-            stats.ops += static_cast<char>(op);
-            stats.constructs += (op == side_effect_op::Construct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::CopyConstruct) ? 1 : 0;
-            stats.constructs += (op == side_effect_op::MoveConstruct) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::CopyAssign) ? 1 : 0;
-            stats.assignments += (op == side_effect_op::MoveAssign) ? 1 : 0;
-            stats.destructs += (op == side_effect_op::Destruct) ? 1 : 0;
-            stats.destructs += (op == side_effect_op::DestructMoved) ? 1 : 0;
-        };
+        auto side_effects = stats.make_side_effect_fn();
 
         any test_any = TestCopyableAndMovable{'Y', side_effects};
 
