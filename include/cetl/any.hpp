@@ -166,6 +166,8 @@ private:
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
 
+    // Holds type-erased value converters (const and non-const). `nullptr` if storage has no value stored.
+    //
     void* (*value_converter_)(void* self, const type_id& id)                   = nullptr;
     const void* (*value_const_converter_)(const void* self, const type_id& id) = nullptr;
 
