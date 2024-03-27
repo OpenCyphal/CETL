@@ -660,7 +660,7 @@ TEST(test_any, assign_3_move_value)
         EXPECT_EQ(147, any_cast<int>(dst));
     }
 }
-/*
+
 TEST(test_any, make_any_cppref_example)
 {
     using uut = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
@@ -671,23 +671,14 @@ TEST(test_any, make_any_cppref_example)
     EXPECT_STREQ("Hello, cetl::any!\n", any_cast<std::string>(a0).c_str());
     EXPECT_EQ(std::complex<double>(0.1, 2.3), any_cast<std::complex<double>>(a1));
 
-    // TODO: Add more from the example when corresponding api will be available.
-    // https://en.cppreference.com/w/cpp/utility/any/make_any
-    using lambda     = std::function<const char*(void)>;
+    using lambda     = std::function<const char*()>;
     using any_lambda = any<sizeof(lambda)>;
 
-    const any_lambda a2 = [] { return "Lambda #1.\n"; };
-
-    EXPECT_TRUE(a2.has_value());
-    // TODO: Uncomment when RTTI will be available.
-    // auto function2 = any_cast<lambda>(a2);
-
-    auto a3 = make_any<lambda, any_lambda>([] { return "Lambda #2.\n"; });
+    auto a3 = make_any<lambda, any_lambda>([] { return "Lambda #3.\n"; });
     EXPECT_TRUE(a3.has_value());
-    const auto function3 = any_cast<lambda>(a3);
-    EXPECT_STREQ("Lambda #2.\n", function3());
+    EXPECT_STREQ("Lambda #3.\n", any_cast<lambda>(a3)());
 }
-*/
+
 TEST(test_any, make_any_1)
 {
     using uut = const any<sizeof(int)>;
