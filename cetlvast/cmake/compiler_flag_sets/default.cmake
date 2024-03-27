@@ -67,8 +67,14 @@ endif()
 
 if (CETLVAST_DISABLE_CPP_EXCEPTIONS)
     message(STATUS "CETLVAST_DISABLE_CPP_EXCEPTIONS is true. Adding -fno-exceptions to compiler flags.")
-    list(APPEND C_FLAG_SET
+    list(APPEND CXX_FLAG_SET
                 "-fno-exceptions")
+endif()
+
+if (CETLVAST_DISABLE_CPP_RTTI)
+    message(STATUS "CETLVAST_DISABLE_CPP_RTTI is true. Adding -fno-rtti to compiler flags.")
+    list(APPEND CXX_FLAG_SET
+                "-fno-rtti")
 endif()
 
 list(APPEND CXX_FLAG_SET ${C_FLAG_SET})
