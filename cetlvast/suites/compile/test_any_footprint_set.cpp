@@ -18,7 +18,8 @@ constexpr type_id type_id_value<uint8_t>{};
 
 template <>
 constexpr type_id type_id_value<uint16_t>{};
-}
+
+}  // namespace cetl
 
 int main()
 {
@@ -26,11 +27,19 @@ int main()
 
     any test{};
 
+#ifndef CETLVAST_COMPILETEST_PRECHECK
+
     // Verify at `cetl::detail::base_storage::make_handlers`
     // ```
     // static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
     // ```
-    test = static_cast<uint16_t>(0);
+    test = static_cast<uint16_t>(1);
+
+#else
+
+    test = static_cast<uint8_t>(1);
+
+#endif
 
     return 0;
 }
