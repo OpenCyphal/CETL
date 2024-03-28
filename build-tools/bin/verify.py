@@ -426,34 +426,6 @@ CMake command-line helper for running verification builds of opencyphal C/C++ pr
     """[1:])
     )
 
-    rtti_group = variant_args.add_mutually_exclusive_group()
-
-    rtti_group.add_argument(
-        "-rtti",
-        "--rtti",
-        action="store_true",
-        help=textwrap.dedent(
-            """
-
-        Compiles C++ with RTTI enabled.
-
-    """[1:])
-    )
-
-    rtti_group.add_argument(
-        "-no-rtti",
-        "--no-rtti",
-        action="store_true",
-        help=textwrap.dedent(
-            """
-
-        Compiles C++ with RTTI disabled.
-
-        Sets -DCETLVAST_DISABLE_CPP_RTTI:BOOL=ON
-
-    """[1:])
-    )
-
     # --[ACTION MOD]---------------------------------------
     action_mod_args = parser.add_argument_group(
         title="action modifiers",
@@ -724,12 +696,6 @@ def _cmake_configure(args: argparse.Namespace, cmake_args: typing.List[str]) -> 
         cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_EXCEPTIONS:BOOL=OFF")
     if args.no_exceptions:
         cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_EXCEPTIONS:BOOL=ON")
-
-    # --[RTTI]---------------------------------------
-    if args.rtti:
-        cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_RTTI:BOOL=OFF")
-    if args.no_rtti:
-        cmake_configure_args.append("-DCETLVAST_DISABLE_CPP_RTTI:BOOL=ON")
 
     # --[BUILD TOOL]---------------------------------------
     if not args.dont_force_ninja:

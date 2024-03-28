@@ -73,23 +73,4 @@
             }
         }
     },
-    "rtti":{
-        "default": "enabled",
-        "choices": {
-            "enabled": {
-                "short": "rtti",
-                "long": "Compile with standard C++ RTTI handling.",
-                "settings": {
-                    "CETLVAST_DISABLE_CPP_RTTI": false
-                }
-            },
-            "disabled": {
-                "short": "no-rtti",
-                "long": "Disable C++ RTTI where the compiler supports this.",
-                "settings": {
-                    "CETLVAST_DISABLE_CPP_RTTI": true
-                }
-            }
-        }
-    },
 }

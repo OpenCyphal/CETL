@@ -94,8 +94,6 @@ set_property(CACHE CETLVAST_COVERAGE_REPORT_FORMAT PROPERTY STRINGS "html" "sona
 
 option(CETLVAST_DISABLE_CPP_EXCEPTIONS "Attempt to disable C++ exceptions for the current toolchain." OFF)
 
-option(CETLVAST_DISABLE_CPP_RTTI "Attempt to disable C++ RTTI for the current toolchain." OFF)
-
 if (CETL_ENABLE_DEBUG_ASSERT)
 add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=1")
 endif()
@@ -111,7 +109,6 @@ message(STATUS "[ Build Options ]--------------------------------------\n\
     CETLVAST_STYLE_CHECK:            ${CETLVAST_STYLE_CHECK}\n\
     CETLVAST_CPP_STANDARD:           ${CETLVAST_CPP_STANDARD}\n\
     CETLVAST_DISABLE_CPP_EXCEPTIONS: ${CETLVAST_DISABLE_CPP_EXCEPTIONS}\n\
-    CETLVAST_DISABLE_CPP_RTTI:       ${CETLVAST_DISABLE_CPP_RTTI}\n\
 -----------------------------------------------------------\n\
 ")
 
