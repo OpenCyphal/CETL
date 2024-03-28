@@ -58,7 +58,6 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
         CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
         CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
-        CETL_DEBUG_ASSERT(nullptr == value_type_informer_, "");
 
         value_destroyer_ = [](void* const storage) {
             const auto ptr = static_cast<Tp*>(storage);
@@ -66,15 +65,6 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         };
 
         make_converters<Tp>();
-
-        value_type_informer_ = [](const void*) {
-
-#if __cpp_rtti
-            return static_cast<const void*>(&typeid(Tp));
-#else
-            return static_cast<const void*>(nullptr);
-#endif
-        };
     }
 
     template <typename Tp, std::enable_if_t<is_rtti_convertible<Tp>, int> = 0>
@@ -101,19 +91,11 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         };
     }
 
-#if __cpp_rtti
-    CETL_NODISCARD const std::type_info* get_type_info() const noexcept
-    {
-        CETL_DEBUG_ASSERT(nullptr != value_type_informer_, "");
-
-        return static_cast<const std::type_info*>(value_type_informer_(get_raw_storage()));
-    }
-#endif
-
     template <typename ValueType>
     CETL_NODISCARD void* get_ptr() noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint, "Enlarge the footprint");
+        static_assert(sizeof(ValueType) <= Footprint,
+                      "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())
         {
@@ -127,7 +109,8 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     template <typename ValueType>
     CETL_NODISCARD const void* get_ptr() const noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint, "Enlarge the footprint");
+        static_assert(sizeof(ValueType) <= Footprint,
+                      "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())
         {
@@ -143,7 +126,6 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         value_destroyer_       = src.value_destroyer_;
         value_converter_       = src.value_converter_;
         value_const_converter_ = src.value_const_converter_;
-        value_type_informer_   = src.value_type_informer_;
     }
 
     void reset() noexcept
@@ -156,7 +138,6 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
 
         value_converter_       = nullptr;
         value_const_converter_ = nullptr;
-        value_type_informer_   = nullptr;
     }
 
 private:
@@ -174,9 +155,6 @@ private:
     //
     void* (*value_converter_)(void* self, const type_id& id)                   = nullptr;
     const void* (*value_const_converter_)(const void* self, const type_id& id) = nullptr;
-
-    // Holds type-erased value type informer. `nullptr` if storage has no value stored.
-    const void* (*value_type_informer_)(const void* self) = nullptr;
 
 };  // base_storage
 
@@ -560,22 +538,6 @@ public:
     {
         return base::has_value();
     }
-
-#if __cpp_rtti
-    /// \brief Queries the contained type.
-    ///
-    /// \return The `typeid` of the contained value if instance is non-empty, otherwise `typeid(void)`.
-    ///
-    CETL_NODISCARD const std::type_info& type() const noexcept
-    {
-        if (!has_value())
-        {
-            return typeid(void);
-        }
-
-        return *base::get_type_info();
-    }
-#endif
 
 private:
     template <typename ValueType, typename Any>

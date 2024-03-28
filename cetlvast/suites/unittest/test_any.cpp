@@ -1027,27 +1027,6 @@ TEST(test_any, emplace_2_initializer_list)
     EXPECT_EQ(3, test.size_);
     EXPECT_EQ(42, test.number_);
 }
-
-TEST(test_any, type)
-{
-#if __cpp_rtti
-
-    using uut = any<std::max(sizeof(TestMovableOnly), sizeof(TestCopyableAndMovable)), false, true>;
-
-    uut dst{};
-    EXPECT_EQ(typeid(void), dst.type());
-
-    dst = TestMovableOnly{};
-    EXPECT_EQ(typeid(TestMovableOnly), dst.type());
-
-    dst = TestCopyableAndMovable{};
-    EXPECT_EQ(typeid(TestCopyableAndMovable), dst.type());
-
-    dst.reset();
-    EXPECT_EQ(typeid(void), dst.type());
-
-#endif
-}
 }  // namespace
 
 namespace cetl
