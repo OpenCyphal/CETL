@@ -320,10 +320,10 @@ TEST(test_any, ctor_2_copy)
 {
     // Primitive `int`
     {
-        using uut = any<sizeof(int)>;
+        using any = any<sizeof(int)>;
 
-        const uut src{42};
-        uut       dst{src};
+        const any src{42};
+        any       dst{src};
 
         EXPECT_EQ(42, any_cast<int>(src));
         EXPECT_EQ(42, any_cast<int>(dst));
@@ -332,10 +332,10 @@ TEST(test_any, ctor_2_copy)
     // Copyable and Movable `any`
     {
         using test = TestCopyableAndMovable;
-        using uut  = any<sizeof(test)>;
+        using any  = any<sizeof(test)>;
 
-        const uut src{test{}};
-        uut       dst{src};
+        const any src{test{}};
+        any       dst{src};
 
         EXPECT_EQ(1 + 10, any_cast<test>(src).value_);
         EXPECT_EQ(1, any_cast<const test&>(src).value_);
@@ -352,11 +352,11 @@ TEST(test_any, ctor_2_copy)
     // Copyable only `any`
     {
         using test = TestCopyableOnly;
-        using uut  = any<sizeof(test), true, false>;
+        using any  = any<sizeof(test), true, false>;
 
         const test value{};
-        uut        src{value};
-        const uut  dst{src};
+        any        src{value};
+        const any  dst{src};
 
         EXPECT_EQ(10, any_cast<test&>(src).value_);
         EXPECT_EQ(10, any_cast<const test&>(src).value_);
@@ -367,7 +367,7 @@ TEST(test_any, ctor_2_copy)
     // Movable only `any`
     {
         using test = TestMovableOnly;
-        using uut  = any<sizeof(test), false, true>;
+        using any  = any<sizeof(test), false, true>;
 
         test value{'X'};
         EXPECT_FALSE(value.moved_);
@@ -379,23 +379,23 @@ TEST(test_any, ctor_2_copy)
         EXPECT_FALSE(value2.moved_);
         EXPECT_EQ(1, value2.value_);
         EXPECT_EQ('X', value2.payload_);
-        // uut src{value}; //< expectedly won't compile (due to !copyable `test`)
-        uut src{std::move(value2)};
+        // any src{value}; //< expectedly won't compile (due to !copyable `test`)
+        any src{std::move(value2)};
         EXPECT_EQ('X', any_cast<test&>(src).payload_);
-        // const uut  dst{src}; //< expectedly won't compile (due to !copyable `any`)
+        // const any  dst{src}; //< expectedly won't compile (due to !copyable `any`)
     }
 
     // Non-Copyable and non-movable `any`
     {
         using test = TestCopyableAndMovable;
-        using uut  = any<sizeof(test), false>;
+        using any  = any<sizeof(test), false>;
 
-        uut src{test{}};
+        any src{test{}};
         EXPECT_EQ(1 + 10, any_cast<test>(src).value_);
         EXPECT_EQ(1, any_cast<test&>(src).value_);
         EXPECT_EQ(1 + 1, any_cast<test>(std::move(src)).value_);
-        // const uut  dst{src}; //< expectedly won't compile (due to !copyable `any`)
-        // uut dst{std::move(src)}; //< expectedly won't compile (due to !movable `any`)
+        // const any  dst{src}; //< expectedly won't compile (due to !copyable `any`)
+        // any dst{std::move(src)}; //< expectedly won't compile (due to !movable `any`)
     }
 }
 
@@ -403,10 +403,10 @@ TEST(test_any, ctor_3_move)
 {
     // Primitive `int`
     {
-        using uut = any<sizeof(int)>;
+        using any = any<sizeof(int)>;
 
-        uut       src{42};
-        const uut dst{std::move(src)};
+        any       src{42};
+        const any dst{std::move(src)};
 
         EXPECT_FALSE(src.has_value());
         EXPECT_EQ(42, any_cast<int>(dst));
@@ -415,12 +415,12 @@ TEST(test_any, ctor_3_move)
     // Copyable and Movable `any`
     {
         using test = TestCopyableAndMovable;
-        using uut  = any<sizeof(test)>;
+        using any  = any<sizeof(test)>;
 
-        uut src{test{}};
+        any src{test{}};
         EXPECT_TRUE(src.has_value());
 
-        const uut dst{std::move(src)};
+        const any dst{std::move(src)};
         EXPECT_TRUE(dst.has_value());
         EXPECT_FALSE(src.has_value());
         EXPECT_EQ(2, any_cast<const TestCopyableAndMovable&>(dst).value_);
@@ -429,10 +429,10 @@ TEST(test_any, ctor_3_move)
     // Movable only `any`
     {
         using test = TestMovableOnly;
-        using uut  = any<sizeof(test), false, true>;
+        using any  = any<sizeof(test), false, true>;
 
-        uut       src{test{'X'}};
-        const uut dst{std::move(src)};
+        any       src{test{'X'}};
+        const any dst{std::move(src)};
 
         EXPECT_EQ(nullptr, any_cast<test>(&src));
         EXPECT_EQ(2, any_cast<const test&>(dst).value_);
@@ -444,10 +444,10 @@ TEST(test_any, ctor_3_move)
     // Copyable only `any`, movable only `unique_ptr`
     {
         using test = std::unique_ptr<TestCopyableAndMovable>;
-        using uut  = any<sizeof(test), false, true>;
+        using any  = any<sizeof(test), false, true>;
 
-        uut src{std::make_unique<TestCopyableAndMovable>()};
-        uut dst{std::move(src)};
+        any src{std::make_unique<TestCopyableAndMovable>()};
+        any dst{std::move(src)};
         EXPECT_FALSE(src.has_value());
 
         auto ptr = any_cast<test>(std::move(dst));
@@ -459,10 +459,10 @@ TEST(test_any, ctor_3_move)
 TEST(test_any, ctor_4_move_value)
 {
     using test = TestCopyableAndMovable;
-    using uut  = any<sizeof(test)>;
+    using any  = any<sizeof(test)>;
 
     test      value{'Y'};
-    const uut dst{std::move(value)};
+    const any dst{std::move(value)};
     EXPECT_TRUE(value.moved_);
     EXPECT_TRUE(dst.has_value());
     EXPECT_EQ(1, any_cast<const test&>(dst).value_);
@@ -482,9 +482,9 @@ TEST(test_any, ctor_5_in_place)
             number_ = number;
         }
     };
-    using uut = any<sizeof(TestType)>;
+    using any = any<sizeof(TestType)>;
 
-    const uut src{in_place_type_t<TestType>{}, 'Y', 42};
+    const any src{in_place_type_t<TestType>{}, 'Y', 42};
 
     const auto test = any_cast<TestType>(src);
     EXPECT_EQ('Y', test.ch_);
@@ -504,9 +504,9 @@ TEST(test_any, ctor_6_in_place_initializer_list)
             number_ = number;
         }
     };
-    using uut = any<sizeof(TestType)>;
+    using any = any<sizeof(TestType)>;
 
-    const uut src{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
+    const any src{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
 
     auto& test = any_cast<const TestType&>(src);
     EXPECT_EQ(3, test.size_);
@@ -517,12 +517,12 @@ TEST(test_any, assign_1_copy)
 {
     // Primitive `int`
     {
-        using uut = any<sizeof(int)>;
+        using any = any<sizeof(int)>;
 
-        const uut src{42};
+        const any src{42};
         EXPECT_TRUE(src.has_value());
 
-        uut dst{};
+        any dst{};
         EXPECT_FALSE(dst.has_value());
 
         dst = src;
@@ -530,11 +530,11 @@ TEST(test_any, assign_1_copy)
         EXPECT_TRUE(dst.has_value());
         EXPECT_EQ(42, any_cast<int>(dst));
 
-        const uut src2{147};
+        const any src2{147};
         dst = src2;
         EXPECT_EQ(147, any_cast<int>(dst));
 
-        const uut empty{};
+        const any empty{};
         dst = empty;
         EXPECT_FALSE(dst.has_value());
     }
@@ -544,17 +544,17 @@ TEST(test_any, assign_1_copy)
     side_effect_stats stats;
     {
         using test = TestCopyableOnly;
-        using uut  = any<sizeof(test), true, false>;
+        using any  = any<sizeof(test), true, false>;
 
         auto side_effects = stats.make_side_effect_fn();
 
         const test value1{'X', side_effects};
         EXPECT_STREQ("@", stats.ops.c_str());
 
-        const uut src1{value1};
+        const any src1{value1};
         EXPECT_STREQ("@C", stats.ops.c_str());
 
-        uut dst{};
+        any dst{};
         dst = src1;
         EXPECT_STREQ("@CCC~", stats.ops.c_str());
 
@@ -566,7 +566,7 @@ TEST(test_any, assign_1_copy)
         const test value2{'Z', side_effects};
         EXPECT_STREQ("@CCC~@", stats.ops.c_str());
 
-        const uut src2{value2};
+        const any src2{value2};
         EXPECT_STREQ("@CCC~@C", stats.ops.c_str());
 
         dst = src2;
@@ -589,12 +589,12 @@ TEST(test_any, assign_2_move)
 {
     // Primitive `int`
     {
-        using uut = any<sizeof(int)>;
+        using any = any<sizeof(int)>;
 
-        uut src{42};
+        any src{42};
         EXPECT_TRUE(src.has_value());
 
-        uut dst{};
+        any dst{};
         EXPECT_FALSE(dst.has_value());
 
         dst = std::move(src);
@@ -602,14 +602,14 @@ TEST(test_any, assign_2_move)
         EXPECT_FALSE(src.has_value());
         EXPECT_EQ(42, any_cast<int>(dst));
 
-        dst = uut{147};
+        dst = any{147};
         EXPECT_EQ(147, any_cast<int>(dst));
 
         auto dst_ptr = &dst;
         dst          = std::move(*dst_ptr);
         EXPECT_EQ(147, any_cast<int>(dst));
 
-        dst = uut{};
+        dst = any{};
         EXPECT_FALSE(dst.has_value());
     }
 
@@ -618,14 +618,14 @@ TEST(test_any, assign_2_move)
     side_effect_stats stats;
     {
         using test = TestMovableOnly;
-        using uut  = any<sizeof(test), false, true>;
+        using any  = any<sizeof(test), false, true>;
 
         auto side_effects = stats.make_side_effect_fn();
 
-        uut src1{test{'X', side_effects}};
+        any src1{test{'X', side_effects}};
         EXPECT_STREQ("@M_", stats.ops.c_str());
 
-        uut dst{};
+        any dst{};
         dst = std::move(src1);
         EXPECT_STREQ("@M_M_M_", stats.ops.c_str());
 
@@ -633,7 +633,7 @@ TEST(test_any, assign_2_move)
         EXPECT_EQ(3, any_cast<const test&>(dst).value_);
         EXPECT_EQ('X', any_cast<const test&>(dst).payload_);
 
-        uut src2{test{'Z', side_effects}};
+        any src2{test{'Z', side_effects}};
         EXPECT_STREQ("@M_M_M_@M_", stats.ops.c_str());
 
         dst = std::move(src2);
@@ -651,9 +651,9 @@ TEST(test_any, assign_3_move_value)
 {
     // Primitive `int`
     {
-        using uut = any<sizeof(int)>;
+        using any = any<sizeof(int)>;
 
-        uut dst{};
+        any dst{};
         EXPECT_FALSE(dst.has_value());
 
         dst = 147;
@@ -663,16 +663,16 @@ TEST(test_any, assign_3_move_value)
 
 TEST(test_any, make_any_cppref_example)
 {
-    using uut = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
+    using any = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
-    auto a0 = make_any<std::string, uut>("Hello, cetl::any!\n");
-    auto a1 = make_any<std::complex<double>, uut>(0.1, 2.3);
+    auto a0 = make_any<std::string, any>("Hello, cetl::any!\n");
+    auto a1 = make_any<std::complex<double>, any>(0.1, 2.3);
 
     EXPECT_STREQ("Hello, cetl::any!\n", any_cast<std::string>(a0).c_str());
     EXPECT_EQ(std::complex<double>(0.1, 2.3), any_cast<std::complex<double>>(a1));
 
     using lambda     = std::function<const char*()>;
-    using any_lambda = any<sizeof(lambda)>;
+    using any_lambda = cetl::any<sizeof(lambda)>;
 
     auto a3 = make_any<lambda, any_lambda>([] { return "Lambda #3.\n"; });
     EXPECT_TRUE(a3.has_value());
@@ -681,9 +681,9 @@ TEST(test_any, make_any_cppref_example)
 
 TEST(test_any, make_any_1)
 {
-    using uut = const any<sizeof(int)>;
+    using any = const any<sizeof(int)>;
 
-    const auto test = make_any<int, uut>(42);
+    const auto test = make_any<int, any>(42);
     EXPECT_EQ(42, any_cast<int>(test));
 }
 
@@ -700,9 +700,9 @@ TEST(test_any, make_any_2_list)
             number_ = number;
         }
     };
-    using uut = any<sizeof(TestType)>;
+    using any = any<sizeof(TestType)>;
 
-    const auto  src  = make_any<TestType, uut>({'A', 'C'}, 42);
+    const auto  src  = make_any<TestType, any>({'A', 'C'}, 42);
     const auto& test = any_cast<const TestType&>(src);
     EXPECT_EQ(2, test.size_);
     EXPECT_EQ(42, test.number_);
@@ -803,7 +803,7 @@ TEST(test_any, any_cast_3_move_primitive_int)
     EXPECT_TRUE(src.has_value());  //< technically still "has" the value, but moved out.
 
     EXPECT_EQ(42, any_cast<int>(any{42}));
-    // EXPECT_EQ(42, any_cast<int&>(uut{42})); //< won't compile expectedly
+    // EXPECT_EQ(42, any_cast<int&>(any{42})); //< won't compile expectedly
     EXPECT_EQ(42, any_cast<const int>(any{42}));
     EXPECT_EQ(42, any_cast<const int&>(any{42}));
 }
@@ -942,11 +942,11 @@ TEST(test_any, swap_copyable)
 TEST(test_any, swap_movable)
 {
     using test = TestMovableOnly;
-    using uut  = any<sizeof(test), false, true>;
+    using any  = any<sizeof(test), false, true>;
 
-    uut empty{};
-    uut a{in_place_type_t<test>{}, 'A'};
-    uut b{in_place_type_t<test>{}, 'B'};
+    any empty{};
+    any a{in_place_type_t<test>{}, 'A'};
+    any b{in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
@@ -974,7 +974,7 @@ TEST(test_any, swap_movable)
     EXPECT_FALSE(any_cast<test&>(a).moved_);
     EXPECT_EQ('B', any_cast<test&>(a).payload_);
 
-    uut another_empty{};
+    any another_empty{};
     empty.swap(another_empty);
     EXPECT_FALSE(empty.has_value());
     EXPECT_FALSE(another_empty.has_value());
@@ -984,9 +984,9 @@ TEST(test_any, emplace_1)
 {
     // Primitive `char`
     {
-        using uut = any<sizeof(char)>;
+        using any = any<sizeof(char)>;
 
-        uut src;
+        any src;
         src.emplace<char>('Y');
         EXPECT_EQ('Y', any_cast<char>(src));
     }
@@ -1004,9 +1004,9 @@ TEST(test_any, emplace_1)
                 number_ = number;
             }
         };
-        using uut = any<sizeof(TestType)>;
+        using any = any<sizeof(TestType)>;
 
-        uut t;
+        any t;
         t.emplace<TestType>('Y', 147);
         EXPECT_EQ('Y', any_cast<TestType>(t).ch_);
         EXPECT_EQ(147, any_cast<TestType>(t).number_);
@@ -1026,9 +1026,9 @@ TEST(test_any, emplace_2_initializer_list)
             number_ = number;
         }
     };
-    using uut = any<sizeof(TestType)>;
+    using any = any<sizeof(TestType)>;
 
-    uut src;
+    any src;
     src.emplace<TestType>({'A', 'B', 'C'}, 42);
 
     const auto test = any_cast<TestType>(src);
