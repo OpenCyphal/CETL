@@ -681,10 +681,19 @@ TEST(test_any, make_any_cppref_example)
 
 TEST(test_any, make_any_1)
 {
-    using any = const any<sizeof(int)>;
+    using any = any<sizeof(int), false, true, 16>;
 
-    const auto test = make_any<int, any>(42);
-    EXPECT_EQ(42, any_cast<int>(test));
+    auto src = make_any<int, any>(42);
+    EXPECT_EQ(42, any_cast<int>(src));
+    static_assert(std::is_same<decltype(src), any>::value, "");
+}
+
+TEST(test_any, make_any_1_like)
+{
+    auto src = make_any<uint16_t>(static_cast<uint16_t>(42));
+    EXPECT_EQ(42, any_cast<uint16_t>(src));
+    static_assert(std::is_same<decltype(src), cetl::any_like<uint16_t>>::value, "");
+    static_assert(std::is_same<decltype(src), cetl::any<sizeof(uint16_t), true, true, alignof(uint16_t)>>::value, "");
 }
 
 TEST(test_any, make_any_2_list)
@@ -706,6 +715,13 @@ TEST(test_any, make_any_2_list)
     const auto& test = any_cast<const TestType&>(src);
     EXPECT_EQ(2, test.size_);
     EXPECT_EQ(42, test.number_);
+
+    // `cetl::any_like` version
+    //
+    const auto dst = make_any<TestType>({'B', 'D', 'E'}, 147);
+    static_assert(std::is_same<decltype(dst), const cetl::any_like<TestType>>::value, "");
+    EXPECT_EQ(3, any_cast<TestType>(&dst)->size_);
+    EXPECT_EQ(147, any_cast<const TestType&>(dst).number_);
 }
 
 TEST(test_any, any_cast_cppref_example)
@@ -1057,6 +1073,9 @@ constexpr type_id type_id_value<char> = {5};
 
 template <>
 constexpr type_id type_id_value<std::string> = {6};
+
+template <>
+constexpr type_id type_id_value<uint16_t> = {7};
 
 template <>
 constexpr type_id type_id_value<std::unique_ptr<TestCopyableAndMovable>> =
