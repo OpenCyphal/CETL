@@ -687,7 +687,7 @@ CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexce
     }
 
     using RawValueType = std::remove_cv_t<ValueType>;
-    const auto ptr = operand->template get_ptr<RawValueType>();
+    const auto ptr     = operand->template get_ptr<RawValueType>();
 
     using ReturnType = std::add_pointer_t<ValueType>;
     return static_cast<ReturnType>(ptr);
