@@ -8,13 +8,17 @@
 #ifndef CETL_ANY_HPP_INCLUDED
 #define CETL_ANY_HPP_INCLUDED
 
+#include "rtti.hpp"
 #include "pf17/cetlpf.hpp"
 #include "pf17/utility.hpp"
 #include "pf17/attribute.hpp"
 
-#include <cassert>
 #include <algorithm>
 #include <initializer_list>
+
+#ifndef CETL_H_ERASE
+#    include "cetl/cetl.hpp"
+#endif
 
 namespace cetl
 {
@@ -49,41 +53,79 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     template <typename Tp>
     void make_handlers() noexcept
     {
-        assert(nullptr == value_destroyer_);
+        static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
+
+        CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
+        CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
+        CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
 
         value_destroyer_ = [](void* const storage) {
             const auto ptr = static_cast<Tp*>(storage);
             ptr->~Tp();
+        };
+
+        make_converters<Tp>();
+    }
+
+    template <typename Tp, std::enable_if_t<is_rtti_convertible<Tp>, int> = 0>
+    void make_converters() noexcept
+    {
+        value_const_converter_ = [](const void* const storage, const type_id& id) {
+            const auto ptr = static_cast<const Tp*>(storage);
+            return ptr->_cast_(id);
+        };
+        value_converter_ = [](void* const storage, const type_id& id) {
+            auto ptr = static_cast<Tp*>(storage);
+            return ptr->_cast_(id);
+        };
+    }
+
+    template <typename Tp, std::enable_if_t<!is_rtti_convertible<Tp>, int> = 0>
+    void make_converters() noexcept
+    {
+        value_const_converter_ = [](const void* const storage, const type_id& id) {
+            return (id == type_id_value<Tp>) ? storage : nullptr;
+        };
+        value_converter_ = [](void* const storage, const type_id& id) {
+            return (id == type_id_value<Tp>) ? storage : nullptr;
         };
     }
 
     template <typename ValueType>
     CETL_NODISCARD void* get_ptr() noexcept
     {
+        static_assert(sizeof(ValueType) <= Footprint,
+                      "Cannot contain the requested type since the footprint is too small");
+
         if (!has_value())
         {
             return nullptr;
         }
+        CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        // TODO: Add RTTI check here.
-        return get_raw_storage();
+        return value_converter_(get_raw_storage(), type_id_value<ValueType>);
     }
 
     template <typename ValueType>
     CETL_NODISCARD const void* get_ptr() const noexcept
     {
+        static_assert(sizeof(ValueType) <= Footprint,
+                      "Cannot contain the requested type since the footprint is too small");
+
         if (!has_value())
         {
             return nullptr;
         }
+        CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        // TODO: Add RTTI check here.
-        return get_raw_storage();
+        return value_const_converter_(get_raw_storage(), type_id_value<ValueType>);
     }
 
     void copy_handlers_from(const base_storage& src) noexcept
     {
-        value_destroyer_ = src.value_destroyer_;
+        value_destroyer_       = src.value_destroyer_;
+        value_converter_       = src.value_converter_;
+        value_const_converter_ = src.value_const_converter_;
     }
 
     void reset() noexcept
@@ -93,20 +135,29 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
             value_destroyer_(get_raw_storage());
             value_destroyer_ = nullptr;
         }
+
+        value_converter_       = nullptr;
+        value_const_converter_ = nullptr;
     }
 
 private:
     // We need to align the buffer to the given value (maximum alignment by default).
     // Also, we need to ensure that the buffer is at least 1 byte long.
+    // NB! It's intentional and by design that the `buffer_` is the very first member of `any` memory layout.
+    // In such way pointer to a `any` and its stored value are the same - could be useful during
+    // debugging/troubleshooting.
     alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
 
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
 
+    // Holds type-erased value converters (const and non-const). `nullptr` if storage has no value stored.
+    //
+    void* (*value_converter_)(void* self, const type_id& id)                   = nullptr;
+    const void* (*value_const_converter_)(const void* self, const type_id& id) = nullptr;
+
 };  // base_storage
 
-//
-//
 template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 struct base_handlers;
 //
@@ -222,13 +273,13 @@ struct base_copy<Footprint, true, Moveable, Alignment> : base_handlers<Footprint
     template <typename Tp>
     void make_handlers() noexcept
     {
-        assert(nullptr == base::value_copier_);
+        CETL_DEBUG_ASSERT(nullptr == base::value_copier_, "Expected to be empty before making handlers.");
 
         base::template make_handlers<Tp>();
 
         base::value_copier_ = [](const void* const src, void* const dst) {
-            assert(nullptr != src);
-            assert(nullptr != dst);
+            CETL_DEBUG_ASSERT(nullptr != src, "");
+            CETL_DEBUG_ASSERT(nullptr != dst, "");
 
             new (dst) Tp(*static_cast<const Tp*>(src));
         };
@@ -239,12 +290,13 @@ private:
 
     void copy_from(const base_copy& src)
     {
-        assert(!base::has_value());
+        CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before copying from source.");
 
         if (src.has_value())
         {
             base::copy_handlers_from(src);
-            assert(nullptr != base::value_copier_);
+
+            CETL_DEBUG_ASSERT(nullptr != base::value_copier_, "");
 
             base::value_copier_(src.get_raw_storage(), base::get_raw_storage());
         }
@@ -291,13 +343,13 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
     template <typename Tp>
     void make_handlers() noexcept
     {
-        assert(nullptr == base::value_mover_);
+        CETL_DEBUG_ASSERT(nullptr == base::value_mover_, "Expected to be empty before making handlers.");
 
         base::template make_handlers<Tp>();
 
         base::value_mover_ = [](void* const src, void* const dst) {
-            assert(nullptr != src);
-            assert(nullptr != dst);
+            CETL_DEBUG_ASSERT(nullptr != src, "");
+            CETL_DEBUG_ASSERT(nullptr != dst, "");
 
             new (dst) Tp(std::move(*static_cast<Tp*>(src)));
         };
@@ -308,12 +360,13 @@ private:
 
     void move_from(base_move& src) noexcept
     {
-        assert(!base::has_value());
+        CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before moving from source.");
 
         if (src.has_value())
         {
             base::copy_handlers_from(src);
-            assert(nullptr != base::value_mover_);
+
+            CETL_DEBUG_ASSERT(nullptr != base::value_mover_, "");
 
             base::value_mover_(src.get_raw_storage(), base::get_raw_storage());
 
@@ -607,7 +660,8 @@ CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const An
         return nullptr;
     }
 
-    const auto ptr = operand->template get_ptr<ValueType>();
+    using RawValueType = std::remove_cv_t<ValueType>;
+    const auto ptr     = operand->template get_ptr<RawValueType>();
 
     using ReturnType = std::add_pointer_t<std::add_const_t<ValueType>>;
     return static_cast<ReturnType>(ptr);
