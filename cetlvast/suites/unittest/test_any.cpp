@@ -839,9 +839,9 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
 TEST(test_any, any_cast_4_const_ptr)
 {
-    using any = const any<sizeof(int)>;
+    using any = any<sizeof(int)>;
 
-    any src{147};
+    const any src{147};
 
     auto int_ptr = any_cast<int>(&src);
     static_assert(std::is_same<const int*, decltype(int_ptr)>::value, "");
@@ -849,7 +849,11 @@ TEST(test_any, any_cast_4_const_ptr)
     EXPECT_TRUE(int_ptr);
     EXPECT_EQ(147, *int_ptr);
 
-    EXPECT_FALSE((any_cast<char, any>(nullptr)));
+    auto const_int_ptr = any_cast<const int>(&src);
+    static_assert(std::is_same<const int*, decltype(const_int_ptr)>::value, "");
+    EXPECT_EQ(int_ptr, const_int_ptr);
+
+    EXPECT_EQ(nullptr, any_cast<int>(static_cast<const any*>(nullptr)));
 }
 
 TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
@@ -866,7 +870,11 @@ TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
     EXPECT_EQ('Y', *char_ptr);
     EXPECT_EQ(0, reinterpret_cast<intptr_t>(char_ptr) & static_cast<std::intptr_t>(alignment - 1));
 
-    EXPECT_FALSE((any_cast<char, any>(static_cast<any*>(nullptr))));
+    auto const_char_ptr = any_cast<const char>(&src);
+    static_assert(std::is_same<const char*, decltype(const_char_ptr)>::value, "");
+    EXPECT_EQ(char_ptr, const_char_ptr);
+
+    EXPECT_EQ(nullptr, any_cast<char>(static_cast<any*>(nullptr)));
 }
 
 TEST(test_any, any_cast_polymorphic)
@@ -1027,6 +1035,7 @@ TEST(test_any, emplace_2_initializer_list)
     EXPECT_EQ(3, test.size_);
     EXPECT_EQ(42, test.number_);
 }
+
 }  // namespace
 
 namespace cetl
