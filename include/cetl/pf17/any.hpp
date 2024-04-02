@@ -20,8 +20,10 @@ namespace pf17
 
 #if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
-/// A polyfill for `std::bad_any_cast`.
+/// \brief A polyfill for `std::bad_any_cast`.
+///
 /// This is only available if exceptions are enabled (`__cpp_exceptions` is defined).
+///
 class bad_any_cast : public std::bad_cast
 {
 public:

@@ -387,6 +387,13 @@ private:
 
 }  // namespace detail
 
+/// \brief The class `any` describes a type-safe container for single values of any copy and/or move constructible type.
+///
+/// \tparam Footprint Maximum size of a contained object (in bytes).
+/// \tparam Copyable Determines whether a contained object is copy constructible.
+/// \tparam Movable Determines whether a contained object is move constructible.
+/// \tparam Alignment Alignment of storage for a contained object.
+///
 template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
@@ -396,10 +403,17 @@ class any : detail::base_move<Footprint, Copyable, Movable, Alignment>
     using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
 
 public:
-    constexpr any()           = default;
-    any(const any& other)     = default;
+    /// \brief Constructs an empty `any` object.
+    constexpr any() = default;
+    /// \brief Constructs an `any` object with a copy of the content of `other`.
+    any(const any& other) = default;
+    /// \brief Constructs an `any` object with the content of `other` using move semantics.
     any(any&& other) noexcept = default;
 
+    /// \brief Constructs an `any` object with `value` using move semantics.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    ///
     template <
         typename ValueType,
         typename Tp = std::decay_t<ValueType>,
@@ -409,23 +423,39 @@ public:
         create<Tp>(std::forward<ValueType>(value));
     }
 
+    /// \brief Constructs an `any` object with in place constructed value.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, Args&&... args)
     {
         create<Tp>(std::forward<Args>(args)...);
     }
 
+    /// \brief Constructs an `any` object with in place constructed value.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Up Type of the elements of the initializer list.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
         create<Tp>(list, std::forward<Args>(args)...);
     }
 
+    /// \brief Destroys the contained object if there is one.
     ~any()
     {
         reset();
     }
 
+    /// \brief Assigns the content of `rhs` to `*this`.
     any& operator=(const any& rhs)
     {
         if (this != &rhs)
@@ -435,6 +465,7 @@ public:
         return *this;
     }
 
+    /// \brief Assigns the content of `rhs` to `*this` using move semantics.
     any& operator=(any&& rhs) noexcept
     {
         if (this != &rhs)
@@ -444,6 +475,10 @@ public:
         return *this;
     }
 
+    /// \brief Assigns `value` to `*this` using move semantics.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
               typename    = std::enable_if_t<!std::is_same<Tp, any>::value>>
@@ -453,6 +488,12 @@ public:
         return *this;
     }
 
+    /// \brief Emplaces a new value to `*this`.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
     Tp& emplace(Args&&... args)
     {
@@ -461,6 +502,14 @@ public:
         return create<Tp>(std::forward<Args>(args)...);
     }
 
+    /// \brief Emplaces a new value to `*this`.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Up Type of the elements of the initializer list.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
     Tp& emplace(std::initializer_list<Up> list, Args&&... args)
     {
@@ -476,6 +525,10 @@ public:
         base::reset();
     }
 
+    /// \brief Swaps the content of `*this` with the content of `rhs` using copy semantics.
+    ///
+    /// In use for copyable-only `any` objects.
+    ///
     template <bool CopyableAlias = Copyable,
               bool MovableAlias  = Movable,
               typename           = std::enable_if_t<CopyableAlias && !MovableAlias>>
@@ -507,6 +560,10 @@ public:
         }
     }
 
+    /// \brief Swaps the content of `*this` with the content of `rhs` using move semantics.
+    ///
+    /// In use for moveable `any` objects.
+    ///
     template <bool MovableAlias = Movable, typename = std::enable_if_t<MovableAlias>>
     void swap(any& rhs) noexcept
     {
@@ -555,11 +612,22 @@ private:
 
 };  // class any
 
+/// \brief Typealias for `any` with the given `ValueType` with the default
+/// footprint, copyability, movability, and alignment of the `ValueType`.
+///
+/// In use by `cetl::make_any` overloads to make them close to `std::make_any`.
+///
+template <typename ValueType>
+using any_like = any<sizeof(ValueType),
+                     std::is_copy_constructible<ValueType>::value,
+                     std::is_move_constructible<ValueType>::value,
+                     alignof(ValueType)>;
+
 /// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
 ///
 /// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
 ///
-template <typename ValueType, typename Any, typename... Args>
+template <typename ValueType, typename Any = any_like<ValueType>, typename... Args>
 CETL_NODISCARD Any make_any(Args&&... args)
 {
     return Any(in_place_type<ValueType>, std::forward<Args>(args)...);
@@ -569,7 +637,7 @@ CETL_NODISCARD Any make_any(Args&&... args)
 ///
 /// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
 ///
-template <typename ValueType, typename Any, typename Up, typename... Args>
+template <typename ValueType, typename Any = any_like<ValueType>, typename Up, typename... Args>
 CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
 {
     return Any(in_place_type<ValueType>, list, std::forward<Args>(args)...);
@@ -686,7 +754,8 @@ CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexce
         return nullptr;
     }
 
-    const auto ptr = operand->template get_ptr<ValueType>();
+    using RawValueType = std::remove_cv_t<ValueType>;
+    const auto ptr     = operand->template get_ptr<RawValueType>();
 
     using ReturnType = std::add_pointer_t<ValueType>;
     return static_cast<ReturnType>(ptr);
