@@ -42,6 +42,9 @@ public:
 
 #endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
+// TODO: Add polyfill `using any = cetl::any<32, true, false>;` when PMR support is implemented.
+// The default PMR should be the `std::pmr::new_delete_resource`.
+
 }  // namespace pf17
 }  // namespace cetl
 
