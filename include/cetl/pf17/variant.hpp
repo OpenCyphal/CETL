@@ -670,9 +670,10 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
             chronomorphize(
                 [this, &other](const auto index) {
                     assert((index.value == other.m_index) && (index.value == this->m_index));
-                    // We need the temporary to work around a GCC bug where it complains about unused result of as().
+                    // We need the temporaries to work around a GCC bug where it complains about unused result of as()
                     auto& dst = alt<index.value>(*this);
-                    dst       = std::move(alt<index.value>(other));
+                    auto& src = alt<index.value>(other);
+                    dst       = std::move(src);
                 },
                 other);
         }
