@@ -206,9 +206,9 @@ struct base_move_construction<T, false> : base_copy_construction<T>
 
 /// COPY ASSIGNMENT POLICY
 template <typename T,
-          bool = std::is_trivially_copy_assignable<T>::value&&      //
-                  std::is_trivially_copy_constructible<T>::value&&  //
-                  std::is_trivially_destructible<T>::value>
+          bool = std::is_trivially_copy_assignable<T>::value &&     //
+                 std::is_trivially_copy_constructible<T>::value &&  //
+                 std::is_trivially_destructible<T>::value>
 struct base_copy_assignment;
 /// Trivially copy assignable case.
 template <typename T>
@@ -225,7 +225,7 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
     constexpr base_copy_assignment(const base_copy_assignment&) noexcept = default;
     constexpr base_copy_assignment(base_copy_assignment&&) noexcept      = default;
     constexpr base_copy_assignment& operator=(const base_copy_assignment& other) noexcept(
-        std::is_nothrow_copy_assignable<T>::value&& std::is_nothrow_copy_constructible<T>::value)
+        std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_copy_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -248,9 +248,9 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
 
 /// MOVE ASSIGNMENT POLICY
 template <typename T,
-          bool = std::is_trivially_move_assignable<T>::value&&      //
-                  std::is_trivially_move_constructible<T>::value&&  //
-                  std::is_trivially_destructible<T>::value>
+          bool = std::is_trivially_move_assignable<T>::value &&     //
+                 std::is_trivially_move_constructible<T>::value &&  //
+                 std::is_trivially_destructible<T>::value>
 struct base_move_assignment;
 /// Trivially move assignable case.
 template <typename T>
@@ -268,7 +268,7 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
     constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
     constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
     constexpr base_move_assignment& operator=(base_move_assignment&& other) noexcept(
-        std::is_nothrow_move_assignable<T>::value&& std::is_nothrow_move_constructible<T>::value)
+        std::is_nothrow_move_assignable<T>::value && std::is_nothrow_move_constructible<T>::value)
     {
         if (this->m_engaged && other.m_engaged)
         {
@@ -442,8 +442,8 @@ public:
     optional& operator=(const optional& other) = default;
 
     /// Assignment 3
-    constexpr optional& operator=(optional&& other) noexcept(
-        std::is_nothrow_move_assignable<T>::value&& std::is_nothrow_move_constructible<T>::value) = default;
+    constexpr optional& operator=(optional&& other) noexcept(std::is_nothrow_move_assignable<T>::value &&
+                                                             std::is_nothrow_move_constructible<T>::value) = default;
 
     /// Assignment 4
     template <typename U                                                                                       = T,
@@ -546,7 +546,7 @@ public:
     }
 
     /// Swaps two optionals. If either is not engaged, acts like move assignment.
-    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value&& is_nothrow_swappable_v<T>)
+    void swap(optional& other) noexcept(std::is_nothrow_move_constructible<T>::value && is_nothrow_swappable_v<T>)
     {
         using std::swap;
         if (has_value() && other.has_value())
