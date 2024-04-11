@@ -59,6 +59,9 @@ endfunction(enable_instrumentation)
 # param: TARGET_EXECUTION_DEPENDS target    - A target that will be a dependency of the tracefile
 #                                             target defined by this function.
 # param: EXCLUDES list[target]              - A list of targets to exclude from the coverage data.
+#                                             This relies on the target property SOURCE_DIR which may not be stable
+#                                             when including this method from another repository.
+# param: EXCLUDE_PATHS list[path]           - A list of paths to exclude from the coverage data.
 # param: OBJECT_LIBRARY target              - An object library annotated with gcno and gcda paths
 #                                             as a POST_BUILD_INSTRUMENTATION_BYPRODUCTS property.
 # option: EXCLUDE_TARGET                    - If set the target itself will be excluded from the
@@ -79,7 +82,7 @@ function(define_gcovr_tracefile_target)
     #+-[input]----------------------------------------------------------------+
     set(options EXCLUDE_TARGET EXCLUDE_TEST_FRAMEWORKS ENABLE_INSTRUMENTATION)
     set(singleValueArgs ROOT_DIRECTORY TARGET TARGET_EXECUTION_DEPENDS OBJECT_LIBRARY OUT_TRACEFILE_VARIABLE)
-    set(multiValueArgs EXCLUDES)
+    set(multiValueArgs EXCLUDES EXCLUDE_PATHS)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     if (NOT ARG_ROOT_DIRECTORY)
@@ -106,7 +109,7 @@ function(define_gcovr_tracefile_target)
     endif()
 
     list(REMOVE_DUPLICATES ARG_EXCLUDES)
-    set(LOCAL_EXCLUDE_PATHS "")
+    set(LOCAL_EXCLUDE_PATHS ${ARG_EXCLUDE_PATHS})
 
     foreach(LOCAL_EXCLUDE ${ARG_EXCLUDES})
 
