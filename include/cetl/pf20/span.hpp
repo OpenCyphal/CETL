@@ -488,7 +488,6 @@ public:
     // +----------------------------------------------------------------------+
     // | Required Properties
     // +----------------------------------------------------------------------+
-    static_assert(not std::is_pointer<T>::value, "Can not be a pointer type");
     static_assert(sizeof(element_type) != 0u, "Must have non zero element size");
 
     // +----------------------------------------------------------------------+

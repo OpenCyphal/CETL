@@ -997,4 +997,17 @@ TEST(TestSpanCopyCtor, CopyCetlSpanToFromDynamic)
     ASSERT_EQ(fixture.data(), subject.data());
 }
 
+TEST(TestSpanPtrTypes, ViewOfPointerArray)
+{
+    const char* names[] {
+        "dan",
+        "doug",
+        "ernst",
+        "fred"
+    };
+    cetl::pf20::span<const char*> subject(names);
+    ASSERT_EQ(4, subject.size());
+    ASSERT_STREQ("doug", subject[1]);
+}
+
 }  //  namespace
