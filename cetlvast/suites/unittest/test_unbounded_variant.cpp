@@ -262,6 +262,44 @@ private:
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
+TEST(test_any, bad_unbounded_variant_cast_ctor)
+{
+#if defined(__cpp_exceptions)
+
+    // Test the default constructor.
+    cetl::bad_unbounded_variant_cast test_exception1;
+
+    // Test the copy constructor.
+    cetl::bad_unbounded_variant_cast test_exception2{test_exception1};
+
+    // Test the move constructor.
+    cetl::bad_unbounded_variant_cast test_exception3{std::move(test_exception2)};
+    EXPECT_STRNE("", test_exception3.what());
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
+}
+
+TEST(test_any, bad_unbounded_variant_cast_assignment)
+{
+#if defined(__cpp_exceptions)
+
+    // Test the copy assignment operator.
+    cetl::bad_unbounded_variant_cast test_exception1;
+    cetl::bad_unbounded_variant_cast test_exception2;
+    test_exception2 = test_exception1;
+
+    // Test the move assignment operator.
+    cetl::bad_unbounded_variant_cast test_exception3;
+    test_exception3 = std::move(test_exception2);
+    EXPECT_STRNE("", test_exception3.what());
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
+}
+
 TEST(test_any, cppref_example)
 {
     using any = any<std::max(sizeof(int), sizeof(double))>;
@@ -278,7 +316,7 @@ TEST(test_any, cppref_example)
     // bad cast
     a = 1;
 #if defined(__cpp_exceptions)
-    EXPECT_THROW(sink(any_cast<float>(a)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<float>(a)), cetl::bad_unbounded_variant_cast);
 #else
     EXPECT_EQ(nullptr, any_cast<float>(&a));
 #endif
@@ -733,7 +771,7 @@ TEST(test_any, any_cast_cppref_example)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(a1)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(a1)), cetl::bad_unbounded_variant_cast);
 
 #endif
 
@@ -761,10 +799,10 @@ TEST(test_any, any_cast_1_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
 
     const any empty{};
-    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_cast);
 
 #endif
 
@@ -782,10 +820,10 @@ TEST(test_any, any_cast_2_non_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
 
     any empty{};
-    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_cast);
 
 #endif
 
@@ -801,11 +839,11 @@ TEST(test_any, any_cast_2_non_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_cast);
 
     src.reset();
-    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_any_cast);
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
 
 #endif
 }
@@ -830,7 +868,7 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
     using any = any<std::max(sizeof(int), sizeof(std::string))>;
 
-    EXPECT_THROW(sink(any_cast<std::string>(any{})), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(any{})), cetl::bad_unbounded_variant_cast);
 
     const auto test_str{"0123456789012345678901234567890123456789"s};
 
@@ -838,7 +876,7 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
     // Try move out but with wrong type
     //
-    EXPECT_THROW(sink(any_cast<int>(std::move(src))), cetl::bad_any_cast);
+    EXPECT_THROW(sink(any_cast<int>(std::move(src))), cetl::bad_unbounded_variant_cast);
     //
     EXPECT_TRUE(src.has_value());  //< expectedly still has value b/c there was exception
     EXPECT_STREQ(test_str.c_str(), any_cast<std::string&>(src).c_str());

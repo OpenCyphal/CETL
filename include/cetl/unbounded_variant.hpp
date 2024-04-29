@@ -23,6 +23,31 @@
 namespace cetl
 {
 
+#if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
+
+/// \brief Defines a type of object to be thrown by the value-returning forms
+///        of \ref unbounded_variant_cast on failure.
+///
+/// This is only available if exceptions are enabled (`__cpp_exceptions` is defined).
+///
+class bad_unbounded_variant_cast : public std::bad_cast
+{
+public:
+    bad_unbounded_variant_cast() noexcept                                             = default;
+    bad_unbounded_variant_cast(const bad_unbounded_variant_cast&) noexcept            = default;
+    bad_unbounded_variant_cast(bad_unbounded_variant_cast&&) noexcept                 = default;
+    bad_unbounded_variant_cast& operator=(const bad_unbounded_variant_cast&) noexcept = default;
+    bad_unbounded_variant_cast& operator=(bad_unbounded_variant_cast&&) noexcept      = default;
+    ~bad_unbounded_variant_cast() noexcept override                                   = default;
+
+    CETL_NODISCARD const char* what() const noexcept override
+    {
+        return "bad unbounded variant cast";
+    }
+};
+
+#endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
+
 // Forward declarations
 template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 class any;
@@ -376,10 +401,10 @@ private:
 
 };  // base_move
 
-[[noreturn]] inline void throw_bad_any_cast()
+[[noreturn]] inline void throw_bad_unbounded_variant_cast()
 {
 #if defined(__cpp_exceptions)
-    throw bad_any_cast();
+    throw bad_unbounded_variant_cast();
 #else
     std::terminate();
 #endif
@@ -660,7 +685,7 @@ CETL_NODISCARD ValueType any_cast(const Any& operand)
     const auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_any_cast();
+        detail::throw_bad_unbounded_variant_cast();
     }
     return static_cast<ValueType>(*ptr);
 }
@@ -682,7 +707,7 @@ CETL_NODISCARD ValueType any_cast(Any& operand)
     const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_any_cast();
+        detail::throw_bad_unbounded_variant_cast();
     }
     return static_cast<ValueType>(*ptr);
 }
@@ -704,7 +729,7 @@ CETL_NODISCARD ValueType any_cast(Any&& operand)
     const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_any_cast();
+        detail::throw_bad_unbounded_variant_cast();
     }
     return static_cast<ValueType>(std::move(*ptr));
 }

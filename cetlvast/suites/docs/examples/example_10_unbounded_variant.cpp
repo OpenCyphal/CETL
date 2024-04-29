@@ -49,7 +49,7 @@ TEST(example_10_any, basic_usage)
     // Should be used in the tests where exceptions are expected (see `EXPECT_THROW`).
     const auto sink = [](auto&&) {};
 
-    EXPECT_THROW(sink(cetl::any_cast<float>(a)), cetl::bad_any_cast);
+    EXPECT_THROW(sink(cetl::any_cast<float>(a)), cetl::bad_unbounded_variant_cast);
 #else
     EXPECT_EQ(nullptr, cetl::any_cast<float>(&a));
 #endif
