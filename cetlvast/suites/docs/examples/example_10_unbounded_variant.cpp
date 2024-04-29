@@ -10,7 +10,7 @@
 
 #include <gmock/gmock.h>
 
-//! [example_10_any_type_id]
+//! [example_10_unbounded_variant_type_id]
 namespace cetl
 {
 template <>
@@ -23,7 +23,7 @@ template <>
 constexpr type_id type_id_value<double> = {4};
 
 }  // namespace cetl
-//! [example_10_any_type_id]
+//! [example_10_unbounded_variant_type_id]
 
 TEST(example_10_unbounded_variant, basic_usage)
 {

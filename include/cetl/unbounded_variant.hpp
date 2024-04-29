@@ -12,7 +12,6 @@
 #include "rtti.hpp"
 #include "pf17/cetlpf.hpp"
 #include "pf17/utility.hpp"
-#include "pf17/attribute.hpp"
 
 #include <algorithm>
 #include <initializer_list>

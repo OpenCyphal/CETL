@@ -30,7 +30,7 @@
 /// - @subpage example_07_polymorphic_alloc_deleter
 /// - @subpage example_08_variable_length_array_vs_vector
 /// - @subpage example_09_variant
-/// - @subpage example_10_any
+/// - @subpage example_10_unbounded_variant
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -69,9 +69,9 @@
 /// Full example for cetl::variant
 /// @include example_09_variant.cpp
 ///
-/// @page example_10_any Example 10: Using CETL's any
-/// Full example for cetl::any
-/// @include example_10_any.cpp
+/// @page example_10_unbounded_variant Example 10: Using CETL's unbounded_variant
+/// Full example for cetl::unbounded_variant
+/// @include example_10_unbounded_variant.cpp
 ///
 
 #ifndef CETL_H_INCLUDED
