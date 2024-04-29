@@ -23,9 +23,9 @@ constexpr type_id type_id_value<uint16_t>{};
 
 int main()
 {
-    using any = cetl::any<sizeof(uint8_t)>;
+    using ub_var = cetl::unbounded_variant<sizeof(uint8_t)>;
 
-    any test{};
+    ub_var test{};
 
 #ifndef CETLVAST_COMPILETEST_PRECHECK
 

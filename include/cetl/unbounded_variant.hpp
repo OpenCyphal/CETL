@@ -1,12 +1,13 @@
 /// @file
-/// Defines the C++17 `std::any` type and several related entities.
+/// Includes cetl::unbounded_variant type and non-member functions.
+///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 
-#ifndef CETL_ANY_HPP_INCLUDED
-#define CETL_ANY_HPP_INCLUDED
+#ifndef CETL_UNBOUNDED_VARIANT_HPP_INCLUDED
+#define CETL_UNBOUNDED_VARIANT_HPP_INCLUDED
 
 #include "rtti.hpp"
 #include "pf17/cetlpf.hpp"
@@ -49,7 +50,7 @@ public:
 
 // Forward declarations
 template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
-class any;
+class unbounded_variant;
 
 namespace detail
 {
@@ -167,9 +168,9 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
 private:
     // We need to align the buffer to the given value (maximum alignment by default).
     // Also, we need to ensure that the buffer is at least 1 byte long.
-    // NB! It's intentional and by design that the `buffer_` is the very first member of `any` memory layout.
-    // In such way pointer to a `any` and its stored value are the same - could be useful during
-    // debugging/troubleshooting.
+    // NB! It's intentional and by design that the `buffer_` is the very first member of `unbounded_variant`
+    // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
+    // could be useful during debugging/troubleshooting.
     alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
 
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
@@ -411,7 +412,8 @@ private:
 
 }  // namespace detail
 
-/// \brief The class `any` describes a type-safe container for single values of any copy and/or move constructible type.
+/// \brief The class `unbounded_variant` describes a type-safe container
+///        for single values of unbounded_variant copy and/or move constructible type.
 ///
 /// \tparam Footprint Maximum size of a contained object (in bytes).
 /// \tparam Copyable Determines whether a contained object is copy constructible.
@@ -422,44 +424,44 @@ template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
           std::size_t Alignment = alignof(std::max_align_t)>
-class any : detail::base_move<Footprint, Copyable, Movable, Alignment>
+class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignment>
 {
     using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
 
 public:
-    /// \brief Constructs an empty `any` object.
-    constexpr any() = default;
-    /// \brief Constructs an `any` object with a copy of the content of `other`.
-    any(const any& other) = default;
-    /// \brief Constructs an `any` object with the content of `other` using move semantics.
-    any(any&& other) noexcept = default;
+    /// \brief Constructs an empty `unbounded_variant` object.
+    constexpr unbounded_variant() = default;
+    /// \brief Constructs an `unbounded_variant` object with a copy of the content of `other`.
+    unbounded_variant(const unbounded_variant& other) = default;
+    /// \brief Constructs an `unbounded_variant` object with the content of `other` using move semantics.
+    unbounded_variant(unbounded_variant&& other) noexcept = default;
 
-    /// \brief Constructs an `any` object with `value` using move semantics.
+    /// \brief Constructs an `unbounded_variant` object with `value` using move semantics.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     ///
-    template <
-        typename ValueType,
-        typename Tp = std::decay_t<ValueType>,
-        typename = std::enable_if_t<!std::is_same<Tp, any>::value && !pf17::detail::is_in_place_type<ValueType>::value>>
-    any(ValueType&& value)  // NOLINT(*-explicit-constructor)
+    template <typename ValueType,
+              typename Tp = std::decay_t<ValueType>,
+              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
+                                             !pf17::detail::is_in_place_type<ValueType>::value>>
+    unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
     }
 
-    /// \brief Constructs an `any` object with in place constructed value.
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
-    explicit any(in_place_type_t<ValueType>, Args&&... args)
+    explicit unbounded_variant(in_place_type_t<ValueType>, Args&&... args)
     {
         create<Tp>(std::forward<Args>(args)...);
     }
 
-    /// \brief Constructs an `any` object with in place constructed value.
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     /// \tparam Up Type of the elements of the initializer list.
@@ -468,33 +470,33 @@ public:
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
-    explicit any(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
+    explicit unbounded_variant(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
         create<Tp>(list, std::forward<Args>(args)...);
     }
 
     /// \brief Destroys the contained object if there is one.
-    ~any()
+    ~unbounded_variant()
     {
         reset();
     }
 
     /// \brief Assigns the content of `rhs` to `*this`.
-    any& operator=(const any& rhs)
+    unbounded_variant& operator=(const unbounded_variant& rhs)
     {
         if (this != &rhs)
         {
-            any(rhs).swap(*this);
+            unbounded_variant(rhs).swap(*this);
         }
         return *this;
     }
 
     /// \brief Assigns the content of `rhs` to `*this` using move semantics.
-    any& operator=(any&& rhs) noexcept
+    unbounded_variant& operator=(unbounded_variant&& rhs) noexcept
     {
         if (this != &rhs)
         {
-            any(std::move(rhs)).swap(*this);
+            unbounded_variant(std::move(rhs)).swap(*this);
         }
         return *this;
     }
@@ -505,10 +507,10 @@ public:
     ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, any>::value>>
-    any& operator=(ValueType&& value)
+              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value>>
+    unbounded_variant& operator=(ValueType&& value)
     {
-        any(std::forward<ValueType>(value)).swap(*this);
+        unbounded_variant(std::forward<ValueType>(value)).swap(*this);
         return *this;
     }
 
@@ -551,12 +553,12 @@ public:
 
     /// \brief Swaps the content of `*this` with the content of `rhs` using copy semantics.
     ///
-    /// In use for copyable-only `any` objects.
+    /// In use for copyable-only `unbounded_variant` objects.
     ///
     template <bool CopyableAlias = Copyable,
               bool MovableAlias  = Movable,
               typename           = std::enable_if_t<CopyableAlias && !MovableAlias>>
-    void swap(any& rhs)
+    void swap(unbounded_variant& rhs)
     {
         if (this == &rhs)
         {
@@ -567,7 +569,7 @@ public:
         {
             if (rhs.has_value())
             {
-                any tmp{rhs};
+                unbounded_variant tmp{rhs};
                 static_cast<base&>(rhs)   = *this;
                 static_cast<base&>(*this) = tmp;
             }
@@ -586,10 +588,10 @@ public:
 
     /// \brief Swaps the content of `*this` with the content of `rhs` using move semantics.
     ///
-    /// In use for moveable `any` objects.
+    /// In use for moveable `unbounded_variant` objects.
     ///
     template <bool MovableAlias = Movable, typename = std::enable_if_t<MovableAlias>>
-    void swap(any& rhs) noexcept
+    void swap(unbounded_variant& rhs) noexcept
     {
         if (this == &rhs)
         {
@@ -600,7 +602,7 @@ public:
         {
             if (rhs.has_value())
             {
-                any tmp{std::move(rhs)};
+                unbounded_variant tmp{std::move(rhs)};
                 static_cast<base&>(rhs)   = std::move(*this);
                 static_cast<base&>(*this) = std::move(tmp);
             }
@@ -621,11 +623,11 @@ public:
     }
 
 private:
-    template <typename ValueType, typename Any>
-    friend std::add_pointer_t<ValueType> any_cast(Any* operand) noexcept;
+    template <typename ValueType, typename UnboundedVariant>
+    friend std::add_pointer_t<ValueType> get_if(UnboundedVariant* operand) noexcept;
 
-    template <typename ValueType, typename Any>
-    friend std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* operand) noexcept;
+    template <typename ValueType, typename UnboundedVariant>
+    friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
 
     template <typename Tp, typename... Args>
     Tp& create(Args&&... args)
@@ -634,54 +636,59 @@ private:
         return *new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
     }
 
-};  // class any
+};  // class unbounded_variant
 
-/// \brief Typealias for `any` with the given `ValueType` with the default
+/// \brief Typealias for `unbounded_variant` with the given `ValueType` with the default
 /// footprint, copyability, movability, and alignment of the `ValueType`.
 ///
-/// In use by `cetl::make_any` overloads to make them close to `std::make_any`.
+/// In use by `cetl::make_unbounded_variant` overloads.
 ///
 template <typename ValueType>
-using any_like = any<sizeof(ValueType),
-                     std::is_copy_constructible<ValueType>::value,
-                     std::is_move_constructible<ValueType>::value,
-                     alignof(ValueType)>;
+using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
+                                                 std::is_copy_constructible<ValueType>::value,
+                                                 std::is_move_constructible<ValueType>::value,
+                                                 alignof(ValueType)>;
 
-/// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
+/// \brief Constructs an unbounded_variant object containing an object of type T,
+///        passing the provided arguments to T's constructor.
 ///
-/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
+/// Equivalent to `cetl::unbounded_variant(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
 ///
-template <typename ValueType, typename Any = any_like<ValueType>, typename... Args>
-CETL_NODISCARD Any make_any(Args&&... args)
+template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
-    return Any(in_place_type<ValueType>, std::forward<Args>(args)...);
+    return UnboundedVariant(in_place_type<ValueType>, std::forward<Args>(args)...);
 }
 
-/// \brief Constructs an any object containing an object of type T, passing the provided arguments to T's constructor.
+/// \brief Constructs an unbounded_variant object containing an object of type T,
+///        passing the provided arguments to T's constructor.
 ///
-/// Equivalent to `cetl::any(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
+/// Equivalent to `cetl::unbounded_variant(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
 ///
-template <typename ValueType, typename Any = any_like<ValueType>, typename Up, typename... Args>
-CETL_NODISCARD Any make_any(std::initializer_list<Up> list, Args&&... args)
+template <typename ValueType,
+          typename UnboundedVariant = unbounded_variant_like<ValueType>,
+          typename Up,
+          typename... Args>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
-    return Any(in_place_type<ValueType>, list, std::forward<Args>(args)...);
+    return UnboundedVariant(in_place_type<ValueType>, list, std::forward<Args>(args)...);
 }
 
 /// \brief Performs type-safe access to the contained object.
 ///
-/// \param operand Target any object.
-/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<const U>(&operand))`,
+/// \param operand Target unbounded_variant object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::get_if<const U>(&operand))`,
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
-template <typename ValueType, typename Any>
-CETL_NODISCARD ValueType any_cast(const Any& operand)
+template <typename ValueType, typename UnboundedVariant>
+CETL_NODISCARD ValueType get(const UnboundedVariant& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, const RawValueType&>::value,
                   "ValueType is required to be a const lvalue reference "
                   "or a CopyConstructible type");
 
-    const auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
+    const auto ptr = get_if<std::add_const_t<RawValueType>>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();
@@ -691,19 +698,19 @@ CETL_NODISCARD ValueType any_cast(const Any& operand)
 
 /// \brief Performs type-safe access to the contained object.
 ///
-/// \param operand Target any object.
-/// \return Returns `std::static_cast<ValueType>(*cetl::any_cast<U>(&operand))`,
+/// \param operand Target unbounded_variant object.
+/// \return Returns `std::static_cast<ValueType>(*cetl::get_if<U>(&operand))`,
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
-template <typename ValueType, typename Any>
-CETL_NODISCARD ValueType any_cast(Any& operand)
+template <typename ValueType, typename UnboundedVariant>
+CETL_NODISCARD ValueType get(UnboundedVariant& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType&>::value,
                   "ValueType is required to be an lvalue reference "
                   "or a CopyConstructible type");
 
-    const auto ptr = any_cast<RawValueType>(&operand);
+    const auto ptr = get_if<RawValueType>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();
@@ -713,19 +720,19 @@ CETL_NODISCARD ValueType any_cast(Any& operand)
 
 /// \brief Performs type-safe access to the contained object.
 ///
-/// \param operand Target any object.
-/// \return Returns `std::static_cast<ValueType>(std::move(*cetl::any_cast<U>(&operand)))`,
+/// \param operand Target unbounded_variant object.
+/// \return Returns `std::static_cast<ValueType>(std::move(*cetl::get_if<U>(&operand)))`,
 ///     where let `U` be `std::remove_cv_t<std::remove_reference_t<ValueType>>`.
 ///
-template <typename ValueType, typename Any>
-CETL_NODISCARD ValueType any_cast(Any&& operand)
+template <typename ValueType, typename UnboundedVariant>
+CETL_NODISCARD ValueType get(UnboundedVariant&& operand)
 {
     using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
     static_assert(std::is_constructible<ValueType, RawValueType>::value,
                   "ValueType is required to be an rvalue reference "
                   "or a CopyConstructible type");
 
-    const auto ptr = any_cast<RawValueType>(&operand);
+    const auto ptr = get_if<RawValueType>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();
@@ -736,14 +743,14 @@ CETL_NODISCARD ValueType any_cast(Any&& operand)
 /// \brief Performs type-safe access to the `const` contained object.
 ///
 /// \tparam ValueType Type of the requested value; may not be a reference.
-/// \tparam Any Type of the `any` object.
-/// \param operand Target constant any object.
+/// \tparam UnboundedVariant Type of the `unbounded_variant` object.
+/// \param operand Target constant unbounded_variant object.
 /// \return If operand is not a null pointer,
 ///     and the typeid of the requested `ValueType` matches that of the contents of operand,
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
-template <typename ValueType, typename Any>
-CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const Any* const operand) noexcept
+template <typename ValueType, typename UnboundedVariant>
+CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* const operand) noexcept
 {
     static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
 
@@ -762,14 +769,14 @@ CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> any_cast(const An
 /// \brief Performs type-safe access to the contained object.
 ///
 /// \tparam ValueType Type of the requested value; may not be a reference.
-/// \tparam Any Type of the `any` object.
-/// \param operand Target `any` object.
+/// \tparam UnboundedVariant Type of the `unbounded_variant` object.
+/// \param operand Target `unbounded_variant` object.
 /// \return If operand is not a null pointer,
 ///     and the typeid of the requested `ValueType` matches that of the contents of operand,
 ///     a pointer to the value contained by operand, otherwise a null pointer.
 ///
-template <typename ValueType, typename Any>
-CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexcept
+template <typename ValueType, typename UnboundedVariant>
+CETL_NODISCARD std::add_pointer_t<ValueType> get_if(UnboundedVariant* const operand) noexcept
 {
     static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
 
@@ -787,4 +794,4 @@ CETL_NODISCARD std::add_pointer_t<ValueType> any_cast(Any* const operand) noexce
 
 }  // namespace cetl
 
-#endif  // CETL_ANY_HPP_INCLUDED
+#endif  // CETL_UNBOUNDED_VARIANT_HPP_INCLUDED
