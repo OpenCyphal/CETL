@@ -1,5 +1,5 @@
 /// @file
-/// Compile test that ensures it's impossible set "bigger" value than `Footprint` of `any`.
+/// Compile test that ensures it's impossible set "bigger" value than `Footprint` of `unbounded_variant`.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,7 +7,7 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "cetl/any.hpp"
+#include "cetl/unbounded_variant.hpp"
 
 #include <cstdint>
 

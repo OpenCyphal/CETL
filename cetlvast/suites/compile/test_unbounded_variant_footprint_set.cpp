@@ -1,5 +1,5 @@
 /// @file
-/// Compile test that ensures it's impossible get "bigger" value than `Footprint` of const `any`.
+/// Compile test that ensures it's impossible set "bigger" value than `Footprint` of `unbounded_variant`.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -7,7 +7,7 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include "cetl/any.hpp"
+#include "cetl/unbounded_variant.hpp"
 
 #include <cstdint>
 
@@ -25,20 +25,21 @@ int main()
 {
     using any = cetl::any<sizeof(uint8_t)>;
 
-    const any test{static_cast<uint8_t>(0)};
+    any test{};
 
 #ifndef CETLVAST_COMPILETEST_PRECHECK
 
-    // Verify at `cetl::detail::base_storage::get_ptr const`
+    // Verify at `cetl::detail::base_storage::make_handlers`
     // ```
-    // static_assert(sizeof(ValueType) <= Footprint,
-    //               "Cannot contain the requested type since the footprint is too small");
+    // static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
     // ```
-    return cetl::any_cast<uint16_t>(test);
+    test = static_cast<uint16_t>(1);
 
 #else
 
-    return cetl::any_cast<uint8_t>(test);
+    test = static_cast<uint8_t>(1);
 
 #endif
+
+    return 0;
 }
