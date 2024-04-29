@@ -25,7 +25,7 @@ constexpr type_id type_id_value<double> = {4};
 }  // namespace cetl
 //! [example_10_any_type_id]
 
-TEST(example_10_any, basic_usage)
+TEST(example_10_unbounded_variant, basic_usage)
 {
     //! [example_10_any_basic_usage]
     /// This example is inspired by the [cppreference.com](https://en.cppreference.com/w/cpp/utility/any)
@@ -49,7 +49,7 @@ TEST(example_10_any, basic_usage)
     // Should be used in the tests where exceptions are expected (see `EXPECT_THROW`).
     const auto sink = [](auto&&) {};
 
-    EXPECT_THROW(sink(cetl::any_cast<float>(a)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(cetl::any_cast<float>(a)), cetl::bad_unbounded_variant_access);
 #else
     EXPECT_EQ(nullptr, cetl::any_cast<float>(&a));
 #endif

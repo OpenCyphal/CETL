@@ -25,24 +25,23 @@ namespace cetl
 
 #if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
-/// \brief Defines a type of object to be thrown by the value-returning forms
-///        of \ref unbounded_variant_cast on failure.
+/// \brief Defines a type of object to be thrown by the `get` on failure.
 ///
 /// This is only available if exceptions are enabled (`__cpp_exceptions` is defined).
 ///
-class bad_unbounded_variant_cast : public std::bad_cast
+class bad_unbounded_variant_access : public std::bad_cast
 {
 public:
-    bad_unbounded_variant_cast() noexcept                                             = default;
-    bad_unbounded_variant_cast(const bad_unbounded_variant_cast&) noexcept            = default;
-    bad_unbounded_variant_cast(bad_unbounded_variant_cast&&) noexcept                 = default;
-    bad_unbounded_variant_cast& operator=(const bad_unbounded_variant_cast&) noexcept = default;
-    bad_unbounded_variant_cast& operator=(bad_unbounded_variant_cast&&) noexcept      = default;
-    ~bad_unbounded_variant_cast() noexcept override                                   = default;
+    bad_unbounded_variant_access() noexcept                                               = default;
+    bad_unbounded_variant_access(const bad_unbounded_variant_access&) noexcept            = default;
+    bad_unbounded_variant_access(bad_unbounded_variant_access&&) noexcept                 = default;
+    bad_unbounded_variant_access& operator=(const bad_unbounded_variant_access&) noexcept = default;
+    bad_unbounded_variant_access& operator=(bad_unbounded_variant_access&&) noexcept      = default;
+    ~bad_unbounded_variant_access() noexcept override                                     = default;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "bad unbounded variant cast";
+        return "bad unbounded variant access";
     }
 };
 
@@ -401,10 +400,10 @@ private:
 
 };  // base_move
 
-[[noreturn]] inline void throw_bad_unbounded_variant_cast()
+[[noreturn]] inline void throw_bad_unbounded_variant_access()
 {
 #if defined(__cpp_exceptions)
-    throw bad_unbounded_variant_cast();
+    throw bad_unbounded_variant_access();
 #else
     std::terminate();
 #endif
@@ -685,7 +684,7 @@ CETL_NODISCARD ValueType any_cast(const Any& operand)
     const auto ptr = any_cast<std::add_const_t<RawValueType>>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_unbounded_variant_cast();
+        detail::throw_bad_unbounded_variant_access();
     }
     return static_cast<ValueType>(*ptr);
 }
@@ -707,7 +706,7 @@ CETL_NODISCARD ValueType any_cast(Any& operand)
     const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_unbounded_variant_cast();
+        detail::throw_bad_unbounded_variant_access();
     }
     return static_cast<ValueType>(*ptr);
 }
@@ -729,7 +728,7 @@ CETL_NODISCARD ValueType any_cast(Any&& operand)
     const auto ptr = any_cast<RawValueType>(&operand);
     if (ptr == nullptr)
     {
-        detail::throw_bad_unbounded_variant_cast();
+        detail::throw_bad_unbounded_variant_access();
     }
     return static_cast<ValueType>(std::move(*ptr));
 }

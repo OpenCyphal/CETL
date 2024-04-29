@@ -262,18 +262,18 @@ private:
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
-TEST(test_any, bad_unbounded_variant_cast_ctor)
+TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
 {
 #if defined(__cpp_exceptions)
 
     // Test the default constructor.
-    cetl::bad_unbounded_variant_cast test_exception1;
+    cetl::bad_unbounded_variant_access test_exception1;
 
     // Test the copy constructor.
-    cetl::bad_unbounded_variant_cast test_exception2{test_exception1};
+    cetl::bad_unbounded_variant_access test_exception2{test_exception1};
 
     // Test the move constructor.
-    cetl::bad_unbounded_variant_cast test_exception3{std::move(test_exception2)};
+    cetl::bad_unbounded_variant_access test_exception3{std::move(test_exception2)};
     EXPECT_STRNE("", test_exception3.what());
 
 #else
@@ -281,17 +281,17 @@ TEST(test_any, bad_unbounded_variant_cast_ctor)
 #endif
 }
 
-TEST(test_any, bad_unbounded_variant_cast_assignment)
+TEST(test_unbounded_variant, bad_unbounded_variant_access_assignment)
 {
 #if defined(__cpp_exceptions)
 
     // Test the copy assignment operator.
-    cetl::bad_unbounded_variant_cast test_exception1;
-    cetl::bad_unbounded_variant_cast test_exception2;
+    cetl::bad_unbounded_variant_access test_exception1;
+    cetl::bad_unbounded_variant_access test_exception2;
     test_exception2 = test_exception1;
 
     // Test the move assignment operator.
-    cetl::bad_unbounded_variant_cast test_exception3;
+    cetl::bad_unbounded_variant_access test_exception3;
     test_exception3 = std::move(test_exception2);
     EXPECT_STRNE("", test_exception3.what());
 
@@ -300,7 +300,7 @@ TEST(test_any, bad_unbounded_variant_cast_assignment)
 #endif
 }
 
-TEST(test_any, cppref_example)
+TEST(test_unbounded_variant, cppref_example)
 {
     using any = any<std::max(sizeof(int), sizeof(double))>;
 
@@ -316,7 +316,7 @@ TEST(test_any, cppref_example)
     // bad cast
     a = 1;
 #if defined(__cpp_exceptions)
-    EXPECT_THROW(sink(any_cast<float>(a)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<float>(a)), cetl::bad_unbounded_variant_access);
 #else
     EXPECT_EQ(nullptr, any_cast<float>(&a));
 #endif
@@ -333,7 +333,7 @@ TEST(test_any, cppref_example)
     EXPECT_EQ(3, *any_cast<int>(&a));
 }
 
-TEST(test_any, ctor_1_default)
+TEST(test_unbounded_variant, ctor_1_default)
 {
     EXPECT_FALSE((any<0>{}.has_value()));
     EXPECT_FALSE((any<0, false>{}.has_value()));
@@ -354,7 +354,7 @@ TEST(test_any, ctor_1_default)
     EXPECT_FALSE((any<13, true, true, 1>{}.has_value()));
 }
 
-TEST(test_any, ctor_2_copy)
+TEST(test_unbounded_variant, ctor_2_copy)
 {
     // Primitive `int`
     {
@@ -437,7 +437,7 @@ TEST(test_any, ctor_2_copy)
     }
 }
 
-TEST(test_any, ctor_3_move)
+TEST(test_unbounded_variant, ctor_3_move)
 {
     // Primitive `int`
     {
@@ -494,7 +494,7 @@ TEST(test_any, ctor_3_move)
     }
 }
 
-TEST(test_any, ctor_4_move_value)
+TEST(test_unbounded_variant, ctor_4_move_value)
 {
     using test = TestCopyableAndMovable;
     using any  = any<sizeof(test)>;
@@ -507,7 +507,7 @@ TEST(test_any, ctor_4_move_value)
     EXPECT_EQ('Y', any_cast<const test&>(dst).payload_);
 }
 
-TEST(test_any, ctor_5_in_place)
+TEST(test_unbounded_variant, ctor_5_in_place)
 {
     struct TestType : rtti_helper<type_id_type<42>>
     {
@@ -529,7 +529,7 @@ TEST(test_any, ctor_5_in_place)
     EXPECT_EQ(42, test.number_);
 }
 
-TEST(test_any, ctor_6_in_place_initializer_list)
+TEST(test_unbounded_variant, ctor_6_in_place_initializer_list)
 {
     struct TestType : rtti_helper<type_id_type<42>>
     {
@@ -551,7 +551,7 @@ TEST(test_any, ctor_6_in_place_initializer_list)
     EXPECT_EQ(42, test.number_);
 }
 
-TEST(test_any, assign_1_copy)
+TEST(test_unbounded_variant, assign_1_copy)
 {
     // Primitive `int`
     {
@@ -623,7 +623,7 @@ TEST(test_any, assign_1_copy)
     EXPECT_STREQ("@CCC~@CCC~C~C~~~~~~~", stats.ops.c_str());
 }
 
-TEST(test_any, assign_2_move)
+TEST(test_unbounded_variant, assign_2_move)
 {
     // Primitive `int`
     {
@@ -685,7 +685,7 @@ TEST(test_any, assign_2_move)
     EXPECT_STREQ("@M_M_M_@M_M_M_M_M_~~", stats.ops.c_str());
 }
 
-TEST(test_any, assign_3_move_value)
+TEST(test_unbounded_variant, assign_3_move_value)
 {
     // Primitive `int`
     {
@@ -699,7 +699,7 @@ TEST(test_any, assign_3_move_value)
     }
 }
 
-TEST(test_any, make_any_cppref_example)
+TEST(test_unbounded_variant, make_any_cppref_example)
 {
     using any = any<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
@@ -717,7 +717,7 @@ TEST(test_any, make_any_cppref_example)
     EXPECT_STREQ("Lambda #3.\n", any_cast<lambda>(a3)());
 }
 
-TEST(test_any, make_any_1)
+TEST(test_unbounded_variant, make_any_1)
 {
     using any = any<sizeof(int), false, true, 16>;
 
@@ -726,7 +726,7 @@ TEST(test_any, make_any_1)
     static_assert(std::is_same<decltype(src), any>::value, "");
 }
 
-TEST(test_any, make_any_1_like)
+TEST(test_unbounded_variant, make_any_1_like)
 {
     auto src = make_any<uint16_t>(static_cast<uint16_t>(42));
     EXPECT_EQ(42, any_cast<uint16_t>(src));
@@ -734,7 +734,7 @@ TEST(test_any, make_any_1_like)
     static_assert(std::is_same<decltype(src), cetl::any<sizeof(uint16_t), true, true, alignof(uint16_t)>>::value, "");
 }
 
-TEST(test_any, make_any_2_list)
+TEST(test_unbounded_variant, make_any_2_list)
 {
     struct TestType : rtti_helper<type_id_type<13>>
     {
@@ -762,7 +762,7 @@ TEST(test_any, make_any_2_list)
     EXPECT_EQ(147, any_cast<const TestType&>(dst).number_);
 }
 
-TEST(test_any, any_cast_cppref_example)
+TEST(test_unbounded_variant, any_cast_cppref_example)
 {
     using any = any<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -771,7 +771,7 @@ TEST(test_any, any_cast_cppref_example)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(a1)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(a1)), cetl::bad_unbounded_variant_access);
 
 #endif
 
@@ -791,7 +791,7 @@ TEST(test_any, any_cast_cppref_example)
     EXPECT_STREQ("hollo", s1.c_str());
 }
 
-TEST(test_any, any_cast_1_const)
+TEST(test_unbounded_variant, any_cast_1_const)
 {
     using any = any<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -799,10 +799,10 @@ TEST(test_any, any_cast_1_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_access);
 
     const any empty{};
-    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_access);
 
 #endif
 
@@ -812,7 +812,7 @@ TEST(test_any, any_cast_1_const)
     EXPECT_EQ(42, any_cast<const int&>(src));
 }
 
-TEST(test_any, any_cast_2_non_const)
+TEST(test_unbounded_variant, any_cast_2_non_const)
 {
     using any = any<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -820,10 +820,10 @@ TEST(test_any, any_cast_2_non_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_access);
 
     any empty{};
-    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(empty)), cetl::bad_unbounded_variant_access);
 
 #endif
 
@@ -839,16 +839,16 @@ TEST(test_any, any_cast_2_non_const)
 
 #if defined(__cpp_exceptions)
 
-    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_access);
 
     src.reset();
-    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_cast);
-    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<int>(src)), cetl::bad_unbounded_variant_access);
+    EXPECT_THROW(sink(any_cast<std::string>(src)), cetl::bad_unbounded_variant_access);
 
 #endif
 }
 
-TEST(test_any, any_cast_3_move_primitive_int)
+TEST(test_unbounded_variant, any_cast_3_move_primitive_int)
 {
     using any = any<sizeof(int)>;
 
@@ -862,13 +862,13 @@ TEST(test_any, any_cast_3_move_primitive_int)
     EXPECT_EQ(42, any_cast<const int&>(any{42}));
 }
 
-TEST(test_any, any_cast_3_move_empty_bad_cast)
+TEST(test_unbounded_variant, any_cast_3_move_empty_bad_cast)
 {
 #if defined(__cpp_exceptions)
 
     using any = any<std::max(sizeof(int), sizeof(std::string))>;
 
-    EXPECT_THROW(sink(any_cast<std::string>(any{})), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<std::string>(any{})), cetl::bad_unbounded_variant_access);
 
     const auto test_str{"0123456789012345678901234567890123456789"s};
 
@@ -876,7 +876,7 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 
     // Try move out but with wrong type
     //
-    EXPECT_THROW(sink(any_cast<int>(std::move(src))), cetl::bad_unbounded_variant_cast);
+    EXPECT_THROW(sink(any_cast<int>(std::move(src))), cetl::bad_unbounded_variant_access);
     //
     EXPECT_TRUE(src.has_value());  //< expectedly still has value b/c there was exception
     EXPECT_STREQ(test_str.c_str(), any_cast<std::string&>(src).c_str());
@@ -891,7 +891,7 @@ TEST(test_any, any_cast_3_move_empty_bad_cast)
 #endif
 }
 
-TEST(test_any, any_cast_4_const_ptr)
+TEST(test_unbounded_variant, any_cast_4_const_ptr)
 {
     using any = any<sizeof(int)>;
 
@@ -910,7 +910,7 @@ TEST(test_any, any_cast_4_const_ptr)
     EXPECT_EQ(nullptr, any_cast<int>(static_cast<const any*>(nullptr)));
 }
 
-TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
+TEST(test_unbounded_variant, any_cast_5_non_const_ptr_with_custom_alignment)
 {
     constexpr std::size_t alignment = 4096;
 
@@ -931,7 +931,7 @@ TEST(test_any, any_cast_5_non_const_ptr_with_custom_alignment)
     EXPECT_EQ(nullptr, any_cast<char>(static_cast<any*>(nullptr)));
 }
 
-TEST(test_any, any_cast_polymorphic)
+TEST(test_unbounded_variant, any_cast_polymorphic)
 {
     side_effect_stats stats;
     {
@@ -961,7 +961,7 @@ TEST(test_any, any_cast_polymorphic)
     EXPECT_STREQ("@M_@MM_M_M_~_~", stats.ops.c_str());
 }
 
-TEST(test_any, swap_copyable)
+TEST(test_unbounded_variant, swap_copyable)
 {
     using test = TestCopyableOnly;
     using any  = any<sizeof(test), true, false>;
@@ -993,7 +993,7 @@ TEST(test_any, swap_copyable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_any, swap_movable)
+TEST(test_unbounded_variant, swap_movable)
 {
     using test = TestMovableOnly;
     using any  = any<sizeof(test), false, true>;
@@ -1034,7 +1034,7 @@ TEST(test_any, swap_movable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_any, emplace_1)
+TEST(test_unbounded_variant, emplace_1)
 {
     // Primitive `char`
     {
@@ -1067,7 +1067,7 @@ TEST(test_any, emplace_1)
     }
 }
 
-TEST(test_any, emplace_2_initializer_list)
+TEST(test_unbounded_variant, emplace_2_initializer_list)
 {
     struct TestType : rtti_helper<type_id_type<13>>
     {
