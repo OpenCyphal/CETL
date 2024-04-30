@@ -68,7 +68,10 @@ constexpr bool is_rtti_convertible = decltype(detail::has_cast_impl<std::decay_t
 
 /// A helper that converts \ref cetl::type_id_type to \ref cetl::type_id.
 template <typename TypeIDType>
-constexpr type_id type_id_type_value = detail::type_id_type_value_impl(TypeIDType{});
+constexpr type_id type_id_type_value() noexcept
+{
+    return detail::type_id_type_value_impl(TypeIDType{});
+}
 
 /// The type ID value of the given type.
 /// This helper is provided for regularity; it has the same value as \c T::_get_type_id_().
@@ -250,7 +253,7 @@ struct rtti_helper : public virtual cetl::rtti, public Bases...
     /// The recommended implementation that simply returns the value of the \c TypeIDType template parameter.
     static constexpr type_id _get_type_id_() noexcept
     {
-        return type_id_type_value<TypeIDType>;
+        return type_id_type_value<TypeIDType>();
     }
     /// The recommended implementation that performs an exhaustive search for a matching conversion
     /// throughout the entire type hierarchy tree in the presence of multiple inheritance.
