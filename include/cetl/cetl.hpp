@@ -195,6 +195,21 @@ static_assert((__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_ST
                __cplusplus >= CETL_CPP_STANDARD_20),
               "Unknown __cplusplus value found?");
 
+/// CETL_NODISCARD
+#ifndef CETL_NODISCARD
+#    if (__cplusplus >= CETL_CPP_STANDARD_17) || defined(CETL_DOXYGEN)
+/// A compatibility macros that expands to \c [[nodiscard]] if C++17 or later is used, otherwise it expands to
+/// a compiler-specific alternative if one is known, otherwise it expands to nothing.
+#        define CETL_NODISCARD [[nodiscard]]
+#    else
+#        if defined(__GNUC__) || defined(__clang__)
+#            define CETL_NODISCARD __attribute__((warn_unused_result))
+#        else
+#            define CETL_NODISCARD
+#        endif
+#    endif
+#endif
+
 /// @namespace cetl This namespace contains types specific to CETL and nested namespaces that contain types adhering
 ///                 to target C++ specifications.
 /// @namespace cetl::pmr CETL extensions to the standard Polymorphic Memory Resource (PMR) namespace, `std::pmr`.

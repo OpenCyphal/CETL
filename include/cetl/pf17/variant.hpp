@@ -9,9 +9,9 @@
 #ifndef CETL_PF17_VARIANT_HPP_INCLUDED
 #define CETL_PF17_VARIANT_HPP_INCLUDED
 
+#include <cetl/cetl.hpp>
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/type_traits.hpp>
-#include <cetl/pf17/attribute.hpp>
 #include <cetl/type_traits_ext.hpp>
 
 #include <tuple>
