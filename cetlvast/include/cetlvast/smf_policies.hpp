@@ -10,7 +10,7 @@
 #ifndef CETLVAST_SMF_POLICIES_HPP_INCLUDED
 #define CETLVAST_SMF_POLICIES_HPP_INCLUDED
 
-#include <cetl/pf17/attribute.hpp>
+#include <cetl/cetl.hpp>
 #include <cstdint>
 
 namespace cetlvast

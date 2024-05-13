@@ -12,7 +12,9 @@
 #ifndef CETL_RTTI_HPP_INCLUDED
 #define CETL_RTTI_HPP_INCLUDED
 
-#include <cetl/pf17/attribute.hpp>
+#ifndef CETL_H_ERASE
+#    include "cetl/cetl.hpp"
+#endif
 
 #include <array>
 #include <cstdint>
