@@ -197,7 +197,7 @@ static_assert((__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_ST
 
 /// CETL_NODISCARD
 #ifndef CETL_NODISCARD
-#    if (__cplusplus >= 201703L) || defined(CETL_DOXYGEN)
+#    if (__cplusplus >= CETL_CPP_STANDARD_17) || defined(CETL_DOXYGEN)
 /// A compatibility macros that expands to \c [[nodiscard]] if C++17 or later is used, otherwise it expands to
 /// a compiler-specific alternative if one is known, otherwise it expands to nothing.
 #        define CETL_NODISCARD [[nodiscard]]
