@@ -84,10 +84,9 @@ class MyObject final : private MyObjectBase, public IIdentifiable, public IDescr
 {
 public:
     MyObject(const char* name, std::size_t name_length)
-        : name_{nullptr}
+        : name_{static_cast<char*>(malloc(name_length + 1))}
     {
-        name_ = static_cast<char*>(malloc(name_length + 1));
-        strncpy(name_, name, name_length);
+        strncpy(name_, name, name_length + 1);
         name_[name_length] = '\0';
     }
 
