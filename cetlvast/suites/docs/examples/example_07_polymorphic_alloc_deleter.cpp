@@ -60,9 +60,6 @@ public:
 
 protected:
     ~IIdentifiable() = default;
-
-private:
-    //std::array<char, 16> padding_;
 };
 
 class MyObjectBase
@@ -101,7 +98,7 @@ public:
         free(name_);
     }
 
-    // MARK: - INameable
+    // MARK: INameable
 
     std::string name() const override
     {
@@ -115,14 +112,14 @@ public:
         }
     }
 
-    // MARK: - IIdentifiable
+    // MARK: IIdentifiable
 
     std::uint32_t id() const override
     {
         return id_;
     }
 
-    // MARK: - IDescribable
+    // MARK: IDescribable
 
     std::string description() const override
     {
@@ -238,7 +235,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 
     cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::new_delete_resource()};
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj1", 4U);
+    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0", 4U);
 
     auto obj1 = cetl::pmr::InterfaceFactory::make_unique<IIdentifiable>(alloc, "obj1", 4U);
     {

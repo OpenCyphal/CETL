@@ -10,8 +10,6 @@
 #    include "cetl/cetl.hpp"
 #endif
 
-#include "cetl/unbounded_variant.hpp"
-
 #include <memory>
 #include <functional>
 
