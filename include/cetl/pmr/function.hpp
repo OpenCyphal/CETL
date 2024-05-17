@@ -91,7 +91,7 @@ public:
 
     /// \brief Constructs an empty `function` object.
     ///
-    constexpr function(nullptr_t) noexcept {};
+    function(nullptr_t) noexcept {};
 
     /// \brief Constructs a `function` object with a copy of the content of `other`.
     ///
