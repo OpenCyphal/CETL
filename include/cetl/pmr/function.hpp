@@ -40,7 +40,7 @@ template <typename Result, typename... Args>
 class function_handler : public rtti_helper<function_handler_typeid_t>
 {
 public:
-    virtual Result operator()(Args&&...) const = 0;
+    virtual Result operator()(Args...) = 0;
 
 };  // function_handler
 
@@ -53,19 +53,20 @@ template <typename Functor, typename Result, typename... Args>
 class functor_handler final : public rtti_helper<functor_handler_typeid_t, function_handler<Result, Args...>>
 {
 public:
-    explicit functor_handler(Functor&& functor) noexcept
-    : functor_{std::move(functor)}
+    explicit functor_handler(Functor&& functor)
+        : functor_{std::move(functor)}
     {
     }
 
-    Result operator()(Args&&... args) const override
+    Result operator()(Args... args) override
     {
-        return functor_(std::forward<Args>(args)...);
+        return functor_(args...);
     }
 
 private:
     Functor functor_;
-};
+
+};  // functor_handler
 
 [[noreturn]] inline void throw_bad_function_call()
 {
@@ -87,6 +88,9 @@ public:
     /// \brief Constructs an empty `function` object.
     ///
     constexpr function() noexcept = default;
+
+    /// \brief Constructs an empty `function` object.
+    ///
     constexpr function(nullptr_t) noexcept {};
 
     /// \brief Constructs a `function` object with a copy of the content of `other`.
@@ -95,7 +99,13 @@ public:
     {
         if (static_cast<bool>(other))
         {
+            CETL_DEBUG_ASSERT(other.any_handler_.has_value(), "");
+
             any_handler_ = other.any_handler_;
+            handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
+
+            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
+            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
         }
     }
 
@@ -105,34 +115,50 @@ public:
     {
         if (static_cast<bool>(other))
         {
+            CETL_DEBUG_ASSERT(other.any_handler_.has_value(), "");
+
             any_handler_ = std::move(other.any_handler_);
+            handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
+
+            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
+            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
         }
     }
 
     // TODO: add Callable constraint
     template <typename Functor>
     function(Functor&& functor)
-    : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
     {
+        CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
+        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
     }
 
     ~function() = default;
 
     function& operator=(const function& other)
     {
-        function(other).swap(*this);
+        if (this != &other)
+        {
+            function(other).swap(*this);
+        }
         return *this;
     }
 
     function& operator=(function&& other) noexcept
     {
-        function(std::move(other)).swap(*this);
+        if (this != &other)
+        {
+            function(std::move(other)).swap(*this);
+        }
         return *this;
     }
 
     function& operator=(nullptr_t) noexcept
     {
         any_handler_.reset();
+        handler_ptr_ = nullptr;
         return *this;
     }
 
@@ -153,32 +179,30 @@ public:
 
     void swap(function& other) noexcept
     {
-        any_handler_.swap(other.handler_);
+        any_handler_.swap(other.any_handler_);
+        std::swap(handler_ptr_, other.handler_ptr_);
     }
 
     explicit operator bool() const noexcept
     {
-        return false;
+        CETL_DEBUG_ASSERT(any_handler_.has_value() == (nullptr != handler_ptr), "");
+
+        return any_handler_.has_value();
     }
 
     Result operator()(Args... args) const
     {
-        if (!any_handler_.has_value())
-        {
-            detail::throw_bad_function_call();
-        }
+        CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
+        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
 
-        auto* func_handler_ptr = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-        if (func_handler_ptr == nullptr)
-        {
-            detail::throw_bad_function_call();
-        }
-
-        return func_handler_ptr->operator()(std::forward<Args>(args)...);
+        return handler_ptr_->operator()(args...);
     }
 
 private:
-    unbounded_variant<Footprint> any_handler_;
+    // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
+    // maybe we can make our `function` itself `Copyable` & `Movable` parametrized (aka `std::move_only_function`).
+    unbounded_variant<Footprint>               any_handler_;
+    detail::function_handler<Result, Args...>* handler_ptr_{nullptr};
 
 };  // function
 

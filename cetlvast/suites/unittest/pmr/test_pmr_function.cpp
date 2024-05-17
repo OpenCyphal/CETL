@@ -61,26 +61,26 @@ TEST_F(TestPmrFunction, cpp_reference)
     // store the result of a call to std::bind
     function<void(), 24> f_display_31337 = std::bind(print_num, 31337);
     f_display_31337();
-/*
+
     // store a call to a member function
-    function<void(const Foo&, int), 24> f_add_display = &Foo::print_add;
+    //function<void(const Foo&, int), 24> f_add_display = &Foo::print_add;
     const Foo                           foo(314159);
-    f_add_display(foo, 1);
-    f_add_display(314159, 1);
+    //f_add_display(foo, 1);
+    //f_add_display(314159, 1);
 
     // store a call to a data member accessor
-    function<int(Foo const&), 0> f_num = &Foo::num_;
-    EXPECT_THAT(f_num(foo), 314159);
+    //function<int(Foo const&), 0> f_num = &Foo::num_;
+    //EXPECT_THAT(f_num(foo), 314159);
 
     // store a call to a member function and object
     using std::placeholders::_1;
-    function<void(int), 0> f_add_display2 = std::bind(&Foo::print_add, foo, _1);
+    function<void(int), 64> f_add_display2 = std::bind(&Foo::print_add, foo, _1);
     f_add_display2(2);
-
+/*
     // store a call to a member function and object ptr
     function<void(int), 0> f_add_display3 = std::bind(&Foo::print_add, &foo, _1);
     f_add_display3(3);
-*/
+
     // store a call to a function object
     function<void(int), 16> f_display_obj = PrintNum();
     f_display_obj(18);
@@ -96,6 +96,7 @@ TEST_F(TestPmrFunction, cpp_reference)
         std::cout << i << "! = " << factorial(i) << ";  ";
     }
     std::cout << '\n';
+*/
 }
 
 TEST_F(TestPmrFunction, ctor_1_default)

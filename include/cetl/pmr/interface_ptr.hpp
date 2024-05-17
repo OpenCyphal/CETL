@@ -10,6 +10,8 @@
 #    include "cetl/cetl.hpp"
 #endif
 
+#include "cetl/pmr/function.hpp"
+
 #include <memory>
 #include <functional>
 
@@ -55,7 +57,7 @@ private:
     template <typename Down>
     friend class PmrInterfaceDeleter;
 
-    std::function<void(Interface*)> deleter_;
+    cetl::pmr::function<void(Interface*), 24> deleter_;
 
 };  // PmrInterfaceDeleter
 
