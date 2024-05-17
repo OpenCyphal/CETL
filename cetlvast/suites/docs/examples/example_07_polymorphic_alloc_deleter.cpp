@@ -150,7 +150,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_0)
 
     using MyAllocator = cetl::pmr::polymorphic_allocator<MyObject>;
     using MyDeleter   = cetl::pmr::PolymorphicDeleter<MyAllocator>;
-    MyAllocator alloc{cetl::pmr::new_delete_resource()};
+    MyAllocator alloc{cetl::pmr::get_default_resource()};
 
     std::unordered_map<std::string, std::unique_ptr<MyObject, MyDeleter>> objects;
     objects.reserve(3);
@@ -195,7 +195,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_1)
     //![example_usage_1]
     // By using the cetl::pmr::Factory, you can simplify the code from the previous example:
 
-    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::new_delete_resource()};
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
     std::unordered_map<std::string, cetl::pmr::Factory::unique_ptr_t<decltype(alloc)>> objects;
     objects.reserve(6);
@@ -233,7 +233,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 {
     //![example_usage_2]
 
-    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::new_delete_resource()};
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
     auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0", 4U);
     std::cout << "Obj0 id  : " << obj0->id() << std::endl;
