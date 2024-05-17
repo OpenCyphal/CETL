@@ -20,7 +20,7 @@
 class INamed
 {
 public:
-    INamed()                                     = default;
+    INamed()                                  = default;
     INamed(const INamed&)                     = delete;
     INamed(INamed&& rhs) noexcept             = delete;
     INamed& operator=(INamed&&)               = delete;
@@ -35,7 +35,7 @@ protected:
 class IDescribable : public INamed
 {
 public:
-    IDescribable()                                     = default;
+    IDescribable()                                        = default;
     IDescribable(const IDescribable&)                     = delete;
     IDescribable(IDescribable&& rhs) noexcept             = delete;
     IDescribable& operator=(IDescribable&&)               = delete;
@@ -150,7 +150,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_0)
 
     using MyAllocator = cetl::pmr::polymorphic_allocator<MyObject>;
     using MyDeleter   = cetl::pmr::PolymorphicDeleter<MyAllocator>;
-    MyAllocator alloc{cetl::pmr::new_delete_resource()};
+    MyAllocator alloc{cetl::pmr::get_default_resource()};
 
     std::unordered_map<std::string, std::unique_ptr<MyObject, MyDeleter>> objects;
     objects.reserve(3);
@@ -195,7 +195,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_1)
     //![example_usage_1]
     // By using the cetl::pmr::Factory, you can simplify the code from the previous example:
 
-    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::new_delete_resource()};
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
     std::unordered_map<std::string, cetl::pmr::Factory::unique_ptr_t<decltype(alloc)>> objects;
     objects.reserve(6);
@@ -233,7 +233,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 {
     //![example_usage_2]
 
-    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::new_delete_resource()};
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
     auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0", 4U);
     std::cout << "Obj0 id  : " << obj0->id() << std::endl;
@@ -249,10 +249,10 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
         std::cout << "Obj2 desc  : " << obj2->describe() << std::endl;
         std::cout << "Obj2 name_a  : " << obj2->name() << std::endl;
 
-        auto obj2_named = InterfacePtr<INameable>{std::move(obj2)};
+        auto obj2_named = InterfacePtr<INamed>{std::move(obj2)};
         std::cout << "Obj2 name_b  : " << obj2_named->name() << std::endl;
     }
-    auto obj3 = cetl::pmr::InterfaceFactory::make_unique<INameable>(alloc, "obj3", 4U);
+    auto obj3 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj3", 4U);
     {
         std::cout << "Obj3 name  : " << obj3->name() << std::endl;
         std::cout << std::endl;
