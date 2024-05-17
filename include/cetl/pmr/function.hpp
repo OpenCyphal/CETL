@@ -185,7 +185,7 @@ public:
 
     explicit operator bool() const noexcept
     {
-        CETL_DEBUG_ASSERT(any_handler_.has_value() == (nullptr != handler_ptr), "");
+        CETL_DEBUG_ASSERT(any_handler_.has_value() == (nullptr != handler_ptr_), "");
 
         return any_handler_.has_value();
     }
