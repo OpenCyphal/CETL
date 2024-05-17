@@ -155,7 +155,7 @@ public:
         return *this;
     }
 
-    function& operator=(nullptr_t) noexcept
+    function& operator=(std::nullptr_t) noexcept
     {
         any_handler_.reset();
         handler_ptr_ = nullptr;
