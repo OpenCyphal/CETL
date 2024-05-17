@@ -237,7 +237,11 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 
     auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0", 4U);
     std::cout << "Obj0 id  : " << obj0->id() << std::endl;
-/*
+
+    // Commented b/c of current limitation of our `cetl::pmr::function`.
+    // Probably PMR support is needed at `cetl::unbounded_variant` (which we use inside the `function`),
+    // so that it will be possible to nest one deleter inside another one.
+    /*
     auto obj1 = cetl::pmr::InterfaceFactory::make_unique<IIdentifiable>(alloc, "obj1", 4U);
     {
         std::cout << "Obj1 id  : " << obj1->id() << std::endl;
@@ -257,6 +261,6 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
         std::cout << "Obj3 name  : " << obj3->name() << std::endl;
         std::cout << std::endl;
     }
-*/
+    */
     //![example_usage_2]
 }
