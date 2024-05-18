@@ -48,25 +48,181 @@ public:
 #endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
 // Forward declarations
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
 class unbounded_variant;
 
 namespace detail
 {
 
+// MARK: - Storage policy.
+//
+template <std::size_t Footprint, bool IsPmr, std::size_t Alignment>
+struct base_storage;
+
 template <std::size_t Footprint, std::size_t Alignment>
-struct base_storage  // NOLINT(*-pro-type-member-init)
+struct base_storage<Footprint, false /*IsPmr*/, Alignment>
 {
-    base_storage() = default;
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        static_assert(sizeof(Tp) <= std::max(Footprint, 1UL), "Enlarge the footprint");
+    }
+
+    void copy_handlers_from(const base_storage&) noexcept {}
+
+    void reset() noexcept
+    {
+        // Nothing to reset - we have in-place buffer.
+    }
 
     CETL_NODISCARD void* get_raw_storage() noexcept
     {
-        return static_cast<void*>(buffer_);
+        return inplace_buffer_;
     }
 
     CETL_NODISCARD const void* get_raw_storage() const noexcept
     {
-        return static_cast<const void*>(buffer_);
+        return inplace_buffer_;
+    }
+
+private:
+    // We need to align `inplace_buffer_` to the given value (maximum alignment by default).
+    // Also, we need to ensure that the buffer is at least 1 byte long.
+    // NB! It's intentional and by design that the `inplace_buffer_` is the very first member of `unbounded_variant`
+    // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
+    // could be useful during debugging/troubleshooting.
+    alignas(Alignment) cetl::byte inplace_buffer_[std::max(Footprint, 1UL)];
+};
+
+template <std::size_t Alignment>
+struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
+{
+    base_storage() = delete;
+    explicit base_storage(pmr::memory_resource* const mem_res)
+        : mem_res_{mem_res}
+    {
+    }
+
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_), "");
+
+        allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(sizeof(Tp), Alignment));
+        allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
+    }
+
+    void copy_handlers_from(const base_storage& src) noexcept
+    {
+        mem_res_ = src.mem_res_;
+    }
+
+    void reset() noexcept
+    {
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) == (nullptr == allocated_buffer_), "");
+
+        if (nullptr != allocated_buffer_)
+        {
+            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+
+            mem_res_->deallocate(allocated_buffer_, allocated_size_, Alignment);
+            allocated_buffer_ = nullptr;
+            allocated_size_   = 0;
+        }
+    }
+
+    CETL_NODISCARD void* get_raw_storage() noexcept
+    {
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+        CETL_DEBUG_ASSERT(nullptr == allocated_buffer_, "");
+
+        return allocated_buffer_;
+    }
+
+    CETL_NODISCARD const void* get_raw_storage() const noexcept
+    {
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+        CETL_DEBUG_ASSERT(nullptr == allocated_buffer_, "");
+
+        return allocated_buffer_;
+    }
+
+private:
+    std::size_t           allocated_size_{0};
+    cetl::byte*           allocated_buffer_{nullptr};
+    pmr::memory_resource* mem_res_{nullptr};
+};
+
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_storage<Footprint, true /*IsPmr*/, Alignment>
+{
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_), "");
+
+        // TODO: conditionally allocate memory depending on whether it fits in the footprint.
+        // CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+        // allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(sizeof(Tp), Alignment));
+        // allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
+    }
+
+    void copy_handlers_from(const base_storage& src) noexcept
+    {
+        mem_res_ = src.mem_res_;
+    }
+
+    void reset() noexcept
+    {
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
+
+        if (nullptr != allocated_buffer_)
+        {
+            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+
+            mem_res_->deallocate(allocated_buffer_, allocated_size_, Alignment);
+            allocated_buffer_ = nullptr;
+            allocated_size_   = 0;
+        }
+    }
+
+    CETL_NODISCARD void* get_raw_storage() noexcept
+    {
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
+
+        return allocated_size_ != 0UL ? allocated_buffer_ : inplace_buffer_;
+    }
+
+    CETL_NODISCARD const void* get_raw_storage() const noexcept
+    {
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
+
+        return allocated_size_ != 0UL ? allocated_buffer_ : inplace_buffer_;
+    }
+
+private:
+    // We need to align `inplace_buffer_` to the given value (maximum alignment by default).
+    // NB! It's intentional and by design that the `inplace_buffer_` is the very first member of `unbounded_variant`
+    // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same
+    // in case of small object optimization - could be useful during debugging/troubleshooting.
+    alignas(Alignment) cetl::byte inplace_buffer_[Footprint];
+
+    std::size_t           allocated_size_{0};
+    cetl::byte*           allocated_buffer_{nullptr};
+    pmr::memory_resource* mem_res_{nullptr};
+};
+
+// MARK: - Access policy.
+//
+template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
+struct base_access : base_storage<Footprint, IsPmr, Alignment>
+{
+    constexpr base_access() = default;
+
+    explicit base_access(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
     }
 
     CETL_NODISCARD bool has_value() const noexcept
@@ -77,7 +233,7 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     template <typename Tp>
     void make_handlers() noexcept
     {
-        static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
+        base::template make_handlers<Tp>();
 
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
         CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
@@ -118,7 +274,7 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     template <typename ValueType>
     CETL_NODISCARD void* get_ptr() noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint,
+        static_assert(sizeof(ValueType) <= Footprint && !IsPmr,
                       "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())
@@ -127,13 +283,13 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         }
         CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        return value_converter_(get_raw_storage(), type_id_value<ValueType>);
+        return value_converter_(base::get_raw_storage(), type_id_value<ValueType>);
     }
 
     template <typename ValueType>
     CETL_NODISCARD const void* get_ptr() const noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint,
+        static_assert(sizeof(ValueType) <= Footprint && !IsPmr,
                       "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())
@@ -142,11 +298,13 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
         }
         CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        return value_const_converter_(get_raw_storage(), type_id_value<ValueType>);
+        return value_const_converter_(base::get_raw_storage(), type_id_value<ValueType>);
     }
 
-    void copy_handlers_from(const base_storage& src) noexcept
+    void copy_handlers_from(const base_access& src) noexcept
     {
+        base::copy_handlers_from(src);
+
         value_destroyer_       = src.value_destroyer_;
         value_converter_       = src.value_converter_;
         value_const_converter_ = src.value_const_converter_;
@@ -156,21 +314,18 @@ struct base_storage  // NOLINT(*-pro-type-member-init)
     {
         if (value_destroyer_)
         {
-            value_destroyer_(get_raw_storage());
+            value_destroyer_(base::get_raw_storage());
             value_destroyer_ = nullptr;
         }
 
         value_converter_       = nullptr;
         value_const_converter_ = nullptr;
+
+        base::reset();
     }
 
 private:
-    // We need to align the buffer to the given value (maximum alignment by default).
-    // Also, we need to ensure that the buffer is at least 1 byte long.
-    // NB! It's intentional and by design that the `buffer_` is the very first member of `unbounded_variant`
-    // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
-    // could be useful during debugging/troubleshooting.
-    alignas(Alignment) char buffer_[std::max(Footprint, 1UL)];
+    using base = base_storage<Footprint, IsPmr, Alignment>;
 
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
@@ -180,18 +335,39 @@ private:
     void* (*value_converter_)(void* self, const type_id& id)                   = nullptr;
     const void* (*value_const_converter_)(const void* self, const type_id& id) = nullptr;
 
-};  // base_storage
+};  // base_access
 
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
+// MARK: - Handlers policy.
+//
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
 struct base_handlers;
 //
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, false, false, Alignment> : base_storage<Footprint, Alignment>
-{};
-//
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint, Alignment>
+template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
+struct base_handlers<Footprint, false /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
+    : base_access<Footprint, Alignment, IsPmr>
 {
+    constexpr base_handlers() = default;
+
+    explicit base_handlers(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
+private:
+    using base = base_access<Footprint, Alignment, IsPmr>;
+};
+//
+template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
+struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
+    : base_access<Footprint, Alignment, IsPmr>
+{
+    constexpr base_handlers() = default;
+
+    explicit base_handlers(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -208,12 +384,20 @@ struct base_handlers<Footprint, true, false, Alignment> : base_storage<Footprint
     void (*value_copier_)(const void* src, void* dst) = nullptr;
 
 private:
-    using base = base_storage<Footprint, Alignment>;
+    using base = base_access<Footprint, Alignment, IsPmr>;
 };
 //
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint, Alignment>
+template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
+struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
+    : base_access<Footprint, Alignment, IsPmr>
 {
+    constexpr base_handlers() = default;
+
+    explicit base_handlers(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -230,12 +414,20 @@ struct base_handlers<Footprint, false, true, Alignment> : base_storage<Footprint
     void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
-    using base = base_storage<Footprint, Alignment>;
+    using base = base_access<Footprint, Alignment, IsPmr>;
 };
 //
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint, Alignment>
+template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
+struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
+    : base_access<Footprint, Alignment, IsPmr>
 {
+    constexpr base_handlers() = default;
+
+    explicit base_handlers(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
     void copy_handlers_from(const base_handlers& src) noexcept
     {
         base::copy_handlers_from(src);
@@ -259,32 +451,48 @@ struct base_handlers<Footprint, true, true, Alignment> : base_storage<Footprint,
     void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
-    using base = base_storage<Footprint, Alignment>;
+    using base = base_access<Footprint, Alignment, IsPmr>;
 
 };  // base_handlers
 
-// Copy policy.
+// MARK: - Copy policy.
 //
-template <std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment>
+template <std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment, bool IsPmr>
 struct base_copy;
 //
 // Non-copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
-struct base_copy<Footprint, false, Moveable, Alignment> : base_handlers<Footprint, false, Moveable, Alignment>
+template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPmr>
+struct base_copy<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
+    : base_handlers<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
 {
     constexpr base_copy()                  = default;
     base_copy(const base_copy&)            = delete;
     base_copy& operator=(const base_copy&) = delete;
+
+    explicit base_copy(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
+private:
+    using base = base_handlers<Footprint, false, Moveable, Alignment, IsPmr>;
 };
 //
 // Copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment>
-struct base_copy<Footprint, true, Moveable, Alignment> : base_handlers<Footprint, true, Moveable, Alignment>
+template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPmr>
+struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
+    : base_handlers<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
 {
     constexpr base_copy() = default;
+
     base_copy(const base_copy& other)
     {
         copy_from(other);
+    }
+
+    explicit base_copy(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
     }
 
     base_copy& operator=(const base_copy& other)
@@ -310,7 +518,7 @@ struct base_copy<Footprint, true, Moveable, Alignment> : base_handlers<Footprint
     }
 
 private:
-    using base = base_handlers<Footprint, true, Moveable, Alignment>;
+    using base = base_handlers<Footprint, true, Moveable, Alignment, IsPmr>;
 
     void copy_from(const base_copy& src)
     {
@@ -328,14 +536,15 @@ private:
 
 };  // base_copy
 
-// Move policy.
+// MARK: - Move policy.
 //
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
 struct base_move;
 //
 // Non-movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, Copyable, false, Alignment>
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPmr>
+struct base_move<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
+    : base_copy<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
 {
     constexpr base_move()           = default;
     base_move(const base_move&)     = default;
@@ -343,11 +552,20 @@ struct base_move<Footprint, Copyable, false, Alignment> : base_copy<Footprint, C
 
     base_move& operator=(const base_move&)     = default;
     base_move& operator=(base_move&&) noexcept = delete;
+
+    explicit base_move(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+    }
+
+private:
+    using base = base_copy<Footprint, Copyable, false, Alignment, IsPmr>;
 };
 //
 // Movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment>
-struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Copyable, true, Alignment>
+template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPmr>
+struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
+    : base_copy<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
 {
     constexpr base_move()                  = default;
     base_move(const base_move&)            = default;
@@ -356,6 +574,11 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
     base_move(base_move&& other) noexcept
     {
         move_from(other);
+    }
+
+    explicit base_move(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
     }
 
     base_move& operator=(base_move&& other) noexcept
@@ -380,7 +603,7 @@ struct base_move<Footprint, Copyable, true, Alignment> : base_copy<Footprint, Co
     }
 
 private:
-    using base = base_copy<Footprint, Copyable, true, Alignment>;
+    using base = base_copy<Footprint, Copyable, true, Alignment, IsPmr>;
 
     void move_from(base_move& src) noexcept
     {
@@ -422,10 +645,11 @@ private:
 template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
-          std::size_t Alignment = alignof(std::max_align_t)>
-class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignment>
+          std::size_t Alignment = alignof(std::max_align_t),
+          bool        IsPmr     = false>
+class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>
 {
-    using base = detail::base_move<Footprint, Copyable, Movable, Alignment>;
+    using base = detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>;
 
 public:
     /// \brief Constructs an empty `unbounded_variant` object.
@@ -441,11 +665,26 @@ public:
     ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
+              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !IsPmr &&
                                              !pf17::detail::is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
+    }
+
+    template <typename ValueType,
+              typename Tp = std::decay_t<ValueType>,
+              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && IsPmr &&
+                                             !pf17::detail::is_in_place_type<ValueType>::value>>
+    unbounded_variant(pmr::memory_resource* const mem_res, ValueType&& value)
+        : base{mem_res}
+    {
+        create<Tp>(std::forward<ValueType>(value));
+    }
+
+    explicit unbounded_variant(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
     }
 
     /// \brief Constructs an `unbounded_variant` object with in place constructed value.

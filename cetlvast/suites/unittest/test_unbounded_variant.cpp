@@ -12,6 +12,7 @@
 #include <functional>
 #include <string>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 // NOLINTBEGIN(*-use-after-move)
 
@@ -1094,6 +1095,18 @@ TEST(test_unbounded_variant, emplace_2_initializer_list)
     const auto test = get<TestType>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
+}
+
+TEST(test_unbounded_variant, pmr_only_ctor)
+{
+    using ub_var = unbounded_variant<0, true, true, 1, true>;
+
+    auto mr = cetl::pmr::get_default_resource();
+
+    ub_var dst{mr};
+    EXPECT_THAT(dst.has_value(), false);
+
+    dst = ub_var{mr, 'x'};
 }
 
 }  // namespace
