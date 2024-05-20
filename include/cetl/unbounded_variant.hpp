@@ -69,6 +69,10 @@ struct base_storage<Footprint, false /*IsPmr*/, Alignment>
     }
 
     void copy_handlers_from(const base_storage&) noexcept {}
+    bool move_handlers_from(const base_storage&) noexcept
+    {
+        return false;
+    }
 
     void reset() noexcept
     {
@@ -97,9 +101,8 @@ private:
 template <std::size_t Alignment>
 struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 {
-    base_storage() = delete;
-    explicit base_storage(pmr::memory_resource* const mem_res)
-        : mem_res_{mem_res}
+    explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
+        : mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
     {
     }
 
@@ -107,7 +110,8 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
     void make_handlers() noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_), "");
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
+                          "This object is expected to be a brand new one.");
 
         allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(sizeof(Tp), Alignment));
         allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
@@ -115,7 +119,37 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 
     void copy_handlers_from(const base_storage& src) noexcept
     {
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
+                          "This object is expected to be empty (either a new or reset one).");
+        CETL_DEBUG_ASSERT((0UL == src.allocated_size_) == (nullptr == src.allocated_buffer_),
+                          "Source expected to be either empty or with value but not half way.");
+
         mem_res_ = src.mem_res_;
+
+        // Source object could be without value.
+        if (src.allocated_size_ > 0UL)
+        {
+            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+
+            allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(src.allocated_size_, Alignment));
+            allocated_size_   = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
+        }
+    }
+
+    bool move_handlers_from(base_storage& src) noexcept
+    {
+        // B/c there is no in-place storage (Footprint == 0), we always move previously allocated buffer.
+        // This essentially "moves" the value in this buffer as well.
+        const bool is_value_moved = true;
+
+        mem_res_          = src.mem_res_;
+        allocated_size_   = src.allocated_size_;
+        allocated_buffer_ = src.allocated_buffer_;
+
+        src.allocated_size_   = 0;
+        src.allocated_buffer_ = nullptr;
+
+        return is_value_moved;
     }
 
     void reset() noexcept
@@ -135,7 +169,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
     CETL_NODISCARD void* get_raw_storage() noexcept
     {
         CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
-        CETL_DEBUG_ASSERT(nullptr == allocated_buffer_, "");
+        CETL_DEBUG_ASSERT(nullptr != allocated_buffer_, "");
 
         return allocated_buffer_;
     }
@@ -143,7 +177,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
     CETL_NODISCARD const void* get_raw_storage() const noexcept
     {
         CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
-        CETL_DEBUG_ASSERT(nullptr == allocated_buffer_, "");
+        CETL_DEBUG_ASSERT(nullptr != allocated_buffer_, "");
 
         return allocated_buffer_;
     }
@@ -157,6 +191,11 @@ private:
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 {
+    explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
+        : mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
+    {
+    }
+
     template <typename Tp>
     void make_handlers() noexcept
     {
@@ -168,9 +207,9 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         // allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
     }
 
-    void copy_handlers_from(const base_storage& src) noexcept
+    void copy_handlers_from(const base_storage&) noexcept
     {
-        mem_res_ = src.mem_res_;
+        // TODO: implement
     }
 
     void reset() noexcept
@@ -310,6 +349,23 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
         value_const_converter_ = src.value_const_converter_;
     }
 
+    bool move_handlers_from(base_access& src) noexcept
+    {
+        const bool is_value_moved = base::move_handlers_from(src);
+
+        value_destroyer_       = src.value_destroyer_;
+        value_converter_       = src.value_converter_;
+        value_const_converter_ = src.value_const_converter_;
+        if (is_value_moved)
+        {
+            src.value_destroyer_       = nullptr;
+            src.value_converter_       = nullptr;
+            src.value_const_converter_ = nullptr;
+        }
+
+        return is_value_moved;
+    }
+
     void reset() noexcept
     {
         if (value_destroyer_)
@@ -374,6 +430,19 @@ struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment
         value_copier_ = src.value_copier_;
     }
 
+    bool move_handlers_from(base_handlers& src) noexcept
+    {
+        const bool is_value_moved = base::move_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+        if (is_value_moved)
+        {
+            src.value_copier_ = nullptr;
+        }
+
+        return is_value_moved;
+    }
+
     void reset() noexcept
     {
         value_copier_ = nullptr;
@@ -402,6 +471,19 @@ struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment
     {
         base::copy_handlers_from(src);
         value_mover_ = src.value_mover_;
+    }
+
+    bool move_handlers_from(base_handlers& src) noexcept
+    {
+        const bool is_value_moved = base::move_handlers_from(src);
+
+        value_mover_ = src.value_mover_;
+        if (is_value_moved)
+        {
+            src.value_mover_ = nullptr;
+        }
+
+        return is_value_moved;
     }
 
     void reset() noexcept
@@ -434,6 +516,21 @@ struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment,
 
         value_copier_ = src.value_copier_;
         value_mover_  = src.value_mover_;
+    }
+
+    bool move_handlers_from(base_handlers& src) noexcept
+    {
+        const bool is_value_moved = base::move_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+        value_mover_  = src.value_mover_;
+        if (is_value_moved)
+        {
+            src.value_copier_ = nullptr;
+            src.value_mover_  = nullptr;
+        }
+
+        return is_value_moved;
     }
 
     void reset() noexcept
@@ -524,10 +621,9 @@ private:
     {
         CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before copying from source.");
 
+        base::copy_handlers_from(src);
         if (src.has_value())
         {
-            base::copy_handlers_from(src);
-
             CETL_DEBUG_ASSERT(nullptr != base::value_copier_, "");
 
             base::value_copier_(src.get_raw_storage(), base::get_raw_storage());
@@ -609,10 +705,9 @@ private:
     {
         CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before moving from source.");
 
-        if (src.has_value())
+        const bool is_value_moved = base::move_handlers_from(src);
+        if (!is_value_moved && src.has_value())
         {
-            base::copy_handlers_from(src);
-
             CETL_DEBUG_ASSERT(nullptr != base::value_mover_, "");
 
             base::value_mover_(src.get_raw_storage(), base::get_raw_storage());
@@ -653,10 +748,21 @@ class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignm
 
 public:
     /// \brief Constructs an empty `unbounded_variant` object.
+    ///
     constexpr unbounded_variant() = default;
+
+    explicit unbounded_variant(pmr::memory_resource* const mem_res)
+        : base{mem_res}
+    {
+        static_assert(IsPmr, "Cannot construct non-PMR unbounded_variant with memory resource.");
+    }
+
     /// \brief Constructs an `unbounded_variant` object with a copy of the content of `other`.
+    ///
     unbounded_variant(const unbounded_variant& other) = default;
+
     /// \brief Constructs an `unbounded_variant` object with the content of `other` using move semantics.
+    ///
     unbounded_variant(unbounded_variant&& other) noexcept = default;
 
     /// \brief Constructs an `unbounded_variant` object with `value` using move semantics.
@@ -665,7 +771,7 @@ public:
     ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !IsPmr &&
+              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
                                              !pf17::detail::is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
@@ -682,11 +788,6 @@ public:
         create<Tp>(std::forward<ValueType>(value));
     }
 
-    explicit unbounded_variant(pmr::memory_resource* const mem_res)
-        : base{mem_res}
-    {
-    }
-
     /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
@@ -695,6 +796,19 @@ public:
     ///
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
     explicit unbounded_variant(in_place_type_t<ValueType>, Args&&... args)
+    {
+        create<Tp>(std::forward<Args>(args)...);
+    }
+
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
+    template <typename ValueType, typename... Args, typename Tp = std::enable_if_t<IsPmr, std::decay_t<ValueType>>>
+    explicit unbounded_variant(pmr::memory_resource* const mem_res, in_place_type_t<ValueType>, Args&&... args)
+        : base{mem_res}
     {
         create<Tp>(std::forward<Args>(args)...);
     }
@@ -713,7 +827,29 @@ public:
         create<Tp>(list, std::forward<Args>(args)...);
     }
 
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
+    ///
+    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// \tparam Up Type of the elements of the initializer list.
+    /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+    /// \param args Arguments to be forwarded to the constructor of `ValueType`.
+    ///
+    template <typename ValueType,
+              typename Up,
+              typename... Args,
+              typename Tp = std::enable_if_t<IsPmr, std::decay_t<ValueType>>>
+    explicit unbounded_variant(pmr::memory_resource* const mem_res,
+                               in_place_type_t<ValueType>,
+                               std::initializer_list<Up> list,
+                               Args&&... args)
+        : base{mem_res}
+    {
+        create<Tp>(list, std::forward<Args>(args)...);
+    }
+
     /// \brief Destroys the contained object if there is one.
+    ///
     ~unbounded_variant()
     {
         reset();

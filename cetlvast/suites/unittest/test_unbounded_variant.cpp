@@ -265,6 +265,8 @@ private:
     using base = TestBase;
 };
 
+struct Empty {};
+
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
 TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
@@ -1099,14 +1101,19 @@ TEST(test_unbounded_variant, emplace_2_initializer_list)
 
 TEST(test_unbounded_variant, pmr_only_ctor)
 {
-    using ub_var = unbounded_variant<0, true, true, 1, true>;
+    using ub_var =
+        unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, true /*IsPmr*/>;
 
-    auto mr = cetl::pmr::get_default_resource();
-
-    ub_var dst{mr};
+    ub_var dst{};
     EXPECT_THAT(dst.has_value(), false);
 
-    dst = ub_var{mr, 'x'};
+    dst = ub_var{'x'};
+
+    dst = Empty{};
+
+    ub_var dst2{};
+    dst2 = std::move(dst);
+    dst2 = {};
 }
 
 }  // namespace
@@ -1143,6 +1150,9 @@ constexpr type_id type_id_value<std::complex<double>> = {8};
 
 template <>
 constexpr type_id type_id_value<std::function<const char*()>> = {9};
+
+template <>
+constexpr type_id type_id_value<Empty> = {10};
 
 }  // namespace cetl
 
