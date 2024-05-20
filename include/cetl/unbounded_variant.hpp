@@ -101,10 +101,17 @@ private:
 template <std::size_t Alignment>
 struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 {
-    explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
+    base_storage()
         : allocated_size_{0}
         , allocated_buffer_{nullptr}
-        , mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
+        , mem_res_{cetl::pmr::get_default_resource()}
+    {
+    }
+
+    explicit base_storage(pmr::memory_resource* const mem_res)
+        : allocated_size_{0}
+        , allocated_buffer_{nullptr}
+        , mem_res_{mem_res}
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
@@ -196,10 +203,17 @@ private:
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 {
-    explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
+    base_storage()
         : allocated_size_{0}
         , allocated_buffer_{nullptr}
-        , mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
+        , mem_res_{cetl::pmr::get_default_resource()}
+    {
+    }
+
+    explicit base_storage(pmr::memory_resource* const mem_res)
+        : allocated_size_{0}
+        , allocated_buffer_{nullptr}
+        , mem_res_{mem_res}
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
@@ -299,7 +313,7 @@ private:
 template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
 struct base_access : base_storage<Footprint, IsPmr, Alignment>
 {
-    constexpr base_access() = default;
+    base_access() = default;
 
     explicit base_access(pmr::memory_resource* const mem_res)
         : base{mem_res}
@@ -444,7 +458,7 @@ template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
 struct base_handlers<Footprint, false /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
     : base_access<Footprint, Alignment, IsPmr>
 {
-    constexpr base_handlers() = default;
+    base_handlers() = default;
 
     explicit base_handlers(pmr::memory_resource* const mem_res)
         : base{mem_res}
@@ -459,7 +473,7 @@ template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
 struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
     : base_access<Footprint, Alignment, IsPmr>
 {
-    constexpr base_handlers() = default;
+    base_handlers() = default;
 
     explicit base_handlers(pmr::memory_resource* const mem_res)
         : base{mem_res}
@@ -502,7 +516,7 @@ template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
 struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
     : base_access<Footprint, Alignment, IsPmr>
 {
-    constexpr base_handlers() = default;
+    base_handlers() = default;
 
     explicit base_handlers(pmr::memory_resource* const mem_res)
         : base{mem_res}
@@ -545,7 +559,7 @@ template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
 struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
     : base_access<Footprint, Alignment, IsPmr>
 {
-    constexpr base_handlers() = default;
+    base_handlers() = default;
 
     explicit base_handlers(pmr::memory_resource* const mem_res)
         : base{mem_res}
@@ -604,7 +618,7 @@ template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPm
 struct base_copy<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
     : base_handlers<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
 {
-    constexpr base_copy()                  = default;
+    base_copy()                            = default;
     base_copy(const base_copy&)            = delete;
     base_copy& operator=(const base_copy&) = delete;
 
@@ -622,9 +636,10 @@ template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPm
 struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
     : base_handlers<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
 {
-    constexpr base_copy() = default;
+    base_copy() = default;
 
     base_copy(const base_copy& other)
+        : base{}
     {
         copy_from(other);
     }
@@ -684,7 +699,7 @@ template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPm
 struct base_move<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
     : base_copy<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
 {
-    constexpr base_move()           = default;
+    base_move()                     = default;
     base_move(const base_move&)     = default;
     base_move(base_move&&) noexcept = delete;
 
@@ -705,11 +720,12 @@ template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPm
 struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
     : base_copy<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
 {
-    constexpr base_move()                  = default;
+    base_move()                            = default;
     base_move(const base_move&)            = default;
     base_move& operator=(const base_move&) = default;
 
     base_move(base_move&& other) noexcept
+        : base{}
     {
         move_from(other);
     }
@@ -791,7 +807,7 @@ class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignm
 public:
     /// \brief Constructs an empty `unbounded_variant` object.
     ///
-    constexpr unbounded_variant() = default;
+    unbounded_variant() = default;
 
     explicit unbounded_variant(pmr::memory_resource* const mem_res)
         : base{mem_res}
