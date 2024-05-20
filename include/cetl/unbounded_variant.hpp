@@ -102,18 +102,26 @@ template <std::size_t Alignment>
 struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 {
     explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
-        : mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
+        : allocated_size_{0}
+        , allocated_buffer_{nullptr}
+        , mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
     {
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+    }
+
+    pmr::memory_resource& get_memory_resource() const noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+        return *mem_res_;
     }
 
     template <typename Tp>
     void make_handlers() noexcept
     {
-        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
                           "This object is expected to be a brand new one.");
 
-        allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(sizeof(Tp), Alignment));
+        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource().allocate(sizeof(Tp), Alignment));
         allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
     }
 
@@ -122,17 +130,16 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
                           "This object is expected to be empty (either a new or reset one).");
         CETL_DEBUG_ASSERT((0UL == src.allocated_size_) == (nullptr == src.allocated_buffer_),
-                          "Source expected to be either empty or with value but not half way.");
+                          "Source object expected to be either empty or with allocated buffer.");
 
         mem_res_ = src.mem_res_;
 
         // Source object could be without value.
         if (src.allocated_size_ > 0UL)
         {
-            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-
-            allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(src.allocated_size_, Alignment));
-            allocated_size_   = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
+            allocated_buffer_ =
+                static_cast<cetl::byte*>(get_memory_resource().allocate(src.allocated_size_, Alignment));
+            allocated_size_ = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
         }
     }
 
@@ -158,9 +165,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 
         if (nullptr != allocated_buffer_)
         {
-            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-
-            mem_res_->deallocate(allocated_buffer_, allocated_size_, Alignment);
+            get_memory_resource().deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
             allocated_size_   = 0;
         }
@@ -183,33 +188,73 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
     }
 
 private:
-    std::size_t           allocated_size_{0};
-    cetl::byte*           allocated_buffer_{nullptr};
-    pmr::memory_resource* mem_res_{nullptr};
+    std::size_t           allocated_size_;
+    cetl::byte*           allocated_buffer_;
+    pmr::memory_resource* mem_res_;
 };
 
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 {
     explicit base_storage(pmr::memory_resource* const mem_res = nullptr)
-        : mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
+        : allocated_size_{0}
+        , allocated_buffer_{nullptr}
+        , mem_res_{nullptr != mem_res ? mem_res : cetl::pmr::get_default_resource()}
     {
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+    }
+
+    pmr::memory_resource& get_memory_resource() const noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+        return *mem_res_;
     }
 
     template <typename Tp>
     void make_handlers() noexcept
     {
-        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_), "");
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
+                          "This object is expected to be a brand new one.");
 
-        // TODO: conditionally allocate memory depending on whether it fits in the footprint.
-        // CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-        // allocated_buffer_ = static_cast<cetl::byte*>(mem_res_->allocate(sizeof(Tp), Alignment));
-        // allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
+        if (sizeof(Tp) > Footprint)
+        {
+            allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource().allocate(sizeof(Tp), Alignment));
+            allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
+        }
     }
 
-    void copy_handlers_from(const base_storage&) noexcept
+    void copy_handlers_from(const base_storage& src) noexcept
     {
-        // TODO: implement
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
+                          "This object is expected to be empty (either a new or reset one).");
+        CETL_DEBUG_ASSERT((0UL == src.allocated_size_) == (nullptr == src.allocated_buffer_),
+                          "Source object expected to be either in-place (including empty) or with allocated buffer.");
+
+        mem_res_ = src.mem_res_;
+
+        // Source object could be without allocated value.
+        if (src.allocated_size_ > 0UL)
+        {
+            allocated_buffer_ =
+                static_cast<cetl::byte*>(get_memory_resource().allocate(src.allocated_size_, Alignment));
+            allocated_size_ = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
+        }
+    }
+
+    bool move_handlers_from(base_storage& src) noexcept
+    {
+        // B/c there is no in-place storage (Footprint == 0), we always move previously allocated buffer.
+        // This essentially "moves" the value in this buffer as well.
+        const bool is_value_moved = src.allocated_size_ > Footprint;
+
+        mem_res_          = src.mem_res_;
+        allocated_size_   = src.allocated_size_;
+        allocated_buffer_ = src.allocated_buffer_;
+
+        src.allocated_size_   = 0;
+        src.allocated_buffer_ = nullptr;
+
+        return is_value_moved;
     }
 
     void reset() noexcept
@@ -218,9 +263,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 
         if (nullptr != allocated_buffer_)
         {
-            CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-
-            mem_res_->deallocate(allocated_buffer_, allocated_size_, Alignment);
+            get_memory_resource().deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
             allocated_size_   = 0;
         }
@@ -246,10 +289,9 @@ private:
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same
     // in case of small object optimization - could be useful during debugging/troubleshooting.
     alignas(Alignment) cetl::byte inplace_buffer_[Footprint];
-
-    std::size_t           allocated_size_{0};
-    cetl::byte*           allocated_buffer_{nullptr};
-    pmr::memory_resource* mem_res_{nullptr};
+    std::size_t           allocated_size_;
+    cetl::byte*           allocated_buffer_;
+    pmr::memory_resource* mem_res_;
 };
 
 // MARK: - Access policy.
@@ -313,7 +355,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename ValueType>
     CETL_NODISCARD void* get_ptr() noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint && !IsPmr,
+        static_assert(sizeof(ValueType) <= Footprint || IsPmr,
                       "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())
@@ -328,7 +370,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename ValueType>
     CETL_NODISCARD const void* get_ptr() const noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint && !IsPmr,
+        static_assert(sizeof(ValueType) <= Footprint || IsPmr,
                       "Cannot contain the requested type since the footprint is too small");
 
         if (!has_value())

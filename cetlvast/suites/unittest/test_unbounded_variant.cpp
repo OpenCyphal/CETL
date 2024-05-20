@@ -1108,12 +1108,53 @@ TEST(test_unbounded_variant, pmr_only_ctor)
     EXPECT_THAT(dst.has_value(), false);
 
     dst = ub_var{'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
 
     dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
 
     ub_var dst2{};
     dst2 = std::move(dst);
+    EXPECT_THAT(dst2.has_value(), true);
+
     dst2 = {};
+    EXPECT_THAT(dst2.has_value(), false);
+}
+
+TEST(test_unbounded_variant, pmr_ctor)
+{
+    using ub_var =
+        unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
+
+    ub_var dst{};
+    EXPECT_THAT(dst.has_value(), false);
+
+    dst = ub_var{'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
+
+    dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
+
+    ub_var dst2{};
+    dst2 = std::move(dst);
+    EXPECT_THAT(dst2.has_value(), true);
+
+    dst2 = {};
+    EXPECT_THAT(dst2.has_value(), false);
+
+    dst2 = std::uint16_t{0x147};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<std::uint16_t>(dst2), 0x147);
+
+    dst2 = int{-1};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<int>(dst2), -1);
+
+    dst2 = true;
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<bool>(dst2), true);
 }
 
 }  // namespace
