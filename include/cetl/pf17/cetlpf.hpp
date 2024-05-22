@@ -65,6 +65,10 @@ inline memory_resource* get_default_resource() noexcept
 {
     return std::pmr::get_default_resource();
 }
+inline memory_resource* set_default_resource(memory_resource* mr) noexcept
+{
+    return std::pmr::set_default_resource(mr);
+}
 }  // namespace pmr
 
 // utility
@@ -139,6 +143,10 @@ inline memory_resource* new_delete_resource() noexcept
 inline memory_resource* get_default_resource() noexcept
 {
     return cetl::pf17::pmr::get_default_resource();
+}
+inline memory_resource* set_default_resource(memory_resource* mr) noexcept
+{
+    return cetl::pf17::pmr::set_default_resource(mr);
 }
 }  // namespace pmr
 

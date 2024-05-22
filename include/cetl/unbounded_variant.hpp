@@ -116,10 +116,10 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    pmr::memory_resource& get_memory_resource() const noexcept
+    pmr::memory_resource* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-        return *mem_res_;
+        return mem_res_;
     }
 
     template <typename Tp>
@@ -128,7 +128,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
                           "This object is expected to be a brand new one.");
 
-        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource().allocate(sizeof(Tp), Alignment));
+        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(sizeof(Tp), Alignment));
         allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
     }
 
@@ -145,7 +145,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         if (src.allocated_size_ > 0UL)
         {
             allocated_buffer_ =
-                static_cast<cetl::byte*>(get_memory_resource().allocate(src.allocated_size_, Alignment));
+                static_cast<cetl::byte*>(get_memory_resource()->allocate(src.allocated_size_, Alignment));
             allocated_size_ = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
         }
     }
@@ -172,7 +172,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 
         if (nullptr != allocated_buffer_)
         {
-            get_memory_resource().deallocate(allocated_buffer_, allocated_size_, Alignment);
+            get_memory_resource()->deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
             allocated_size_   = 0;
         }
@@ -218,10 +218,10 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    pmr::memory_resource& get_memory_resource() const noexcept
+    pmr::memory_resource* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
-        return *mem_res_;
+        return mem_res_;
     }
 
     template <typename Tp>
@@ -232,7 +232,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 
         if (sizeof(Tp) > Footprint)
         {
-            allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource().allocate(sizeof(Tp), Alignment));
+            allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(sizeof(Tp), Alignment));
             allocated_size_   = (nullptr != allocated_buffer_) ? sizeof(Tp) : 0;
         }
     }
@@ -250,7 +250,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         if (src.allocated_size_ > 0UL)
         {
             allocated_buffer_ =
-                static_cast<cetl::byte*>(get_memory_resource().allocate(src.allocated_size_, Alignment));
+                static_cast<cetl::byte*>(get_memory_resource()->allocate(src.allocated_size_, Alignment));
             allocated_size_ = (nullptr != allocated_buffer_) ? src.allocated_size_ : 0;
         }
     }
@@ -277,7 +277,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 
         if (nullptr != allocated_buffer_)
         {
-            get_memory_resource().deallocate(allocated_buffer_, allocated_size_, Alignment);
+            get_memory_resource()->deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
             allocated_size_   = 0;
         }
@@ -1052,6 +1052,13 @@ public:
     CETL_NODISCARD bool has_value() const noexcept
     {
         return base::has_value();
+    }
+
+    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    {
+        static_assert(IsPmr, "Cannot construct non-PMR unbounded_variant with memory resource.");
+
+        return base::get_memory_resource();
     }
 
 private:

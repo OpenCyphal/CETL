@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/unbounded_variant.hpp>
+#include <cetlvast/tracking_memory_resource.hpp>
 
 #include <complex>
 #include <functional>
@@ -29,6 +30,7 @@ using cetl::type_id_type;
 using cetl::rtti_helper;
 
 using testing::IsNull;
+using testing::IsEmpty;
 using testing::NotNull;
 
 using namespace std::string_literals;
@@ -265,11 +267,31 @@ private:
     using base = TestBase;
 };
 
-struct Empty {};
+struct Empty
+{};
+
+class TestPmrUnboundedVariant : public testing::Test
+{
+protected:
+    void SetUp() override {}
+
+    void TearDown() override
+    {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    cetl::pmr::memory_resource* get_mr() noexcept
+    {
+        return &mr_;
+    }
+
+    TrackingMemoryResource mr_;
+};
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
-TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
+TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_ctor)
 {
 #if defined(__cpp_exceptions)
 
@@ -288,7 +310,7 @@ TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
 #endif
 }
 
-TEST(test_unbounded_variant, bad_unbounded_variant_access_assignment)
+TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_assignment)
 {
 #if defined(__cpp_exceptions)
 
@@ -307,7 +329,7 @@ TEST(test_unbounded_variant, bad_unbounded_variant_access_assignment)
 #endif
 }
 
-TEST(test_unbounded_variant, cppref_example)
+TEST_F(TestPmrUnboundedVariant, cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(double))>;
 
@@ -340,7 +362,7 @@ TEST(test_unbounded_variant, cppref_example)
     EXPECT_THAT(*get_if<int>(&a), 3);
 }
 
-TEST(test_unbounded_variant, ctor_1_default)
+TEST_F(TestPmrUnboundedVariant, ctor_1_default)
 {
     EXPECT_FALSE((unbounded_variant<0>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<0, false>{}.has_value()));
@@ -361,7 +383,7 @@ TEST(test_unbounded_variant, ctor_1_default)
     EXPECT_FALSE((unbounded_variant<13, true, true, 1>{}.has_value()));
 }
 
-TEST(test_unbounded_variant, ctor_2_copy)
+TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 {
     // Primitive `int`
     {
@@ -372,6 +394,12 @@ TEST(test_unbounded_variant, ctor_2_copy)
 
         EXPECT_THAT(get<int>(src), 42);
         EXPECT_THAT(get<int>(dst), 42);
+
+        const ub_var empty{};
+        ub_var       dst2{empty};
+        EXPECT_THAT(dst2.has_value(), false);
+        dst2 = {};
+        EXPECT_THAT(dst2.has_value(), false);
     }
 
     // Copyable and Movable `unbounded_variant`
@@ -444,7 +472,7 @@ TEST(test_unbounded_variant, ctor_2_copy)
     }
 }
 
-TEST(test_unbounded_variant, ctor_3_move)
+TEST_F(TestPmrUnboundedVariant, ctor_3_move)
 {
     // Primitive `int`
     {
@@ -455,6 +483,10 @@ TEST(test_unbounded_variant, ctor_3_move)
 
         EXPECT_FALSE(src.has_value());
         EXPECT_THAT(get<int>(dst), 42);
+
+        ub_var empty{};
+        ub_var dst2{std::move(empty)};
+        EXPECT_THAT(dst2.has_value(), false);
     }
 
     // Copyable and Movable `unbounded_variant`
@@ -501,7 +533,7 @@ TEST(test_unbounded_variant, ctor_3_move)
     }
 }
 
-TEST(test_unbounded_variant, ctor_4_move_value)
+TEST_F(TestPmrUnboundedVariant, ctor_4_move_value)
 {
     using test   = TestCopyableAndMovable;
     using ub_var = unbounded_variant<sizeof(test)>;
@@ -514,7 +546,7 @@ TEST(test_unbounded_variant, ctor_4_move_value)
     EXPECT_THAT(get<const test&>(dst).payload_, 'Y');
 }
 
-TEST(test_unbounded_variant, ctor_5_in_place)
+TEST_F(TestPmrUnboundedVariant, ctor_5_in_place)
 {
     struct TestType : rtti_helper<type_id_type<42>>
     {
@@ -536,7 +568,7 @@ TEST(test_unbounded_variant, ctor_5_in_place)
     EXPECT_THAT(test.number_, 42);
 }
 
-TEST(test_unbounded_variant, ctor_6_in_place_initializer_list)
+TEST_F(TestPmrUnboundedVariant, ctor_6_in_place_initializer_list)
 {
     struct TestType : rtti_helper<type_id_type<42>>
     {
@@ -558,7 +590,7 @@ TEST(test_unbounded_variant, ctor_6_in_place_initializer_list)
     EXPECT_THAT(test.number_, 42);
 }
 
-TEST(test_unbounded_variant, assign_1_copy)
+TEST_F(TestPmrUnboundedVariant, assign_1_copy)
 {
     // Primitive `int`
     {
@@ -630,7 +662,7 @@ TEST(test_unbounded_variant, assign_1_copy)
     EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~~~~~~");
 }
 
-TEST(test_unbounded_variant, assign_2_move)
+TEST_F(TestPmrUnboundedVariant, assign_2_move)
 {
     // Primitive `int`
     {
@@ -692,7 +724,7 @@ TEST(test_unbounded_variant, assign_2_move)
     EXPECT_THAT(stats.ops, "@M_M_M_@M_M_M_M_M_~~");
 }
 
-TEST(test_unbounded_variant, assign_3_move_value)
+TEST_F(TestPmrUnboundedVariant, assign_3_move_value)
 {
     // Primitive `int`
     {
@@ -706,7 +738,7 @@ TEST(test_unbounded_variant, assign_3_move_value)
     }
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_cppref_example)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
@@ -724,7 +756,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_cppref_example)
     EXPECT_THAT(get<lambda>(a3)(), "Lambda #3.\n");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_1)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_1)
 {
     using ub_var = unbounded_variant<sizeof(int), false, true, 16>;
 
@@ -733,7 +765,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_1)
     static_assert(std::is_same<decltype(src), ub_var>::value, "");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_1_like)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_1_like)
 {
     auto src = make_unbounded_variant<uint16_t>(static_cast<uint16_t>(42));
     EXPECT_THAT(get<uint16_t>(src), 42);
@@ -743,7 +775,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_1_like)
                   "");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_2_list)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_2_list)
 {
     struct TestType : rtti_helper<type_id_type<13>>
     {
@@ -771,7 +803,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_2_list)
     EXPECT_THAT(get<const TestType&>(dst).number_, 147);
 }
 
-TEST(test_unbounded_variant, get_cppref_example)
+TEST_F(TestPmrUnboundedVariant, get_cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -800,7 +832,7 @@ TEST(test_unbounded_variant, get_cppref_example)
     EXPECT_THAT(s1, "hollo");
 }
 
-TEST(test_unbounded_variant, get_1_const)
+TEST_F(TestPmrUnboundedVariant, get_1_const)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -821,7 +853,7 @@ TEST(test_unbounded_variant, get_1_const)
     EXPECT_THAT(get<const int&>(src), 42);
 }
 
-TEST(test_unbounded_variant, get_2_non_const)
+TEST_F(TestPmrUnboundedVariant, get_2_non_const)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -857,7 +889,7 @@ TEST(test_unbounded_variant, get_2_non_const)
 #endif
 }
 
-TEST(test_unbounded_variant, get_3_move_primitive_int)
+TEST_F(TestPmrUnboundedVariant, get_3_move_primitive_int)
 {
     using ub_var = unbounded_variant<sizeof(int)>;
 
@@ -871,7 +903,7 @@ TEST(test_unbounded_variant, get_3_move_primitive_int)
     EXPECT_THAT(get<const int&>(ub_var{42}), 42);
 }
 
-TEST(test_unbounded_variant, get_3_move_empty_bad_cast)
+TEST_F(TestPmrUnboundedVariant, get_3_move_empty_bad_cast)
 {
 #if defined(__cpp_exceptions)
 
@@ -900,7 +932,7 @@ TEST(test_unbounded_variant, get_3_move_empty_bad_cast)
 #endif
 }
 
-TEST(test_unbounded_variant, get_if_4_const_ptr)
+TEST_F(TestPmrUnboundedVariant, get_if_4_const_ptr)
 {
     using ub_var = unbounded_variant<sizeof(int)>;
 
@@ -919,7 +951,7 @@ TEST(test_unbounded_variant, get_if_4_const_ptr)
     EXPECT_THAT(get_if<int>(static_cast<const ub_var*>(nullptr)), IsNull());
 }
 
-TEST(test_unbounded_variant, get_if_5_non_const_ptr_with_custom_alignment)
+TEST_F(TestPmrUnboundedVariant, get_if_5_non_const_ptr_with_custom_alignment)
 {
     constexpr std::size_t alignment = 4096;
 
@@ -940,7 +972,7 @@ TEST(test_unbounded_variant, get_if_5_non_const_ptr_with_custom_alignment)
     EXPECT_THAT(get_if<char>(static_cast<ub_var*>(nullptr)), IsNull());
 }
 
-TEST(test_unbounded_variant, get_if_polymorphic)
+TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 {
     side_effect_stats stats;
     {
@@ -970,7 +1002,7 @@ TEST(test_unbounded_variant, get_if_polymorphic)
     EXPECT_THAT(stats.ops, "@M_@MM_M_M_~_~");
 }
 
-TEST(test_unbounded_variant, swap_copyable)
+TEST_F(TestPmrUnboundedVariant, swap_copyable)
 {
     using test   = TestCopyableOnly;
     using ub_var = unbounded_variant<sizeof(test), true, false>;
@@ -1002,7 +1034,7 @@ TEST(test_unbounded_variant, swap_copyable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_unbounded_variant, swap_movable)
+TEST_F(TestPmrUnboundedVariant, swap_movable)
 {
     using test   = TestMovableOnly;
     using ub_var = unbounded_variant<sizeof(test), false, true>;
@@ -1043,7 +1075,7 @@ TEST(test_unbounded_variant, swap_movable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_unbounded_variant, emplace_1)
+TEST_F(TestPmrUnboundedVariant, emplace_1)
 {
     // Primitive `char`
     {
@@ -1076,7 +1108,7 @@ TEST(test_unbounded_variant, emplace_1)
     }
 }
 
-TEST(test_unbounded_variant, emplace_2_initializer_list)
+TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
 {
     struct TestType : rtti_helper<type_id_type<13>>
     {
@@ -1099,7 +1131,7 @@ TEST(test_unbounded_variant, emplace_2_initializer_list)
     EXPECT_THAT(test.number_, 42);
 }
 
-TEST(test_unbounded_variant, pmr_only_ctor)
+TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
 {
     using ub_var =
         unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, true /*IsPmr*/>;
@@ -1120,15 +1152,25 @@ TEST(test_unbounded_variant, pmr_only_ctor)
 
     dst2 = {};
     EXPECT_THAT(dst2.has_value(), false);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst3{src_empty};
+    EXPECT_THAT(dst3.has_value(), false);
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+
+    const ub_var dst4{std::move(dst3)};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
 }
 
-TEST(test_unbounded_variant, pmr_ctor)
+TEST_F(TestPmrUnboundedVariant, pmr_ctor)
 {
     using ub_var =
         unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
 
-    ub_var dst{};
+    ub_var dst{get_mr()};
     EXPECT_THAT(dst.has_value(), false);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
     dst = ub_var{'x'};
     EXPECT_THAT(dst.has_value(), true);
@@ -1138,7 +1180,9 @@ TEST(test_unbounded_variant, pmr_ctor)
     EXPECT_THAT(dst.has_value(), true);
 
     ub_var dst2{};
+    EXPECT_THAT(dst2.get_memory_resource(), cetl::pmr::get_default_resource());
     dst2 = std::move(dst);
+    EXPECT_THAT(dst2.get_memory_resource(), get_mr());
     EXPECT_THAT(dst2.has_value(), true);
 
     dst2 = {};
@@ -1152,9 +1196,23 @@ TEST(test_unbounded_variant, pmr_ctor)
     EXPECT_THAT(dst2.has_value(), true);
     EXPECT_THAT(get<int>(dst2), -1);
 
-    dst2 = true;
-    EXPECT_THAT(dst2.has_value(), true);
-    EXPECT_THAT(get<bool>(dst2), true);
+    ub_var dst3{std::move(dst2)};
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<int>(dst3), -1);
+
+    dst3 = true;
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<bool>(dst3), true);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst4{src_empty};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
+
+    const ub_var dst5{std::move(dst4)};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_mr());
 }
 
 }  // namespace

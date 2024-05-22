@@ -26,38 +26,40 @@ class PmrInterfaceDeleter final
 public:
     template <typename PmrAllocator>
     PmrInterfaceDeleter(PmrAllocator alloc, std::size_t obj_count)
-    {
-        deleter_ = [alloc, obj_count](Interface* ptr) mutable {
-            using Concrete     = typename PmrAllocator::value_type;
-            auto* concrete_ptr = static_cast<Concrete*>(ptr);
+        : deleter_{alloc.resource(), [alloc, obj_count](Interface* ptr) mutable {
+                       using Concrete     = typename PmrAllocator::value_type;
+                       auto* concrete_ptr = static_cast<Concrete*>(ptr);
 
-            concrete_ptr->~Concrete();
-            alloc.deallocate(concrete_ptr, obj_count);
-        };
+                       concrete_ptr->~Concrete();
+                       alloc.deallocate(concrete_ptr, obj_count);
+                   }}
+    {
     }
 
     template <typename Down>
     PmrInterfaceDeleter(const PmrInterfaceDeleter<Down>& other)
+        : deleter_{other.get_memory_resource(), [other](Interface* ptr) {
+                       // Delegate to the down class deleter.
+                       other.deleter_(static_cast<Down*>(ptr));
+                   }}
     {
-        deleter_ = [other](Interface* ptr) {
-            // Delegate to the down class deleter.
-            other.deleter_(static_cast<Down*>(ptr));
-        };
+    }
+
+    memory_resource* get_memory_resource() const noexcept
+    {
+        return deleter_.get_memory_resource();
     }
 
     void operator()(Interface* ptr) noexcept
     {
-        if (nullptr != ptr)
-        {
-            deleter_(ptr);
-        }
+        deleter_(ptr);
     }
 
 private:
     template <typename Down>
     friend class PmrInterfaceDeleter;
 
-    cetl::pmr::function<void(Interface*), 24> deleter_;
+    cetl::pmr::function<void(Interface*), 24, true /*IsPmr*/> deleter_;
 
 };  // PmrInterfaceDeleter
 
