@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/unbounded_variant.hpp>
+#include <cetlvast/memory_resource_mock.hpp>
 #include <cetlvast/tracking_memory_resource.hpp>
 
 #include <complex>
@@ -29,9 +30,12 @@ using cetl::type_id;
 using cetl::type_id_type;
 using cetl::rtti_helper;
 
+using testing::_;
+using testing::Return;
 using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::StrictMock;
 
 using namespace std::string_literals;
 
@@ -1220,10 +1224,55 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
     EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
 }
 
+TEST_F(TestPmrUnboundedVariant, pmr_assign_out_of_memory)
+{
+    using ub_var =
+        unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, true /*IsPmr*/>;
+
+    StrictMock<MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+    // No allocations are expected (b/c we have footprint of 2).
+    dst = true;
+    dst = std::uint16_t{42};
+
+    // Assign a bigger (`std::uint32_t`) type value which requires more than 2 bytes.
+    // Emulate that there is enough memory.
+    {
+        using big_type = std::uint32_t;
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(big_type), 4))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(big_type), 4))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        dst = big_type{13};
+    }
+
+#if defined(__cpp_exceptions)
+    // Assign even bigger (`double`) type value which requires more than 2 bytes.
+    // Emulate that there is no memory enough.
+    {
+        using bigger_type = double;
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(bigger_type), 4))
+            .WillOnce(Return(nullptr));
+
+        EXPECT_THROW(sink(dst = bigger_type{3.14}), std::bad_alloc);
+    }
+#endif
+}
+
 }  // namespace
 
 namespace cetl
 {
+
 template <>
 constexpr type_id type_id_value<bool> = {1};
 
@@ -1257,6 +1306,9 @@ constexpr type_id type_id_value<std::function<const char*()>> = {9};
 
 template <>
 constexpr type_id type_id_value<Empty> = {10};
+
+template <>
+constexpr type_id type_id_value<std::uint32_t> = {11};
 
 }  // namespace cetl
 
