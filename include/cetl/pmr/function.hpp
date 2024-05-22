@@ -138,7 +138,7 @@ public:
     {
         any_handler_.swap(other.any_handler_);
 
-        handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
+        handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
         other.handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&other.any_handler_);
     }
 
@@ -228,7 +228,7 @@ public:
     {
         any_handler_.swap(other.any_handler_);
 
-        handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
+        handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
         other.handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&other.any_handler_);
     }
 
@@ -243,7 +243,7 @@ protected:
     unbounded_variant<Footprint, true, true, alignof(std::max_align_t), true /*IsPmr*/> any_handler_;
     detail::function_handler<Result, Args...>*                                          handler_ptr_{nullptr};
 
-}; // function_base
+};  // function_base
 
 }  // namespace detail
 

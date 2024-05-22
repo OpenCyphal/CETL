@@ -116,10 +116,19 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    pmr::memory_resource* get_memory_resource() const noexcept
+    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
         return mem_res_;
+    }
+
+    pmr::memory_resource* set_memory_resource(pmr::memory_resource* mem_res) noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr != mem_res, "");
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+
+        std::swap(mem_res_, mem_res);
+        return mem_res;
     }
 
     template <typename Tp>
@@ -150,7 +159,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         }
     }
 
-    bool move_handlers_from(base_storage& src) noexcept
+    CETL_NODISCARD bool move_handlers_from(base_storage& src) noexcept
     {
         // B/c there is no in-place storage (Footprint == 0), we always move previously allocated buffer.
         // This essentially "moves" the value in this buffer as well.
@@ -218,10 +227,19 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    pmr::memory_resource* get_memory_resource() const noexcept
+    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
         return mem_res_;
+    }
+
+    pmr::memory_resource* set_memory_resource(pmr::memory_resource* mem_res) noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr != mem_res, "");
+        CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+
+        std::swap(mem_res_, mem_res);
+        return mem_res;
     }
 
     template <typename Tp>
@@ -802,7 +820,9 @@ template <std::size_t Footprint,
           bool        IsPmr     = false>
 class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>
 {
-    using base = detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>;
+    using IsPmrT     = std::integral_constant<bool, IsPmr>;
+    using IsMovableT = std::integral_constant<bool, Movable>;
+    using base       = detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>;
 
 public:
     /// \brief Constructs an empty `unbounded_variant` object.
@@ -942,7 +962,7 @@ public:
               typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value>>
     unbounded_variant& operator=(ValueType&& value)
     {
-        unbounded_variant(std::forward<ValueType>(value)).swap(*this);
+        makeVariant(IsPmrT{}, std::forward<ValueType>(value)).swap(*this);
         return *this;
     }
 
@@ -983,20 +1003,66 @@ public:
         base::reset();
     }
 
-    /// \brief Swaps the content of `*this` with the content of `rhs` using copy semantics.
+    /// \brief Swaps the content of `*this` with the content of `rhs`
+    /// using either move (if available) or copy semantics.
     ///
-    /// In use for copyable-only `unbounded_variant` objects.
-    ///
-    template <bool CopyableAlias = Copyable,
-              bool MovableAlias  = Movable,
-              typename           = std::enable_if_t<CopyableAlias && !MovableAlias>>
-    void swap(unbounded_variant& rhs)
+    void swap(unbounded_variant& rhs) noexcept
     {
         if (this == &rhs)
         {
             return;
         }
 
+        swapVariants(IsPmrT{}, IsMovableT{}, rhs);
+    }
+
+    CETL_NODISCARD bool has_value() const noexcept
+    {
+        return base::has_value();
+    }
+
+    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    {
+        static_assert(IsPmr, "Cannot get memory resource from non-PMR unbounded_variant.");
+
+        return base::get_memory_resource();
+    }
+
+    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
+    {
+        static_assert(IsPmr, "Cannot set memory resource to non-PMR unbounded_variant.");
+
+        return base::set_memory_resource(mem_res);
+    }
+
+private:
+    template <typename ValueType, typename UnboundedVariant>
+    friend std::add_pointer_t<ValueType> get_if(UnboundedVariant* operand) noexcept;
+
+    template <typename ValueType, typename UnboundedVariant>
+    friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
+
+    template <typename Tp, typename... Args>
+    Tp& create(Args&&... args)
+    {
+        base::template make_handlers<Tp>();
+        return *new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+    }
+
+    template <typename ValueType>
+    unbounded_variant makeVariant(std::false_type /*IsPmr*/, ValueType&& value)
+    {
+        return unbounded_variant(std::forward<ValueType>(value));
+    }
+
+    template <typename ValueType>
+    unbounded_variant makeVariant(std::true_type /*IsPmr*/, ValueType&& value)
+    {
+        return unbounded_variant(get_memory_resource(), std::forward<ValueType>(value));
+    }
+
+    void swapVariants(std::false_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs) noexcept
+    {
         if (has_value())
         {
             if (rhs.has_value())
@@ -1018,18 +1084,8 @@ public:
         }
     }
 
-    /// \brief Swaps the content of `*this` with the content of `rhs` using move semantics.
-    ///
-    /// In use for moveable `unbounded_variant` objects.
-    ///
-    template <bool MovableAlias = Movable, typename = std::enable_if_t<MovableAlias>>
-    void swap(unbounded_variant& rhs) noexcept
+    void swapVariants(std::false_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
     {
-        if (this == &rhs)
-        {
-            return;
-        }
-
         if (has_value())
         {
             if (rhs.has_value())
@@ -1049,30 +1105,66 @@ public:
         }
     }
 
-    CETL_NODISCARD bool has_value() const noexcept
+    void swapVariants(std::true_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs) noexcept
     {
-        return base::has_value();
+        if (has_value())
+        {
+            if (rhs.has_value())
+            {
+                unbounded_variant tmp{rhs};
+                static_cast<base&>(rhs)   = *this;
+                static_cast<base&>(*this) = tmp;
+            }
+            else
+            {
+                auto* const tmp_mr      = rhs.get_memory_resource();
+                static_cast<base&>(rhs) = *this;
+                reset();
+                base::set_memory_resource(tmp_mr);
+            }
+        }
+        else if (rhs.has_value())
+        {
+            auto* const tmp_mr        = get_memory_resource();
+            static_cast<base&>(*this) = rhs;
+            rhs.reset();
+            rhs.set_memory_resource(tmp_mr);
+        }
+        else
+        {
+            auto* const tmp_mr = base::set_memory_resource(rhs.get_memory_resource());
+            rhs.set_memory_resource(tmp_mr);
+        }
     }
 
-    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    void swapVariants(std::true_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
     {
-        static_assert(IsPmr, "Cannot construct non-PMR unbounded_variant with memory resource.");
-
-        return base::get_memory_resource();
-    }
-
-private:
-    template <typename ValueType, typename UnboundedVariant>
-    friend std::add_pointer_t<ValueType> get_if(UnboundedVariant* operand) noexcept;
-
-    template <typename ValueType, typename UnboundedVariant>
-    friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
-
-    template <typename Tp, typename... Args>
-    Tp& create(Args&&... args)
-    {
-        base::template make_handlers<Tp>();
-        return *new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+        if (has_value())
+        {
+            if (rhs.has_value())
+            {
+                unbounded_variant tmp{std::move(rhs)};
+                static_cast<base&>(rhs)   = std::move(*this);
+                static_cast<base&>(*this) = std::move(tmp);
+            }
+            else
+            {
+                auto* const tmp_mr      = rhs.get_memory_resource();
+                static_cast<base&>(rhs) = std::move(*this);
+                base::set_memory_resource(tmp_mr);
+            }
+        }
+        else if (rhs.has_value())
+        {
+            auto* const tmp_mr        = get_memory_resource();
+            static_cast<base&>(*this) = std::move(rhs);
+            rhs.set_memory_resource(tmp_mr);
+        }
+        else
+        {
+            auto* const tmp_mr = base::set_memory_resource(rhs.get_memory_resource());
+            rhs.set_memory_resource(tmp_mr);
+        }
     }
 
 };  // class unbounded_variant

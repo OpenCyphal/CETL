@@ -273,8 +273,6 @@ struct Empty
 class TestPmrUnboundedVariant : public testing::Test
 {
 protected:
-    void SetUp() override {}
-
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
@@ -1172,12 +1170,14 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
     EXPECT_THAT(dst.has_value(), false);
     EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
-    dst = ub_var{'x'};
+    dst = ub_var{get_mr(), 'x'};
     EXPECT_THAT(dst.has_value(), true);
     EXPECT_THAT(get<char>(dst), 'x');
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
     dst = Empty{};
     EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
     ub_var dst2{};
     EXPECT_THAT(dst2.get_memory_resource(), cetl::pmr::get_default_resource());
@@ -1187,6 +1187,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
 
     dst2 = {};
     EXPECT_THAT(dst2.has_value(), false);
+    dst2.set_memory_resource(get_mr());
 
     dst2 = std::uint16_t{0x147};
     EXPECT_THAT(dst2.has_value(), true);
@@ -1210,9 +1211,13 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
     EXPECT_THAT(dst4.has_value(), false);
     EXPECT_THAT(dst4.get_memory_resource(), get_mr());
 
-    const ub_var dst5{std::move(dst4)};
+    ub_var dst5{std::move(dst4)};
     EXPECT_THAT(dst5.has_value(), false);
     EXPECT_THAT(dst5.get_memory_resource(), get_mr());
+
+    dst5 = {};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
 }
 
 }  // namespace
