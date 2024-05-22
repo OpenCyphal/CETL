@@ -35,6 +35,7 @@ using testing::Return;
 using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::InSequence;
 using testing::StrictMock;
 
 using namespace std::string_literals;
@@ -68,6 +69,14 @@ struct side_effect_stats
     int         constructs  = 0;
     int         destructs   = 0;
 
+    void reset()
+    {
+        ops.clear();
+        assignments = 0;
+        constructs  = 0;
+        destructs   = 0;
+    }
+
     auto make_side_effect_fn()
     {
         return [this](side_effect_op op) {
@@ -86,39 +95,39 @@ struct side_effect_stats
     }
 };
 
-struct TestBase : rtti_helper<type_id_type<0x0>>
+struct MyBase : rtti_helper<type_id_type<0x0>>
 {
     char payload_;
     int  value_ = 0;
     bool moved_ = false;
 
-    TestBase(const char payload, side_effect_fn side_effect)
+    MyBase(const char payload, side_effect_fn side_effect)
         : payload_(payload)
         , side_effect_(std::move(side_effect))
     {
         side_effect_(side_effect_op::Construct);
     }
-    TestBase(const TestBase& other)
+    MyBase(const MyBase& other)
     {
         copy_from(other, side_effect_op::CopyConstruct);
     }
-    TestBase(TestBase&& other) noexcept
+    MyBase(MyBase&& other) noexcept
     {
         move_from(other, side_effect_op::MoveConstruct);
     }
 
-    ~TestBase() override
+    ~MyBase() override
     {
         side_effect_(moved_ ? side_effect_op::DestructMoved : side_effect_op::Destruct);
     }
 
-    TestBase& operator=(const TestBase& other)
+    MyBase& operator=(const MyBase& other)
     {
         copy_from(other, side_effect_op::CopyAssign);
         return *this;
     }
 
-    TestBase& operator=(TestBase&& other) noexcept
+    MyBase& operator=(MyBase&& other) noexcept
     {
         move_from(other, side_effect_op::MoveAssign);
         return *this;
@@ -126,13 +135,13 @@ struct TestBase : rtti_helper<type_id_type<0x0>>
 
     CETL_NODISCARD virtual const char* what() const noexcept
     {
-        return "TestBase";
+        return "MyBase";
     }
 
 private:
     side_effect_fn side_effect_;
 
-    void copy_from(const TestBase& other, const side_effect_op op)
+    void copy_from(const MyBase& other, const side_effect_op op)
     {
         payload_     = other.payload_;
         side_effect_ = other.side_effect_;
@@ -141,7 +150,7 @@ private:
         side_effect_(op);
     }
 
-    void move_from(TestBase& other, const side_effect_op op)
+    void move_from(MyBase& other, const side_effect_op op)
     {
         payload_     = other.payload_;
         side_effect_ = other.side_effect_;
@@ -153,25 +162,25 @@ private:
         side_effect_(op);
     }
 
-};  // TestBase
+};  // MyBase
 
-struct TestCopyableOnly final : TestBase
+struct MyCopyableOnly final : MyBase
 {
-    explicit TestCopyableOnly(
+    explicit MyCopyableOnly(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
     {
     }
-    TestCopyableOnly(const TestCopyableOnly& other)     = default;
-    TestCopyableOnly(TestCopyableOnly&& other) noexcept = delete;
+    MyCopyableOnly(const MyCopyableOnly& other)     = default;
+    MyCopyableOnly(MyCopyableOnly&& other) noexcept = delete;
 
-    TestCopyableOnly& operator=(const TestCopyableOnly& other)     = default;
-    TestCopyableOnly& operator=(TestCopyableOnly&& other) noexcept = delete;
+    MyCopyableOnly& operator=(const MyCopyableOnly& other)     = default;
+    MyCopyableOnly& operator=(MyCopyableOnly&& other) noexcept = delete;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestCopyableOnly";
+        return "MyCopyableOnly";
     }
 
     // rtti
@@ -191,26 +200,26 @@ struct TestCopyableOnly final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
 };
 
-struct TestMovableOnly final : TestBase
+struct MyMovableOnly final : MyBase
 {
-    explicit TestMovableOnly(
+    explicit MyMovableOnly(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
     {
     }
-    TestMovableOnly(const TestMovableOnly& other)     = delete;
-    TestMovableOnly(TestMovableOnly&& other) noexcept = default;
+    MyMovableOnly(const MyMovableOnly& other)     = delete;
+    MyMovableOnly(MyMovableOnly&& other) noexcept = default;
 
-    TestMovableOnly& operator=(const TestMovableOnly& other)     = delete;
-    TestMovableOnly& operator=(TestMovableOnly&& other) noexcept = default;
+    MyMovableOnly& operator=(const MyMovableOnly& other)     = delete;
+    MyMovableOnly& operator=(MyMovableOnly&& other) noexcept = default;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestMovableOnly";
+        return "MyMovableOnly";
     }
 
     // rtti
@@ -230,25 +239,25 @@ struct TestMovableOnly final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
 };
 
-struct TestCopyableAndMovable final : TestBase
+struct MyCopyableAndMovable final : MyBase
 {
     // Just to make this class a bit bigger than base.
     char place_holder_;
 
-    explicit TestCopyableAndMovable(
+    explicit MyCopyableAndMovable(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
         , place_holder_{payload}
     {
     }
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestCopyableAndMovable";
+        return "MyCopyableAndMovable";
     }
 
     // rtti
@@ -268,7 +277,7 @@ struct TestCopyableAndMovable final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
 };
 
 struct Empty
@@ -406,7 +415,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 
     // Copyable and Movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test)>;
 
         const ub_var src{test{}};
@@ -426,7 +435,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 
     // Copyable only `unbounded_variant`
     {
-        using test   = TestCopyableOnly;
+        using test   = MyCopyableOnly;
         using ub_var = unbounded_variant<sizeof(test), true, false>;
 
         const test   value{};
@@ -441,7 +450,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 
     // Movable only `unbounded_variant`
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         test value{'X'};
@@ -462,7 +471,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 
     // Non-Copyable and non-movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test), false>;
 
         ub_var src{test{}};
@@ -493,7 +502,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_3_move)
 
     // Copyable and Movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test)>;
 
         ub_var src{test{}};
@@ -502,12 +511,12 @@ TEST_F(TestPmrUnboundedVariant, ctor_3_move)
         const ub_var dst{std::move(src)};
         EXPECT_TRUE(dst.has_value());
         EXPECT_FALSE(src.has_value());
-        EXPECT_THAT(get<const TestCopyableAndMovable&>(dst).value_, 2);
+        EXPECT_THAT(get<const MyCopyableAndMovable&>(dst).value_, 2);
     }
 
     // Movable only `unbounded_variant`
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         ub_var       src{test{'X'}};
@@ -522,10 +531,10 @@ TEST_F(TestPmrUnboundedVariant, ctor_3_move)
 
     // Copyable only `unbounded_variant`, movable only `unique_ptr`
     {
-        using test   = std::unique_ptr<TestCopyableAndMovable>;
+        using test   = std::unique_ptr<MyCopyableAndMovable>;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
-        ub_var src{std::make_unique<TestCopyableAndMovable>()};
+        ub_var src{std::make_unique<MyCopyableAndMovable>()};
         ub_var dst{std::move(src)};
         EXPECT_FALSE(src.has_value());
 
@@ -537,7 +546,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_3_move)
 
 TEST_F(TestPmrUnboundedVariant, ctor_4_move_value)
 {
-    using test   = TestCopyableAndMovable;
+    using test   = MyCopyableAndMovable;
     using ub_var = unbounded_variant<sizeof(test)>;
 
     test         value{'Y'};
@@ -550,44 +559,44 @@ TEST_F(TestPmrUnboundedVariant, ctor_4_move_value)
 
 TEST_F(TestPmrUnboundedVariant, ctor_5_in_place)
 {
-    struct TestType : rtti_helper<type_id_type<42>>
+    struct MyType : rtti_helper<type_id_type<42>>
     {
         char ch_;
         int  number_;
 
-        TestType(const char ch, const int number)
+        MyType(const char ch, const int number)
         {
             ch_     = ch;
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<TestType>{}, 'Y', 42};
+    const ub_var src{in_place_type_t<MyType>{}, 'Y', 42};
 
-    const auto test = get<TestType>(src);
+    const auto test = get<MyType>(src);
     EXPECT_THAT(test.ch_, 'Y');
     EXPECT_THAT(test.number_, 42);
 }
 
 TEST_F(TestPmrUnboundedVariant, ctor_6_in_place_initializer_list)
 {
-    struct TestType : rtti_helper<type_id_type<42>>
+    struct MyType : rtti_helper<type_id_type<42>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
+    const ub_var src{in_place_type_t<MyType>{}, {'A', 'B', 'C'}, 42};
 
-    auto& test = get<const TestType&>(src);
+    auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
 }
@@ -622,7 +631,7 @@ TEST_F(TestPmrUnboundedVariant, assign_1_copy)
     //
     side_effect_stats stats;
     {
-        using test   = TestCopyableOnly;
+        using test   = MyCopyableOnly;
         using ub_var = unbounded_variant<sizeof(test), true, false>;
 
         auto side_effects = stats.make_side_effect_fn();
@@ -696,7 +705,7 @@ TEST_F(TestPmrUnboundedVariant, assign_2_move)
     //
     side_effect_stats stats;
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         auto side_effects = stats.make_side_effect_fn();
@@ -779,30 +788,30 @@ TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_1_like)
 
 TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_2_list)
 {
-    struct TestType : rtti_helper<type_id_type<13>>
+    struct MyType : rtti_helper<type_id_type<13>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const auto  src  = make_unbounded_variant<TestType, ub_var>({'A', 'C'}, 42);
-    const auto& test = get<const TestType&>(src);
+    const auto  src  = make_unbounded_variant<MyType, ub_var>({'A', 'C'}, 42);
+    const auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 2);
     EXPECT_THAT(test.number_, 42);
 
     // `cetl::unbounded_variant_like` version
     //
-    const auto dst = make_unbounded_variant<TestType>({'B', 'D', 'E'}, 147);
-    static_assert(std::is_same<decltype(dst), const cetl::unbounded_variant_like<TestType>>::value, "");
-    EXPECT_THAT(get_if<TestType>(&dst)->size_, 3);
-    EXPECT_THAT(get<const TestType&>(dst).number_, 147);
+    const auto dst = make_unbounded_variant<MyType>({'B', 'D', 'E'}, 147);
+    static_assert(std::is_same<decltype(dst), const cetl::unbounded_variant_like<MyType>>::value, "");
+    EXPECT_THAT(get_if<MyType>(&dst)->size_, 3);
+    EXPECT_THAT(get<const MyType&>(dst).number_, 147);
 }
 
 TEST_F(TestPmrUnboundedVariant, get_cppref_example)
@@ -978,27 +987,27 @@ TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 {
     side_effect_stats stats;
     {
-        using ub_var = unbounded_variant<sizeof(TestCopyableAndMovable)>;
+        using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
 
         auto side_effects = stats.make_side_effect_fn();
 
-        ub_var test_ubv = TestCopyableAndMovable{'Y', side_effects};
+        ub_var test_ubv = MyCopyableAndMovable{'Y', side_effects};
 
-        auto& test_base1 = get<const TestBase&>(test_ubv);
+        auto& test_base1 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base1.payload_, 'Y');
-        EXPECT_THAT(test_base1.what(), "TestCopyableAndMovable");
-        EXPECT_THAT(get_if<TestCopyableAndMovable>(&test_ubv), NotNull());
-        EXPECT_THAT(get_if<TestCopyableOnly>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestMovableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(test_base1.what(), "MyCopyableAndMovable");
+        EXPECT_THAT(get_if<MyCopyableAndMovable>(&test_ubv), NotNull());
+        EXPECT_THAT(get_if<MyCopyableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyMovableOnly>(&test_ubv), IsNull());
 
-        test_ubv = TestBase{'X', side_effects};
+        test_ubv = MyBase{'X', side_effects};
 
-        auto& test_base2 = get<const TestBase&>(test_ubv);
+        auto& test_base2 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base2.payload_, 'X');
-        EXPECT_THAT(test_base2.what(), "TestBase");
-        EXPECT_THAT(get_if<TestCopyableAndMovable>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestCopyableOnly>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestMovableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(test_base2.what(), "MyBase");
+        EXPECT_THAT(get_if<MyCopyableAndMovable>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyCopyableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyMovableOnly>(&test_ubv), IsNull());
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@M_@MM_M_M_~_~");
@@ -1006,7 +1015,7 @@ TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 
 TEST_F(TestPmrUnboundedVariant, swap_copyable)
 {
-    using test   = TestCopyableOnly;
+    using test   = MyCopyableOnly;
     using ub_var = unbounded_variant<sizeof(test), true, false>;
 
     ub_var empty{};
@@ -1016,7 +1025,7 @@ TEST_F(TestPmrUnboundedVariant, swap_copyable)
     // Self swap
     a.swap(a);
     EXPECT_THAT(get<const test&>(a).payload_, 'A');
-    // EXPECT_THAT(get<TestCopyableAndMovable>(&a), IsNull); //< won't compile expectedly b/c footprint is smaller
+    // EXPECT_THAT(get<MyCopyableAndMovable>(&a), IsNull); //< won't compile expectedly b/c footprint is smaller
 
     a.swap(b);
     EXPECT_THAT(get<test&>(a).payload_, 'B');
@@ -1038,7 +1047,7 @@ TEST_F(TestPmrUnboundedVariant, swap_copyable)
 
 TEST_F(TestPmrUnboundedVariant, swap_movable)
 {
-    using test   = TestMovableOnly;
+    using test   = MyMovableOnly;
     using ub_var = unbounded_variant<sizeof(test), false, true>;
 
     ub_var empty{};
@@ -1088,47 +1097,47 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
         EXPECT_THAT(get<char>(src), 'Y');
     }
 
-    // `TestType` with two params ctor.
+    // `MyType` with two params ctor.
     {
-        struct TestType : rtti_helper<type_id_type<13>>
+        struct MyType : rtti_helper<type_id_type<13>>
         {
             char ch_;
             int  number_;
 
-            TestType(char ch, int number)
+            MyType(char ch, int number)
             {
                 ch_     = ch;
                 number_ = number;
             }
         };
-        using ub_var = unbounded_variant<sizeof(TestType)>;
+        using ub_var = unbounded_variant<sizeof(MyType)>;
 
         ub_var t;
-        t.emplace<TestType>('Y', 147);
-        EXPECT_THAT(get<TestType>(t).ch_, 'Y');
-        EXPECT_THAT(get<TestType>(t).number_, 147);
+        t.emplace<MyType>('Y', 147);
+        EXPECT_THAT(get<MyType>(t).ch_, 'Y');
+        EXPECT_THAT(get<MyType>(t).number_, 147);
     }
 }
 
 TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
 {
-    struct TestType : rtti_helper<type_id_type<13>>
+    struct MyType : rtti_helper<type_id_type<13>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
     ub_var src;
-    src.emplace<TestType>({'A', 'B', 'C'}, 42);
+    src.emplace<MyType>({'A', 'B', 'C'}, 42);
 
-    const auto test = get<TestType>(src);
+    const auto test = get<MyType>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
 }
@@ -1224,7 +1233,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
     EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_assign_out_of_memory)
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_out_of_memory)
 {
     using ub_var =
         unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, true /*IsPmr*/>;
@@ -1260,11 +1269,145 @@ TEST_F(TestPmrUnboundedVariant, pmr_assign_out_of_memory)
     {
         using bigger_type = double;
 
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(bigger_type), 4))
-            .WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(bigger_type), 4)).WillOnce(Return(nullptr));
 
         EXPECT_THROW(sink(dst = bigger_type{3.14}), std::bad_alloc);
     }
+#endif
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+    // No allocations are expected (b/c we have footprint of 2).
+    dst = true;
+    dst = std::uint16_t{42};
+
+    // Assign a bigger (`MyCopyableOnly`) type value which requires more than 2 bytes.
+    // Emulate that there is enough memory.
+    {
+        const MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
+            .Times(2)
+            .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
+            .Times(2)
+            .WillRepeatedly([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        dst = my_copy_only;
+        EXPECT_THAT(stats.ops, "@CC~");
+
+        dst.reset();
+        EXPECT_THAT(stats.ops, "@CC~~");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@CC~~~");
+
+#if defined(__cpp_exceptions)
+    // Emulate that there is no memory enough.
+    {
+        stats.reset();
+
+        MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        const InSequence seq;
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+        EXPECT_THAT(stats.ops, "@C~");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@C~~");
+#endif
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, true /*IsPmr*/>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+#if defined(__cpp_exceptions)
+    // Emulate that there is no memory enough.
+    {
+        MyMovableOnly my_move_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        const InSequence seq;
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), Alignment)).WillOnce(Return(nullptr));
+
+        EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
+#endif
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+#if defined(__cpp_exceptions)
+    // Emulate that there is no memory enough.
+    {
+        MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        const InSequence seq;
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+                return mr_.allocate(size_bytes, alignment);
+            });
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+        EXPECT_THAT(stats.ops, "@C~");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@C~~");
 #endif
 }
 
@@ -1295,7 +1438,7 @@ template <>
 constexpr type_id type_id_value<uint16_t> = {7};
 
 template <>
-constexpr type_id type_id_value<std::unique_ptr<TestCopyableAndMovable>> =
+constexpr type_id type_id_value<std::unique_ptr<MyCopyableAndMovable>> =
     {0xB3, 0xB8, 0x4E, 0xC1, 0x1F, 0xE4, 0x49, 0x35, 0x9E, 0xC9, 0x1A, 0x77, 0x7B, 0x82, 0x53, 0x25};
 
 template <>

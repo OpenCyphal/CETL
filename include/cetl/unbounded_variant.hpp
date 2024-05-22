@@ -1096,7 +1096,7 @@ public:
     /// \brief Swaps the content of `*this` with the content of `rhs`
     /// using either move (if available) or copy semantics.
     ///
-    void swap(unbounded_variant& rhs) noexcept
+    void swap(unbounded_variant& rhs) noexcept(Movable)
     {
         if (this == &rhs)
         {
@@ -1154,7 +1154,7 @@ private:
         return unbounded_variant(get_memory_resource(), std::forward<ValueType>(value));
     }
 
-    void swapVariants(std::false_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs) noexcept
+    void swapVariants(std::false_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
     {
         if (has_value())
         {
@@ -1177,28 +1177,7 @@ private:
         }
     }
 
-    void swapVariants(std::false_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
-    {
-        if (has_value())
-        {
-            if (rhs.has_value())
-            {
-                unbounded_variant tmp{std::move(rhs)};
-                static_cast<base&>(rhs)   = std::move(*this);
-                static_cast<base&>(*this) = std::move(tmp);
-            }
-            else
-            {
-                static_cast<base&>(rhs) = std::move(*this);
-            }
-        }
-        else if (rhs.has_value())
-        {
-            static_cast<base&>(*this) = std::move(rhs);
-        }
-    }
-
-    void swapVariants(std::true_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs) noexcept
+    void swapVariants(std::true_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
     {
         if (has_value())
         {
@@ -1227,6 +1206,27 @@ private:
         {
             auto* const tmp_mr = base::set_memory_resource(rhs.get_memory_resource());
             rhs.set_memory_resource(tmp_mr);
+        }
+    }
+
+    void swapVariants(std::false_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
+    {
+        if (has_value())
+        {
+            if (rhs.has_value())
+            {
+                unbounded_variant tmp{std::move(rhs)};
+                static_cast<base&>(rhs)   = std::move(*this);
+                static_cast<base&>(*this) = std::move(tmp);
+            }
+            else
+            {
+                static_cast<base&>(rhs) = std::move(*this);
+            }
+        }
+        else if (rhs.has_value())
+        {
+            static_cast<base&>(*this) = std::move(rhs);
         }
     }
 
