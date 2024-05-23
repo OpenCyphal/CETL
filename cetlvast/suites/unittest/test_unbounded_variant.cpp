@@ -1347,6 +1347,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
 
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
 {
+#if defined(__cpp_exceptions)
+
     const auto Alignment = alignof(std::max_align_t);
     using ub_var = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, true /*IsPmr*/>;
 
@@ -1357,7 +1359,6 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
 
     ub_var dst{mr_mock.resource()};
 
-#if defined(__cpp_exceptions)
     // Emulate that there is no memory enough.
     {
         MyMovableOnly my_move_only{'X', side_effects};
@@ -1371,11 +1372,16 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@~");
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
 #endif
 }
 
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
 {
+#if defined(__cpp_exceptions)
+
     const auto Alignment = alignof(std::max_align_t);
     using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
 
@@ -1386,7 +1392,6 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
 
     ub_var dst{mr_mock.resource()};
 
-#if defined(__cpp_exceptions)
     // Emulate that there is no memory enough.
     {
         MyCopyableOnly my_copy_only{'X', side_effects};
@@ -1408,6 +1413,9 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@C~~");
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
 #endif
 }
 
