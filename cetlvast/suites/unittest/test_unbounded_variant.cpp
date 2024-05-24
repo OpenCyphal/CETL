@@ -1093,7 +1093,8 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
         using ub_var = unbounded_variant<sizeof(char)>;
 
         ub_var src;
-        src.emplace<char>('Y');
+        auto   y_ptr = src.emplace<char>('Y');
+        EXPECT_THAT(get_if<char>(&src), y_ptr);
         EXPECT_THAT(get<char>(src), 'Y');
     }
 
@@ -1113,10 +1114,43 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
         using ub_var = unbounded_variant<sizeof(MyType)>;
 
         ub_var t;
-        t.emplace<MyType>('Y', 147);
+        auto   my_ptr = t.emplace<MyType>('Y', 147);
+        EXPECT_THAT(get_if<MyType>(&t), my_ptr);
         EXPECT_THAT(get<MyType>(t).ch_, 'Y');
         EXPECT_THAT(get<MyType>(t).number_, 147);
     }
+}
+
+TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
+{
+#if defined(__cpp_exceptions)
+
+    side_effect_stats stats;
+    {
+        using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
+
+        auto stats_side_effects    = stats.make_side_effect_fn();
+        auto throwing_side_effects = [=](side_effect_op op) {
+            stats_side_effects(op);
+            if (op == side_effect_op::Construct)
+            {
+                throw std::runtime_error("ctor");
+            }
+        };
+
+        ub_var t;
+        EXPECT_THAT(t.has_value(), false);
+        EXPECT_THAT(t.valueless_by_exception(), false);
+
+        EXPECT_THROW(sink(t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects)), std::runtime_error);
+    }
+    EXPECT_THAT(stats.constructs, 1);
+    EXPECT_THAT(stats.destructs, 0);
+    EXPECT_THAT(stats.ops, "@");
+
+#else
+    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+#endif
 }
 
 TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)

@@ -54,13 +54,10 @@ class unbounded_variant;
 namespace detail
 {
 
-[[noreturn]] inline void throw_bad_alloc()
+inline void throw_bad_alloc()
 {
 #if defined(__cpp_exceptions)
     throw std::bad_alloc();
-#else
-    CETL_DEBUG_ASSERT(false, "std::bad_alloc");
-    std::terminate();
 #endif
 }
 
@@ -78,39 +75,68 @@ namespace detail
 //
 template <std::size_t Footprint, bool IsPmr, std::size_t Alignment>
 struct base_storage;
-
+//
+// In-Place only case.
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, false /*IsPmr*/, Alignment>
 {
-    template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    /// @brief Allocates enough raw storage for a target value.
+    ///
+    /// @param size_bytes Size of the target type in bytes.
+    /// @return Pointer to the storage (never `nullptr` for this specialization).
+    ///
+    CETL_NODISCARD void* alloc_new_raw_storage(const std::size_t size_bytes) noexcept
     {
-        static_assert(sizeof(Tp) <= std::max(Footprint, 1UL), "Enlarge the footprint");
-        return true;
+        CETL_DEBUG_ASSERT((0UL < size_bytes) && (size_bytes <= Footprint), "");
+        CETL_DEBUG_ASSERT(0UL == allocated_size_, "This object is expected to be a brand new one.");
+
+        // We need to store (presumably) allocated size b/c this is important
+        // for detection of the "valueless by exception" state in case something goes wrong later
+        // (like in-place value construction failure) - in such failure state
+        // there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        //
+        allocated_size_ = size_bytes;
+
+        return inplace_buffer_;
     }
 
-    CETL_NODISCARD bool copy_handlers_from(const base_storage&) noexcept
+    CETL_NODISCARD bool copy_raw_storage_from(const base_storage& src) noexcept
     {
-        return true;
+        CETL_DEBUG_ASSERT(0UL == allocated_size_, "This object is expected to be a brand new (or reset) one.");
+
+        allocated_size_ = src.allocated_size_;
+
+        return allocated_size_ != 0UL;
     }
 
-    CETL_NODISCARD bool move_handlers_from(const base_storage&) noexcept
+    CETL_NODISCARD bool move_raw_storage_from(const base_storage& src) noexcept
     {
-        return false;
+        allocated_size_ = src.allocated_size_;
+
+        return allocated_size_ == 0UL;
     }
 
     void reset() noexcept
     {
-        // Nothing to reset - we have in-place buffer.
+        allocated_size_ = 0UL;
     }
 
-    CETL_NODISCARD void* get_raw_storage() noexcept
+    CETL_NODISCARD std::size_t get_allocated_size() const noexcept
     {
+        return allocated_size_;
+    }
+
+    CETL_NODISCARD constexpr void* get_raw_storage() noexcept
+    {
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+
         return inplace_buffer_;
     }
 
-    CETL_NODISCARD const void* get_raw_storage() const noexcept
+    CETL_NODISCARD constexpr const void* get_raw_storage() const noexcept
     {
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+
         return inplace_buffer_;
     }
 
@@ -121,8 +147,13 @@ private:
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
     // could be useful during debugging/troubleshooting.
     alignas(Alignment) cetl::byte inplace_buffer_[std::max(Footprint, 1UL)];
-};
 
+    // Stores the size of the allocated space in the buffer for a value.
+    // The size could be less than `Footprint`, but never zero except when variant is empty (valid and valueless).
+    std::size_t allocated_size_{0UL};
+};
+//
+// PMR only case.
 template <std::size_t Alignment>
 struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 {
@@ -156,62 +187,64 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         return mem_res;
     }
 
-    /// @brief Pre-allocates destination buffer for target `Tp` type.
+    /// @brief Allocates enough raw storage for a target value.
     ///
-    /// @return `true` if the allocation was successful, `false` otherwise (the out-of-memory condition).
+    /// The storage is always attempted to be allocated from PMR. If it fails then this object
+    /// will be in the valueless by exception state (see `valueless_by_exception()` method).
     ///
-    template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    /// @param size_bytes Size of the type in bytes.
+    /// @return Pointer to the successfully allocated buffer.
+    ///         Could be `nullptr` if PMR allocation fails and c++ exceptions are disabled.
+    /// @throws `std::bad_alloc` if PMR allocation fails and c++ exceptions are enabled.
+    ///
+    CETL_NODISCARD void* alloc_new_raw_storage(const std::size_t size_bytes)
     {
+        CETL_DEBUG_ASSERT(0UL < size_bytes, "");
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
                           "This object is expected to be a brand new one.");
 
-        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(sizeof(Tp), Alignment));
-        const bool result = (nullptr != allocated_buffer_);
-        allocated_size_   = result ? sizeof(Tp) : 0UL;
+        // We need to store (presumably) allocated size, regardless of whether actual allocation below succeeded.
+        // This is important for detection of the "valueless by exception" state in case something goes wrong later
+        // (like the PRM allocation below, or a value construction failure even later) - in such failure state
+        // there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        //
+        allocated_size_ = size_bytes;
 
-        return result;
-    }
-
-    /// @brief Copies memory resource, and if necessary, pre-allocates destination buffer.
-    ///
-    /// @return `true` if the allocation was successful, `false` otherwise (the out-of-memory condition).
-    ///
-    CETL_NODISCARD bool copy_handlers_from(const base_storage& src) noexcept
-    {
-        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
-                          "This object is expected to be empty (either a new or reset one).");
-        CETL_DEBUG_ASSERT((0UL == src.allocated_size_) == (nullptr == src.allocated_buffer_),
-                          "Source object expected to be either empty or with allocated buffer.");
-
-        bool result = true;
-        mem_res_    = src.mem_res_;
-
-        // Source object could be without value.
-        if (src.allocated_size_ > 0UL)
+        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(size_bytes, Alignment));
+        if (nullptr == allocated_buffer_)
         {
-            allocated_buffer_ =
-                static_cast<cetl::byte*>(get_memory_resource()->allocate(src.allocated_size_, Alignment));
-            result          = (nullptr != allocated_buffer_);
-            allocated_size_ = result ? src.allocated_size_ : 0UL;
+            throw_bad_alloc();
         }
 
-        return result;
+        return allocated_buffer_;
+    }
+
+    CETL_NODISCARD bool copy_raw_storage_from(const base_storage& src)
+    {
+        CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
+                          "This object is expected to be a brand new (or reset) one.");
+
+        mem_res_ = src.get_memory_resource();
+
+        // We don't allocate buffer for the valueless variant.
+        if (src.get_allocated_size() == 0UL)
+        {
+            // Later we don't need to call copy-ctor for the valueless variant.
+            return false;
+        }
+
+        return alloc_new_raw_storage(src.allocated_size_) != nullptr;
     }
 
     /// @brief Moves source memory resource and its possible allocated buffer to the destination.
     ///
     /// This is actually a value "move" operation, so there will be no move-ctor call later.
     ///
-    /// @return `true` indicating that the value was moved as well (as part of allocated buffer borrowing)..
+    /// @return `nullptr` indicating that the value was moved as well (as part of allocated buffer borrowing).
     ///
-    CETL_NODISCARD bool move_handlers_from(base_storage& src) noexcept
+    CETL_NODISCARD void* move_raw_storage_from(base_storage& src) noexcept
     {
-        // B/c there is no in-place storage (Footprint == 0), we always move previously allocated buffer.
-        // This essentially "moves" the value in this buffer as well.
-        const bool is_value_moved = true;
-
-        mem_res_          = src.mem_res_;
+        mem_res_          = src.get_memory_resource();
         allocated_size_   = src.allocated_size_;
         allocated_buffer_ = src.allocated_buffer_;
 
@@ -219,19 +252,27 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         src.allocated_size_   = 0UL;
         src.allocated_buffer_ = nullptr;
 
-        return is_value_moved;
+        // B/c there is no in-place storage (Footprint == 0), we always move previously allocated buffer.
+        // This essentially "moves" the value in this buffer as well.
+        return nullptr;
     }
 
     void reset() noexcept
     {
-        CETL_DEBUG_ASSERT((0UL == allocated_size_) == (nullptr == allocated_buffer_), "");
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) || (0UL != allocated_size_), "");
 
         if (nullptr != allocated_buffer_)
         {
             get_memory_resource()->deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
-            allocated_size_   = 0UL;
         }
+
+        allocated_size_ = 0UL;
+    }
+
+    CETL_NODISCARD std::size_t get_allocated_size() const noexcept
+    {
+        return allocated_size_;
     }
 
     CETL_NODISCARD void* get_raw_storage() noexcept
@@ -251,11 +292,13 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
     }
 
 private:
+    // Stores the size of the allocated buffer for a value.
     std::size_t           allocated_size_;
     cetl::byte*           allocated_buffer_;
     pmr::memory_resource* mem_res_;
 };
-
+//
+// Both PMR & In-Place case.
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, true /*IsPmr*/, Alignment>
 {
@@ -289,52 +332,58 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         return mem_res;
     }
 
-    /// @brief Pre-allocates (if necessary) destination buffer for target `Tp` type.
+    /// @brief Allocates enough raw storage for a target type value.
     ///
-    /// @return `true` if the allocation was successful, `false` otherwise (the out-of-memory condition).
+    /// The storage is either in-place buffer (if it fits), or attempted to be allocated from PMR. If it fails
+    /// then this object will be in the valueless by exception state (see `valueless_by_exception()` method).
     ///
-    template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    /// @param size_bytes Size of the type in bytes.
+    /// @return Pointer to the buffer (either in-place or allocated one).
+    ///         Could be `nullptr` if PMR allocation fails and c++ exceptions are disabled.
+    /// @throws `std::bad_alloc` if PMR allocation fails and c++ exceptions are enabled.
+    ///
+    CETL_NODISCARD void* alloc_new_raw_storage(const std::size_t size_bytes)
     {
+        CETL_DEBUG_ASSERT(0UL < size_bytes, "");
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
                           "This object is expected to be a brand new one.");
 
-        bool result = true;
+        // Regardless of the path (in-place or allocated buffer), we need to store (presumably) allocated size.
+        // This is important for detection of the "valueless by exception" state in case something goes wrong later
+        // (like possible PRM allocation below, or a value construction failure even later) -
+        // in such failure state there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        //
+        allocated_size_ = size_bytes;
 
-        if (sizeof(Tp) > Footprint)
+        if (size_bytes <= Footprint)
         {
-            allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(sizeof(Tp), Alignment));
-            result            = (nullptr != allocated_buffer_);
-            allocated_size_   = result ? sizeof(Tp) : 0UL;
+            return inplace_buffer_;
         }
 
-        return result;
+        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(size_bytes, Alignment));
+        if (nullptr == allocated_buffer_)
+        {
+            throw_bad_alloc();
+        }
+
+        return allocated_buffer_;
     }
 
-    /// @brief Copies memory resource, and (if necessary) pre-allocates destination buffer.
-    ///
-    /// @return `true` if the allocation was successful, `false` otherwise (the out-of-memory condition).
-    ///
-    CETL_NODISCARD bool copy_handlers_from(const base_storage& src) noexcept
+    CETL_NODISCARD bool copy_raw_storage_from(const base_storage& src)
     {
         CETL_DEBUG_ASSERT((0UL == allocated_size_) && (nullptr == allocated_buffer_),
-                          "This object is expected to be empty (either a new or reset one).");
-        CETL_DEBUG_ASSERT((0UL == src.allocated_size_) == (nullptr == src.allocated_buffer_),
-                          "Source object expected to be either in-place (including empty) or with allocated buffer.");
+                          "This object is expected to be a brand new (or reset) one.");
 
-        bool result = true;
-        mem_res_    = src.mem_res_;
+        mem_res_ = src.get_memory_resource();
 
-        // Source object could be without allocated value.
-        if (src.allocated_size_ > 0UL)
+        // We don't even try to allocate buffer for the valueless variant.
+        if (src.get_allocated_size() == 0UL)
         {
-            allocated_buffer_ =
-                static_cast<cetl::byte*>(get_memory_resource()->allocate(src.allocated_size_, Alignment));
-            result          = (nullptr != allocated_buffer_);
-            allocated_size_ = result ? src.allocated_size_ : 0UL;
+            // Later we don't need to call copy-ctor for the valueless variant.
+            return false;
         }
 
-        return result;
+        return alloc_new_raw_storage(src.allocated_size_);
     }
 
     /// @brief Moves source memory resource and its possible allocated buffer to the destination.
@@ -342,14 +391,11 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
     /// If source value was stored in the allocated buffer (in contrast to in-place buffer),
     /// the value will be moved as well, so there will be no move-ctor call later.
     ///
-    /// @return `true` indicating that the value was been moved as well (as part of allocated buffer borrowing).
+    /// @return `nullptr` indicating that the value was moved as well (as part of allocated buffer borrowing).
+    ///         Otherwise, result pointer should be used to perform move-ctor call later.
     ///
-    CETL_NODISCARD bool move_handlers_from(base_storage& src) noexcept
+    CETL_NODISCARD void* move_raw_storage_from(base_storage& src) noexcept
     {
-        // Only borrowing of previously allocated buffer moves the value as well.
-        // In contrast, in-place buffer value still remains in the source.
-        const bool is_value_moved = src.allocated_size_ > 0UL;
-
         mem_res_          = src.mem_res_;
         allocated_size_   = src.allocated_size_;
         allocated_buffer_ = src.allocated_buffer_;
@@ -358,33 +404,41 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         src.allocated_size_   = 0UL;
         src.allocated_buffer_ = nullptr;
 
-        return is_value_moved;
+        // Only borrowing of previously allocated buffer moves the value as well.
+        // In contrast, in-place buffer value still remains in the source.
+        return (nullptr != allocated_buffer_) ? nullptr : inplace_buffer_;
     }
 
     void reset() noexcept
     {
-        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
-
         if (nullptr != allocated_buffer_)
         {
             get_memory_resource()->deallocate(allocated_buffer_, allocated_size_, Alignment);
             allocated_buffer_ = nullptr;
-            allocated_size_   = 0UL;
         }
+
+        allocated_size_ = 0UL;
+    }
+
+    CETL_NODISCARD std::size_t get_allocated_size() const noexcept
+    {
+        return allocated_size_;
     }
 
     CETL_NODISCARD void* get_raw_storage() noexcept
     {
-        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) || (Footprint < allocated_size_), "");
 
-        return allocated_size_ != 0UL ? allocated_buffer_ : inplace_buffer_;
+        return (nullptr != allocated_buffer_) ? allocated_buffer_ : inplace_buffer_;
     }
 
     CETL_NODISCARD const void* get_raw_storage() const noexcept
     {
-        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) == (0UL == allocated_size_), "");
+        CETL_DEBUG_ASSERT(0UL != allocated_size_, "");
+        CETL_DEBUG_ASSERT((nullptr == allocated_buffer_) || (Footprint < allocated_size_), "");
 
-        return allocated_size_ != 0UL ? allocated_buffer_ : inplace_buffer_;
+        return (nullptr != allocated_buffer_) ? allocated_buffer_ : inplace_buffer_;
     }
 
 private:
@@ -393,10 +447,15 @@ private:
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same
     // in case of small object optimization - could be useful during debugging/troubleshooting.
     alignas(Alignment) cetl::byte inplace_buffer_[Footprint];
+
+    // Stores the size of the allocated space in a buffer for a value.
+    // The size could be either `<=Footprint` (in-place) or `>Footprint (PMR allocated),
+    // but never zero except when variant is empty (valid and valueless).
     std::size_t           allocated_size_;
     cetl::byte*           allocated_buffer_;
     pmr::memory_resource* mem_res_;
-};
+
+};  // base_storage
 
 // MARK: - Access policy.
 //
@@ -415,24 +474,26 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
         return nullptr != value_destroyer_;
     }
 
-    template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    /// True if the variant is valueless b/c of an exception.
+    ///
+    CETL_NODISCARD constexpr bool valueless_by_exception() const noexcept
     {
-        const bool result = base::template make_handlers<Tp>();
-        if (result)
-        {
-            CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
-            CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
-            CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
+        return !has_value() && (0UL != base::get_allocated_size());
+    }
 
-            value_destroyer_ = [](void* const storage) {
-                const auto ptr = static_cast<Tp*>(storage);
-                ptr->~Tp();
-            };
+    template <typename Tp>
+    void make_handlers() noexcept
+    {
+        CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
+        CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
+        CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
 
-            make_converters<Tp>();
-        }
-        return result;
+        value_destroyer_ = [](void* const storage) {
+            const auto ptr = static_cast<Tp*>(storage);
+            ptr->~Tp();
+        };
+
+        make_converters<Tp>();
     }
 
     template <typename Tp, std::enable_if_t<is_rtti_convertible<Tp>, int> = 0>
@@ -489,33 +550,22 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
         return value_const_converter_(base::get_raw_storage(), type_id_value<ValueType>);
     }
 
-    CETL_NODISCARD bool copy_handlers_from(const base_access& src) noexcept
+    void copy_handlers_from(const base_access& src) noexcept
     {
-        const bool result = base::copy_handlers_from(src);
-        if (result)
-        {
-            value_destroyer_       = src.value_destroyer_;
-            value_converter_       = src.value_converter_;
-            value_const_converter_ = src.value_const_converter_;
-        }
-        return result;
-    }
-
-    bool move_handlers_from(base_access& src) noexcept
-    {
-        const bool is_value_moved = base::move_handlers_from(src);
-
         value_destroyer_       = src.value_destroyer_;
         value_converter_       = src.value_converter_;
         value_const_converter_ = src.value_const_converter_;
-        if (is_value_moved)
-        {
-            src.value_destroyer_       = nullptr;
-            src.value_converter_       = nullptr;
-            src.value_const_converter_ = nullptr;
-        }
+    }
 
-        return is_value_moved;
+    void move_handlers_from(base_access& src) noexcept
+    {
+        value_destroyer_       = src.value_destroyer_;
+        value_converter_       = src.value_converter_;
+        value_const_converter_ = src.value_const_converter_;
+
+        src.value_destroyer_       = nullptr;
+        src.value_converter_       = nullptr;
+        src.value_const_converter_ = nullptr;
     }
 
     void reset() noexcept
@@ -576,27 +626,20 @@ struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment
     {
     }
 
-    CETL_NODISCARD bool copy_handlers_from(const base_handlers& src) noexcept
+    void copy_handlers_from(const base_handlers& src) noexcept
     {
-        const bool result = base::copy_handlers_from(src);
-        if (result)
-        {
-            value_copier_ = src.value_copier_;
-        }
-        return result;
-    }
-
-    CETL_NODISCARD bool move_handlers_from(base_handlers& src) noexcept
-    {
-        const bool is_value_moved = base::move_handlers_from(src);
+        base::copy_handlers_from(src);
 
         value_copier_ = src.value_copier_;
-        if (is_value_moved)
-        {
-            src.value_copier_ = nullptr;
-        }
+    }
 
-        return is_value_moved;
+    void move_handlers_from(base_handlers& src) noexcept
+    {
+        base::move_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+
+        src.value_copier_ = nullptr;
     }
 
     void reset() noexcept
@@ -623,27 +666,20 @@ struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment
     {
     }
 
-    CETL_NODISCARD bool copy_handlers_from(const base_handlers& src) noexcept
+    void copy_handlers_from(const base_handlers& src) noexcept
     {
-        const bool result = base::copy_handlers_from(src);
-        if (result)
-        {
-            value_mover_ = src.value_mover_;
-        }
-        return result;
-    }
-
-    CETL_NODISCARD bool move_handlers_from(base_handlers& src) noexcept
-    {
-        const bool is_value_moved = base::move_handlers_from(src);
+        base::copy_handlers_from(src);
 
         value_mover_ = src.value_mover_;
-        if (is_value_moved)
-        {
-            src.value_mover_ = nullptr;
-        }
+    }
 
-        return is_value_moved;
+    void move_handlers_from(base_handlers& src) noexcept
+    {
+        base::move_handlers_from(src);
+
+        value_mover_ = src.value_mover_;
+
+        src.value_mover_ = nullptr;
     }
 
     void reset() noexcept
@@ -670,30 +706,23 @@ struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment,
     {
     }
 
-    CETL_NODISCARD bool copy_handlers_from(const base_handlers& src) noexcept
+    void copy_handlers_from(const base_handlers& src) noexcept
     {
-        const bool result = base::copy_handlers_from(src);
-        if (result)
-        {
-            value_copier_ = src.value_copier_;
-            value_mover_  = src.value_mover_;
-        }
-        return result;
-    }
-
-    CETL_NODISCARD bool move_handlers_from(base_handlers& src) noexcept
-    {
-        const bool is_value_moved = base::move_handlers_from(src);
+        base::copy_handlers_from(src);
 
         value_copier_ = src.value_copier_;
         value_mover_  = src.value_mover_;
-        if (is_value_moved)
-        {
-            src.value_copier_ = nullptr;
-            src.value_mover_  = nullptr;
-        }
+    }
 
-        return is_value_moved;
+    void move_handlers_from(base_handlers& src) noexcept
+    {
+        base::move_handlers_from(src);
+
+        value_copier_ = src.value_copier_;
+        value_mover_  = src.value_mover_;
+
+        src.value_copier_ = nullptr;
+        src.value_mover_  = nullptr;
     }
 
     void reset() noexcept
@@ -764,21 +793,18 @@ struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
     }
 
     template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    void make_handlers() noexcept
     {
         CETL_DEBUG_ASSERT(nullptr == base::value_copier_, "Expected to be empty before making handlers.");
 
-        const bool result = base::template make_handlers<Tp>();
-        if (result)
-        {
-            base::value_copier_ = [](const void* const src, void* const dst) {
-                CETL_DEBUG_ASSERT(nullptr != src, "");
-                CETL_DEBUG_ASSERT(nullptr != dst, "");
+        base::template make_handlers<Tp>();
 
-                new (dst) Tp(*static_cast<const Tp*>(src));
-            };
-        }
-        return result;
+        base::value_copier_ = [](const void* const src, void* const dst) {
+            CETL_DEBUG_ASSERT(nullptr != src, "");
+            CETL_DEBUG_ASSERT(nullptr != dst, "");
+
+            new (dst) Tp(*static_cast<const Tp*>(src));
+        };
     }
 
 private:
@@ -788,16 +814,16 @@ private:
     {
         CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before copying from source.");
 
-        if (!base::copy_handlers_from(src))
+        if (void* const dst_raw_storage = base::copy_raw_storage_from(src))
         {
-            throw_bad_alloc();
-        }
+            if (src.has_value())
+            {
+                CETL_DEBUG_ASSERT(nullptr != src.value_copier_, "");
 
-        if (src.has_value())
-        {
-            CETL_DEBUG_ASSERT(nullptr != base::value_copier_, "");
+                src.value_copier_(src.get_raw_storage(), dst_raw_storage);
 
-            base::value_copier_(src.get_raw_storage(), base::get_raw_storage());
+                base::copy_handlers_from(src);
+            }
         }
     }
 
@@ -856,21 +882,18 @@ struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
     }
 
     template <typename Tp>
-    CETL_NODISCARD bool make_handlers() noexcept
+    void make_handlers() noexcept
     {
         CETL_DEBUG_ASSERT(nullptr == base::value_mover_, "Expected to be empty before making handlers.");
 
-        const bool result = base::template make_handlers<Tp>();
-        if (result)
-        {
-            base::value_mover_ = [](void* const src, void* const dst) {
-                CETL_DEBUG_ASSERT(nullptr != src, "");
-                CETL_DEBUG_ASSERT(nullptr != dst, "");
+        base::template make_handlers<Tp>();
 
-                new (dst) Tp(std::move(*static_cast<Tp*>(src)));
-            };
-        }
-        return result;
+        base::value_mover_ = [](void* const src, void* const dst) {
+            CETL_DEBUG_ASSERT(nullptr != src, "");
+            CETL_DEBUG_ASSERT(nullptr != dst, "");
+
+            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
+        };
     }
 
 private:
@@ -880,15 +903,17 @@ private:
     {
         CETL_DEBUG_ASSERT(!base::has_value(), "Expected to be empty before moving from source.");
 
-        const bool is_value_moved = base::move_handlers_from(src);
-        if (!is_value_moved && src.has_value())
+        if (void* const dst_raw_storage = base::move_raw_storage_from(src))
         {
-            CETL_DEBUG_ASSERT(nullptr != base::value_mover_, "");
+            if (src.has_value())
+            {
+                CETL_DEBUG_ASSERT(nullptr != src.value_mover_, "");
 
-            base::value_mover_(src.get_raw_storage(), base::get_raw_storage());
-
-            src.reset();
+                src.value_mover_(src.get_raw_storage(), dst_raw_storage);
+            }
         }
+
+        base::move_handlers_from(src);
     }
 
 };  // base_move
@@ -1063,7 +1088,7 @@ public:
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
     template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
-    Tp& emplace(Args&&... args)
+    Tp* emplace(Args&&... args)
     {
         reset();
 
@@ -1079,7 +1104,7 @@ public:
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
     template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
-    Tp& emplace(std::initializer_list<Up> list, Args&&... args)
+    Tp* emplace(std::initializer_list<Up> list, Args&&... args)
     {
         reset();
 
@@ -1111,6 +1136,8 @@ public:
         return base::has_value();
     }
 
+    using base::valueless_by_exception;
+
     CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
     {
         static_assert(IsPmr, "Cannot get memory resource from non-PMR unbounded_variant.");
@@ -1133,13 +1160,19 @@ private:
     friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
 
     template <typename Tp, typename... Args>
-    Tp& create(Args&&... args)
+    Tp* create(Args&&... args)
     {
-        if (!base::template make_handlers<Tp>())
+        void* const raw_storage = base::alloc_new_raw_storage(sizeof(Tp));
+        if (nullptr == raw_storage)
         {
-            detail::throw_bad_alloc();
+            return nullptr;
         }
-        return *new (base::get_raw_storage()) Tp(std::forward<Args>(args)...);
+
+        auto* ptr = new (raw_storage) Tp(std::forward<Args>(args)...);
+
+        base::template make_handlers<Tp>();
+
+        return ptr;
     }
 
     template <typename ValueType>
