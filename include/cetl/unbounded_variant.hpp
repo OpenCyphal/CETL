@@ -89,7 +89,8 @@ struct base_storage<Footprint, false /*IsPmr*/, Alignment>
     ///
     CETL_NODISCARD void* alloc_new_raw_storage(const std::size_t size_bytes) noexcept
     {
-        CETL_DEBUG_ASSERT((0UL < size_bytes) && (size_bytes <= Footprint), "");
+        CETL_DEBUG_ASSERT(0UL < size_bytes, "");
+        CETL_DEBUG_ASSERT(size_bytes <= Footprint, "");
         CETL_DEBUG_ASSERT(0UL == value_size_, "This object is expected to be a brand new one.");
 
         // We need to store (presumably) allocated size b/c this is important
