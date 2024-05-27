@@ -1123,8 +1123,6 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
 
 TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
 {
-#if defined(__cpp_exceptions)
-
     side_effect_stats stats;
     {
         using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
@@ -1134,7 +1132,9 @@ TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
             stats_side_effects(op);
             if (op == side_effect_op::Construct)
             {
+#if defined(__cpp_exceptions)
                 throw std::runtime_error("ctor");
+#endif
             }
         };
 
@@ -1142,15 +1142,26 @@ TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
         EXPECT_THAT(t.has_value(), false);
         EXPECT_THAT(t.valueless_by_exception(), false);
 
+#if defined(__cpp_exceptions)
         EXPECT_THROW(sink(t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects)), std::runtime_error);
-    }
-    EXPECT_THAT(stats.constructs, 1);
-    EXPECT_THAT(stats.destructs, 0);
-    EXPECT_THAT(stats.ops, "@");
 
+        EXPECT_THAT(t.has_value(), false);
+        EXPECT_THAT(t.valueless_by_exception(), true);
+        EXPECT_THAT(stats.constructs, 1);
+        EXPECT_THAT(stats.destructs, 0);
+        t.reset();
+        EXPECT_THAT(stats.ops, "@");
 #else
-    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
+        t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects);
+
+        EXPECT_THAT(t.has_value(), true);
+        EXPECT_THAT(t.valueless_by_exception(), false);
+        EXPECT_THAT(stats.constructs, 1);
+        EXPECT_THAT(stats.destructs, 0);
+        t.reset();
+        EXPECT_THAT(stats.ops, "@~");
 #endif
+    }
 }
 
 TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
@@ -1267,10 +1278,13 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor)
     EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_out_of_memory)
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory)
 {
     using ub_var =
-        unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, true /*IsPmr*/>;
+        unbounded_variant<2 /*Footprint*/, false /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, true /*IsPmr*/>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
 
     StrictMock<MemoryResourceMock> mr_mock{};
 
@@ -1286,7 +1300,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_out_of_memory)
         using big_type = std::uint32_t;
 
         EXPECT_CALL(mr_mock, do_allocate(sizeof(big_type), 4))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
                 return mr_.allocate(size_bytes, alignment);
             });
         EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(big_type), 4))
@@ -1295,22 +1309,36 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_out_of_memory)
             });
 
         dst = big_type{13};
+        EXPECT_THAT(dst.has_value(), true);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
     }
 
-#if defined(__cpp_exceptions)
     // Assign even bigger (`double`) type value which requires more than 2 bytes.
     // Emulate that there is no memory enough.
     {
-        using bigger_type = double;
+        MyMovableOnly my_move_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
 
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(bigger_type), 4)).WillOnce(Return(nullptr));
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), 4)).WillOnce(Return(nullptr));
 
-        EXPECT_THROW(sink(dst = bigger_type{3.14}), std::bad_alloc);
-    }
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
+
+        EXPECT_THAT(dst.has_value(), true);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
+#else
+        dst = std::move(my_move_only);
+
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
 #endif
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory)
 {
     const auto Alignment = alignof(std::max_align_t);
     using ub_var = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
@@ -1334,7 +1362,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
 
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
             .Times(2)
-            .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) {
                 return mr_.allocate(size_bytes, alignment);
             });
         EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
@@ -1352,9 +1380,9 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@CC~~~");
 
-#if defined(__cpp_exceptions)
     // Emulate that there is no memory enough.
     {
+        dst = true;
         stats.reset();
 
         MyCopyableOnly my_copy_only{'X', side_effects};
@@ -1362,7 +1390,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
 
         const InSequence seq;
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
                 return mr_.allocate(size_bytes, alignment);
             });
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
@@ -1371,18 +1399,21 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_out_of_memory)
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
+#if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+#else
+        dst = my_copy_only;
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(stats.ops, "@C~");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@C~~");
-#endif
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
 {
-#if defined(__cpp_exceptions)
-
     const auto Alignment = alignof(std::max_align_t);
     using ub_var = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, true /*IsPmr*/>;
 
@@ -1401,21 +1432,21 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_out_of_memory)
         const InSequence seq;
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), Alignment)).WillOnce(Return(nullptr));
 
+#if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
+#else
+        dst = std::move(my_move_only);
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
         EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@~");
-
-#else
-    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
-#endif
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
 {
-#if defined(__cpp_exceptions)
-
     const auto Alignment = alignof(std::max_align_t);
     using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
 
@@ -1424,7 +1455,15 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
 
     StrictMock<MemoryResourceMock> mr_mock{};
 
-    ub_var dst{mr_mock.resource()};
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(bool), Alignment))
+        .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) {
+            return mr_.allocate(size_bytes, alignment);
+        });
+    EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(bool), Alignment))
+        .WillRepeatedly([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            mr_.deallocate(p, size_bytes, alignment);
+        });
+    ub_var dst{mr_mock.resource(), true};
 
     // Emulate that there is no memory enough.
     {
@@ -1433,7 +1472,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
 
         const InSequence seq;
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) -> void* {
+            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
                 return mr_.allocate(size_bytes, alignment);
             });
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
@@ -1442,15 +1481,17 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_out_of_memory)
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
+#if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+#else
+        dst = my_copy_only;
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(stats.ops, "@C~");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@C~~");
-
-#else
-    GTEST_SKIP() << "Not applicable when exceptions are disabled.";
-#endif
 }
 
 }  // namespace
