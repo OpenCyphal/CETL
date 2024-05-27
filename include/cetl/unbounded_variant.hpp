@@ -502,6 +502,8 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename Tp>
     void make_handlers() noexcept
     {
+        static_assert(sizeof(Tp) <= Footprint || IsPmr, "Enlarge the footprint");
+
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
         CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
         CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");

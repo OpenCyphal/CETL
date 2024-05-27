@@ -31,7 +31,7 @@ int main()
 
     // Verify at `cetl::detail::base_storage::make_handlers`
     // ```
-    // static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
+    // static_assert(sizeof(Tp) <= Footprint || IsPmr, "Enlarge the footprint");
     // ```
     test = static_cast<uint16_t>(1);
 
