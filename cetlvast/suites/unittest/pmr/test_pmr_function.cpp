@@ -216,7 +216,7 @@ TEST_F(TestPmrFunction, assign_4_rv_functor)
     f1 = [](const std::string& rhs) { return "A" + rhs; };
     EXPECT_THAT(f1("x"), "Ax");
 
-    function<std::string(const std::string&), 96> f2;
+    function<std::string(const std::string&), 112> f2;
     f2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
     EXPECT_THAT(f2("x"), "AxB");
 
