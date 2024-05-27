@@ -651,14 +651,6 @@ struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment
         base::copy_handlers_from(src);
     }
 
-    void move_handlers_from(base_handlers& src) noexcept
-    {
-        value_copier_     = src.value_copier_;
-        src.value_copier_ = nullptr;
-
-        base::move_handlers_from(src);
-    }
-
     void reset() noexcept
     {
         value_copier_ = nullptr;
@@ -682,13 +674,6 @@ struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment
     explicit base_handlers(pmr::memory_resource* const mem_res)
         : base{mem_res}
     {
-    }
-
-    void copy_handlers_from(const base_handlers& src) noexcept
-    {
-        value_mover_ = src.value_mover_;
-
-        base::copy_handlers_from(src);
     }
 
     void move_handlers_from(base_handlers& src) noexcept
@@ -986,9 +971,10 @@ public:
     }
 
     template <typename ValueType,
-              typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && IsPmr &&
-                                             !pf17::detail::is_in_place_type<ValueType>::value>>
+              typename Tp     = std::decay_t<ValueType>,
+              bool IsPmrAlias = IsPmr,
+              typename        = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && IsPmrAlias &&
+                                                 !pf17::detail::is_in_place_type<ValueType>::value>>
     unbounded_variant(pmr::memory_resource* const mem_res, ValueType&& value)
         : base{mem_res}
     {
@@ -1067,7 +1053,8 @@ public:
     {
         if (this != &rhs)
         {
-            unbounded_variant(rhs).swap(*this);
+            reset();
+            base::operator=(rhs);
         }
         return *this;
     }
@@ -1077,7 +1064,8 @@ public:
     {
         if (this != &rhs)
         {
-            unbounded_variant(std::move(rhs)).swap(*this);
+            reset();
+            base::operator=(std::move(rhs));
         }
         return *this;
     }
@@ -1091,7 +1079,8 @@ public:
               typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value>>
     unbounded_variant& operator=(ValueType&& value)
     {
-        makeVariant(IsPmrT{}, std::forward<ValueType>(value)).swap(*this);
+        reset();
+        create<Tp>(std::forward<ValueType>(value));
         return *this;
     }
 
@@ -1173,18 +1162,6 @@ private:
         base::template make_handlers<Tp>();
 
         return ptr;
-    }
-
-    template <typename ValueType>
-    unbounded_variant makeVariant(std::false_type /*IsPmr*/, ValueType&& value)
-    {
-        return unbounded_variant(std::forward<ValueType>(value));
-    }
-
-    template <typename ValueType>
-    unbounded_variant makeVariant(std::true_type /*IsPmr*/, ValueType&& value)
-    {
-        return unbounded_variant(get_memory_resource(), std::forward<ValueType>(value));
     }
 
     void swapVariants(std::false_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)

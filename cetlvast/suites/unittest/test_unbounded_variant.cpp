@@ -394,6 +394,24 @@ TEST_F(TestPmrUnboundedVariant, ctor_1_default)
     EXPECT_FALSE((unbounded_variant<13, true, true, 1>{}.has_value()));
 }
 
+TEST_F(TestPmrUnboundedVariant, ctor_pmr)
+{
+    EXPECT_FALSE((unbounded_variant<0, false, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, false, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, true, 8, true>{get_mr()}.has_value()));
+
+    EXPECT_FALSE((unbounded_variant<1, false, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, false, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, true, 8, true>{get_mr()}.has_value()));
+
+    EXPECT_FALSE((unbounded_variant<13, false, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, false, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, false, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, true, 8, true>{get_mr()}.has_value()));
+}
+
 TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 {
     // Primitive `int`
@@ -644,33 +662,33 @@ TEST_F(TestPmrUnboundedVariant, assign_1_copy)
 
         ub_var dst{};
         dst = src1;
-        EXPECT_THAT(stats.ops, "@CCC~");
+        EXPECT_THAT(stats.ops, "@CC");
 
         EXPECT_THAT(get<const test&>(src1).value_, 10);
         EXPECT_THAT(get<const test&>(src1).payload_, 'X');
-        EXPECT_THAT(get<const test&>(dst).value_, 30);
+        EXPECT_THAT(get<const test&>(dst).value_, 20);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
 
         const test value2{'Z', side_effects};
-        EXPECT_THAT(stats.ops, "@CCC~@");
+        EXPECT_THAT(stats.ops, "@CC@");
 
         const ub_var src2{value2};
-        EXPECT_THAT(stats.ops, "@CCC~@C");
+        EXPECT_THAT(stats.ops, "@CC@C");
 
         dst = src2;
-        EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~");
+        EXPECT_THAT(stats.ops, "@CC@C~C");
 
         auto dst_ptr = &dst;
         dst          = *dst_ptr;
-        EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~");
+        EXPECT_THAT(stats.ops, "@CC@C~C");
 
         EXPECT_THAT(get<const test&>(src2).value_, 10);
         EXPECT_THAT(get<const test&>(src2).payload_, 'Z');
-        EXPECT_THAT(get<const test&>(dst).value_, 30);
+        EXPECT_THAT(get<const test&>(dst).value_, 20);
         EXPECT_THAT(get<const test&>(dst).payload_, 'Z');
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~~~~~~");
+    EXPECT_THAT(stats.ops, "@CC@C~C~~~~~");
 }
 
 TEST_F(TestPmrUnboundedVariant, assign_2_move)
@@ -715,24 +733,24 @@ TEST_F(TestPmrUnboundedVariant, assign_2_move)
 
         ub_var dst{};
         dst = std::move(src1);
-        EXPECT_THAT(stats.ops, "@M_M_M_");
+        EXPECT_THAT(stats.ops, "@M_M_");
 
         EXPECT_THAT(get_if<test>(&src1), IsNull());
-        EXPECT_THAT(get<const test&>(dst).value_, 3);
+        EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
 
         ub_var src2{test{'Z', side_effects}};
-        EXPECT_THAT(stats.ops, "@M_M_M_@M_");
+        EXPECT_THAT(stats.ops, "@M_M_@M_");
 
         dst = std::move(src2);
-        EXPECT_THAT(stats.ops, "@M_M_M_@M_M_M_M_M_~");
+        EXPECT_THAT(stats.ops, "@M_M_@M_~M_");
 
         EXPECT_THAT(get_if<test>(&src2), IsNull());
-        EXPECT_THAT(get<const test&>(dst).value_, 3);
+        EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'Z');
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@M_M_M_@M_M_M_M_M_~~");
+    EXPECT_THAT(stats.ops, "@M_M_@M_~M_~");
 }
 
 TEST_F(TestPmrUnboundedVariant, assign_3_move_value)
@@ -1010,7 +1028,7 @@ TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
         EXPECT_THAT(get_if<MyMovableOnly>(&test_ubv), IsNull());
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@M_@MM_M_M_~_~");
+    EXPECT_THAT(stats.ops, "@M_@~M_~");
 }
 
 TEST_F(TestPmrUnboundedVariant, swap_copyable)
@@ -1152,7 +1170,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
         t.reset();
         EXPECT_THAT(stats.ops, "@");
 #else
-        t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects);
+        EXPECT_THAT(t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects), NotNull());
 
         EXPECT_THAT(t.has_value(), true);
         EXPECT_THAT(t.valueless_by_exception(), false);
@@ -1180,7 +1198,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
     using ub_var = unbounded_variant<sizeof(MyType)>;
 
     ub_var src;
-    src.emplace<MyType>({'A', 'B', 'C'}, 42);
+    EXPECT_THAT(src.emplace<MyType>({'A', 'B', 'C'}, 42), NotNull());
 
     const auto test = get<MyType>(src);
     EXPECT_THAT(test.size_, 3);
@@ -1219,10 +1237,69 @@ TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
     EXPECT_THAT(dst4.get_memory_resource(), get_mr());
 }
 
-TEST_F(TestPmrUnboundedVariant, pmr_ctor)
+TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
 {
     using ub_var =
         unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
+
+    ub_var dst{get_mr()};
+    EXPECT_THAT(dst.has_value(), false);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = ub_var{get_mr(), 'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    ub_var dst2{};
+    EXPECT_THAT(dst2.get_memory_resource(), cetl::pmr::get_default_resource());
+    dst2 = std::move(dst);
+    EXPECT_THAT(dst2.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst2.has_value(), true);
+
+    dst2 = {};
+    EXPECT_THAT(dst2.has_value(), false);
+    dst2.set_memory_resource(get_mr());
+
+    dst2 = std::uint16_t{0x147};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<std::uint16_t>(dst2), 0x147);
+
+    dst2 = int{-1};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<int>(dst2), -1);
+
+    ub_var dst3{std::move(dst2)};
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<int>(dst3), -1);
+
+    dst3 = true;
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<bool>(dst3), true);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst4{src_empty};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
+
+    ub_var dst5{std::move(dst4)};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_mr());
+
+    dst5 = {};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
+{
+    using ub_var =
+        unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
 
     ub_var dst{get_mr()};
     EXPECT_THAT(dst.has_value(), false);
@@ -1300,9 +1377,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
         using big_type = std::uint32_t;
 
         EXPECT_CALL(mr_mock, do_allocate(sizeof(big_type), 4))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
-                return mr_.allocate(size_bytes, alignment);
-            });
+            .WillOnce(
+                [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
         EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(big_type), 4))
             .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
                 mr_.deallocate(p, size_bytes, alignment);
@@ -1323,15 +1399,11 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
 
 #if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
-
-        EXPECT_THAT(dst.has_value(), true);
-        EXPECT_THAT(dst.valueless_by_exception(), false);
 #else
         dst = std::move(my_move_only);
-
-        EXPECT_THAT(dst.has_value(), false);
-        EXPECT_THAT(dst.valueless_by_exception(), false);
 #endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
@@ -1361,24 +1433,21 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
         EXPECT_THAT(stats.ops, "@");
 
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
-            .Times(2)
-            .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) {
-                return mr_.allocate(size_bytes, alignment);
-            });
+            .WillOnce(
+                [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
         EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
-            .Times(2)
-            .WillRepeatedly([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
                 mr_.deallocate(p, size_bytes, alignment);
             });
 
         dst = my_copy_only;
-        EXPECT_THAT(stats.ops, "@CC~");
+        EXPECT_THAT(stats.ops, "@C");
 
         dst.reset();
-        EXPECT_THAT(stats.ops, "@CC~~");
+        EXPECT_THAT(stats.ops, "@C~");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@CC~~~");
+    EXPECT_THAT(stats.ops, "@C~~");
 
     // Emulate that there is no memory enough.
     {
@@ -1388,16 +1457,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
         MyCopyableOnly my_copy_only{'X', side_effects};
         EXPECT_THAT(stats.ops, "@");
 
-        const InSequence seq;
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
-                return mr_.allocate(size_bytes, alignment);
-            });
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
-        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
-                mr_.deallocate(p, size_bytes, alignment);
-            });
 
 #if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
@@ -1406,10 +1466,10 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
 #endif
         EXPECT_THAT(dst.has_value(), false);
         EXPECT_THAT(dst.valueless_by_exception(), true);
-        EXPECT_THAT(stats.ops, "@C~");
+        EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@C~~");
+    EXPECT_THAT(stats.ops, "@~");
 }
 
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
@@ -1429,7 +1489,6 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
         MyMovableOnly my_move_only{'X', side_effects};
         EXPECT_THAT(stats.ops, "@");
 
-        const InSequence seq;
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), Alignment)).WillOnce(Return(nullptr));
 
 #if defined(__cpp_exceptions)
@@ -1438,7 +1497,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
         dst = std::move(my_move_only);
 #endif
         EXPECT_THAT(dst.has_value(), false);
-        EXPECT_THAT(dst.valueless_by_exception(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
@@ -1456,11 +1515,10 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
     StrictMock<MemoryResourceMock> mr_mock{};
 
     EXPECT_CALL(mr_mock, do_allocate(sizeof(bool), Alignment))
-        .WillRepeatedly([this](std::size_t size_bytes, std::size_t alignment) {
-            return mr_.allocate(size_bytes, alignment);
-        });
+        .WillOnce(
+            [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
     EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(bool), Alignment))
-        .WillRepeatedly([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+        .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
             mr_.deallocate(p, size_bytes, alignment);
         });
     ub_var dst{mr_mock.resource(), true};
@@ -1470,16 +1528,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
         MyCopyableOnly my_copy_only{'X', side_effects};
         EXPECT_THAT(stats.ops, "@");
 
-        const InSequence seq;
-        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](std::size_t size_bytes, std::size_t alignment) {
-                return mr_.allocate(size_bytes, alignment);
-            });
         EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
-        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
-            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
-                mr_.deallocate(p, size_bytes, alignment);
-            });
 
 #if defined(__cpp_exceptions)
         EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
@@ -1488,10 +1537,10 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
 #endif
         EXPECT_THAT(dst.has_value(), false);
         EXPECT_THAT(dst.valueless_by_exception(), true);
-        EXPECT_THAT(stats.ops, "@C~");
+        EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@C~~");
+    EXPECT_THAT(stats.ops, "@~");
 }
 
 }  // namespace
