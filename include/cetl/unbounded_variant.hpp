@@ -1094,7 +1094,6 @@ public:
     Tp* emplace(Args&&... args)
     {
         reset();
-
         return create<Tp>(std::forward<Args>(args)...);
     }
 
@@ -1110,7 +1109,6 @@ public:
     Tp* emplace(std::initializer_list<Up> list, Args&&... args)
     {
         reset();
-
         return create<Tp>(list, std::forward<Args>(args)...);
     }
 

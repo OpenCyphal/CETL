@@ -12,9 +12,10 @@
 
 #include <complex>
 #include <functional>
-#include <string>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <string>
+#include <vector>
 
 // NOLINTBEGIN(*-use-after-move)
 
@@ -543,8 +544,8 @@ TEST_F(TestPmrUnboundedVariant, ctor_3_move)
         EXPECT_THAT(get_if<test>(&src), IsNull());
         EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
-        // EXPECT_THAT(get_if<test>(dst).value_, 2); //< expectedly won't compile (due to !copyable)
-        // EXPECT_THAT(get_if<test&>(dst).value_, 2); //< expectedly won't compile (due to const)
+        // EXPECT_THAT(get<test>(dst).value_, 2); //< expectedly won't compile (due to !copyable)
+        // EXPECT_THAT(get<test&>(dst).value_, 2); //< expectedly won't compile (due to const)
     }
 
     // Copyable only `unbounded_variant`, movable only `unique_ptr`
@@ -1043,7 +1044,7 @@ TEST_F(TestPmrUnboundedVariant, swap_copyable)
     // Self swap
     a.swap(a);
     EXPECT_THAT(get<const test&>(a).payload_, 'A');
-    // EXPECT_THAT(get<MyCopyableAndMovable>(&a), IsNull); //< won't compile expectedly b/c footprint is smaller
+    // EXPECT_THAT(get_if<MyCopyableAndMovable>(&a), IsNull()); //< won't compile expectedly b/c footprint is smaller
 
     a.swap(b);
     EXPECT_THAT(get<test&>(a).payload_, 'B');
@@ -1543,6 +1544,94 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
     EXPECT_THAT(stats.ops, "@~");
 }
 
+TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
+{
+    using test   = MyCopyableOnly;
+    using ub_var = unbounded_variant<0, true, false, alignof(std::max_align_t), true>;
+
+    ub_var empty{};
+    ub_var a{in_place_type_t<test>{}, 'A'};
+    ub_var b{in_place_type_t<test>{}, 'B'};
+
+    // Self swap
+    a.swap(a);
+    EXPECT_THAT(get<const test&>(a).payload_, 'A');
+    EXPECT_THAT(get_if<MyCopyableAndMovable>(&a), IsNull());
+
+    a.swap(b);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(get<test&>(b).payload_, 'A');
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_THAT(get<test&>(empty).payload_, 'B');
+
+    empty.swap(a);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+
+    ub_var another_empty{};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
+{
+    using test   = MyMovableOnly;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), true>;
+
+    ub_var empty{get_mr()};
+    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+    ub_var b{in_place_type_t<test>{}, 'B'};
+    EXPECT_THAT(b.get_memory_resource(), cetl::pmr::get_default_resource());
+
+    // Self swap
+    a.swap(a);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_THAT(get<const test&>(a).payload_, 'A');
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+
+    a.swap(b);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_TRUE(b.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_FALSE(get<test&>(b).moved_);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(get<test&>(b).payload_, 'A');
+    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(b.get_memory_resource(), get_mr());
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_TRUE(empty.has_value());
+    EXPECT_FALSE(get<test&>(empty).moved_);
+    EXPECT_THAT(get<test&>(empty).payload_, 'B');
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+    EXPECT_THAT(empty.get_memory_resource(), cetl::pmr::get_default_resource());
+
+    empty.swap(a);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(empty.get_memory_resource(), get_mr());
+    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
+
+    ub_var another_empty{};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+    EXPECT_THAT(another_empty.get_memory_resource(), get_mr());
+    EXPECT_THAT(empty.get_memory_resource(), cetl::pmr::get_default_resource());
+
+    const ub_var ub_vec{get_mr(), in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
+    EXPECT_THAT(ub_vec.get_memory_resource(), get_mr());
+    EXPECT_THAT(get<const std::vector<char>&>(ub_vec), testing::ElementsAre('A', 'B', 'C'));
+}
+
 }  // namespace
 
 namespace cetl
@@ -1584,6 +1673,9 @@ constexpr type_id type_id_value<Empty> = {10};
 
 template <>
 constexpr type_id type_id_value<std::uint32_t> = {11};
+
+template <>
+constexpr type_id type_id_value<std::vector<char>> = {12};
 
 }  // namespace cetl
 
