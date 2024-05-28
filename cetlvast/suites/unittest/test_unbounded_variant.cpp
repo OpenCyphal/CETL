@@ -298,7 +298,7 @@ protected:
         return &mr_;
     }
 
-    TrackingMemoryResource mr_;
+    cetlvast::TrackingMemoryResource mr_;
 };
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
@@ -1364,7 +1364,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
 
     ub_var dst{mr_mock.resource()};
 
@@ -1419,7 +1419,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
 
     ub_var dst{mr_mock.resource()};
 
@@ -1481,7 +1481,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
 
     ub_var dst{mr_mock.resource()};
 
@@ -1513,7 +1513,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
 
-    StrictMock<MemoryResourceMock> mr_mock{};
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
 
     EXPECT_CALL(mr_mock, do_allocate(sizeof(bool), Alignment))
         .WillOnce(

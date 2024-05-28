@@ -140,7 +140,7 @@ protected:
         return &mr_;
     }
 
-    TrackingMemoryResource mr_;
+    cetlvast::TrackingMemoryResource mr_;
 };
 
 TEST_F(TestPmrInterfacePtr, make_unique_concrete)

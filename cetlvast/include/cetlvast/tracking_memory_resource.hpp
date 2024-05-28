@@ -12,6 +12,9 @@
 #include <ostream>
 #include <vector>
 
+namespace cetlvast
+{
+
 class TrackingMemoryResource final : public cetl::pmr::memory_resource
 {
 public:
@@ -85,5 +88,7 @@ private:
     }
 
 };  // TrackingMemoryResource
+
+} // namespace cetlvast
 
 #endif  // CETLVAST_TRACKING_MEMORY_RESOURCE_HPP_INCLUDED

@@ -11,6 +11,9 @@
 
 #include <gmock/gmock.h>
 
+namespace cetlvast
+{
+
 class MemoryResourceMock : public cetl::pmr::memory_resource
 {
 public:
@@ -57,5 +60,7 @@ public:
     }
 
 };  // MemoryResourceMock
+
+} // namespace cetlvast
 
 #endif  // CETLVAST_MEMORY_RESOURCE_MOCK_HPP_INCLUDED

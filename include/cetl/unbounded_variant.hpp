@@ -96,7 +96,7 @@ struct base_storage<Footprint, false /*IsPmr*/, Alignment>
         // We need to store (presumably) allocated size b/c this is important
         // for detection of the "valueless by exception" state in case something goes wrong later
         // (like in-place value construction failure) - in such failure state
-        // there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        // there will `>0` value size BUT `nullptr` handlers (f.e. `value_destroyer_`).
         //
         value_size_ = size_bytes;
 
@@ -183,13 +183,14 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         return mem_res_;
     }
 
-    pmr::memory_resource* set_memory_resource(pmr::memory_resource* mem_res) noexcept
+    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
 
-        std::swap(mem_res_, mem_res);
-        return mem_res;
+        pmr::memory_resource* tmp = mem_res_;
+        mem_res_                  = mem_res;
+        return tmp;
     }
 
     /// @brief Allocates enough raw storage for a target value.
@@ -211,7 +212,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         // We need to store (presumably) allocated size, regardless of whether actual allocation below succeeded.
         // This is important for detection of the "valueless by exception" state in case something goes wrong later
         // (like the PRM allocation below, or a value construction failure even later) - in such failure state
-        // there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        // there will `>0` value size BUT `nullptr` handlers (f.e. `value_destroyer_`).
         //
         value_size_ = size_bytes;
 
@@ -334,13 +335,14 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         return mem_res_;
     }
 
-    pmr::memory_resource* set_memory_resource(pmr::memory_resource* mem_res) noexcept
+    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
 
-        std::swap(mem_res_, mem_res);
-        return mem_res;
+        pmr::memory_resource* tmp = mem_res_;
+        mem_res_                  = mem_res;
+        return tmp;
     }
 
     /// @brief Allocates enough raw storage for a target type value.
@@ -362,7 +364,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         // Regardless of the path (in-place or allocated buffer), we need to store (presumably) allocated size.
         // This is important for detection of the "valueless by exception" state in case something goes wrong later
         // (like possible PRM allocation below, or a value construction failure even later) -
-        // in such failure state there will `>0` allocated size BUT `nullptr` handlers (f.e. `value_destroyer_`).
+        // in such failure state there will `>0` value size BUT `nullptr` handlers (f.e. `value_destroyer_`).
         //
         value_size_ = size_bytes;
 
@@ -492,7 +494,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     ///
     /// Use `reset` method (or try assign a new value) to recover from this state.
     ///
-    CETL_NODISCARD constexpr bool valueless_by_exception() const noexcept
+    CETL_NODISCARD bool valueless_by_exception() const noexcept
     {
         // Missing destroyer is the sign that there was an attempt store a value (and hence value size is >0),
         // but something went wrong along the way (like PMR allocation or value construction failure).
@@ -918,10 +920,14 @@ private:
 /// \brief The class `unbounded_variant` describes a type-safe container
 ///        for single values of unbounded_variant copy and/or move constructible type.
 ///
-/// \tparam Footprint Maximum size of a contained object (in bytes).
+/// Size of a contained value must be less than or equal to `Footprint` to benefit small object optimization,
+/// and it can't be bigger than `Footprint` in case of disabled Polymorphic Memory Resource (PMR) support.
+///
+/// \tparam Footprint Maximum size of an in-place stored object (in bytes).
 /// \tparam Copyable Determines whether a contained object is copy constructible.
 /// \tparam Movable Determines whether a contained object is move constructible.
 /// \tparam Alignment Alignment of storage for a contained object.
+/// \tparam IsPmr Polymorphic Memory Resource (PMR) support.
 ///
 template <std::size_t Footprint,
           bool        Copyable  = true,
@@ -941,8 +947,14 @@ public:
 
     /// \brief Constructs an empty `unbounded_variant` object.
     ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
     unbounded_variant() = default;
 
+    /// \brief Constructs an empty `unbounded_variant` object with PMR support.
+    ///
+    /// \param mem_res Pointer to a memory resource to be used by the variant.
+    ///
     explicit unbounded_variant(pmr::memory_resource* const mem_res)
         : base{mem_res}
     {
@@ -951,15 +963,29 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object with a copy of the content of `other`.
     ///
+    /// Any failure during the copy operation will result in the "valueless by exception" state.
+    /// In case of enabled PMR support, the memory resource pointer is copied from the `other` variant.
+    ///
     unbounded_variant(const unbounded_variant& other) = default;
 
     /// \brief Constructs an `unbounded_variant` object with the content of `other` using move semantics.
     ///
+    /// Any failure during the move operation will result in the "valueless by exception" state.
+    /// In case of enabled PMR support, the memory resource pointer is copied from the `other` variant.
+    ///
     unbounded_variant(unbounded_variant&& other) noexcept = default;
 
-    /// \brief Constructs an `unbounded_variant` object with `value` using move semantics.
+    /// \brief Constructs an `unbounded_variant` object by forwarding a value into variant's storage.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of disabled PMR support.
+    /// Any failure during the value forwarding will result in the "valueless by exception" state.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
+    ///                   Its size must be less than or equal to `Footprint` in case `IsPmr=false`.
+    /// \param value Value to be stored.
     ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
@@ -970,6 +996,16 @@ public:
         create<Tp>(std::forward<ValueType>(value));
     }
 
+    /// \brief Constructs an `unbounded_variant` object by forwarding a value into variant's storage.
+    ///
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// otherwise the value will be stored into PMR allocated storage.
+    /// Any failure during the value forwarding will result in the "valueless by exception" state.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
+    /// \param mem_res Pointer to a memory resource to be used by the variant.
+    /// \param value Value to be stored.
+    ///
     template <typename ValueType,
               typename Tp     = std::decay_t<ValueType>,
               bool IsPmrAlias = IsPmr,
@@ -983,7 +1019,13 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
+    /// Any failure during the construction will result in the "valueless by exception" state.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
@@ -995,18 +1037,32 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// otherwise the value will be stored into PMR allocated storage.
+    /// Any failure during the construction will result in the "valueless by exception" state.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param mem_res Pointer to a memory resource to be used by the variant.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
-    template <typename ValueType, typename... Args, typename Tp = std::enable_if_t<IsPmr, std::decay_t<ValueType>>>
+    template <typename ValueType,
+              typename... Args,
+              bool IsPmrAlias = IsPmr,
+              typename Tp     = std::enable_if_t<IsPmrAlias, std::decay_t<ValueType>>>
     explicit unbounded_variant(pmr::memory_resource* const mem_res, in_place_type_t<ValueType>, Args&&... args)
         : base{mem_res}
     {
         create<Tp>(std::forward<Args>(args)...);
     }
 
-    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value and initializer list.
+    ///
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
+    /// Any failure during the construction will result in the "valueless by exception" state.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     /// \tparam Up Type of the elements of the initializer list.
@@ -1020,18 +1076,24 @@ public:
         create<Tp>(list, std::forward<Args>(args)...);
     }
 
-    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
+    /// \brief Constructs an `unbounded_variant` object with in place constructed value and initializer list.
+    ///
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// otherwise the value will be stored into PMR allocated storage.
+    /// Any failure during the construction will result in the "valueless by exception" state.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     /// \tparam Up Type of the elements of the initializer list.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+    /// \param mem_res Pointer to a memory resource to be used by the variant.
     /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
     template <typename ValueType,
               typename Up,
               typename... Args,
-              typename Tp = std::enable_if_t<IsPmr, std::decay_t<ValueType>>>
+              bool IsPmrAlias = IsPmr,
+              typename Tp     = std::enable_if_t<IsPmrAlias, std::decay_t<ValueType>>>
     explicit unbounded_variant(pmr::memory_resource* const mem_res,
                                in_place_type_t<ValueType>,
                                std::initializer_list<Up> list,
@@ -1048,7 +1110,11 @@ public:
         reset();
     }
 
-    /// \brief Assigns the content of `rhs` to `*this`.
+    /// \brief Assigns the content of `rhs` to `*this` using copy semantics.
+    ///
+    /// Any failure during the copy operation will result in the "valueless by exception" state.
+    /// In case of enabled PMR support, the memory resource pointer is copied from the `rhs` variant.
+    ///
     unbounded_variant& operator=(const unbounded_variant& rhs)
     {
         if (this != &rhs)
@@ -1060,6 +1126,10 @@ public:
     }
 
     /// \brief Assigns the content of `rhs` to `*this` using move semantics.
+    ///
+    /// Any failure during the move operation will result in the "valueless by exception" state.
+    /// In case of enabled PMR support, the memory resource pointer is copied from the `rhs` variant.
+    ///
     unbounded_variant& operator=(unbounded_variant&& rhs) noexcept
     {
         if (this != &rhs)
@@ -1070,9 +1140,13 @@ public:
         return *this;
     }
 
-    /// \brief Assigns `value` to `*this` using move semantics.
+    /// \brief Assigns `value` to `*this` by forwarding its value.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
+    /// Any failure during the forwarding will result in the "valueless by exception" state.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
     ///
     template <typename ValueType,
               typename Tp = std::decay_t<ValueType>,
@@ -1086,7 +1160,11 @@ public:
 
     /// \brief Emplaces a new value to `*this`.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
+    /// Any failure during the forwarding will result in the "valueless by exception" state.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
@@ -1097,9 +1175,13 @@ public:
         return create<Tp>(std::forward<Args>(args)...);
     }
 
-    /// \brief Emplaces a new value to `*this`.
+    /// \brief Emplaces a new value to `*this` using initializer list.
     ///
-    /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
+    /// Any failure during the emplacement will result in the "valueless by exception" state.
+    ///
+    /// \tparam ValueType Type of the value to be stored.
     /// \tparam Up Type of the elements of the initializer list.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
     /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
@@ -1115,6 +1197,14 @@ public:
     /// \brief Swaps the content of `*this` with the content of `rhs`
     /// using either move (if available) or copy semantics.
     ///
+    /// In case of enabled PMR support, memory resource pointers are swapped as well.
+    ///
+    /// Any failure during the swap could result in the "valueless by exception" state,
+    /// and depending on which stage of swapping the failure happened
+    /// it could affect (invalidate) either of `*this` or `rhs` variants.
+    /// Use `valueless_by_exception()` method to check if a variant is in such failure state,
+    /// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+    ///
     void swap(unbounded_variant& rhs) noexcept(Movable)
     {
         if (this == &rhs)
@@ -1125,6 +1215,8 @@ public:
         swapVariants(IsPmrT{}, IsMovableT{}, rhs);
     }
 
+    /// \brief Gets current memory resource in use by the variant.
+    ///
     CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
     {
         static_assert(IsPmr, "Cannot get memory resource from non-PMR unbounded_variant.");
@@ -1132,6 +1224,10 @@ public:
         return base::get_memory_resource();
     }
 
+    /// \brief Resets the variant to empty state and assigns a new memory resource.
+    ///
+    /// Useful to recover from the "valueless by exception" state (see `swap` method).
+    ///
     void reset(pmr::memory_resource* const mem_res) noexcept
     {
         static_assert(IsPmr, "Cannot reset memory resource to non-PMR unbounded_variant.");

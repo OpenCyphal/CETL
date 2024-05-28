@@ -45,7 +45,7 @@ protected:
         return &mr_;
     }
 
-    TrackingMemoryResource mr_;
+    cetlvast::TrackingMemoryResource mr_;
 };
 
 TEST_F(TestPmrFunction, cpp_reference)
