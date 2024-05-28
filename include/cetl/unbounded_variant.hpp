@@ -1132,11 +1132,12 @@ public:
         return base::get_memory_resource();
     }
 
-    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
+    void reset(pmr::memory_resource* const mem_res) noexcept
     {
-        static_assert(IsPmr, "Cannot set memory resource to non-PMR unbounded_variant.");
+        static_assert(IsPmr, "Cannot reset memory resource to non-PMR unbounded_variant.");
 
-        return base::set_memory_resource(mem_res);
+        base::reset();
+        base::set_memory_resource(mem_res);
     }
 
 private:

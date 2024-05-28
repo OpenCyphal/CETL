@@ -1264,7 +1264,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
 
     dst2 = {};
     EXPECT_THAT(dst2.has_value(), false);
-    dst2.set_memory_resource(get_mr());
+    dst2.reset(get_mr());
 
     dst2 = std::uint16_t{0x147};
     EXPECT_THAT(dst2.has_value(), true);
@@ -1323,7 +1323,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
 
     dst2 = {};
     EXPECT_THAT(dst2.has_value(), false);
-    dst2.set_memory_resource(get_mr());
+    dst2.reset(get_mr());
 
     dst2 = std::uint16_t{0x147};
     EXPECT_THAT(dst2.has_value(), true);
@@ -1539,6 +1539,11 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
         EXPECT_THAT(dst.has_value(), false);
         EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(stats.ops, "@");
+
+        dst.reset();
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
+        EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
     EXPECT_THAT(stats.ops, "@~");
@@ -1630,6 +1635,20 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     const ub_var ub_vec{get_mr(), in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
     EXPECT_THAT(ub_vec.get_memory_resource(), get_mr());
     EXPECT_THAT(get<const std::vector<char>&>(ub_vec), testing::ElementsAre('A', 'B', 'C'));
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_reset_memory_resource)
+{
+    using test   = MyMovableOnly;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), true>;
+
+    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    EXPECT_TRUE(a.has_value());
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+
+    a.reset(cetl::pmr::get_default_resource());
+    EXPECT_FALSE(a.has_value());
+    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
 }
 
 }  // namespace
