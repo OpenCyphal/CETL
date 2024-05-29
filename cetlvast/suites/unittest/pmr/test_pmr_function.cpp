@@ -234,9 +234,9 @@ TEST_F(TestPmrFunction, assign_4_lv_functor)
     f1                                               = l1;
     EXPECT_THAT(f1("x"), "Ax");
 
-    function<std::string(const std::string&), 16> f2;
-    auto                                           l2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
-    f2                                                = l2;
+    function<std::string(const std::string&), 96> f2;
+    auto                                          l2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
+    f2                                               = l2;
     EXPECT_THAT(f2("x"), "AxB");
 
     // Note: we copy assign different type of function (Footprint and IsPmr).
@@ -245,6 +245,22 @@ TEST_F(TestPmrFunction, assign_4_lv_functor)
     EXPECT_THAT(!!f0, true);
     EXPECT_THAT(f0.get_memory_resource(), cetl::pmr::get_default_resource());
     EXPECT_THAT(f2("x"), "123");
+}
+
+TEST_F(TestPmrFunction, swap)
+{
+    using str_function = function<std::string(), 16>;
+
+    str_function fn1{[]() { return print_num(123); }};
+    str_function fn2{[]() { return print_num(456); }};
+
+    EXPECT_THAT(fn1(), "123");
+    EXPECT_THAT(fn2(), "456");
+
+    std::swap(fn1, fn2);
+
+    EXPECT_THAT(fn1(), "456");
+    EXPECT_THAT(fn2(), "123");
 }
 
 TEST_F(TestPmrFunction, pmr_ctor_1_default)

@@ -55,8 +55,13 @@ template <typename Functor, typename Result, typename... Args>
 class functor_handler final : public rtti_helper<functor_handler_typeid_t, function_handler<Result, Args...>>
 {
 public:
-    explicit functor_handler(Functor functor)
+    explicit functor_handler(const Functor& functor)
         : functor_{functor}
+    {
+    }
+
+    explicit functor_handler(Functor&& functor)
+        : functor_{std::move(functor)}
     {
     }
 
@@ -81,11 +86,17 @@ private:
 
 }  // namespace detail
 
+/// @brief A polymorphic function wrapper.
+///
+/// The class is similar to `std::function` but with the following differences:
+/// - it allows to set a small object optimization footprint;
+/// - it doesn't use c++ heap; if needed PMR-enabled version can be used to manage memory.
+///
 template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr>
 class function<Result(Args...), Footprint, IsPmr> final
 {
     template <typename Functor,
-              bool = (!std::is_same<std::remove_cv<std::remove_reference<Functor>>, function>::value) &&
+              bool = (!std::is_same<std::remove_cv_t<std::remove_reference_t<Functor>>, function>::value) &&
                      // TODO: Uncomment when we have `cetl::is_invocable_v`.
                      true /* std::is_invocable_v<Functor, Args...> */>
     struct IsCallable;
@@ -108,11 +119,24 @@ class function<Result(Args...), Footprint, IsPmr> final
 public:
     using result_type = Result;
 
+    /// @brief Creates an empty function.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
     function() noexcept = default;
-    ~function()         = default;
 
+    /// @brief Destroys the std::function instance. If the std::function is not empty, its target is destroyed also.
+    ///
+    ~function() = default;
+
+    /// @brief Creates an empty function.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
     function(std::nullptr_t) noexcept {};
 
+    /// @brief Creates an empty function with specific memory resource.
+    ///
     explicit function(memory_resource* const mem_res)
         : any_handler_{mem_res}
     {
@@ -121,12 +145,27 @@ public:
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
     }
 
+    /// @brief Copies the target of `other` to the target of `*this`.
+    ///
+    /// If `other` is empty, `*this` will be empty right after the call too.
+    /// For PMR-enabled functions, the memory resource is copied as well.
+    ///
+    /// Any failure during the copy operation will result in the "valueless by exception" state.
+    ///
     function(const function& other)
         : any_handler_{other.any_handler_}
         , handler_ptr_{get_if<handler_t>(&any_handler_)}
     {
     }
 
+    /// @brief Moves the target of `other` to the target of `*this`.
+    ///
+    /// If other is empty, *this will be empty right after the call too.
+    /// `other` is in a valid but unspecified state right after the call.
+    /// For PMR-enabled functions, the memory resource is copied as well.
+    ///
+    /// Any failure during the move operation will result in the "valueless by exception" state.
+    ///
     function(function&& other) noexcept
         : any_handler_{std::move(other.any_handler_)}
         , handler_ptr_{get_if<handler_t>(&any_handler_)}
@@ -134,29 +173,53 @@ public:
         other.handler_ptr_ = nullptr;
     }
 
-    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
-    function(Functor functor)
-        : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+    /// @brief Initializes the target with `std::forward<Functor>(functor)`.
+    ///
+    /// In case of enabled PMR support, the default memory resource is used.
+    ///
+    /// Any failure during the construction will result in the "valueless by exception" state.
+    ///
+    template <typename Functor,
+              typename FunctorDecay = std::decay_t<Functor>,
+              typename              = EnableIfLvIsCallable<FunctorDecay>>
+    function(Functor&& functor)
+        : any_handler_{detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<handler_t>(&any_handler_)}
     {
     }
 
-    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
+    /// @brief Initializes the target with `std::forward<Functor>(functor)` and specific memory resource.
+    ///
+    /// Any failure during the construction will result in the "valueless by exception" state.
+    ///
+    template <typename Functor,
+              typename FunctorDecay = std::decay_t<Functor>,
+              typename              = EnableIfLvIsCallable<FunctorDecay>>
     function(memory_resource* const mem_res, Functor&& functor)
-        : any_handler_{mem_res, detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        : any_handler_{mem_res, detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
     {
         static_assert(IsPmr, "Cannot use memory resource with non-PMR function.");
     }
 
-    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
+    /// @brief Sets the target with `std::forward<Functor>(functor)`
+    ///
+    /// Any failure during the set operations will result in the "valueless by exception" state.
+    ///
+    template <typename Functor,
+              typename FunctorDecay = std::decay_t<Functor>,
+              typename              = EnableIfLvIsCallable<FunctorDecay>>
     function& operator=(Functor&& functor)
     {
-        any_handler_ = detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)};
+        any_handler_ = detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)};
         handler_ptr_ = get_if<handler_t>(&any_handler_);
         return *this;
     }
 
+    /// @brief Assigns a copy of target of `other`.
+    ///
+    /// Any failure during the assignment will result in the "valueless by exception" state.
+    ///
     function& operator=(const function& other)
     {
         if (this != &other)
@@ -167,6 +230,10 @@ public:
         return *this;
     }
 
+    /// @brief Moves the target of `other` to `*this`
+    ///
+    /// Any failure during the movement will result in the "valueless by exception" state.
+    ///
     function& operator=(function&& other) noexcept
     {
         if (this != &other)
@@ -178,12 +245,16 @@ public:
         return *this;
     }
 
+    /// @brief Drops the current target. `*this` is empty after the call.
+    ///
     function& operator=(std::nullptr_t) noexcept
     {
         reset();
         return *this;
     }
 
+    /// @brief Checks whether `*this` stores a callable function target, i.e. is not empty.
+    ///
     explicit operator bool() const noexcept
     {
         CETL_DEBUG_ASSERT(any_handler_.has_value() == (nullptr != handler_ptr_), "");
@@ -191,6 +262,12 @@ public:
         return any_handler_.has_value();
     }
 
+    /// @brief Invokes the stored callable function target with the parameters args.
+    ///
+    /// @param args Arguments to pass to the stored callable function target.
+    /// @return None if `Result` is `void`. Otherwise the return value of the invocation of the stored callable object.
+    /// @throws `std::bad_function_call` if `*this` does not store a callable function target, i.e. `!*this == true`.
+    ///
     Result operator()(Args... args) const
     {
         if (!any_handler_.has_value())
@@ -203,12 +280,16 @@ public:
         return handler_ptr_->operator()(args...);
     }
 
+    /// @brief Resets the current target. `*this` is empty after the call.
+    ///
     void reset() noexcept
     {
         any_handler_.reset();
         handler_ptr_ = nullptr;
     }
 
+    /// @brief Resets the current target, and sets specific memory resource. `*this` is empty after the call.
+    ///
     void reset(memory_resource* const mem_res) noexcept
     {
         static_assert(IsPmr, "Cannot reset memory resource to non-PMR function.");
@@ -217,6 +298,14 @@ public:
         handler_ptr_ = nullptr;
     }
 
+    /// @brief Swaps the contents of `*this` and `other`.
+    ///
+    /// Any failure during the swap operation could result in the "valueless by exception" state,
+    /// and depending on which stage of swapping the failure happened
+    /// it could affect (invalidate) either of `*this` or `other` function.
+    /// Use `valueless_by_exception()` method to check if a function is in such failure state,
+    /// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+    ///
     void swap(function& other) noexcept
     {
         any_handler_.swap(other.any_handler_);
@@ -234,6 +323,8 @@ public:
         return any_handler_.valueless_by_exception();
     }
 
+    /// @brief Gets current memory resource in use by the function.
+    ///
     CETL_NODISCARD memory_resource* get_memory_resource() const noexcept
     {
         static_assert(IsPmr, "Cannot get memory resource from non-PMR function.");
@@ -254,14 +345,28 @@ private:
 
 };  // function
 
+}  // namespace pmr
+}  // namespace cetl
+
+namespace std
+{
+
+/// @brief Overloads the `std::swap` algorithm for `cetl::pmr::function`.
+/// Exchanges the state of `lhs` with that of `rhs`. Effectively calls `lhs.swap(rhs)`.
+///
+/// Any failure during the swap operation could result in the "valueless by exception" state,
+/// and depending on which stage of swapping the failure happened
+/// it could affect (invalidate) either of `lhs` or `rhs` function.
+/// Use `valueless_by_exception()` method to check if a function is in such failure state,
+/// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+///
 template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr = false>
-inline void swap(function<Result(Args...), Footprint, IsPmr>& lhs,
-                 function<Result(Args...), Footprint, IsPmr>& rhs) noexcept
+inline void swap(cetl::pmr::function<Result(Args...), Footprint, IsPmr>& lhs,
+                 cetl::pmr::function<Result(Args...), Footprint, IsPmr>& rhs) noexcept
 {
     lhs.swap(rhs);
 }
 
-}  // namespace pmr
-}  // namespace cetl
+}  // namespace std
 
 #endif  // CETL_PMR_FUNCTION_H_INCLUDED
