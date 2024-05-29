@@ -16,6 +16,7 @@
 namespace
 {
 
+using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
 
@@ -163,6 +164,24 @@ TEST_F(TestPmrInterfacePtr, make_unique_interface)
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
 
     obj0.reset();
+}
+
+TEST_F(TestPmrInterfacePtr, up_cast_interface)
+{
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
+
+    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj0");
+    EXPECT_THAT(obj0, NotNull());
+    EXPECT_THAT(obj0->name(), "obj0");
+    EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
+
+    cetl::pmr::InterfacePtr<INamed> obj0_named{std::move(obj0)};
+
+    EXPECT_THAT(obj0, IsNull());
+    EXPECT_THAT(obj0_named, NotNull());
+    EXPECT_THAT(obj0_named->name(), "obj0");
+
+    obj0_named.reset();
 }
 
 }  // namespace

@@ -82,6 +82,13 @@ struct base_storage;
 template <std::size_t Footprint, std::size_t Alignment>
 struct base_storage<Footprint, false /*IsPmr*/, Alignment>
 {
+    template <typename Tp>
+    constexpr void check_footprint() noexcept
+    {
+        // Non-PMR storage can store any value as long as it fits into the footprint.
+        static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
+    }
+
     /// @brief Allocates enough raw storage for a target value.
     ///
     /// @param size_bytes Size of the target type in bytes.
@@ -175,6 +182,12 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         , mem_res_{mem_res}
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+    }
+
+    template <typename Tp>
+    constexpr void check_footprint() noexcept
+    {
+        // PMR-based storage can store any size of the value.
     }
 
     CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
@@ -327,6 +340,12 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         , mem_res_{mem_res}
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
+    }
+
+    template <typename Tp>
+    constexpr void check_footprint() noexcept
+    {
+        // PMR-based storage can store any size of the value.
     }
 
     CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
@@ -504,7 +523,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename Tp>
     void make_handlers() noexcept
     {
-        static_assert(sizeof(Tp) <= Footprint || IsPmr, "Enlarge the footprint");
+        base::template check_footprint<Tp>();
 
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
         CETL_DEBUG_ASSERT(nullptr == value_converter_, "");

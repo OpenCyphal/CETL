@@ -16,6 +16,7 @@
 #include <cstddef>
 #include <exception>
 #include <functional>
+#include <type_traits>
 
 namespace cetl
 {
@@ -78,199 +79,90 @@ private:
 #endif
 }
 
-template <typename Signature, std::size_t Footprint, bool IsPmr>
-class function_base;
-//
-template <typename Result, typename... Args, std::size_t Footprint>
-class function_base<Result(Args...), Footprint, false /*IsPmr*/>
-{
-public:
-    function_base() noexcept                                 = default;
-    ~function_base()                                         = default;
-    function_base& operator=(const function_base& other)     = delete;
-    function_base& operator=(function_base&& other) noexcept = delete;
-
-    function_base(const function_base& other)
-    {
-        if (other.any_handler_.has_value())
-        {
-            any_handler_ = other.any_handler_;
-            handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-
-            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-        }
-    }
-
-    function_base(function_base&& other) noexcept
-    {
-        if (other.any_handler_.has_value())
-        {
-            any_handler_       = std::move(other.any_handler_);
-            handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-            other.handler_ptr_ = nullptr;
-
-            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-        }
-    }
-
-    // TODO: Add Callable constraint;
-    template <typename Functor>
-    function_base(Functor&& functor)
-        : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
-        , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
-    {
-        CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-    }
-
-    // TODO: Add Callable constraint.
-    template <typename Functor>
-    function_base& operator=(Functor&& functor)
-    {
-        function_base tmp{std::forward<Functor>(functor)};
-        tmp.swap(*this);
-        return *this;
-    }
-
-    void swap(function_base& other) noexcept
-    {
-        any_handler_.swap(other.any_handler_);
-
-        handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-        other.handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&other.any_handler_);
-    }
-
-protected:
-    // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
-    // maybe we can make our `function_base` itself `Copyable` & `Movable` parametrized (aka `std::move_only_function`).
-    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), false /*IsPmr*/> any_handler_;
-    detail::function_handler<Result, Args...>*                                           handler_ptr_{nullptr};
-};
-template <typename Result, typename... Args, std::size_t Footprint>
-class function_base<Result(Args...), Footprint, true /*IsPmr*/>
-{
-public:
-    function_base() noexcept
-        : any_handler_{get_default_resource()}
-    {
-    }
-
-    ~function_base()                                         = default;
-    function_base& operator=(const function_base& other)     = delete;
-    function_base& operator=(function_base&& other) noexcept = delete;
-
-    explicit function_base(memory_resource* const mem_res)
-        : any_handler_{mem_res}
-    {
-        CETL_DEBUG_ASSERT(nullptr != mem_res, "");
-    }
-
-    function_base(const function_base& other)
-        : any_handler_{other.any_handler_.get_memory_resource()}
-    {
-        if (other.any_handler_.has_value())
-        {
-            any_handler_ = other.any_handler_;
-            handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-
-            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-        }
-    }
-
-    function_base(function_base&& other) noexcept
-        : any_handler_{other.any_handler_.get_memory_resource()}
-    {
-        if (other.any_handler_.has_value())
-        {
-            any_handler_       = std::move(other.any_handler_);
-            handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-            other.handler_ptr_ = nullptr;
-
-            CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-            CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-        }
-    }
-
-    // TODO: Add Callable constraint.
-    template <typename Functor>
-    function_base(Functor&& functor)
-        : any_handler_{get_default_resource(),
-                       detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
-        , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
-    {
-        CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-    }
-
-    // TODO: Add Callable constraint.
-    template <typename Functor>
-    function_base(memory_resource* const mem_res, Functor&& functor)
-        : any_handler_{mem_res, detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
-        , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
-    {
-        CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
-        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
-    }
-
-    // TODO: Add Callable constraint.
-    template <typename Functor>
-    function_base& operator=(Functor&& functor)
-    {
-        function_base tmp{any_handler_.get_memory_resource(), std::forward<Functor>(functor)};
-        tmp.swap(*this);
-        return *this;
-    }
-
-    void swap(function_base& other) noexcept
-    {
-        any_handler_.swap(other.any_handler_);
-
-        handler_ptr_       = get_if<detail::function_handler<Result, Args...>>(&any_handler_);
-        other.handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&other.any_handler_);
-    }
-
-    CETL_NODISCARD memory_resource* get_memory_resource() const noexcept
-    {
-        return any_handler_.get_memory_resource();
-    }
-
-protected:
-    // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
-    // maybe we can make our `function_base` itself `Copyable` & `Movable` parametrized (aka `std::move_only_function`).
-    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), true /*IsPmr*/> any_handler_;
-    detail::function_handler<Result, Args...>*                                          handler_ptr_{nullptr};
-
-};  // function_base
-
 }  // namespace detail
 
 template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr>
 class function<Result(Args...), Footprint, IsPmr> final
-    : public detail::function_base<Result(Args...), Footprint, IsPmr>
 {
-    using base = detail::function_base<Result(Args...), Footprint, IsPmr>;
+    template <typename Functor,
+              bool = (!std::is_same<std::remove_cv<std::remove_reference<Functor>>, function>::value) &&
+                     // TODO: Uncomment when we have `cetl::is_invocable_v`.
+                     true /* std::is_invocable_v<Functor, Args...> */>
+    struct IsCallable;
+    template <typename Functor>
+    struct IsCallable<Functor, false>
+    {
+        static constexpr bool value = false;
+    };
+    template <typename Functor>
+    struct IsCallable<Functor, true>
+    {
+        static constexpr bool value =
+            std::is_void<Result>::value ||
+            // TODO: Uncomment when we have `cetl::invoke_result_t`.
+            true /* std::is_convertible<std::invoke_result_t<Functor, Args...>, Result>::value */;
+    };
+    template <class Functor>
+    using EnableIfLvIsCallable = std::enable_if_t<IsCallable<Functor&>::value>;
 
 public:
-    using base::base;
-    using base::swap;
-    using base::operator=;
     using result_type = Result;
 
-    function() noexcept                 = default;
-    function(const function& other)     = default;
-    function(function&& other) noexcept = default;
-    ~function()                         = default;
+    function() noexcept = default;
+    ~function()         = default;
 
     function(std::nullptr_t) noexcept {};
+
+    explicit function(memory_resource* const mem_res)
+        : any_handler_{mem_res}
+    {
+        static_assert(IsPmr, "Cannot use memory resource with non-PMR function.");
+
+        CETL_DEBUG_ASSERT(nullptr != mem_res, "");
+    }
+
+    function(const function& other)
+        : any_handler_{other.any_handler_}
+        , handler_ptr_{get_if<handler_t>(&any_handler_)}
+    {
+    }
+
+    function(function&& other) noexcept
+        : any_handler_{std::move(other.any_handler_)}
+        , handler_ptr_{get_if<handler_t>(&any_handler_)}
+    {
+        other.handler_ptr_ = nullptr;
+    }
+
+    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
+    function(Functor functor)
+        : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        , handler_ptr_{get_if<handler_t>(&any_handler_)}
+    {
+    }
+
+    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
+    function(memory_resource* const mem_res, Functor&& functor)
+        : any_handler_{mem_res, detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
+    {
+        static_assert(IsPmr, "Cannot use memory resource with non-PMR function.");
+    }
+
+    template <typename Functor, typename = EnableIfLvIsCallable<Functor>>
+    function& operator=(Functor&& functor)
+    {
+        any_handler_ = detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)};
+        handler_ptr_ = get_if<handler_t>(&any_handler_);
+        return *this;
+    }
 
     function& operator=(const function& other)
     {
         if (this != &other)
         {
-            function(other).swap(*this);
+            any_handler_ = other.any_handler_;
+            handler_ptr_ = get_if<handler_t>(&any_handler_);
         }
         return *this;
     }
@@ -279,32 +171,86 @@ public:
     {
         if (this != &other)
         {
-            function(std::move(other)).swap(*this);
+            any_handler_ = std::move(other.any_handler_);
+            handler_ptr_ = get_if<handler_t>(&any_handler_);
+            other.handler_ptr_ = nullptr;
         }
         return *this;
     }
 
     function& operator=(std::nullptr_t) noexcept
     {
-        base::any_handler_.reset();
-        base::handler_ptr_ = nullptr;
+        reset();
         return *this;
     }
 
     explicit operator bool() const noexcept
     {
-        CETL_DEBUG_ASSERT(base::any_handler_.has_value() == (nullptr != base::handler_ptr_), "");
+        CETL_DEBUG_ASSERT(any_handler_.has_value() == (nullptr != handler_ptr_), "");
 
-        return base::any_handler_.has_value();
+        return any_handler_.has_value();
     }
 
     Result operator()(Args... args) const
     {
-        CETL_DEBUG_ASSERT(base::any_handler_.has_value(), "");
-        CETL_DEBUG_ASSERT(nullptr != base::handler_ptr_, "");
+        if (!any_handler_.has_value())
+        {
+            detail::throw_bad_function_call();
+        }
 
-        return base::handler_ptr_->operator()(args...);
+        CETL_DEBUG_ASSERT(nullptr != handler_ptr_, "");
+
+        return handler_ptr_->operator()(args...);
     }
+
+    void reset() noexcept
+    {
+        any_handler_.reset();
+        handler_ptr_ = nullptr;
+    }
+
+    void reset(memory_resource* const mem_res) noexcept
+    {
+        static_assert(IsPmr, "Cannot reset memory resource to non-PMR function.");
+
+        any_handler_.reset(mem_res);
+        handler_ptr_ = nullptr;
+    }
+
+    void swap(function& other) noexcept
+    {
+        any_handler_.swap(other.any_handler_);
+
+        handler_ptr_       = get_if<handler_t>(&any_handler_);
+        other.handler_ptr_ = get_if<handler_t>(&other.any_handler_);
+    }
+
+    /// True if the function is valueless b/c of an exception.
+    ///
+    /// Use `reset` method (or try assign a new value) to recover from this state.
+    ///
+    CETL_NODISCARD bool valueless_by_exception() const noexcept
+    {
+        return any_handler_.valueless_by_exception();
+    }
+
+    CETL_NODISCARD memory_resource* get_memory_resource() const noexcept
+    {
+        static_assert(IsPmr, "Cannot get memory resource from non-PMR function.");
+
+        return any_handler_.get_memory_resource();
+    }
+
+private:
+    using handler_t = detail::function_handler<Result, Args...>;
+    // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
+    // maybe we can make our `function` itself `Copyable` & `Movable` parametrized (aka
+    // `std::move_only_function`).
+    using any_handler_t =
+        unbounded_variant<Footprint, true /*Copyable*/, true /*Movable*/, alignof(std::max_align_t), IsPmr>;
+
+    any_handler_t any_handler_;
+    handler_t*    handler_ptr_{nullptr};
 
 };  // function
 

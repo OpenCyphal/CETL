@@ -94,7 +94,7 @@ TEST_F(TestPmrFunction, cpp_reference)
 
     // store a call to a member function and object
     using std::placeholders::_1;
-    function<std::string(int), 64> f_add_display2 = std::bind(&Foo::print_add, foo, _1);
+    function<std::string(int), 32> f_add_display2 = std::bind(&Foo::print_add, foo, _1);
     f_add_display2(2);
 
     // store a call to a member function and object ptr
@@ -151,7 +151,7 @@ TEST_F(TestPmrFunction, ctor_3_copy)
 
 TEST_F(TestPmrFunction, ctor_4_move)
 {
-    using str_function = function<std::string(), 24>;
+    using str_function = function<std::string(), 16>;
 
     str_function fn{[]() { return print_num(123); }};
 
@@ -167,7 +167,7 @@ TEST_F(TestPmrFunction, ctor_4_move)
 
 TEST_F(TestPmrFunction, ctor_5_functor_lambda)
 {
-    using str_function = function<std::string(), 24>;
+    using str_function = function<std::string(), 16>;
 
     str_function fn{[]() { return print_num(123); }};
     EXPECT_THAT(!!fn, true);
@@ -176,7 +176,7 @@ TEST_F(TestPmrFunction, ctor_5_functor_lambda)
 
 TEST_F(TestPmrFunction, assign_1_copy)
 {
-    using str_function = function<std::string(), 24>;
+    using str_function = function<std::string(), 16>;
 
     const str_function fn1{[]() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -189,7 +189,7 @@ TEST_F(TestPmrFunction, assign_1_copy)
 
 TEST_F(TestPmrFunction, assign_2_move)
 {
-    using str_function = function<std::string(), 24>;
+    using str_function = function<std::string(), 16>;
 
     str_function fn1{[]() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -202,7 +202,7 @@ TEST_F(TestPmrFunction, assign_2_move)
 
 TEST_F(TestPmrFunction, assign_3_nullptr)
 {
-    using str_function = function<std::string(), 24>;
+    using str_function = function<std::string(), 16>;
     str_function fn{[]() { return print_num(123); }};
     EXPECT_THAT(!!fn, true);
 
@@ -212,11 +212,11 @@ TEST_F(TestPmrFunction, assign_3_nullptr)
 
 TEST_F(TestPmrFunction, assign_4_rv_functor)
 {
-    function<std::string(const std::string&), 24> f1;
+    function<std::string(const std::string&), 16> f1;
     f1 = [](const std::string& rhs) { return "A" + rhs; };
     EXPECT_THAT(f1("x"), "Ax");
 
-    function<std::string(const std::string&), 112> f2;
+    function<std::string(const std::string&), 96> f2;
     f2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
     EXPECT_THAT(f2("x"), "AxB");
 
@@ -229,14 +229,14 @@ TEST_F(TestPmrFunction, assign_4_rv_functor)
 
 TEST_F(TestPmrFunction, assign_4_lv_functor)
 {
-    function<std::string(const std::string&), 24> f1;
+    function<std::string(const std::string&), 16> f1;
     auto                                          l1 = [](const std::string& rhs) { return "A" + rhs; };
     f1                                               = l1;
     EXPECT_THAT(f1("x"), "Ax");
 
-    function<std::string(const std::string&), 80> f2;
-    auto                                          l2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
-    f2                                               = l2;
+    function<std::string(const std::string&), 16> f2;
+    auto                                           l2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
+    f2                                                = l2;
     EXPECT_THAT(f2("x"), "AxB");
 
     // Note: we copy assign different type of function (Footprint and IsPmr).
@@ -315,7 +315,6 @@ TEST_F(TestPmrFunction, pmr_ctor_5_lambda_custom_mr_)
 
 TEST_F(TestPmrFunction, pmr_ctor_memory_resource)
 {
-    // TODO: Remove `static_cast` when Callable constraint will be available.
     const function<void(), 0, true /*IsPmr*/> f1{get_mr()};
     EXPECT_THAT(!f1, Not(false));
     EXPECT_THAT(static_cast<bool>(f1), false);
@@ -411,13 +410,11 @@ TEST_F(TestPmrFunction, pmr_assign_4_rv_functor)
 {
     using str_function = function<std::string(const std::string&), 24, true /*IsPmr*/>;
 
-    // TODO: Remove `static_cast` when Callable constraint will be available.
     str_function f1{get_mr()};
     f1 = [](const std::string& rhs) { return "A" + rhs; };
     EXPECT_THAT(f1("x"), "Ax");
     EXPECT_THAT(f1.get_memory_resource(), get_mr());
 
-    // TODO: Remove `static_cast` when Callable constraint will be available.
     str_function f2{get_mr()};
     f2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
     EXPECT_THAT(f2("x"), "AxB");
@@ -435,14 +432,12 @@ TEST_F(TestPmrFunction, pmr_assign_4_lv_functor)
 {
     using str_function = function<std::string(const std::string&), 24, true /*IsPmr*/>;
 
-    // TODO: Remove `static_cast` when Callable constraint will be available.
     str_function f1{get_mr()};
     auto         l1 = [](const std::string& rhs) { return "A" + rhs; };
     f1              = l1;
     EXPECT_THAT(f1("x"), "Ax");
     EXPECT_THAT(f1.get_memory_resource(), get_mr());
 
-    // TODO: Remove `static_cast` when Callable constraint will be available.
     str_function f2{get_mr()};
     auto         l2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
     f2              = l2;
