@@ -171,8 +171,8 @@ public:
     {
         if (this != &other)
         {
-            any_handler_ = std::move(other.any_handler_);
-            handler_ptr_ = get_if<handler_t>(&any_handler_);
+            any_handler_       = std::move(other.any_handler_);
+            handler_ptr_       = get_if<handler_t>(&any_handler_);
             other.handler_ptr_ = nullptr;
         }
         return *this;
