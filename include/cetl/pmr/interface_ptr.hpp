@@ -36,7 +36,7 @@ public:
     {
     }
 
-    template <typename Down>
+    template <typename Down, typename = std::enable_if_t<std::is_base_of<Interface, Down>::value>>
     PmrInterfaceDeleter(const PmrInterfaceDeleter<Down>& other)
         : deleter_{other.get_memory_resource(), [other](Interface* ptr) {
                        // Delegate to the down class deleter.
