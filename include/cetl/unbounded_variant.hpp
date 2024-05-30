@@ -16,10 +16,6 @@
 #include <algorithm>
 #include <initializer_list>
 
-#ifndef CETL_H_ERASE
-#    include "cetl/cetl.hpp"
-#endif
-
 namespace cetl
 {
 
@@ -151,7 +147,7 @@ private:
     // NB! It's intentional and by design that the `inplace_buffer_` is the very first member of `unbounded_variant`
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
     // could be useful during debugging/troubleshooting.
-    alignas(Alignment) cetl::byte inplace_buffer_[std::max(Footprint, 1UL)];
+    alignas(Alignment) std::uint8_t inplace_buffer_[std::max(Footprint, 1UL)];
 
     // Stores the size of the allocated space in the buffer for a value.
     // The size could be less than `Footprint`, but never zero except when variant is empty (valid and valueless).
@@ -216,7 +212,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         //
         value_size_ = size_bytes;
 
-        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(size_bytes, Alignment));
+        allocated_buffer_ = static_cast<std::uint8_t*>(get_memory_resource()->allocate(size_bytes, Alignment));
         if (nullptr == allocated_buffer_)
         {
             return throw_bad_alloc();
@@ -306,7 +302,7 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 private:
     // Stores the size of the allocated buffer for a value.
     std::size_t           value_size_;
-    cetl::byte*           allocated_buffer_;
+    std::uint8_t*         allocated_buffer_;
     pmr::memory_resource* mem_res_;
 };
 //
@@ -373,7 +369,7 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
             return inplace_buffer_;
         }
 
-        allocated_buffer_ = static_cast<cetl::byte*>(get_memory_resource()->allocate(size_bytes, Alignment));
+        allocated_buffer_ = static_cast<std::uint8_t*>(get_memory_resource()->allocate(size_bytes, Alignment));
         if (nullptr == allocated_buffer_)
         {
             return throw_bad_alloc();
@@ -462,13 +458,13 @@ private:
     // NB! It's intentional and by design that the `inplace_buffer_` is the very first member of `unbounded_variant`
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same
     // in case of small object optimization - could be useful during debugging/troubleshooting.
-    alignas(Alignment) cetl::byte inplace_buffer_[Footprint];
+    alignas(Alignment) std::uint8_t inplace_buffer_[Footprint];
 
     // Stores the size of the allocated space in a buffer for a value.
     // The size could be either `<=Footprint` (in-place) or `>Footprint (PMR allocated),
     // but never zero except when variant is empty (valid and valueless).
     std::size_t           value_size_;
-    cetl::byte*           allocated_buffer_;
+    std::uint8_t*         allocated_buffer_;
     pmr::memory_resource* mem_res_;
 
 };  // base_storage
