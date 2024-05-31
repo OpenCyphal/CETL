@@ -122,8 +122,10 @@ private:
 class TestPmrInterfacePtr : public testing::Test
 {
 protected:
+    using pmr = cetl::pmr::memory_resource;
+
     template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface>;
+    using InterfacePtr = cetl::pmr::InterfacePtr<Interface, pmr>;
 
     void SetUp() override
     {
@@ -136,7 +138,7 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    cetl::pmr::memory_resource* get_mr() noexcept
+    pmr* get_mr() noexcept
     {
         return &mr_;
     }
@@ -175,7 +177,7 @@ TEST_F(TestPmrInterfacePtr, up_cast_interface)
     EXPECT_THAT(obj0->name(), "obj0");
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
 
-    cetl::pmr::InterfacePtr<INamed> obj0_named{std::move(obj0)};
+    cetl::pmr::InterfacePtr<INamed, cetl::pmr::memory_resource> obj0_named{std::move(obj0)};
 
     EXPECT_THAT(obj0, IsNull());
     EXPECT_THAT(obj0_named, NotNull());

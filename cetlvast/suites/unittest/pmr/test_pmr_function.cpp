@@ -25,14 +25,12 @@ using testing::IsEmpty;
 class TestPmrFunction : public testing::Test
 {
 protected:
-    void SetUp() override {}
+    using pmr = cetl::pmr::memory_resource;
 
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
-
-        cetl::pmr::set_default_resource(nullptr);
     }
 
     static std::string print_num(int i)
@@ -40,9 +38,14 @@ protected:
         return testing::PrintToString(i);
     }
 
-    cetl::pmr::memory_resource* get_mr() noexcept
+    pmr* get_mr() noexcept
     {
         return &mr_;
+    }
+
+    pmr* get_default_mr() noexcept
+    {
+        return cetl::pmr::get_default_resource();
     }
 
     cetlvast::TrackingMemoryResource mr_;
@@ -121,14 +124,7 @@ TEST_F(TestPmrFunction, cpp_reference)
 
 TEST_F(TestPmrFunction, ctor_1_default)
 {
-    const function<void(), 0> f1{};
-    EXPECT_THAT(!f1, Not(false));
-    EXPECT_THAT(static_cast<bool>(f1), false);
-}
-
-TEST_F(TestPmrFunction, ctor_2_nullptr)
-{
-    const function<void(), 0> f1{nullptr};
+    const function<void(), 1> f1{};
     EXPECT_THAT(!f1, Not(false));
     EXPECT_THAT(static_cast<bool>(f1), false);
 }
@@ -220,8 +216,8 @@ TEST_F(TestPmrFunction, assign_4_rv_functor)
     f2 = [f1](const std::string& rhs) { return f1(rhs) + "B"; };
     EXPECT_THAT(f2("x"), "AxB");
 
-    // Note: we move assign different type of function (Footprint and IsPmr).
-    function<std::string(const std::string&), 0, true /*IsPmr*/> f0{[](const std::string&) { return "123"; }};
+    // Note: we move assign different type of function (Footprint and Pmr).
+    function<std::string(const std::string&), 0, pmr> f0{get_default_mr(), [](const std::string&) { return "123"; }};
     f2 = std::move(f0);
     EXPECT_THAT(!!f0, false);
     EXPECT_THAT(f2("x"), "123");
@@ -239,11 +235,12 @@ TEST_F(TestPmrFunction, assign_4_lv_functor)
     f2                                               = l2;
     EXPECT_THAT(f2("x"), "AxB");
 
-    // Note: we copy assign different type of function (Footprint and IsPmr).
-    const function<std::string(const std::string&), 0, true /*IsPmr*/> f0{[](const std::string&) { return "123"; }};
+    // Note: we copy assign different type of function (Footprint and Pmr).
+    const function<std::string(const std::string&), 0, pmr> f0{get_default_mr(),
+                                                               [](const std::string&) { return "123"; }};
     f2 = f0;
     EXPECT_THAT(!!f0, true);
-    EXPECT_THAT(f0.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(f0.get_memory_resource(), get_default_mr());
     EXPECT_THAT(f2("x"), "123");
 }
 
@@ -265,23 +262,15 @@ TEST_F(TestPmrFunction, swap)
 
 TEST_F(TestPmrFunction, pmr_ctor_1_default)
 {
-    const function<void(), 0, true /*IsPmr*/> f1;
+    const function<void(), 0, pmr> f1{get_default_mr()};
     EXPECT_THAT(!f1, Not(false));
     EXPECT_THAT(static_cast<bool>(f1), false);
-    EXPECT_THAT(f1.get_memory_resource(), cetl::pmr::get_default_resource());
-}
-
-TEST_F(TestPmrFunction, pmr_ctor_2_nullptr)
-{
-    const function<void(), 0, true /*IsPmr*/> f1{nullptr};
-    EXPECT_THAT(!f1, Not(false));
-    EXPECT_THAT(static_cast<bool>(f1), false);
-    EXPECT_THAT(f1.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(f1.get_memory_resource(), get_default_mr());
 }
 
 TEST_F(TestPmrFunction, pmr_ctor_3_copy)
 {
-    using str_function = function<std::string(), 24, true /*IsPmr*/>;
+    using str_function = function<std::string(), 24, pmr>;
     const str_function fn{get_mr(), std::bind(print_num, 123)};
 
     str_function fn_copy{fn};
@@ -297,7 +286,7 @@ TEST_F(TestPmrFunction, pmr_ctor_3_copy)
 
 TEST_F(TestPmrFunction, pmr_ctor_4_move)
 {
-    using str_function = function<std::string(), 24, true /*IsPmr*/>;
+    using str_function = function<std::string(), 24, pmr>;
     str_function fn{get_mr(), []() { return print_num(123); }};
 
     str_function fn_moved{std::move(fn)};
@@ -313,16 +302,16 @@ TEST_F(TestPmrFunction, pmr_ctor_4_move)
 
 TEST_F(TestPmrFunction, pmr_ctor_5_lambda_default_mr_)
 {
-    using str_function = function<std::string(), 24, true /*IsPmr*/>;
-    str_function fn{[]() { return print_num(123); }};
+    using str_function = function<std::string(), 24, pmr>;
+    str_function fn{get_default_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn, true);
     EXPECT_THAT(fn(), "123");
-    EXPECT_THAT(fn.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(fn.get_memory_resource(), get_default_mr());
 }
 
 TEST_F(TestPmrFunction, pmr_ctor_5_lambda_custom_mr_)
 {
-    using str_function = function<std::string(), 0, true /*IsPmr*/>;
+    using str_function = function<std::string(), 0, pmr>;
     str_function fn{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn, true);
     EXPECT_THAT(fn(), "123");
@@ -331,14 +320,14 @@ TEST_F(TestPmrFunction, pmr_ctor_5_lambda_custom_mr_)
 
 TEST_F(TestPmrFunction, pmr_ctor_memory_resource)
 {
-    const function<void(), 0, true /*IsPmr*/> f1{get_mr()};
+    const function<void(), 0, pmr> f1{get_mr()};
     EXPECT_THAT(!f1, Not(false));
     EXPECT_THAT(static_cast<bool>(f1), false);
 }
 
 TEST_F(TestPmrFunction, pmr_assign_1_copy_fit)
 {
-    using str_function = function<std::string(), 32, true /*IsPmr*/>;
+    using str_function = function<std::string(), 32, pmr>;
 
     const str_function fn1{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -358,7 +347,7 @@ TEST_F(TestPmrFunction, pmr_assign_1_copy_fit)
 
 TEST_F(TestPmrFunction, pmr_assign_1_copy_nofit)
 {
-    using str_function = function<std::string(), 1, true /*IsPmr*/>;
+    using str_function = function<std::string(), 1, pmr>;
 
     const str_function fn1{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -379,7 +368,7 @@ TEST_F(TestPmrFunction, pmr_assign_1_copy_nofit)
 
 TEST_F(TestPmrFunction, pmr_assign_2_move_fit)
 {
-    using str_function = function<std::string(), 32, true /*IsPmr*/>;
+    using str_function = function<std::string(), 32, pmr>;
 
     str_function fn1{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -396,7 +385,7 @@ TEST_F(TestPmrFunction, pmr_assign_2_move_fit)
 
 TEST_F(TestPmrFunction, pmr_assign_2_move_nofit)
 {
-    using str_function = function<std::string(), 1, true /*IsPmr*/>;
+    using str_function = function<std::string(), 1, pmr>;
 
     str_function fn1{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn1, true);
@@ -413,7 +402,7 @@ TEST_F(TestPmrFunction, pmr_assign_2_move_nofit)
 
 TEST_F(TestPmrFunction, pmr_assign_3_nullptr)
 {
-    using str_function = function<std::string(), 24, true /*IsPmr*/>;
+    using str_function = function<std::string(), 24, pmr>;
     str_function fn{get_mr(), []() { return print_num(123); }};
     EXPECT_THAT(!!fn, true);
 
@@ -424,7 +413,7 @@ TEST_F(TestPmrFunction, pmr_assign_3_nullptr)
 
 TEST_F(TestPmrFunction, pmr_assign_4_rv_functor)
 {
-    using str_function = function<std::string(const std::string&), 24, true /*IsPmr*/>;
+    using str_function = function<std::string(const std::string&), 24, pmr>;
 
     str_function f1{get_mr()};
     f1 = [](const std::string& rhs) { return "A" + rhs; };
@@ -436,8 +425,8 @@ TEST_F(TestPmrFunction, pmr_assign_4_rv_functor)
     EXPECT_THAT(f2("x"), "AxB");
     EXPECT_THAT(f2.get_memory_resource(), get_mr());
 
-    // Note: we assign different type of function (different Footprint and IsPmr).
-    function<std::string(const std::string&), 16, false /*IsPmr*/> f0{[](const std::string&) { return "123"; }};
+    // Note: we assign different type of function (different Footprint and Pmr).
+    function<std::string(const std::string&), 16, void /*Pmr*/> f0{[](const std::string&) { return "123"; }};
     f2 = std::move(f0);
     EXPECT_THAT(!!f0, false);
     EXPECT_THAT(f2("x"), "123");
@@ -446,7 +435,7 @@ TEST_F(TestPmrFunction, pmr_assign_4_rv_functor)
 
 TEST_F(TestPmrFunction, pmr_assign_4_lv_functor)
 {
-    using str_function = function<std::string(const std::string&), 24, true /*IsPmr*/>;
+    using str_function = function<std::string(const std::string&), 24, pmr>;
 
     str_function f1{get_mr()};
     auto         l1 = [](const std::string& rhs) { return "A" + rhs; };
@@ -460,8 +449,8 @@ TEST_F(TestPmrFunction, pmr_assign_4_lv_functor)
     EXPECT_THAT(f2("x"), "AxB");
     EXPECT_THAT(f2.get_memory_resource(), get_mr());
 
-    // Note: we copy assign different type of function (Footprint and IsPmr).
-    const function<std::string(const std::string&), 16, false /*IsPmr*/> f0{[](const std::string&) { return "123"; }};
+    // Note: we copy assign different type of function (Footprint and Pmr).
+    const function<std::string(const std::string&), 16, void /*Pmr*/> f0{[](const std::string&) { return "123"; }};
     f2 = f0;
     EXPECT_THAT(!!f0, true);
     EXPECT_THAT(f2("x"), "123");

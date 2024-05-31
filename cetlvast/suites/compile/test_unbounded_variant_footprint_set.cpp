@@ -29,9 +29,9 @@ int main()
 
 #ifndef CETLVAST_COMPILETEST_PRECHECK
 
-    // Verify at `cetl::detail::base_storage::make_handlers`
+    // Verify at `cetl::detail::base_storage::check_footprint` (called from `base_access::make_handlers()`).
     // ```
-    // static_assert(sizeof(Tp) <= Footprint || IsPmr, "Enlarge the footprint");
+    // static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
     // ```
     test = static_cast<uint16_t>(1);
 

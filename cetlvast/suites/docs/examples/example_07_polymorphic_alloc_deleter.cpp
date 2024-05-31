@@ -134,7 +134,7 @@ class example_07_polymorphic_alloc_deleter : public testing::Test
 {
 protected:
     template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface>;
+    using InterfacePtr = cetl::pmr::InterfacePtr<Interface, cetl::pmr::memory_resource>;
 
     void SetUp() override
     {

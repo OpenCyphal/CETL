@@ -6,11 +6,6 @@
 #ifndef CETL_PMR_FUNCTION_H_INCLUDED
 #define CETL_PMR_FUNCTION_H_INCLUDED
 
-#ifndef CETL_H_ERASE
-#    include "cetl/cetl.hpp"
-#endif
-
-#include "cetl/pf17/cetlpf.hpp"
 #include "cetl/unbounded_variant.hpp"
 
 #include <cstddef>
@@ -23,7 +18,7 @@ namespace cetl
 namespace pmr
 {
 
-template <typename Signature, std::size_t Footprint, bool IsPmr = false>
+template <typename Signature, std::size_t Footprint, typename Pmr = void>
 class function;
 
 /// Internal implementation details. Not supposed to be used directly by the users of the library.
@@ -92,8 +87,8 @@ private:
 /// - it allows to set a small object optimization footprint;
 /// - it doesn't use c++ heap; if needed PMR-enabled version can be used to manage memory.
 ///
-template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr>
-class function<Result(Args...), Footprint, IsPmr> final
+template <typename Result, typename... Args, std::size_t Footprint, typename Pmr>
+class function<Result(Args...), Footprint, Pmr> final
 {
     template <typename Functor,
               bool = (!std::is_same<std::remove_cv_t<std::remove_reference_t<Functor>>, function>::value) &&
@@ -121,27 +116,21 @@ public:
 
     /// @brief Creates an empty function.
     ///
-    /// In case of enabled PMR support, the default memory resource is used.
-    ///
-    function() noexcept = default;
+    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfNotPmrT<PmrAlias>>
+    function() noexcept
+    {
+    }
 
     /// @brief Destroys the std::function instance. If the std::function is not empty, its target is destroyed also.
     ///
     ~function() = default;
 
-    /// @brief Creates an empty function.
-    ///
-    /// In case of enabled PMR support, the default memory resource is used.
-    ///
-    function(std::nullptr_t) noexcept {};
-
     /// @brief Creates an empty function with specific memory resource.
     ///
-    explicit function(memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    explicit function(Pmr* const mem_res)
         : any_handler_{mem_res}
     {
-        static_assert(IsPmr, "Cannot use memory resource with non-PMR function.");
-
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
     }
 
@@ -175,13 +164,13 @@ public:
 
     /// @brief Initializes the target with `std::forward<Functor>(functor)`.
     ///
-    /// In case of enabled PMR support, the default memory resource is used.
-    ///
     /// Any failure during the construction will result in the "valueless by exception" state.
     ///
     template <typename Functor,
               typename FunctorDecay = std::decay_t<Functor>,
-              typename              = EnableIfLvIsCallable<FunctorDecay>>
+              typename              = EnableIfLvIsCallable<FunctorDecay>,
+              typename PmrAlias     = Pmr,
+              typename              = cetl::detail::EnableIfNotPmrT<PmrAlias>>
     function(Functor&& functor)
         : any_handler_{detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<handler_t>(&any_handler_)}
@@ -194,12 +183,13 @@ public:
     ///
     template <typename Functor,
               typename FunctorDecay = std::decay_t<Functor>,
-              typename              = EnableIfLvIsCallable<FunctorDecay>>
-    function(memory_resource* const mem_res, Functor&& functor)
+              typename              = EnableIfLvIsCallable<FunctorDecay>,
+              typename PmrAlias     = Pmr,
+              typename              = cetl::detail::EnableIfPmrT<PmrAlias>>
+    function(Pmr* const mem_res, Functor&& functor)
         : any_handler_{mem_res, detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
     {
-        static_assert(IsPmr, "Cannot use memory resource with non-PMR function.");
     }
 
     /// @brief Sets the target with `std::forward<Functor>(functor)`
@@ -290,10 +280,9 @@ public:
 
     /// @brief Resets the current target, and sets specific memory resource. `*this` is empty after the call.
     ///
-    void reset(memory_resource* const mem_res) noexcept
+    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    void reset(Pmr* const mem_res) noexcept
     {
-        static_assert(IsPmr, "Cannot reset memory resource to non-PMR function.");
-
         any_handler_.reset(mem_res);
         handler_ptr_ = nullptr;
     }
@@ -304,7 +293,7 @@ public:
     /// and depending on which stage of swapping the failure happened
     /// it could affect (invalidate) either of `*this` or `other` function.
     /// Use `valueless_by_exception()` method to check if a function is in such failure state,
-    /// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+    /// and `reset` (or `reset(Pmr*)`) method to recover from it.
     ///
     void swap(function& other) noexcept
     {
@@ -325,10 +314,9 @@ public:
 
     /// @brief Gets current memory resource in use by the function.
     ///
-    CETL_NODISCARD memory_resource* get_memory_resource() const noexcept
+    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
-        static_assert(IsPmr, "Cannot get memory resource from non-PMR function.");
-
         return any_handler_.get_memory_resource();
     }
 
@@ -337,8 +325,7 @@ private:
     // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
     // maybe we can make our `function` itself `Copyable` & `Movable` parametrized (aka
     // `std::move_only_function`).
-    using any_handler_t =
-        unbounded_variant<Footprint, true /*Copyable*/, true /*Movable*/, alignof(std::max_align_t), IsPmr>;
+    using any_handler_t = unbounded_variant<Footprint, true /*Copy*/, true /*Move*/, alignof(std::max_align_t), Pmr>;
 
     any_handler_t any_handler_;
     handler_t*    handler_ptr_{nullptr};
@@ -358,11 +345,11 @@ namespace std
 /// and depending on which stage of swapping the failure happened
 /// it could affect (invalidate) either of `lhs` or `rhs` function.
 /// Use `valueless_by_exception()` method to check if a function is in such failure state,
-/// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+/// and `reset` (or `reset(Pmr*)`) method to recover from it.
 ///
-template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr = false>
-inline void swap(cetl::pmr::function<Result(Args...), Footprint, IsPmr>& lhs,
-                 cetl::pmr::function<Result(Args...), Footprint, IsPmr>& rhs) noexcept
+template <typename Result, typename... Args, std::size_t Footprint, typename Pmr = void>
+inline void swap(cetl::pmr::function<Result(Args...), Footprint, Pmr>& lhs,
+                 cetl::pmr::function<Result(Args...), Footprint, Pmr>& rhs) noexcept
 {
     lhs.swap(rhs);
 }

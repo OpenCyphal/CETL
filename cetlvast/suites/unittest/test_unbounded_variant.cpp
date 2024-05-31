@@ -287,15 +287,22 @@ struct Empty
 class TestPmrUnboundedVariant : public testing::Test
 {
 protected:
+    using pmr = cetl::pmr::memory_resource;
+
     void TearDown() override
     {
         EXPECT_THAT(mr_.allocations, IsEmpty());
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    cetl::pmr::memory_resource* get_mr() noexcept
+    pmr* get_mr() noexcept
     {
         return &mr_;
+    }
+
+    pmr* get_default_mr() noexcept
+    {
+        return cetl::pmr::get_default_resource();
     }
 
     cetlvast::TrackingMemoryResource mr_;
@@ -376,12 +383,6 @@ TEST_F(TestPmrUnboundedVariant, cppref_example)
 
 TEST_F(TestPmrUnboundedVariant, ctor_1_default)
 {
-    EXPECT_FALSE((unbounded_variant<0>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, false>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, false, true>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, false>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, true, 1>{}.has_value()));
-
     EXPECT_FALSE((unbounded_variant<1>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<1, false>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<1, false, true>{}.has_value()));
@@ -395,22 +396,22 @@ TEST_F(TestPmrUnboundedVariant, ctor_1_default)
     EXPECT_FALSE((unbounded_variant<13, true, true, 1>{}.has_value()));
 }
 
-TEST_F(TestPmrUnboundedVariant, ctor_pmr)
+TEST_F(TestPmrUnboundedVariant, ctor_1_default_pmr)
 {
-    EXPECT_FALSE((unbounded_variant<0, false, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, false, true, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, true, 8, pmr>{get_mr()}.has_value()));
 
-    EXPECT_FALSE((unbounded_variant<1, false, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<1, false, true, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<1, true, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<1, true, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, true, 8, pmr>{get_mr()}.has_value()));
 
-    EXPECT_FALSE((unbounded_variant<13, false, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<13, false, true, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<13, true, false, 8, true>{get_mr()}.has_value()));
-    EXPECT_FALSE((unbounded_variant<13, true, true, 8, true>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, true, 8, pmr>{get_mr()}.has_value()));
 }
 
 TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
@@ -1208,24 +1209,23 @@ TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
 
 TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
 {
-    using ub_var =
-        unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, true /*IsPmr*/>;
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, pmr>;
 
-    ub_var dst{};
+    ub_var dst{get_default_mr()};
     EXPECT_THAT(dst.has_value(), false);
 
-    dst = ub_var{'x'};
+    dst = ub_var{get_default_mr(), 'x'};
     EXPECT_THAT(dst.has_value(), true);
     EXPECT_THAT(get<char>(dst), 'x');
 
     dst = Empty{};
     EXPECT_THAT(dst.has_value(), true);
 
-    ub_var dst2{};
+    ub_var dst2{get_default_mr()};
     dst2 = std::move(dst);
     EXPECT_THAT(dst2.has_value(), true);
 
-    dst2 = {};
+    dst2 = ub_var{get_default_mr()};
     EXPECT_THAT(dst2.has_value(), false);
 
     const ub_var src_empty{get_mr()};
@@ -1240,8 +1240,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
 
 TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
 {
-    using ub_var =
-        unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
+    using ub_var = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, pmr>;
 
     ub_var dst{get_mr()};
     EXPECT_THAT(dst.has_value(), false);
@@ -1256,13 +1255,13 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
     EXPECT_THAT(dst.has_value(), true);
     EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
-    ub_var dst2{};
-    EXPECT_THAT(dst2.get_memory_resource(), cetl::pmr::get_default_resource());
+    ub_var dst2{get_default_mr()};
+    EXPECT_THAT(dst2.get_memory_resource(), get_default_mr());
     dst2 = std::move(dst);
     EXPECT_THAT(dst2.get_memory_resource(), get_mr());
     EXPECT_THAT(dst2.has_value(), true);
 
-    dst2 = {};
+    dst2 = ub_var{get_default_mr()};
     EXPECT_THAT(dst2.has_value(), false);
     dst2.reset(get_mr());
 
@@ -1292,15 +1291,14 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
     EXPECT_THAT(dst5.has_value(), false);
     EXPECT_THAT(dst5.get_memory_resource(), get_mr());
 
-    dst5 = {};
+    dst5 = ub_var{get_default_mr()};
     EXPECT_THAT(dst5.has_value(), false);
-    EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(dst5.get_memory_resource(), get_default_mr());
 }
 
 TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
 {
-    using ub_var =
-        unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, true /*IsPmr*/>;
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, pmr>;
 
     ub_var dst{get_mr()};
     EXPECT_THAT(dst.has_value(), false);
@@ -1315,13 +1313,13 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
     EXPECT_THAT(dst.has_value(), true);
     EXPECT_THAT(dst.get_memory_resource(), get_mr());
 
-    ub_var dst2{};
-    EXPECT_THAT(dst2.get_memory_resource(), cetl::pmr::get_default_resource());
+    ub_var dst2{get_default_mr()};
+    EXPECT_THAT(dst2.get_memory_resource(), get_default_mr());
     dst2 = std::move(dst);
     EXPECT_THAT(dst2.get_memory_resource(), get_mr());
     EXPECT_THAT(dst2.has_value(), true);
 
-    dst2 = {};
+    dst2 = ub_var{get_default_mr()};
     EXPECT_THAT(dst2.has_value(), false);
     dst2.reset(get_mr());
 
@@ -1351,15 +1349,14 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
     EXPECT_THAT(dst5.has_value(), false);
     EXPECT_THAT(dst5.get_memory_resource(), get_mr());
 
-    dst5 = {};
+    dst5 = ub_var{get_default_mr()};
     EXPECT_THAT(dst5.has_value(), false);
-    EXPECT_THAT(dst5.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(dst5.get_memory_resource(), get_default_mr());
 }
 
 TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory)
 {
-    using ub_var =
-        unbounded_variant<2 /*Footprint*/, false /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, true /*IsPmr*/>;
+    using ub_var = unbounded_variant<2 /*Footprint*/, false /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1414,7 +1411,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
 TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory)
 {
     const auto Alignment = alignof(std::max_align_t);
-    using ub_var = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
+    using ub_var         = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1476,7 +1473,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
 {
     const auto Alignment = alignof(std::max_align_t);
-    using ub_var = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, true /*IsPmr*/>;
+    using ub_var         = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1508,7 +1505,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
 {
     const auto Alignment = alignof(std::max_align_t);
-    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, true /*IsPmr*/>;
+    using ub_var         = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1552,11 +1549,11 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
 TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
 {
     using test   = MyCopyableOnly;
-    using ub_var = unbounded_variant<0, true, false, alignof(std::max_align_t), true>;
+    using ub_var = unbounded_variant<0, true, false, alignof(std::max_align_t), pmr>;
 
-    ub_var empty{};
-    ub_var a{in_place_type_t<test>{}, 'A'};
-    ub_var b{in_place_type_t<test>{}, 'B'};
+    ub_var empty{get_default_mr()};
+    ub_var a{get_default_mr(), in_place_type_t<test>{}, 'A'};
+    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
@@ -1575,7 +1572,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
     EXPECT_FALSE(empty.has_value());
     EXPECT_THAT(get<test&>(a).payload_, 'B');
 
-    ub_var another_empty{};
+    ub_var another_empty{get_default_mr()};
     empty.swap(another_empty);
     EXPECT_FALSE(empty.has_value());
     EXPECT_FALSE(another_empty.has_value());
@@ -1584,13 +1581,13 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
 TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
 {
     using test   = MyMovableOnly;
-    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), true>;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
 
     ub_var empty{get_mr()};
     ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
     EXPECT_THAT(a.get_memory_resource(), get_mr());
-    ub_var b{in_place_type_t<test>{}, 'B'};
-    EXPECT_THAT(b.get_memory_resource(), cetl::pmr::get_default_resource());
+    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
+    EXPECT_THAT(b.get_memory_resource(), get_default_mr());
 
     // Self swap
     a.swap(a);
@@ -1606,7 +1603,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     EXPECT_FALSE(get<test&>(b).moved_);
     EXPECT_THAT(get<test&>(a).payload_, 'B');
     EXPECT_THAT(get<test&>(b).payload_, 'A');
-    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
     EXPECT_THAT(b.get_memory_resource(), get_mr());
 
     empty.swap(a);
@@ -1615,7 +1612,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     EXPECT_FALSE(get<test&>(empty).moved_);
     EXPECT_THAT(get<test&>(empty).payload_, 'B');
     EXPECT_THAT(a.get_memory_resource(), get_mr());
-    EXPECT_THAT(empty.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(empty.get_memory_resource(), get_default_mr());
 
     empty.swap(a);
     EXPECT_TRUE(a.has_value());
@@ -1623,14 +1620,14 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     EXPECT_FALSE(get<test&>(a).moved_);
     EXPECT_THAT(get<test&>(a).payload_, 'B');
     EXPECT_THAT(empty.get_memory_resource(), get_mr());
-    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
 
-    ub_var another_empty{};
+    ub_var another_empty{get_default_mr()};
     empty.swap(another_empty);
     EXPECT_FALSE(empty.has_value());
     EXPECT_FALSE(another_empty.has_value());
     EXPECT_THAT(another_empty.get_memory_resource(), get_mr());
-    EXPECT_THAT(empty.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(empty.get_memory_resource(), get_default_mr());
 
     const ub_var ub_vec{get_mr(), in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
     EXPECT_THAT(ub_vec.get_memory_resource(), get_mr());
@@ -1640,15 +1637,15 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
 TEST_F(TestPmrUnboundedVariant, pmr_reset_memory_resource)
 {
     using test   = MyMovableOnly;
-    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), true>;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
 
     ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
     EXPECT_TRUE(a.has_value());
     EXPECT_THAT(a.get_memory_resource(), get_mr());
 
-    a.reset(cetl::pmr::get_default_resource());
+    a.reset(get_default_mr());
     EXPECT_FALSE(a.has_value());
-    EXPECT_THAT(a.get_memory_resource(), cetl::pmr::get_default_resource());
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
 }
 
 }  // namespace

@@ -6,10 +6,6 @@
 #ifndef CETL_PMR_INTERFACE_PTR_H_INCLUDED
 #define CETL_PMR_INTERFACE_PTR_H_INCLUDED
 
-#ifndef CETL_H_ERASE
-#    include "cetl/cetl.hpp"
-#endif
-
 #include "cetl/pmr/function.hpp"
 
 #include <memory>
@@ -20,7 +16,7 @@ namespace cetl
 namespace pmr
 {
 
-template <typename Interface>
+template <typename Interface, typename Pmr>
 class PmrInterfaceDeleter final
 {
 public:
@@ -37,7 +33,7 @@ public:
     }
 
     template <typename Down, typename = std::enable_if_t<std::is_base_of<Interface, Down>::value>>
-    PmrInterfaceDeleter(const PmrInterfaceDeleter<Down>& other)
+    PmrInterfaceDeleter(const PmrInterfaceDeleter<Down, Pmr>& other)
         : deleter_{other.get_memory_resource(), [other](Interface* ptr) {
                        // Delegate to the down class deleter.
                        other.deleter_(static_cast<Down*>(ptr));
@@ -45,7 +41,7 @@ public:
     {
     }
 
-    memory_resource* get_memory_resource() const noexcept
+    Pmr* get_memory_resource() const noexcept
     {
         return deleter_.get_memory_resource();
     }
@@ -56,15 +52,15 @@ public:
     }
 
 private:
-    template <typename Down>
+    template <typename Down, typename PmrT>
     friend class PmrInterfaceDeleter;
 
-    cetl::pmr::function<void(Interface*), 24, true /*IsPmr*/> deleter_;
+    cetl::pmr::function<void(Interface*), 24, Pmr> deleter_;
 
 };  // PmrInterfaceDeleter
 
-template <typename Interface>
-using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface>>;
+template <typename Interface, typename Pmr>
+using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface, Pmr>>;
 
 class InterfaceFactory final
 {
@@ -73,11 +69,13 @@ public:
     InterfaceFactory()  = delete;
 
     template <typename Interface, typename PmrAllocator, typename... Args>
-    static InterfacePtr<Interface> make_unique(PmrAllocator alloc, Args&&... args)
+    static auto make_unique(PmrAllocator alloc, Args&&... args)
+        -> InterfacePtr<Interface, std::remove_pointer_t<decltype(alloc.resource())>>
     {
         using Concrete = typename PmrAllocator::value_type;
+        using Pmr      = std::remove_pointer_t<decltype(alloc.resource())>;
 
-        InterfacePtr<Concrete> concrete_ptr{alloc.allocate(1), PmrInterfaceDeleter<Concrete>{alloc, 1}};
+        InterfacePtr<Concrete, Pmr> concrete_ptr{alloc.allocate(1), PmrInterfaceDeleter<Concrete, Pmr>{alloc, 1}};
         if (nullptr != concrete_ptr)
         {
             alloc.construct(concrete_ptr.get(), std::forward<Args>(args)...);
