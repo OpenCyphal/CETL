@@ -29,7 +29,7 @@ int main()
 
 #ifndef CETLVAST_COMPILETEST_PRECHECK
 
-    // Verify at `cetl::detail::base_storage::get_ptr`
+    // Verify at `cetl::detail::base_storage::check_footprint` (called from `base_access::get_ptr()`).
     // ```
     // static_assert(sizeof(ValueType) <= Footprint,
     //               "Cannot contain the requested type since the footprint is too small");

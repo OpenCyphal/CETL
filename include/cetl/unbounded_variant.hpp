@@ -44,7 +44,7 @@ public:
 #endif  // defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 
 // Forward declarations
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
+template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, typename Pmr>
 class unbounded_variant;
 
 namespace detail
@@ -69,15 +69,43 @@ inline std::nullptr_t throw_bad_alloc()
 #endif
 }
 
+template <typename Pmr>
+using IsPmr = std::integral_constant<bool, !std::is_void<Pmr>::value>;
+
+template <typename Pmr>
+using EnableIfPmrT = std::enable_if_t<IsPmr<Pmr>::value>;
+
+template <typename Pmr>
+using EnableIfNotPmrT = std::enable_if_t<!IsPmr<Pmr>::value>;
+
 // MARK: - Storage policy.
 //
-template <std::size_t Footprint, bool IsPmr, std::size_t Alignment>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
 struct base_storage;
 //
-// In-Place only case.
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_storage<Footprint, false /*IsPmr*/, Alignment>
+// Invalid non-PMR and zero footprint case.
+template <std::size_t Alignment>
+struct base_storage<void /*Pmr*/, 0UL /*Footprint*/, Alignment>
 {
+    template <typename Tp>
+    void check_footprint() const noexcept
+    {
+        // Non-PMR storage can store any value as long as it fits into the footprint,
+        // which is not possible with zero footprint.
+        static_assert(sizeof(Tp) <= 0, "Make non-zero footprint, or enable PMR support.");
+    }
+};
+// In-Place only case (no PMR at all).
+template <std::size_t Footprint, std::size_t Alignment>
+struct base_storage<void /*Pmr*/, Footprint, Alignment>
+{
+    template <typename Tp>
+    void check_footprint() const noexcept
+    {
+        // Non-PMR storage can store any value as long as it fits into the footprint.
+        static_assert(sizeof(Tp) <= Footprint, "Enlarge the footprint");
+    }
+
     /// @brief Allocates enough raw storage for a target value.
     ///
     /// @param size_bytes Size of the target type in bytes.
@@ -153,19 +181,18 @@ private:
     // The size could be less than `Footprint`, but never zero except when variant is empty (valid and valueless).
     std::size_t value_size_{0UL};
 };
-//
-// PMR only case.
-template <std::size_t Alignment>
-struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
+// PMR only case (zero in-place footprint).
+template <typename Pmr, std::size_t Alignment>
+struct base_storage<Pmr, 0UL /*Footprint*/, Alignment>
 {
     base_storage()
         : value_size_{0UL}
         , allocated_buffer_{nullptr}
-        , mem_res_{cetl::pmr::get_default_resource()}
+        , mem_res_{nullptr}
     {
     }
 
-    explicit base_storage(pmr::memory_resource* const mem_res)
+    explicit base_storage(Pmr* const mem_res)
         : value_size_{0UL}
         , allocated_buffer_{nullptr}
         , mem_res_{mem_res}
@@ -173,19 +200,25 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    template <typename Tp>
+    void check_footprint() const noexcept
+    {
+        // PMR-based storage can store any size of the value.
+    }
+
+    CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
         return mem_res_;
     }
 
-    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
+    Pmr* set_memory_resource(Pmr* const mem_res) noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
 
-        pmr::memory_resource* tmp = mem_res_;
-        mem_res_                  = mem_res;
+        Pmr* tmp = mem_res_;
+        mem_res_ = mem_res;
         return tmp;
     }
 
@@ -301,23 +334,22 @@ struct base_storage<0UL /*Footprint*/, true /*IsPmr*/, Alignment>
 
 private:
     // Stores the size of the allocated buffer for a value.
-    std::size_t           value_size_;
-    std::uint8_t*         allocated_buffer_;
-    pmr::memory_resource* mem_res_;
+    std::size_t   value_size_;
+    std::uint8_t* allocated_buffer_;
+    Pmr*          mem_res_;
 };
-//
 // Both PMR & In-Place case.
-template <std::size_t Footprint, std::size_t Alignment>
-struct base_storage<Footprint, true /*IsPmr*/, Alignment>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_storage
 {
     base_storage()
         : value_size_{0UL}
         , allocated_buffer_{nullptr}
-        , mem_res_{cetl::pmr::get_default_resource()}
+        , mem_res_{nullptr}
     {
     }
 
-    explicit base_storage(pmr::memory_resource* const mem_res)
+    explicit base_storage(Pmr* const mem_res)
         : value_size_{0UL}
         , allocated_buffer_{nullptr}
         , mem_res_{mem_res}
@@ -325,19 +357,25 @@ struct base_storage<Footprint, true /*IsPmr*/, Alignment>
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
     }
 
-    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    template <typename Tp>
+    void check_footprint() const noexcept
+    {
+        // PMR-based storage can store any size of the value.
+    }
+
+    CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
         return mem_res_;
     }
 
-    pmr::memory_resource* set_memory_resource(pmr::memory_resource* const mem_res) noexcept
+    Pmr* set_memory_resource(Pmr* const mem_res) noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
         CETL_DEBUG_ASSERT(nullptr != mem_res_, "");
 
-        pmr::memory_resource* tmp = mem_res_;
-        mem_res_                  = mem_res;
+        Pmr* tmp = mem_res_;
+        mem_res_ = mem_res;
         return tmp;
     }
 
@@ -463,20 +501,21 @@ private:
     // Stores the size of the allocated space in a buffer for a value.
     // The size could be either `<=Footprint` (in-place) or `>Footprint (PMR allocated),
     // but never zero except when variant is empty (valid and valueless).
-    std::size_t           value_size_;
-    std::uint8_t*         allocated_buffer_;
-    pmr::memory_resource* mem_res_;
+    std::size_t   value_size_;
+    std::uint8_t* allocated_buffer_;
+    Pmr*          mem_res_;
 
 };  // base_storage
 
 // MARK: - Access policy.
 //
-template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
-struct base_access : base_storage<Footprint, IsPmr, Alignment>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_access : base_storage<Pmr, Footprint, Alignment>
 {
     base_access() = default;
 
-    explicit base_access(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_access(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -500,7 +539,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename Tp>
     void make_handlers() noexcept
     {
-        static_assert(sizeof(Tp) <= Footprint || IsPmr, "Enlarge the footprint");
+        base::template check_footprint<Tp>();
 
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
         CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
@@ -541,8 +580,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename ValueType>
     CETL_NODISCARD void* get_ptr() noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint || IsPmr,
-                      "Cannot contain the requested type since the footprint is too small");
+        base::template check_footprint<ValueType>();
 
         if (!has_value())
         {
@@ -556,8 +594,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     template <typename ValueType>
     CETL_NODISCARD const void* get_ptr() const noexcept
     {
-        static_assert(sizeof(ValueType) <= Footprint || IsPmr,
-                      "Cannot contain the requested type since the footprint is too small");
+        base::template check_footprint<ValueType>();
 
         if (!has_value())
         {
@@ -586,6 +623,9 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
 
     void reset() noexcept
     {
+        // Non-PMR storage can store any value as long as it fits into the footprint.
+        static_assert((Footprint > 0) || IsPmr<Pmr>::value, "Make non-zero footprint, or enable PMR support.");
+
         if (has_value())
         {
             value_destroyer_(base::get_raw_storage());
@@ -599,7 +639,7 @@ struct base_access : base_storage<Footprint, IsPmr, Alignment>
     }
 
 private:
-    using base = base_storage<Footprint, IsPmr, Alignment>;
+    using base = base_storage<Pmr, Footprint, Alignment>;
 
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
@@ -613,31 +653,33 @@ private:
 
 // MARK: - Handlers policy.
 //
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 struct base_handlers;
 //
-template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
-struct base_handlers<Footprint, false /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
-    : base_access<Footprint, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Pmr, Footprint, false /*Copyable*/, false /*Moveable*/, Alignment>
+    : base_access<Pmr, Footprint, Alignment>
 {
     base_handlers() = default;
 
-    explicit base_handlers(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
     }
 
 private:
-    using base = base_access<Footprint, Alignment, IsPmr>;
+    using base = base_access<Pmr, Footprint, Alignment>;
 };
 //
-template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
-struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment, IsPmr>
-    : base_access<Footprint, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Pmr, Footprint, true /*Copyable*/, false /*Moveable*/, Alignment>
+    : base_access<Pmr, Footprint, Alignment>
 {
     base_handlers() = default;
 
-    explicit base_handlers(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -660,16 +702,17 @@ struct base_handlers<Footprint, true /*Copyable*/, false /*Moveable*/, Alignment
     void (*value_copier_)(const void* src, void* dst) = nullptr;
 
 private:
-    using base = base_access<Footprint, Alignment, IsPmr>;
+    using base = base_access<Pmr, Footprint, Alignment>;
 };
 //
-template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
-struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
-    : base_access<Footprint, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Pmr, Footprint, false /*Copyable*/, true /*Moveable*/, Alignment>
+    : base_access<Pmr, Footprint, Alignment>
 {
     base_handlers() = default;
 
-    explicit base_handlers(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -692,16 +735,17 @@ struct base_handlers<Footprint, false /*Copyable*/, true /*Moveable*/, Alignment
     void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
-    using base = base_access<Footprint, Alignment, IsPmr>;
+    using base = base_access<Pmr, Footprint, Alignment>;
 };
 //
-template <std::size_t Footprint, std::size_t Alignment, bool IsPmr>
-struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment, IsPmr>
-    : base_access<Footprint, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, std::size_t Alignment>
+struct base_handlers<Pmr, Footprint, true /*Copyable*/, true /*Moveable*/, Alignment>
+    : base_access<Pmr, Footprint, Alignment>
 {
     base_handlers() = default;
 
-    explicit base_handlers(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -739,37 +783,38 @@ struct base_handlers<Footprint, true /*Copyable*/, true /*Moveable*/, Alignment,
     void (*value_mover_)(void* src, void* dst) = nullptr;
 
 private:
-    using base = base_access<Footprint, Alignment, IsPmr>;
+    using base = base_access<Pmr, Footprint, Alignment>;
 
 };  // base_handlers
 
 // MARK: - Copy policy.
 //
-template <std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment, bool IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Copyable, bool Moveable, std::size_t Alignment>
 struct base_copy;
 //
 // Non-copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPmr>
-struct base_copy<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
-    : base_handlers<Footprint, false /*Copyable*/, Moveable, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Moveable, std::size_t Alignment>
+struct base_copy<Pmr, Footprint, false /*Copyable*/, Moveable, Alignment>
+    : base_handlers<Pmr, Footprint, false /*Copyable*/, Moveable, Alignment>
 {
     base_copy()                            = default;
     base_copy(const base_copy&)            = delete;
     base_copy& operator=(const base_copy&) = delete;
 
-    explicit base_copy(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_copy(Pmr* const mem_res)
         : base{mem_res}
     {
     }
 
 private:
-    using base = base_handlers<Footprint, false, Moveable, Alignment, IsPmr>;
+    using base = base_handlers<Pmr, Footprint, false, Moveable, Alignment>;
 };
 //
 // Copyable case.
-template <std::size_t Footprint, bool Moveable, std::size_t Alignment, bool IsPmr>
-struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
-    : base_handlers<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Moveable, std::size_t Alignment>
+struct base_copy<Pmr, Footprint, true /*Copyable*/, Moveable, Alignment>
+    : base_handlers<Pmr, Footprint, true /*Copyable*/, Moveable, Alignment>
 {
     base_copy() = default;
 
@@ -779,7 +824,8 @@ struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
         copy_from(other);
     }
 
-    explicit base_copy(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_copy(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -807,7 +853,7 @@ struct base_copy<Footprint, true /*Copyable*/, Moveable, Alignment, IsPmr>
     }
 
 private:
-    using base = base_handlers<Footprint, true, Moveable, Alignment, IsPmr>;
+    using base = base_handlers<Pmr, Footprint, true, Moveable, Alignment>;
 
     void copy_from(const base_copy& src)
     {
@@ -827,13 +873,13 @@ private:
 
 // MARK: - Move policy.
 //
-template <std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment, bool IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Copyable, bool Movable, std::size_t Alignment>
 struct base_move;
 //
 // Non-movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPmr>
-struct base_move<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
-    : base_copy<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Pmr, Footprint, Copyable, false /*Movable*/, Alignment>
+    : base_copy<Pmr, Footprint, Copyable, false /*Movable*/, Alignment>
 {
     base_move()                     = default;
     base_move(const base_move&)     = default;
@@ -842,19 +888,20 @@ struct base_move<Footprint, Copyable, false /*Movable*/, Alignment, IsPmr>
     base_move& operator=(const base_move&)     = default;
     base_move& operator=(base_move&&) noexcept = delete;
 
-    explicit base_move(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_move(Pmr* const mem_res)
         : base{mem_res}
     {
     }
 
 private:
-    using base = base_copy<Footprint, Copyable, false, Alignment, IsPmr>;
+    using base = base_copy<Pmr, Footprint, Copyable, false, Alignment>;
 };
 //
 // Movable case.
-template <std::size_t Footprint, bool Copyable, std::size_t Alignment, bool IsPmr>
-struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
-    : base_copy<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
+template <typename Pmr, std::size_t Footprint, bool Copyable, std::size_t Alignment>
+struct base_move<Pmr, Footprint, Copyable, true /*Movable*/, Alignment>
+    : base_copy<Pmr, Footprint, Copyable, true /*Movable*/, Alignment>
 {
     base_move()                            = default;
     base_move(const base_move&)            = default;
@@ -866,7 +913,8 @@ struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
         move_from(other);
     }
 
-    explicit base_move(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    explicit base_move(Pmr* const mem_res)
         : base{mem_res}
     {
     }
@@ -893,7 +941,7 @@ struct base_move<Footprint, Copyable, true /*Movable*/, Alignment, IsPmr>
     }
 
 private:
-    using base = base_copy<Footprint, Copyable, true, Alignment, IsPmr>;
+    using base = base_copy<Pmr, Footprint, Copyable, true, Alignment>;
 
     void move_from(base_move& src) noexcept
     {
@@ -913,6 +961,12 @@ private:
 
 }  // namespace detail
 
+template <typename ValueType, typename UnboundedVariant>
+std::add_pointer_t<ValueType> get_if(UnboundedVariant* operand) noexcept;
+
+template <typename ValueType, typename UnboundedVariant>
+std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
+
 /// \brief The class `unbounded_variant` describes a type-safe container
 ///        for single values of unbounded_variant copy and/or move constructible type.
 ///
@@ -923,18 +977,17 @@ private:
 /// \tparam Copyable Determines whether a contained object is copy constructible.
 /// \tparam Movable Determines whether a contained object is move constructible.
 /// \tparam Alignment Alignment of storage for a contained object.
-/// \tparam IsPmr Polymorphic Memory Resource (PMR) support.
+/// \tparam Pmr Type of Polymorphic Memory Resource (PMR). Use `void` to disable PMR support.
 ///
 template <std::size_t Footprint,
           bool        Copyable  = true,
           bool        Movable   = Copyable,
           std::size_t Alignment = alignof(std::max_align_t),
-          bool        IsPmr     = false>
-class unbounded_variant : detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>
+          typename Pmr          = void>
+class unbounded_variant : detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>
 {
-    using IsPmrT     = std::integral_constant<bool, IsPmr>;
     using IsMovableT = std::integral_constant<bool, Movable>;
-    using base       = detail::base_move<Footprint, Copyable, Movable, Alignment, IsPmr>;
+    using base       = detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>;
 
 public:
     using base::reset;
@@ -945,16 +998,19 @@ public:
     ///
     /// In case of enabled PMR support, the default memory resource is used.
     ///
-    unbounded_variant() = default;
+    template <typename PmrAlias = Pmr, typename = detail::EnableIfNotPmrT<PmrAlias>>
+    unbounded_variant()
+    {
+    }
 
     /// \brief Constructs an empty `unbounded_variant` object with PMR support.
     ///
     /// \param mem_res Pointer to a memory resource to be used by the variant.
     ///
-    explicit unbounded_variant(pmr::memory_resource* const mem_res)
+    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    explicit unbounded_variant(Pmr* const mem_res)
         : base{mem_res}
     {
-        static_assert(IsPmr, "Cannot construct non-PMR unbounded_variant with memory resource.");
     }
 
     /// \brief Constructs an `unbounded_variant` object with a copy of the content of `other`.
@@ -980,13 +1036,15 @@ public:
     /// In case of enabled PMR support, the default memory resource is used.
     ///
     /// \tparam ValueType Type of the value to be stored.
-    ///                   Its size must be less than or equal to `Footprint` in case `IsPmr=false`.
+    ///                   Its size must be less than or equal to `Footprint` in case of PMR support.
     /// \param value Value to be stored.
     ///
     template <typename ValueType,
-              typename Tp = std::decay_t<ValueType>,
-              typename    = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                             !pf17::detail::is_in_place_type<ValueType>::value>>
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfNotPmrT<PmrAlias>,
+              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
+                                                   !pf17::detail::is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
@@ -1003,11 +1061,12 @@ public:
     /// \param value Value to be stored.
     ///
     template <typename ValueType,
-              typename Tp     = std::decay_t<ValueType>,
-              bool IsPmrAlias = IsPmr,
-              typename        = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && IsPmrAlias &&
-                                                 !pf17::detail::is_in_place_type<ValueType>::value>>
-    unbounded_variant(pmr::memory_resource* const mem_res, ValueType&& value)
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfPmrT<PmrAlias>,
+              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
+                                                   !pf17::detail::is_in_place_type<ValueType>::value>>
+    unbounded_variant(Pmr* const mem_res, ValueType&& value)
         : base{mem_res}
     {
         create<Tp>(std::forward<ValueType>(value));
@@ -1025,7 +1084,11 @@ public:
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
-    template <typename ValueType, typename... Args, typename Tp = std::decay_t<ValueType>>
+    template <typename ValueType,
+              typename... Args,
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfNotPmrT<PmrAlias>>
     explicit unbounded_variant(in_place_type_t<ValueType>, Args&&... args)
     {
         create<Tp>(std::forward<Args>(args)...);
@@ -1044,9 +1107,10 @@ public:
     ///
     template <typename ValueType,
               typename... Args,
-              bool IsPmrAlias = IsPmr,
-              typename Tp     = std::enable_if_t<IsPmrAlias, std::decay_t<ValueType>>>
-    explicit unbounded_variant(pmr::memory_resource* const mem_res, in_place_type_t<ValueType>, Args&&... args)
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfPmrT<PmrAlias>>
+    explicit unbounded_variant(Pmr* const mem_res, in_place_type_t<ValueType>, Args&&... args)
         : base{mem_res}
     {
         create<Tp>(std::forward<Args>(args)...);
@@ -1066,7 +1130,12 @@ public:
     /// \param list Initializer list to be forwarded to the constructor of `ValueType`.
     /// \param args Arguments to be forwarded to the constructor of `ValueType`.
     ///
-    template <typename ValueType, typename Up, typename... Args, typename Tp = std::decay_t<ValueType>>
+    template <typename ValueType,
+              typename Up,
+              typename... Args,
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfNotPmrT<PmrAlias>>
     explicit unbounded_variant(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
         create<Tp>(list, std::forward<Args>(args)...);
@@ -1088,9 +1157,10 @@ public:
     template <typename ValueType,
               typename Up,
               typename... Args,
-              bool IsPmrAlias = IsPmr,
-              typename Tp     = std::enable_if_t<IsPmrAlias, std::decay_t<ValueType>>>
-    explicit unbounded_variant(pmr::memory_resource* const mem_res,
+              typename Tp       = std::decay_t<ValueType>,
+              typename PmrAlias = Pmr,
+              typename          = detail::EnableIfPmrT<PmrAlias>>
+    explicit unbounded_variant(Pmr* const mem_res,
                                in_place_type_t<ValueType>,
                                std::initializer_list<Up> list,
                                Args&&... args)
@@ -1199,7 +1269,7 @@ public:
     /// and depending on which stage of swapping the failure happened
     /// it could affect (invalidate) either of `*this` or `rhs` variants.
     /// Use `valueless_by_exception()` method to check if a variant is in such failure state,
-    /// and `reset` (or `reset(pmr::memory_resource*)`) method to recover from it.
+    /// and `reset` (or `reset(Pmr*)`) method to recover from it.
     ///
     void swap(unbounded_variant& rhs) noexcept(Movable)
     {
@@ -1208,15 +1278,14 @@ public:
             return;
         }
 
-        swapVariants(IsPmrT{}, IsMovableT{}, rhs);
+        swapVariants(detail::IsPmr<Pmr>{}, IsMovableT{}, rhs);
     }
 
     /// \brief Gets current memory resource in use by the variant.
     ///
-    CETL_NODISCARD pmr::memory_resource* get_memory_resource() const noexcept
+    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
-        static_assert(IsPmr, "Cannot get memory resource from non-PMR unbounded_variant.");
-
         return base::get_memory_resource();
     }
 
@@ -1224,10 +1293,9 @@ public:
     ///
     /// Useful to recover from the "valueless by exception" state (see `swap` method).
     ///
-    void reset(pmr::memory_resource* const mem_res) noexcept
+    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    void reset(Pmr* const mem_res) noexcept
     {
-        static_assert(IsPmr, "Cannot reset memory resource to non-PMR unbounded_variant.");
-
         base::reset();
         base::set_memory_resource(mem_res);
     }

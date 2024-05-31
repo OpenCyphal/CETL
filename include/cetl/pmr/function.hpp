@@ -6,11 +6,6 @@
 #ifndef CETL_PMR_FUNCTION_H_INCLUDED
 #define CETL_PMR_FUNCTION_H_INCLUDED
 
-#ifndef CETL_H_ERASE
-#    include "cetl/cetl.hpp"
-#endif
-
-#include "cetl/pf17/cetlpf.hpp"
 #include "cetl/unbounded_variant.hpp"
 
 #include <cstddef>
@@ -22,7 +17,7 @@ namespace cetl
 namespace pmr
 {
 
-template <typename Signature, std::size_t Footprint, bool IsPmr = false>
+template <typename Signature, std::size_t Footprint, typename Pmr = void>
 class function;
 
 /// Internal implementation details. Not supposed to be used directly by the users of the library.
@@ -78,11 +73,11 @@ private:
 #endif
 }
 
-template <typename Signature, std::size_t Footprint, bool IsPmr>
+template <typename Signature, std::size_t Footprint, typename Pmr>
 class function_base;
 //
 template <typename Result, typename... Args, std::size_t Footprint>
-class function_base<Result(Args...), Footprint, false /*IsPmr*/>
+class function_base<Result(Args...), Footprint, void /*Pmr*/>
 {
 public:
     function_base() noexcept                                 = default;
@@ -145,23 +140,19 @@ public:
 protected:
     // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
     // maybe we can make our `function_base` itself `Copyable` & `Movable` parametrized (aka `std::move_only_function`).
-    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), false /*IsPmr*/> any_handler_;
-    detail::function_handler<Result, Args...>*                                           handler_ptr_{nullptr};
+    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), void /*Pmr*/> any_handler_;
+    detail::function_handler<Result, Args...>*                                        handler_ptr_{nullptr};
 };
-template <typename Result, typename... Args, std::size_t Footprint>
-class function_base<Result(Args...), Footprint, true /*IsPmr*/>
+template <typename Result, typename... Args, std::size_t Footprint, typename Pmr>
+class function_base<Result(Args...), Footprint, Pmr>
 {
 public:
-    function_base() noexcept
-        : any_handler_{get_default_resource()}
-    {
-    }
-
+    function_base()                                          = delete;
     ~function_base()                                         = default;
     function_base& operator=(const function_base& other)     = delete;
     function_base& operator=(function_base&& other) noexcept = delete;
 
-    explicit function_base(memory_resource* const mem_res)
+    explicit function_base(Pmr* const mem_res)
         : any_handler_{mem_res}
     {
         CETL_DEBUG_ASSERT(nullptr != mem_res, "");
@@ -195,10 +186,9 @@ public:
     }
 
     // TODO: Add Callable constraint.
-    template <typename Functor>
+    template <typename Functor, typename PmrAlias = Pmr, typename = cetl::detail::EnableIfNotPmrT<PmrAlias>>
     function_base(Functor&& functor)
-        : any_handler_{get_default_resource(),
-                       detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
+        : any_handler_{detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
     {
         CETL_DEBUG_ASSERT(any_handler_.has_value(), "");
@@ -206,8 +196,8 @@ public:
     }
 
     // TODO: Add Callable constraint.
-    template <typename Functor>
-    function_base(memory_resource* const mem_res, Functor&& functor)
+    template <typename Functor, typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    function_base(Pmr* const mem_res, Functor&& functor)
         : any_handler_{mem_res, detail::functor_handler<Functor, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
     {
@@ -232,7 +222,7 @@ public:
         other.handler_ptr_ = get_if<detail::function_handler<Result, Args...>>(&other.any_handler_);
     }
 
-    CETL_NODISCARD memory_resource* get_memory_resource() const noexcept
+    CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
         return any_handler_.get_memory_resource();
     }
@@ -240,18 +230,17 @@ public:
 protected:
     // TODO: Invest (later) into exploiting `Copyable` & `Movable` template params of our `unbounded_variant` -
     // maybe we can make our `function_base` itself `Copyable` & `Movable` parametrized (aka `std::move_only_function`).
-    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), true /*IsPmr*/> any_handler_;
-    detail::function_handler<Result, Args...>*                                          handler_ptr_{nullptr};
+    unbounded_variant<Footprint, true, true, alignof(std::max_align_t), Pmr> any_handler_;
+    detail::function_handler<Result, Args...>*                               handler_ptr_{nullptr};
 
 };  // function_base
 
 }  // namespace detail
 
-template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr>
-class function<Result(Args...), Footprint, IsPmr> final
-    : public detail::function_base<Result(Args...), Footprint, IsPmr>
+template <typename Result, typename... Args, std::size_t Footprint, typename Pmr>
+class function<Result(Args...), Footprint, Pmr> final : public detail::function_base<Result(Args...), Footprint, Pmr>
 {
-    using base = detail::function_base<Result(Args...), Footprint, IsPmr>;
+    using base = detail::function_base<Result(Args...), Footprint, Pmr>;
 
 public:
     using base::base;
@@ -263,8 +252,6 @@ public:
     function(const function& other)     = default;
     function(function&& other) noexcept = default;
     ~function()                         = default;
-
-    function(std::nullptr_t) noexcept {};
 
     function& operator=(const function& other)
     {
@@ -308,9 +295,9 @@ public:
 
 };  // function
 
-template <typename Result, typename... Args, std::size_t Footprint, bool IsPmr = false>
-inline void swap(function<Result(Args...), Footprint, IsPmr>& lhs,
-                 function<Result(Args...), Footprint, IsPmr>& rhs) noexcept
+template <typename Result, typename... Args, std::size_t Footprint, typename Pmr = void>
+inline void swap(function<Result(Args...), Footprint, Pmr>& lhs,
+                 function<Result(Args...), Footprint, Pmr>& rhs) noexcept
 {
     lhs.swap(rhs);
 }

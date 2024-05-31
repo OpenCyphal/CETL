@@ -121,8 +121,10 @@ private:
 class TestPmrInterfacePtr : public testing::Test
 {
 protected:
+    using pmr = cetl::pmr::memory_resource;
+
     template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface>;
+    using InterfacePtr = cetl::pmr::InterfacePtr<Interface, pmr>;
 
     void SetUp() override
     {
@@ -135,7 +137,7 @@ protected:
         EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
     }
 
-    cetl::pmr::memory_resource* get_mr() noexcept
+    pmr* get_mr() noexcept
     {
         return &mr_;
     }
