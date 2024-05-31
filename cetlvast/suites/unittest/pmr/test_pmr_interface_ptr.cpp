@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/pmr/interface_ptr.hpp>
+#include <cetlvast/memory_resource_mock.hpp>
 #include <cetlvast/tracking_memory_resource.hpp>
 
 #include <gmock/gmock.h>
@@ -16,9 +17,20 @@
 namespace
 {
 
+using testing::_;
 using testing::IsNull;
+using testing::Return;
 using testing::IsEmpty;
 using testing::NotNull;
+using testing::StrictMock;
+
+#if defined(__cpp_exceptions)
+
+// Workaround for GCC bug https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425
+// Should be used in the tests where exceptions are expected (see `EXPECT_THROW`).
+const auto sink = [](auto&&) {};
+
+#endif
 
 class INamed
 {
@@ -83,9 +95,15 @@ std::uint32_t MyObjectBase::counter_ = 0;
 class MyObject final : private MyObjectBase, public IIdentifiable, public IDescribable
 {
 public:
-    MyObject(std::string name)
+    MyObject(std::string name, bool throw_on_ctor = false)
         : name_{std::move(name)}
     {
+        if (throw_on_ctor)
+        {
+#if defined(__cpp_exceptions)
+            throw std::runtime_error("ctor");
+#endif
+        }
     }
 
     ~MyObject()                              = default;
@@ -123,9 +141,6 @@ class TestPmrInterfacePtr : public testing::Test
 {
 protected:
     using pmr = cetl::pmr::memory_resource;
-
-    template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface, pmr>;
 
     void SetUp() override
     {
@@ -177,13 +192,47 @@ TEST_F(TestPmrInterfacePtr, up_cast_interface)
     EXPECT_THAT(obj0->name(), "obj0");
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
 
-    cetl::pmr::InterfacePtr<INamed, cetl::pmr::memory_resource> obj0_named{std::move(obj0)};
+    const INamed& obj0_named = *obj0;
 
+    EXPECT_THAT(obj0, NotNull());
+    EXPECT_THAT(obj0_named.name(), "obj0");
+
+    obj0.reset();
+}
+
+TEST_F(TestPmrInterfacePtr, make_unique_out_of_memory)
+{
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{&mr_mock};
+
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(MyObject), _)).WillOnce(Return(nullptr));
+
+    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj0");
     EXPECT_THAT(obj0, IsNull());
-    EXPECT_THAT(obj0_named, NotNull());
-    EXPECT_THAT(obj0_named->name(), "obj0");
+}
 
-    obj0_named.reset();
+TEST_F(TestPmrInterfacePtr, make_unique_myobj_ctor_throws)
+{
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{&mr_mock};
+
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(MyObject), _))
+        .WillOnce(
+            [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
+    EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyObject), _))
+        .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            mr_.deallocate(p, size_bytes, alignment);
+        });
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(sink(cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0", true)), std::runtime_error);
+#else
+    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0", true);
+    EXPECT_THAT(obj0, NotNull());
+    EXPECT_THAT(obj0->name(), "obj0");
+#endif
 }
 
 }  // namespace

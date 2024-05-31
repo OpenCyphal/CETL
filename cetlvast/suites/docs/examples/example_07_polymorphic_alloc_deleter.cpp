@@ -134,7 +134,7 @@ class example_07_polymorphic_alloc_deleter : public testing::Test
 {
 protected:
     template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface, cetl::pmr::memory_resource>;
+    using InterfacePtr = cetl::pmr::InterfacePtr<Interface>;
 
     void SetUp() override
     {
@@ -253,8 +253,10 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
         std::cout << "Obj2 desc  : " << obj2->describe() << std::endl;
         std::cout << "Obj2 name_a  : " << obj2->name() << std::endl;
 
-        auto obj2_named = InterfacePtr<INamed>{std::move(obj2)};
-        std::cout << "Obj2 name_b  : " << obj2_named->name() << std::endl;
+        // Such interface ptr upcasting currently is not supported.
+        //
+        //    auto obj2_named = InterfacePtr<INamed>{std::move(obj2)};
+        //    std::cout << "Obj2 name_b  : " << obj2_named->name() << std::endl;
     }
 
     auto obj3 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj3", 4U);

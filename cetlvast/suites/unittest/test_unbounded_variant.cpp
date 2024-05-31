@@ -36,7 +36,6 @@ using testing::Return;
 using testing::IsNull;
 using testing::IsEmpty;
 using testing::NotNull;
-using testing::InSequence;
 using testing::StrictMock;
 
 using namespace std::string_literals;
