@@ -29,7 +29,6 @@ template <typename Interface>
 class PmrInterfaceDeleter final
 {
 public:
-
     /// Constructs a Concrete type-erased deleter for the given interface type.
     ///
     /// @tparam PmrAllocator The type of the polymorphic allocator to use for deallocation.
