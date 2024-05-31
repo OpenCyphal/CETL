@@ -16,10 +16,24 @@ namespace cetl
 namespace pmr
 {
 
+/// RAII helper for cetl::pf17::pmr::polymorphic_allocator and std::pmr::polymorphic_allocator.
+/// Use with cetl::pmr::InterfaceFactory for the best and safest
+/// experience. Remember, be safe, use the cetl::pmr::InterfaceFactory.
+///
+/// @note
+/// See cetl::pmr::InterfaceFactory for an example of how to use this type.
+///
+/// @tparam Interface The interface type of the polymorphic allocator to use for deallocation.
+///
 template <typename Interface>
 class PmrInterfaceDeleter final
 {
 public:
+
+    /// Constructs a Concrete type-erased deleter for the given interface type.
+    ///
+    /// @tparam PmrAllocator The type of the polymorphic allocator to use for deallocation.
+    ///
     template <typename PmrAllocator>
     PmrInterfaceDeleter(PmrAllocator alloc, std::size_t obj_count)
         : deleter_{[alloc, obj_count](Interface* ptr) mutable {
@@ -32,6 +46,10 @@ public:
     {
     }
 
+    /// Functor called by smart-pointer to deallocate and deconstruct objects.
+    ///
+    /// @param ptr The object to deconstruct and deallocate.
+    ///
     void operator()(Interface* ptr) noexcept
     {
         deleter_(ptr);
@@ -46,6 +64,10 @@ public:
     //    PmrInterfaceDeleter(const PmrInterfaceDeleter<Down, Pmr>& other)
     //        : deleter_{other.get_memory_resource(), [other](Interface* ptr) {
     //                       // Delegate to the down class deleter.
+    //                       // The down-casting is assumed to be safe because the caller
+    //                       // guarantees that *ptr is of type Down.
+    //                       // This is a possible deviation from AUTOSAR M5-2-3; whether the
+    //                       // type is polymorphic or not is irrelevant in this context.
     //                       other.deleter_(static_cast<Down*>(ptr));
     //                   }}
     //    {
@@ -68,6 +90,14 @@ private:
 template <typename Interface>
 using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface>>;
 
+/// Interface Factory helper for creating objects with polymorphic allocators using proper RAII semantics.
+/// Uses the cetl::pmr::PmrInterfaceDeleter type to ensure proper type-erased deallocation.
+///
+/// Example usage:
+///
+/// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_2
+/// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
+///
 class InterfaceFactory final
 {
 public:
@@ -87,12 +117,15 @@ public:
             concrete_raii.construct(std::forward<Args>(args)...);
         }
 
-        // Everything is good, so now we can move ownership of the concrete object to the interface pointer.
+        // Everything is good, so now we can move ownership of the concrete object to the interface smart pointer.
         //
         return InterfacePtr<Interface>{concrete_raii.release(), PmrInterfaceDeleter<Interface>{alloc, 1}};
     }
 
 private:
+    /// Helper RAII class for temporal management of allocated/initialized memory of a Concrete object.
+    /// In use together with `InterfacePtr` to ensure proper deallocation in case of exceptions.
+    ///
     template <typename PmrAllocator>
     class ConcreteRaii final
     {
@@ -113,6 +146,7 @@ private:
                 {
                     concrete_->~Concrete();
                 }
+
                 pmr_allocator_.deallocate(concrete_, 1);
             }
         }
@@ -124,7 +158,7 @@ private:
         template <typename... Args>
         void construct(Args&&... args)
         {
-            CETL_DEBUG_ASSERT(constructed_ == false, "");
+            CETL_DEBUG_ASSERT(!constructed_, "");
 
             if (nullptr != concrete_)
             {
