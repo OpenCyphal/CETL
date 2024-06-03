@@ -293,7 +293,7 @@ public:
     /// and depending on which stage of swapping the failure happened
     /// it could affect (invalidate) either of `*this` or `other` function.
     /// Use `valueless_by_exception()` method to check if a function is in such failure state,
-    /// and `reset` (or `reset(Pmr*)`) method to recover from it.
+    /// and `reset` (or `reset(Pmr*)`) method (or assign a new value) to recover from it.
     ///
     void swap(function& other) noexcept
     {
@@ -303,7 +303,7 @@ public:
         other.handler_ptr_ = get_if<handler_t>(&other.any_handler_);
     }
 
-    /// True if the function is valueless b/c of an exception.
+    /// True if the function is valueless b/c of an exception or OOM.
     ///
     /// Use `reset` method (or try assign a new value) to recover from this state.
     ///
@@ -345,11 +345,11 @@ namespace std
 /// and depending on which stage of swapping the failure happened
 /// it could affect (invalidate) either of `lhs` or `rhs` function.
 /// Use `valueless_by_exception()` method to check if a function is in such failure state,
-/// and `reset` (or `reset(Pmr*)`) method to recover from it.
+/// and `reset` (or `reset(Pmr*)`) method (or assign a new value) to recover from it.
 ///
 template <typename Result, typename... Args, std::size_t Footprint, typename Pmr = void>
-inline void swap(cetl::pmr::function<Result(Args...), Footprint, Pmr>& lhs,
-                 cetl::pmr::function<Result(Args...), Footprint, Pmr>& rhs) noexcept
+void swap(cetl::pmr::function<Result(Args...), Footprint, Pmr>& lhs,
+          cetl::pmr::function<Result(Args...), Footprint, Pmr>& rhs) noexcept
 {
     lhs.swap(rhs);
 }

@@ -59,6 +59,18 @@ public:
     // within 24-bytes small object optimization, namely without extra memory allocation
     // just for the sake of "advanced" deleter (actually chain of casters down to original `Concrete` pointer).
     //
+    // NOTE: It is possible to avoid PMR if we define a certain static limit on the maximum number of
+    // down-conversions performed on an interface ptr. One issue is that exceeding that limit is a
+    // runtime error, so it will have to be handled correctly somehow. It could be that std::abort()
+    // is a sensible choice here, but probably not. The way to implement this solution is to keep a
+    // stack of the following convertors, where each convertor reverses one up-conversion:
+    //
+    //          using caster_t = void* (*) (void*);
+    //          /// Creates a function that performs a safe type conversion on a type-erased void* pointer.
+    //          template <typename From, typename To>
+    //          static caster_t make_caster() noexcept
+    //          { return [](void* const ptr) -> void* { return static_cast<To*>(static_cast<From*>(ptr)); }; }
+    //
     //    template <typename Down, typename = std::enable_if_t<std::is_base_of<Interface, Down>::value>>
     //    PmrInterfaceDeleter(const PmrInterfaceDeleter<Down, Pmr>& other)
     //        : deleter_{other.get_memory_resource(), [other](Interface* ptr) {

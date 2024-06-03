@@ -525,7 +525,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         return (base::get_value_size() > 0UL) && (nullptr != value_destroyer_);
     }
 
-    /// True if the variant is valueless b/c of an exception.
+    /// True if the variant is valueless b/c of an exception or OOM.
     ///
     /// Use `reset` method (or try assign a new value) to recover from this state.
     ///
@@ -1269,7 +1269,7 @@ public:
     /// and depending on which stage of swapping the failure happened
     /// it could affect (invalidate) either of `*this` or `rhs` variants.
     /// Use `valueless_by_exception()` method to check if a variant is in such failure state,
-    /// and `reset` (or `reset(Pmr*)`) method to recover from it.
+    /// and `reset` (or `reset(Pmr*)`) method (or assign a new value) to recover from it.
     ///
     void swap(unbounded_variant& rhs) noexcept(Movable)
     {
