@@ -7,11 +7,15 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/unbounded_variant.hpp>
+#include <cetlvast/memory_resource_mock.hpp>
+#include <cetlvast/tracking_memory_resource.hpp>
 
 #include <complex>
 #include <functional>
-#include <string>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
+#include <string>
+#include <vector>
 
 // NOLINTBEGIN(*-use-after-move)
 
@@ -27,8 +31,12 @@ using cetl::type_id;
 using cetl::type_id_type;
 using cetl::rtti_helper;
 
+using testing::_;
+using testing::Return;
 using testing::IsNull;
+using testing::IsEmpty;
 using testing::NotNull;
+using testing::StrictMock;
 
 using namespace std::string_literals;
 
@@ -61,6 +69,14 @@ struct side_effect_stats
     int         constructs  = 0;
     int         destructs   = 0;
 
+    void reset()
+    {
+        ops.clear();
+        assignments = 0;
+        constructs  = 0;
+        destructs   = 0;
+    }
+
     auto make_side_effect_fn()
     {
         return [this](side_effect_op op) {
@@ -79,39 +95,39 @@ struct side_effect_stats
     }
 };
 
-struct TestBase : rtti_helper<type_id_type<0x0>>
+struct MyBase : rtti_helper<type_id_type<0x0>>
 {
     char payload_;
     int  value_ = 0;
     bool moved_ = false;
 
-    TestBase(const char payload, side_effect_fn side_effect)
+    MyBase(const char payload, side_effect_fn side_effect)
         : payload_(payload)
         , side_effect_(std::move(side_effect))
     {
         side_effect_(side_effect_op::Construct);
     }
-    TestBase(const TestBase& other)
+    MyBase(const MyBase& other)
     {
         copy_from(other, side_effect_op::CopyConstruct);
     }
-    TestBase(TestBase&& other) noexcept
+    MyBase(MyBase&& other) noexcept
     {
         move_from(other, side_effect_op::MoveConstruct);
     }
 
-    ~TestBase() override
+    ~MyBase() override
     {
         side_effect_(moved_ ? side_effect_op::DestructMoved : side_effect_op::Destruct);
     }
 
-    TestBase& operator=(const TestBase& other)
+    MyBase& operator=(const MyBase& other)
     {
         copy_from(other, side_effect_op::CopyAssign);
         return *this;
     }
 
-    TestBase& operator=(TestBase&& other) noexcept
+    MyBase& operator=(MyBase&& other) noexcept
     {
         move_from(other, side_effect_op::MoveAssign);
         return *this;
@@ -119,13 +135,13 @@ struct TestBase : rtti_helper<type_id_type<0x0>>
 
     CETL_NODISCARD virtual const char* what() const noexcept
     {
-        return "TestBase";
+        return "MyBase";
     }
 
 private:
     side_effect_fn side_effect_;
 
-    void copy_from(const TestBase& other, const side_effect_op op)
+    void copy_from(const MyBase& other, const side_effect_op op)
     {
         payload_     = other.payload_;
         side_effect_ = other.side_effect_;
@@ -134,7 +150,7 @@ private:
         side_effect_(op);
     }
 
-    void move_from(TestBase& other, const side_effect_op op)
+    void move_from(MyBase& other, const side_effect_op op)
     {
         payload_     = other.payload_;
         side_effect_ = other.side_effect_;
@@ -146,25 +162,25 @@ private:
         side_effect_(op);
     }
 
-};  // TestBase
+};  // MyBase
 
-struct TestCopyableOnly final : TestBase
+struct MyCopyableOnly final : MyBase
 {
-    explicit TestCopyableOnly(
+    explicit MyCopyableOnly(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
     {
     }
-    TestCopyableOnly(const TestCopyableOnly& other)     = default;
-    TestCopyableOnly(TestCopyableOnly&& other) noexcept = delete;
+    MyCopyableOnly(const MyCopyableOnly& other)     = default;
+    MyCopyableOnly(MyCopyableOnly&& other) noexcept = delete;
 
-    TestCopyableOnly& operator=(const TestCopyableOnly& other)     = default;
-    TestCopyableOnly& operator=(TestCopyableOnly&& other) noexcept = delete;
+    MyCopyableOnly& operator=(const MyCopyableOnly& other)     = default;
+    MyCopyableOnly& operator=(MyCopyableOnly&& other) noexcept = delete;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestCopyableOnly";
+        return "MyCopyableOnly";
     }
 
     // rtti
@@ -184,26 +200,26 @@ struct TestCopyableOnly final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
 };
 
-struct TestMovableOnly final : TestBase
+struct MyMovableOnly final : MyBase
 {
-    explicit TestMovableOnly(
+    explicit MyMovableOnly(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
     {
     }
-    TestMovableOnly(const TestMovableOnly& other)     = delete;
-    TestMovableOnly(TestMovableOnly&& other) noexcept = default;
+    MyMovableOnly(const MyMovableOnly& other)     = delete;
+    MyMovableOnly(MyMovableOnly&& other) noexcept = default;
 
-    TestMovableOnly& operator=(const TestMovableOnly& other)     = delete;
-    TestMovableOnly& operator=(TestMovableOnly&& other) noexcept = default;
+    MyMovableOnly& operator=(const MyMovableOnly& other)     = delete;
+    MyMovableOnly& operator=(MyMovableOnly&& other) noexcept = default;
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestMovableOnly";
+        return "MyMovableOnly";
     }
 
     // rtti
@@ -223,25 +239,25 @@ struct TestMovableOnly final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
 };
 
-struct TestCopyableAndMovable final : TestBase
+struct MyCopyableAndMovable final : MyBase
 {
     // Just to make this class a bit bigger than base.
     char place_holder_;
 
-    explicit TestCopyableAndMovable(
+    explicit MyCopyableAndMovable(
         const char     payload     = '?',
         side_effect_fn side_effect = [](auto) {})
-        : TestBase(payload, std::move(side_effect))
+        : MyBase(payload, std::move(side_effect))
         , place_holder_{payload}
     {
     }
 
     CETL_NODISCARD const char* what() const noexcept override
     {
-        return "TestCopyableAndMovable";
+        return "MyCopyableAndMovable";
     }
 
     // rtti
@@ -261,12 +277,39 @@ struct TestCopyableAndMovable final : TestBase
     }
 
 private:
-    using base = TestBase;
+    using base = MyBase;
+};
+
+struct Empty
+{};
+
+class TestPmrUnboundedVariant : public testing::Test
+{
+protected:
+    using pmr = cetl::pmr::memory_resource;
+
+    void TearDown() override
+    {
+        EXPECT_THAT(mr_.allocations, IsEmpty());
+        EXPECT_THAT(mr_.total_allocated_bytes, mr_.total_deallocated_bytes);
+    }
+
+    pmr* get_mr() noexcept
+    {
+        return &mr_;
+    }
+
+    pmr* get_default_mr() noexcept
+    {
+        return cetl::pmr::get_default_resource();
+    }
+
+    cetlvast::TrackingMemoryResource mr_;
 };
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
-TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
+TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_ctor)
 {
 #if defined(__cpp_exceptions)
 
@@ -285,7 +328,7 @@ TEST(test_unbounded_variant, bad_unbounded_variant_access_ctor)
 #endif
 }
 
-TEST(test_unbounded_variant, bad_unbounded_variant_access_assignment)
+TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_assignment)
 {
 #if defined(__cpp_exceptions)
 
@@ -304,7 +347,7 @@ TEST(test_unbounded_variant, bad_unbounded_variant_access_assignment)
 #endif
 }
 
-TEST(test_unbounded_variant, cppref_example)
+TEST_F(TestPmrUnboundedVariant, cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(double))>;
 
@@ -337,14 +380,8 @@ TEST(test_unbounded_variant, cppref_example)
     EXPECT_THAT(*get_if<int>(&a), 3);
 }
 
-TEST(test_unbounded_variant, ctor_1_default)
+TEST_F(TestPmrUnboundedVariant, ctor_1_default)
 {
-    EXPECT_FALSE((unbounded_variant<0>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, false>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, false, true>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, false>{}.has_value()));
-    EXPECT_FALSE((unbounded_variant<0, true, true, 1>{}.has_value()));
-
     EXPECT_FALSE((unbounded_variant<1>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<1, false>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<1, false, true>{}.has_value()));
@@ -358,7 +395,25 @@ TEST(test_unbounded_variant, ctor_1_default)
     EXPECT_FALSE((unbounded_variant<13, true, true, 1>{}.has_value()));
 }
 
-TEST(test_unbounded_variant, ctor_2_copy)
+TEST_F(TestPmrUnboundedVariant, ctor_1_default_pmr)
+{
+    EXPECT_FALSE((unbounded_variant<0, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<0, true, true, 8, pmr>{get_mr()}.has_value()));
+
+    EXPECT_FALSE((unbounded_variant<1, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<1, true, true, 8, pmr>{get_mr()}.has_value()));
+
+    EXPECT_FALSE((unbounded_variant<13, false, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, false, true, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, false, 8, pmr>{get_mr()}.has_value()));
+    EXPECT_FALSE((unbounded_variant<13, true, true, 8, pmr>{get_mr()}.has_value()));
+}
+
+TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 {
     // Primitive `int`
     {
@@ -369,11 +424,17 @@ TEST(test_unbounded_variant, ctor_2_copy)
 
         EXPECT_THAT(get<int>(src), 42);
         EXPECT_THAT(get<int>(dst), 42);
+
+        const ub_var empty{};
+        ub_var       dst2{empty};
+        EXPECT_THAT(dst2.has_value(), false);
+        dst2 = {};
+        EXPECT_THAT(dst2.has_value(), false);
     }
 
     // Copyable and Movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test)>;
 
         const ub_var src{test{}};
@@ -393,7 +454,7 @@ TEST(test_unbounded_variant, ctor_2_copy)
 
     // Copyable only `unbounded_variant`
     {
-        using test   = TestCopyableOnly;
+        using test   = MyCopyableOnly;
         using ub_var = unbounded_variant<sizeof(test), true, false>;
 
         const test   value{};
@@ -408,7 +469,7 @@ TEST(test_unbounded_variant, ctor_2_copy)
 
     // Movable only `unbounded_variant`
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         test value{'X'};
@@ -429,7 +490,7 @@ TEST(test_unbounded_variant, ctor_2_copy)
 
     // Non-Copyable and non-movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test), false>;
 
         ub_var src{test{}};
@@ -441,7 +502,7 @@ TEST(test_unbounded_variant, ctor_2_copy)
     }
 }
 
-TEST(test_unbounded_variant, ctor_3_move)
+TEST_F(TestPmrUnboundedVariant, ctor_3_move)
 {
     // Primitive `int`
     {
@@ -452,11 +513,15 @@ TEST(test_unbounded_variant, ctor_3_move)
 
         EXPECT_FALSE(src.has_value());
         EXPECT_THAT(get<int>(dst), 42);
+
+        ub_var empty{};
+        ub_var dst2{std::move(empty)};
+        EXPECT_THAT(dst2.has_value(), false);
     }
 
     // Copyable and Movable `unbounded_variant`
     {
-        using test   = TestCopyableAndMovable;
+        using test   = MyCopyableAndMovable;
         using ub_var = unbounded_variant<sizeof(test)>;
 
         ub_var src{test{}};
@@ -465,12 +530,12 @@ TEST(test_unbounded_variant, ctor_3_move)
         const ub_var dst{std::move(src)};
         EXPECT_TRUE(dst.has_value());
         EXPECT_FALSE(src.has_value());
-        EXPECT_THAT(get<const TestCopyableAndMovable&>(dst).value_, 2);
+        EXPECT_THAT(get<const MyCopyableAndMovable&>(dst).value_, 2);
     }
 
     // Movable only `unbounded_variant`
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         ub_var       src{test{'X'}};
@@ -479,16 +544,16 @@ TEST(test_unbounded_variant, ctor_3_move)
         EXPECT_THAT(get_if<test>(&src), IsNull());
         EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
-        // EXPECT_THAT(get_if<test>(dst).value_, 2); //< expectedly won't compile (due to !copyable)
-        // EXPECT_THAT(get_if<test&>(dst).value_, 2); //< expectedly won't compile (due to const)
+        // EXPECT_THAT(get<test>(dst).value_, 2); //< expectedly won't compile (due to !copyable)
+        // EXPECT_THAT(get<test&>(dst).value_, 2); //< expectedly won't compile (due to const)
     }
 
     // Copyable only `unbounded_variant`, movable only `unique_ptr`
     {
-        using test   = std::unique_ptr<TestCopyableAndMovable>;
+        using test   = std::unique_ptr<MyCopyableAndMovable>;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
-        ub_var src{std::make_unique<TestCopyableAndMovable>()};
+        ub_var src{std::make_unique<MyCopyableAndMovable>()};
         ub_var dst{std::move(src)};
         EXPECT_FALSE(src.has_value());
 
@@ -498,9 +563,9 @@ TEST(test_unbounded_variant, ctor_3_move)
     }
 }
 
-TEST(test_unbounded_variant, ctor_4_move_value)
+TEST_F(TestPmrUnboundedVariant, ctor_4_move_value)
 {
-    using test   = TestCopyableAndMovable;
+    using test   = MyCopyableAndMovable;
     using ub_var = unbounded_variant<sizeof(test)>;
 
     test         value{'Y'};
@@ -511,51 +576,51 @@ TEST(test_unbounded_variant, ctor_4_move_value)
     EXPECT_THAT(get<const test&>(dst).payload_, 'Y');
 }
 
-TEST(test_unbounded_variant, ctor_5_in_place)
+TEST_F(TestPmrUnboundedVariant, ctor_5_in_place)
 {
-    struct TestType : rtti_helper<type_id_type<42>>
+    struct MyType : rtti_helper<type_id_type<42>>
     {
         char ch_;
         int  number_;
 
-        TestType(const char ch, const int number)
+        MyType(const char ch, const int number)
         {
             ch_     = ch;
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<TestType>{}, 'Y', 42};
+    const ub_var src{in_place_type_t<MyType>{}, 'Y', 42};
 
-    const auto test = get<TestType>(src);
+    const auto test = get<MyType>(src);
     EXPECT_THAT(test.ch_, 'Y');
     EXPECT_THAT(test.number_, 42);
 }
 
-TEST(test_unbounded_variant, ctor_6_in_place_initializer_list)
+TEST_F(TestPmrUnboundedVariant, ctor_6_in_place_initializer_list)
 {
-    struct TestType : rtti_helper<type_id_type<42>>
+    struct MyType : rtti_helper<type_id_type<42>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<TestType>{}, {'A', 'B', 'C'}, 42};
+    const ub_var src{in_place_type_t<MyType>{}, {'A', 'B', 'C'}, 42};
 
-    auto& test = get<const TestType&>(src);
+    auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
 }
 
-TEST(test_unbounded_variant, assign_1_copy)
+TEST_F(TestPmrUnboundedVariant, assign_1_copy)
 {
     // Primitive `int`
     {
@@ -585,7 +650,7 @@ TEST(test_unbounded_variant, assign_1_copy)
     //
     side_effect_stats stats;
     {
-        using test   = TestCopyableOnly;
+        using test   = MyCopyableOnly;
         using ub_var = unbounded_variant<sizeof(test), true, false>;
 
         auto side_effects = stats.make_side_effect_fn();
@@ -598,36 +663,36 @@ TEST(test_unbounded_variant, assign_1_copy)
 
         ub_var dst{};
         dst = src1;
-        EXPECT_THAT(stats.ops, "@CCC~");
+        EXPECT_THAT(stats.ops, "@CC");
 
         EXPECT_THAT(get<const test&>(src1).value_, 10);
         EXPECT_THAT(get<const test&>(src1).payload_, 'X');
-        EXPECT_THAT(get<const test&>(dst).value_, 30);
+        EXPECT_THAT(get<const test&>(dst).value_, 20);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
 
         const test value2{'Z', side_effects};
-        EXPECT_THAT(stats.ops, "@CCC~@");
+        EXPECT_THAT(stats.ops, "@CC@");
 
         const ub_var src2{value2};
-        EXPECT_THAT(stats.ops, "@CCC~@C");
+        EXPECT_THAT(stats.ops, "@CC@C");
 
         dst = src2;
-        EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~");
+        EXPECT_THAT(stats.ops, "@CC@C~C");
 
         auto dst_ptr = &dst;
         dst          = *dst_ptr;
-        EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~");
+        EXPECT_THAT(stats.ops, "@CC@C~C");
 
         EXPECT_THAT(get<const test&>(src2).value_, 10);
         EXPECT_THAT(get<const test&>(src2).payload_, 'Z');
-        EXPECT_THAT(get<const test&>(dst).value_, 30);
+        EXPECT_THAT(get<const test&>(dst).value_, 20);
         EXPECT_THAT(get<const test&>(dst).payload_, 'Z');
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@CCC~@CCC~C~C~~~~~~~");
+    EXPECT_THAT(stats.ops, "@CC@C~C~~~~~");
 }
 
-TEST(test_unbounded_variant, assign_2_move)
+TEST_F(TestPmrUnboundedVariant, assign_2_move)
 {
     // Primitive `int`
     {
@@ -659,7 +724,7 @@ TEST(test_unbounded_variant, assign_2_move)
     //
     side_effect_stats stats;
     {
-        using test   = TestMovableOnly;
+        using test   = MyMovableOnly;
         using ub_var = unbounded_variant<sizeof(test), false, true>;
 
         auto side_effects = stats.make_side_effect_fn();
@@ -669,27 +734,27 @@ TEST(test_unbounded_variant, assign_2_move)
 
         ub_var dst{};
         dst = std::move(src1);
-        EXPECT_THAT(stats.ops, "@M_M_M_");
+        EXPECT_THAT(stats.ops, "@M_M_");
 
         EXPECT_THAT(get_if<test>(&src1), IsNull());
-        EXPECT_THAT(get<const test&>(dst).value_, 3);
+        EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'X');
 
         ub_var src2{test{'Z', side_effects}};
-        EXPECT_THAT(stats.ops, "@M_M_M_@M_");
+        EXPECT_THAT(stats.ops, "@M_M_@M_");
 
         dst = std::move(src2);
-        EXPECT_THAT(stats.ops, "@M_M_M_@M_M_M_M_M_~");
+        EXPECT_THAT(stats.ops, "@M_M_@M_~M_");
 
         EXPECT_THAT(get_if<test>(&src2), IsNull());
-        EXPECT_THAT(get<const test&>(dst).value_, 3);
+        EXPECT_THAT(get<const test&>(dst).value_, 2);
         EXPECT_THAT(get<const test&>(dst).payload_, 'Z');
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@M_M_M_@M_M_M_M_M_~~");
+    EXPECT_THAT(stats.ops, "@M_M_@M_~M_~");
 }
 
-TEST(test_unbounded_variant, assign_3_move_value)
+TEST_F(TestPmrUnboundedVariant, assign_3_move_value)
 {
     // Primitive `int`
     {
@@ -703,7 +768,7 @@ TEST(test_unbounded_variant, assign_3_move_value)
     }
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_cppref_example)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(std::string), sizeof(std::complex<double>))>;
 
@@ -721,7 +786,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_cppref_example)
     EXPECT_THAT(get<lambda>(a3)(), "Lambda #3.\n");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_1)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_1)
 {
     using ub_var = unbounded_variant<sizeof(int), false, true, 16>;
 
@@ -730,7 +795,7 @@ TEST(test_unbounded_variant, make_unbounded_variant_1)
     static_assert(std::is_same<decltype(src), ub_var>::value, "");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_1_like)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_1_like)
 {
     auto src = make_unbounded_variant<uint16_t>(static_cast<uint16_t>(42));
     EXPECT_THAT(get<uint16_t>(src), 42);
@@ -740,35 +805,35 @@ TEST(test_unbounded_variant, make_unbounded_variant_1_like)
                   "");
 }
 
-TEST(test_unbounded_variant, make_unbounded_variant_2_list)
+TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_2_list)
 {
-    struct TestType : rtti_helper<type_id_type<13>>
+    struct MyType : rtti_helper<type_id_type<13>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const auto  src  = make_unbounded_variant<TestType, ub_var>({'A', 'C'}, 42);
-    const auto& test = get<const TestType&>(src);
+    const auto  src  = make_unbounded_variant<MyType, ub_var>({'A', 'C'}, 42);
+    const auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 2);
     EXPECT_THAT(test.number_, 42);
 
     // `cetl::unbounded_variant_like` version
     //
-    const auto dst = make_unbounded_variant<TestType>({'B', 'D', 'E'}, 147);
-    static_assert(std::is_same<decltype(dst), const cetl::unbounded_variant_like<TestType>>::value, "");
-    EXPECT_THAT(get_if<TestType>(&dst)->size_, 3);
-    EXPECT_THAT(get<const TestType&>(dst).number_, 147);
+    const auto dst = make_unbounded_variant<MyType>({'B', 'D', 'E'}, 147);
+    static_assert(std::is_same<decltype(dst), const cetl::unbounded_variant_like<MyType>>::value, "");
+    EXPECT_THAT(get_if<MyType>(&dst)->size_, 3);
+    EXPECT_THAT(get<const MyType&>(dst).number_, 147);
 }
 
-TEST(test_unbounded_variant, get_cppref_example)
+TEST_F(TestPmrUnboundedVariant, get_cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -797,7 +862,7 @@ TEST(test_unbounded_variant, get_cppref_example)
     EXPECT_THAT(s1, "hollo");
 }
 
-TEST(test_unbounded_variant, get_1_const)
+TEST_F(TestPmrUnboundedVariant, get_1_const)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -818,7 +883,7 @@ TEST(test_unbounded_variant, get_1_const)
     EXPECT_THAT(get<const int&>(src), 42);
 }
 
-TEST(test_unbounded_variant, get_2_non_const)
+TEST_F(TestPmrUnboundedVariant, get_2_non_const)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(std::string))>;
 
@@ -854,7 +919,7 @@ TEST(test_unbounded_variant, get_2_non_const)
 #endif
 }
 
-TEST(test_unbounded_variant, get_3_move_primitive_int)
+TEST_F(TestPmrUnboundedVariant, get_3_move_primitive_int)
 {
     using ub_var = unbounded_variant<sizeof(int)>;
 
@@ -868,7 +933,7 @@ TEST(test_unbounded_variant, get_3_move_primitive_int)
     EXPECT_THAT(get<const int&>(ub_var{42}), 42);
 }
 
-TEST(test_unbounded_variant, get_3_move_empty_bad_cast)
+TEST_F(TestPmrUnboundedVariant, get_3_move_empty_bad_cast)
 {
 #if defined(__cpp_exceptions)
 
@@ -897,7 +962,7 @@ TEST(test_unbounded_variant, get_3_move_empty_bad_cast)
 #endif
 }
 
-TEST(test_unbounded_variant, get_if_4_const_ptr)
+TEST_F(TestPmrUnboundedVariant, get_if_4_const_ptr)
 {
     using ub_var = unbounded_variant<sizeof(int)>;
 
@@ -916,7 +981,7 @@ TEST(test_unbounded_variant, get_if_4_const_ptr)
     EXPECT_THAT(get_if<int>(static_cast<const ub_var*>(nullptr)), IsNull());
 }
 
-TEST(test_unbounded_variant, get_if_5_non_const_ptr_with_custom_alignment)
+TEST_F(TestPmrUnboundedVariant, get_if_5_non_const_ptr_with_custom_alignment)
 {
     constexpr std::size_t alignment = 4096;
 
@@ -937,39 +1002,39 @@ TEST(test_unbounded_variant, get_if_5_non_const_ptr_with_custom_alignment)
     EXPECT_THAT(get_if<char>(static_cast<ub_var*>(nullptr)), IsNull());
 }
 
-TEST(test_unbounded_variant, get_if_polymorphic)
+TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 {
     side_effect_stats stats;
     {
-        using ub_var = unbounded_variant<sizeof(TestCopyableAndMovable)>;
+        using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
 
         auto side_effects = stats.make_side_effect_fn();
 
-        ub_var test_ubv = TestCopyableAndMovable{'Y', side_effects};
+        ub_var test_ubv = MyCopyableAndMovable{'Y', side_effects};
 
-        auto& test_base1 = get<const TestBase&>(test_ubv);
+        auto& test_base1 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base1.payload_, 'Y');
-        EXPECT_THAT(test_base1.what(), "TestCopyableAndMovable");
-        EXPECT_THAT(get_if<TestCopyableAndMovable>(&test_ubv), NotNull());
-        EXPECT_THAT(get_if<TestCopyableOnly>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestMovableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(test_base1.what(), "MyCopyableAndMovable");
+        EXPECT_THAT(get_if<MyCopyableAndMovable>(&test_ubv), NotNull());
+        EXPECT_THAT(get_if<MyCopyableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyMovableOnly>(&test_ubv), IsNull());
 
-        test_ubv = TestBase{'X', side_effects};
+        test_ubv = MyBase{'X', side_effects};
 
-        auto& test_base2 = get<const TestBase&>(test_ubv);
+        auto& test_base2 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base2.payload_, 'X');
-        EXPECT_THAT(test_base2.what(), "TestBase");
-        EXPECT_THAT(get_if<TestCopyableAndMovable>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestCopyableOnly>(&test_ubv), IsNull());
-        EXPECT_THAT(get_if<TestMovableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(test_base2.what(), "MyBase");
+        EXPECT_THAT(get_if<MyCopyableAndMovable>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyCopyableOnly>(&test_ubv), IsNull());
+        EXPECT_THAT(get_if<MyMovableOnly>(&test_ubv), IsNull());
     }
     EXPECT_THAT(stats.constructs, stats.destructs);
-    EXPECT_THAT(stats.ops, "@M_@MM_M_M_~_~");
+    EXPECT_THAT(stats.ops, "@M_@~M_~");
 }
 
-TEST(test_unbounded_variant, swap_copyable)
+TEST_F(TestPmrUnboundedVariant, swap_copyable)
 {
-    using test   = TestCopyableOnly;
+    using test   = MyCopyableOnly;
     using ub_var = unbounded_variant<sizeof(test), true, false>;
 
     ub_var empty{};
@@ -979,7 +1044,7 @@ TEST(test_unbounded_variant, swap_copyable)
     // Self swap
     a.swap(a);
     EXPECT_THAT(get<const test&>(a).payload_, 'A');
-    // EXPECT_THAT(get<TestCopyableAndMovable>(&a), IsNull); //< won't compile expectedly b/c footprint is smaller
+    // EXPECT_THAT(get_if<MyCopyableAndMovable>(&a), IsNull()); //< won't compile expectedly b/c footprint is smaller
 
     a.swap(b);
     EXPECT_THAT(get<test&>(a).payload_, 'B');
@@ -999,9 +1064,9 @@ TEST(test_unbounded_variant, swap_copyable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_unbounded_variant, swap_movable)
+TEST_F(TestPmrUnboundedVariant, swap_movable)
 {
-    using test   = TestMovableOnly;
+    using test   = MyMovableOnly;
     using ub_var = unbounded_variant<sizeof(test), false, true>;
 
     ub_var empty{};
@@ -1040,66 +1105,553 @@ TEST(test_unbounded_variant, swap_movable)
     EXPECT_FALSE(another_empty.has_value());
 }
 
-TEST(test_unbounded_variant, emplace_1)
+TEST_F(TestPmrUnboundedVariant, emplace_1)
 {
     // Primitive `char`
     {
         using ub_var = unbounded_variant<sizeof(char)>;
 
         ub_var src;
-        src.emplace<char>('Y');
+        auto   y_ptr = src.emplace<char>('Y');
+        EXPECT_THAT(get_if<char>(&src), y_ptr);
         EXPECT_THAT(get<char>(src), 'Y');
     }
 
-    // `TestType` with two params ctor.
+    // `MyType` with two params ctor.
     {
-        struct TestType : rtti_helper<type_id_type<13>>
+        struct MyType : rtti_helper<type_id_type<13>>
         {
             char ch_;
             int  number_;
 
-            TestType(char ch, int number)
+            MyType(char ch, int number)
             {
                 ch_     = ch;
                 number_ = number;
             }
         };
-        using ub_var = unbounded_variant<sizeof(TestType)>;
+        using ub_var = unbounded_variant<sizeof(MyType)>;
 
         ub_var t;
-        t.emplace<TestType>('Y', 147);
-        EXPECT_THAT(get<TestType>(t).ch_, 'Y');
-        EXPECT_THAT(get<TestType>(t).number_, 147);
+        auto   my_ptr = t.emplace<MyType>('Y', 147);
+        EXPECT_THAT(get_if<MyType>(&t), my_ptr);
+        EXPECT_THAT(get<MyType>(t).ch_, 'Y');
+        EXPECT_THAT(get<MyType>(t).number_, 147);
     }
 }
 
-TEST(test_unbounded_variant, emplace_2_initializer_list)
+TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
 {
-    struct TestType : rtti_helper<type_id_type<13>>
+    side_effect_stats stats;
+    {
+        using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
+
+        auto stats_side_effects    = stats.make_side_effect_fn();
+        auto throwing_side_effects = [=](side_effect_op op) {
+            stats_side_effects(op);
+            if (op == side_effect_op::Construct)
+            {
+#if defined(__cpp_exceptions)
+                throw std::runtime_error("ctor");
+#endif
+            }
+        };
+
+        ub_var t;
+        EXPECT_THAT(t.has_value(), false);
+        EXPECT_THAT(t.valueless_by_exception(), false);
+
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects)), std::runtime_error);
+
+        EXPECT_THAT(t.has_value(), false);
+        EXPECT_THAT(t.valueless_by_exception(), true);
+        EXPECT_THAT(stats.constructs, 1);
+        EXPECT_THAT(stats.destructs, 0);
+        t.reset();
+        EXPECT_THAT(stats.ops, "@");
+#else
+        EXPECT_THAT(t.emplace<MyCopyableAndMovable>('Y', throwing_side_effects), NotNull());
+
+        EXPECT_THAT(t.has_value(), true);
+        EXPECT_THAT(t.valueless_by_exception(), false);
+        EXPECT_THAT(stats.constructs, 1);
+        EXPECT_THAT(stats.destructs, 0);
+        t.reset();
+        EXPECT_THAT(stats.ops, "@~");
+#endif
+    }
+}
+
+TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
+{
+    struct MyType : rtti_helper<type_id_type<13>>
     {
         std::size_t size_;
         int         number_;
 
-        TestType(const std::initializer_list<char> chars, const int number)
+        MyType(const std::initializer_list<char> chars, const int number)
         {
             size_   = chars.size();
             number_ = number;
         }
     };
-    using ub_var = unbounded_variant<sizeof(TestType)>;
+    using ub_var = unbounded_variant<sizeof(MyType)>;
 
     ub_var src;
-    src.emplace<TestType>({'A', 'B', 'C'}, 42);
+    EXPECT_THAT(src.emplace<MyType>({'A', 'B', 'C'}, 42), NotNull());
 
-    const auto test = get<TestType>(src);
+    const auto test = get<MyType>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
+{
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, pmr>;
+
+    ub_var dst{get_default_mr()};
+    EXPECT_THAT(dst.has_value(), false);
+
+    dst = ub_var{get_default_mr(), 'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
+
+    dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
+
+    ub_var dst2{get_default_mr()};
+    dst2 = std::move(dst);
+    EXPECT_THAT(dst2.has_value(), true);
+
+    dst2 = ub_var{get_default_mr()};
+    EXPECT_THAT(dst2.has_value(), false);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst3{src_empty};
+    EXPECT_THAT(dst3.has_value(), false);
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+
+    const ub_var dst4{std::move(dst3)};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
+{
+    using ub_var = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, pmr>;
+
+    ub_var dst{get_mr()};
+    EXPECT_THAT(dst.has_value(), false);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = ub_var{get_mr(), 'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    ub_var dst2{get_default_mr()};
+    EXPECT_THAT(dst2.get_memory_resource(), get_default_mr());
+    dst2 = std::move(dst);
+    EXPECT_THAT(dst2.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst2.has_value(), true);
+
+    dst2 = ub_var{get_default_mr()};
+    EXPECT_THAT(dst2.has_value(), false);
+    dst2.reset(get_mr());
+
+    dst2 = std::uint16_t{0x147};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<std::uint16_t>(dst2), 0x147);
+
+    dst2 = int{-1};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<int>(dst2), -1);
+
+    ub_var dst3{std::move(dst2)};
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<int>(dst3), -1);
+
+    dst3 = true;
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<bool>(dst3), true);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst4{src_empty};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
+
+    ub_var dst5{std::move(dst4)};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_mr());
+
+    dst5 = ub_var{get_default_mr()};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_default_mr());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
+{
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, pmr>;
+
+    ub_var dst{get_mr()};
+    EXPECT_THAT(dst.has_value(), false);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = ub_var{get_mr(), 'x'};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(get<char>(dst), 'x');
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    dst = Empty{};
+    EXPECT_THAT(dst.has_value(), true);
+    EXPECT_THAT(dst.get_memory_resource(), get_mr());
+
+    ub_var dst2{get_default_mr()};
+    EXPECT_THAT(dst2.get_memory_resource(), get_default_mr());
+    dst2 = std::move(dst);
+    EXPECT_THAT(dst2.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst2.has_value(), true);
+
+    dst2 = ub_var{get_default_mr()};
+    EXPECT_THAT(dst2.has_value(), false);
+    dst2.reset(get_mr());
+
+    dst2 = std::uint16_t{0x147};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<std::uint16_t>(dst2), 0x147);
+
+    dst2 = int{-1};
+    EXPECT_THAT(dst2.has_value(), true);
+    EXPECT_THAT(get<int>(dst2), -1);
+
+    ub_var dst3{std::move(dst2)};
+    EXPECT_THAT(dst3.get_memory_resource(), get_mr());
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<int>(dst3), -1);
+
+    dst3 = true;
+    EXPECT_THAT(dst3.has_value(), true);
+    EXPECT_THAT(get<bool>(dst3), true);
+
+    const ub_var src_empty{get_mr()};
+    ub_var       dst4{src_empty};
+    EXPECT_THAT(dst4.has_value(), false);
+    EXPECT_THAT(dst4.get_memory_resource(), get_mr());
+
+    ub_var dst5{std::move(dst4)};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_mr());
+
+    dst5 = ub_var{get_default_mr()};
+    EXPECT_THAT(dst5.has_value(), false);
+    EXPECT_THAT(dst5.get_memory_resource(), get_default_mr());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory)
+{
+    using ub_var = unbounded_variant<2 /*Footprint*/, false /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, pmr>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+    // No allocations are expected (b/c we have footprint of 2).
+    dst = true;
+    dst = std::uint16_t{42};
+
+    // Assign a bigger (`std::uint32_t`) type value which requires more than 2 bytes.
+    // Emulate that there is enough memory.
+    {
+        using big_type = std::uint32_t;
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(big_type), 4))
+            .WillOnce(
+                [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(big_type), 4))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        dst = big_type{13};
+        EXPECT_THAT(dst.has_value(), true);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
+    }
+
+    // Assign even bigger (`double`) type value which requires more than 2 bytes.
+    // Emulate that there is no memory enough.
+    {
+        MyMovableOnly my_move_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), 4)).WillOnce(Return(nullptr));
+
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
+#else
+        dst = std::move(my_move_only);
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var         = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+    // No allocations are expected (b/c we have footprint of 2).
+    dst = true;
+    dst = std::uint16_t{42};
+
+    // Assign a bigger (`MyCopyableOnly`) type value which requires more than 2 bytes.
+    // Emulate that there is enough memory.
+    {
+        const MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment))
+            .WillOnce(
+                [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
+        EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(MyCopyableOnly), Alignment))
+            .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+                mr_.deallocate(p, size_bytes, alignment);
+            });
+
+        dst = my_copy_only;
+        EXPECT_THAT(stats.ops, "@C");
+
+        dst.reset();
+        EXPECT_THAT(stats.ops, "@C~");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@C~~");
+
+    // Emulate that there is no memory enough.
+    {
+        dst = true;
+        stats.reset();
+
+        MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
+
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+#else
+        dst = my_copy_only;
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var         = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, pmr>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    ub_var dst{mr_mock.resource()};
+
+    // Emulate that there is no memory enough.
+    {
+        MyMovableOnly my_move_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyMovableOnly), Alignment)).WillOnce(Return(nullptr));
+
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(dst = std::move(my_move_only)), std::bad_alloc);
+#else
+        dst = std::move(my_move_only);
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
+{
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var         = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
+
+    side_effect_stats stats;
+    auto              side_effects = stats.make_side_effect_fn();
+
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(bool), Alignment))
+        .WillOnce(
+            [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
+    EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(bool), Alignment))
+        .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            mr_.deallocate(p, size_bytes, alignment);
+        });
+    ub_var dst{mr_mock.resource(), true};
+
+    // Emulate that there is no memory enough.
+    {
+        MyCopyableOnly my_copy_only{'X', side_effects};
+        EXPECT_THAT(stats.ops, "@");
+
+        EXPECT_CALL(mr_mock, do_allocate(sizeof(MyCopyableOnly), Alignment)).WillOnce(Return(nullptr));
+
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(sink(dst = my_copy_only), std::bad_alloc);
+#else
+        dst = my_copy_only;
+#endif
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), true);
+        EXPECT_THAT(stats.ops, "@");
+
+        dst.reset();
+        EXPECT_THAT(dst.has_value(), false);
+        EXPECT_THAT(dst.valueless_by_exception(), false);
+        EXPECT_THAT(stats.ops, "@");
+    }
+    EXPECT_THAT(stats.constructs, stats.destructs);
+    EXPECT_THAT(stats.ops, "@~");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
+{
+    using test   = MyCopyableOnly;
+    using ub_var = unbounded_variant<0, true, false, alignof(std::max_align_t), pmr>;
+
+    ub_var empty{get_default_mr()};
+    ub_var a{get_default_mr(), in_place_type_t<test>{}, 'A'};
+    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
+
+    // Self swap
+    a.swap(a);
+    EXPECT_THAT(get<const test&>(a).payload_, 'A');
+    EXPECT_THAT(get_if<MyCopyableAndMovable>(&a), IsNull());
+
+    a.swap(b);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(get<test&>(b).payload_, 'A');
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_THAT(get<test&>(empty).payload_, 'B');
+
+    empty.swap(a);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+
+    ub_var another_empty{get_default_mr()};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
+{
+    using test   = MyMovableOnly;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
+
+    ub_var empty{get_mr()};
+    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
+    EXPECT_THAT(b.get_memory_resource(), get_default_mr());
+
+    // Self swap
+    a.swap(a);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_THAT(get<const test&>(a).payload_, 'A');
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+
+    a.swap(b);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_TRUE(b.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_FALSE(get<test&>(b).moved_);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(get<test&>(b).payload_, 'A');
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
+    EXPECT_THAT(b.get_memory_resource(), get_mr());
+
+    empty.swap(a);
+    EXPECT_FALSE(a.has_value());
+    EXPECT_TRUE(empty.has_value());
+    EXPECT_FALSE(get<test&>(empty).moved_);
+    EXPECT_THAT(get<test&>(empty).payload_, 'B');
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+    EXPECT_THAT(empty.get_memory_resource(), get_default_mr());
+
+    empty.swap(a);
+    EXPECT_TRUE(a.has_value());
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(get<test&>(a).moved_);
+    EXPECT_THAT(get<test&>(a).payload_, 'B');
+    EXPECT_THAT(empty.get_memory_resource(), get_mr());
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
+
+    ub_var another_empty{get_default_mr()};
+    empty.swap(another_empty);
+    EXPECT_FALSE(empty.has_value());
+    EXPECT_FALSE(another_empty.has_value());
+    EXPECT_THAT(another_empty.get_memory_resource(), get_mr());
+    EXPECT_THAT(empty.get_memory_resource(), get_default_mr());
+
+    const ub_var ub_vec{get_mr(), in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
+    EXPECT_THAT(ub_vec.get_memory_resource(), get_mr());
+    EXPECT_THAT(get<const std::vector<char>&>(ub_vec), testing::ElementsAre('A', 'B', 'C'));
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_reset_memory_resource)
+{
+    using test   = MyMovableOnly;
+    using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
+
+    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    EXPECT_TRUE(a.has_value());
+    EXPECT_THAT(a.get_memory_resource(), get_mr());
+
+    a.reset(get_default_mr());
+    EXPECT_FALSE(a.has_value());
+    EXPECT_THAT(a.get_memory_resource(), get_default_mr());
 }
 
 }  // namespace
 
 namespace cetl
 {
+
 template <>
 constexpr type_id type_id_value<bool> = {1};
 
@@ -1122,7 +1674,7 @@ template <>
 constexpr type_id type_id_value<uint16_t> = {7};
 
 template <>
-constexpr type_id type_id_value<std::unique_ptr<TestCopyableAndMovable>> =
+constexpr type_id type_id_value<std::unique_ptr<MyCopyableAndMovable>> =
     {0xB3, 0xB8, 0x4E, 0xC1, 0x1F, 0xE4, 0x49, 0x35, 0x9E, 0xC9, 0x1A, 0x77, 0x7B, 0x82, 0x53, 0x25};
 
 template <>
@@ -1130,6 +1682,15 @@ constexpr type_id type_id_value<std::complex<double>> = {8};
 
 template <>
 constexpr type_id type_id_value<std::function<const char*()>> = {9};
+
+template <>
+constexpr type_id type_id_value<Empty> = {10};
+
+template <>
+constexpr type_id type_id_value<std::uint32_t> = {11};
+
+template <>
+constexpr type_id type_id_value<std::vector<char>> = {12};
 
 }  // namespace cetl
 
