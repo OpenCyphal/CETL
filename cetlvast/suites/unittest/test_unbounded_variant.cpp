@@ -26,7 +26,7 @@ using cetl::unbounded_variant;
 using cetl::get;
 using cetl::get_if;
 using cetl::make_unbounded_variant;
-using cetl::in_place_type_t;
+using cetl::ub_var::in_place_type_t;
 using cetl::type_id;
 using cetl::type_id_type;
 using cetl::rtti_helper;
