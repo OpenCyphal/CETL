@@ -1474,8 +1474,6 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 /// \brief Constructs an unbounded_variant object containing an object of type T,
 ///        passing the provided arguments to T's constructor.
 ///
-/// Equivalent to `cetl::unbounded_variant(cetl::ub_var::in_place_type<ValueType>, std::forward<Args>(args)...)`.
-///
 template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
@@ -1484,8 +1482,6 @@ CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 
 /// \brief Constructs an unbounded_variant object containing an object of type T,
 ///        passing the provided arguments to T's constructor.
-///
-/// Equivalent to `cetl::unbounded_variant(cetl::ub_var::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
 ///
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
