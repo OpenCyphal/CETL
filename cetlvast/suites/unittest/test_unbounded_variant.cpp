@@ -26,7 +26,6 @@ using cetl::unbounded_variant;
 using cetl::get;
 using cetl::get_if;
 using cetl::make_unbounded_variant;
-using cetl::ub_var::in_place_type_t;
 using cetl::type_id;
 using cetl::type_id_type;
 using cetl::rtti_helper;
@@ -591,7 +590,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_5_in_place)
     };
     using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<MyType>{}, 'Y', 42};
+    const ub_var src{ub_var::in_place_type_t<MyType>{}, 'Y', 42};
 
     const auto test = get<MyType>(src);
     EXPECT_THAT(test.ch_, 'Y');
@@ -613,7 +612,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_6_in_place_initializer_list)
     };
     using ub_var = unbounded_variant<sizeof(MyType)>;
 
-    const ub_var src{in_place_type_t<MyType>{}, {'A', 'B', 'C'}, 42};
+    const ub_var src{ub_var::in_place_type_t<MyType>{}, {'A', 'B', 'C'}, 42};
 
     auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 3);
@@ -1038,8 +1037,8 @@ TEST_F(TestPmrUnboundedVariant, swap_copyable)
     using ub_var = unbounded_variant<sizeof(test), true, false>;
 
     ub_var empty{};
-    ub_var a{in_place_type_t<test>{}, 'A'};
-    ub_var b{in_place_type_t<test>{}, 'B'};
+    ub_var a{ub_var::in_place_type_t<test>{}, 'A'};
+    ub_var b{ub_var::in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
@@ -1070,8 +1069,8 @@ TEST_F(TestPmrUnboundedVariant, swap_movable)
     using ub_var = unbounded_variant<sizeof(test), false, true>;
 
     ub_var empty{};
-    ub_var a{in_place_type_t<test>{}, 'A'};
-    ub_var b{in_place_type_t<test>{}, 'B'};
+    ub_var a{ub_var::in_place_type_t<test>{}, 'A'};
+    ub_var b{ub_var::in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
@@ -1551,8 +1550,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_copyable)
     using ub_var = unbounded_variant<0, true, false, alignof(std::max_align_t), pmr>;
 
     ub_var empty{get_default_mr()};
-    ub_var a{get_default_mr(), in_place_type_t<test>{}, 'A'};
-    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
+    ub_var a{get_default_mr(), ub_var::in_place_type_t<test>{}, 'A'};
+    ub_var b{get_default_mr(), ub_var::in_place_type_t<test>{}, 'B'};
 
     // Self swap
     a.swap(a);
@@ -1583,9 +1582,9 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
 
     ub_var empty{get_mr()};
-    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    ub_var a{get_mr(), ub_var::in_place_type_t<test>{}, 'A'};
     EXPECT_THAT(a.get_memory_resource(), get_mr());
-    ub_var b{get_default_mr(), in_place_type_t<test>{}, 'B'};
+    ub_var b{get_default_mr(), ub_var::in_place_type_t<test>{}, 'B'};
     EXPECT_THAT(b.get_memory_resource(), get_default_mr());
 
     // Self swap
@@ -1628,7 +1627,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_swap_movable)
     EXPECT_THAT(another_empty.get_memory_resource(), get_mr());
     EXPECT_THAT(empty.get_memory_resource(), get_default_mr());
 
-    const ub_var ub_vec{get_mr(), in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
+    const ub_var ub_vec{get_mr(), ub_var::in_place_type_t<std::vector<char>>{}, {'A', 'B', 'C'}};
     EXPECT_THAT(ub_vec.get_memory_resource(), get_mr());
     EXPECT_THAT(get<const std::vector<char>&>(ub_vec), testing::ElementsAre('A', 'B', 'C'));
 }
@@ -1638,7 +1637,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_reset_memory_resource)
     using test   = MyMovableOnly;
     using ub_var = unbounded_variant<sizeof(test), false, true, alignof(std::max_align_t), pmr>;
 
-    ub_var a{get_mr(), in_place_type_t<test>{}, 'A'};
+    ub_var a{get_mr(), ub_var::in_place_type_t<test>{}, 'A'};
     EXPECT_TRUE(a.has_value());
     EXPECT_THAT(a.get_memory_resource(), get_mr());
 

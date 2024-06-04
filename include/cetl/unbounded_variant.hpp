@@ -961,57 +961,6 @@ private:
 
 }  // namespace detail
 
-// MARK: - "In Place" nested types.
-
-/// Namespace to nest `unbounded_variant` specific declarations.
-///
-namespace ub_var
-{
-
-/// Implementation similar to \ref std::in_place_type_t or \ref cetl::pf17::in_place_type_t.
-///
-/// In use by several \ref cetl::unbounded_variant constructors.
-///
-/// Can't use directly either of already existing `std::in_place_type_t` or `cetl::pf17::in_place_type_t` types due to
-/// C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code duplication.
-///
-template <typename T>
-struct in_place_type_t
-{
-    explicit in_place_type_t() = default;
-};
-
-/// Implementation similar to \ref std::in_place_type or \ref cetl::pf17::in_place_type.
-///
-/// In use by several \ref cetl::unbounded_variant constructors.
-///
-/// Can't use directly either of already existing `std::in_place_type` or `cetl::pf17::in_place_type` types due to
-/// C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code duplication.
-///
-template <typename T>
-constexpr in_place_type_t<T> in_place_type{};
-
-/// Private implementation details of the in_place_type stuff.
-namespace detail
-{
-template <typename>
-struct is_in_place_type_impl : std::false_type
-{};
-template <typename T>
-struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
-{};
-template <typename T>
-struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
-{};
-static_assert(is_in_place_type<decltype(in_place_type<int>)>::value, "self-test failure");
-static_assert(!is_in_place_type<int>::value, "self-test failure");
-
-}  // namespace detail
-
-}  // namespace ub_var
-
-// MARK: - unbounded_variant
-
 template <typename ValueType, typename UnboundedVariant>
 std::add_pointer_t<ValueType> get_if(UnboundedVariant* operand) noexcept;
 
@@ -1040,10 +989,27 @@ class unbounded_variant : detail::base_move<Pmr, Footprint, Copyable, Movable, A
     using IsMovableT = std::integral_constant<bool, Movable>;
     using base       = detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>;
 
+    // Forward declaration.
+    template <typename T>
+    struct is_in_place_type;
+
 public:
     using base::reset;
     using base::has_value;
     using base::valueless_by_exception;
+
+    /// Implementation similar to \ref std::in_place_type_t or \ref cetl::pf17::in_place_type_t.
+    ///
+    /// In use by several \ref cetl::unbounded_variant constructors.
+    ///
+    /// Can't use directly either of already existing `std::in_place_type_t` or `cetl::pf17::in_place_type_t` types due to
+    /// C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code duplication.
+    ///
+    template <typename T>
+    struct in_place_type_t
+    {
+        explicit in_place_type_t() = default;
+    };
 
     /// \brief Constructs an empty `unbounded_variant` object.
     ///
@@ -1095,7 +1061,7 @@ public:
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfNotPmrT<PmrAlias>,
               typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !ub_var::detail::is_in_place_type<ValueType>::value>>
+                                                   !is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
@@ -1116,7 +1082,7 @@ public:
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfPmrT<PmrAlias>,
               typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !ub_var::detail::is_in_place_type<ValueType>::value>>
+                                                   !is_in_place_type<ValueType>::value>>
     unbounded_variant(Pmr* const mem_res, ValueType&& value)
         : base{mem_res}
     {
@@ -1140,7 +1106,7 @@ public:
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfNotPmrT<PmrAlias>>
-    explicit unbounded_variant(ub_var::in_place_type_t<ValueType>, Args&&... args)
+    explicit unbounded_variant(in_place_type_t<ValueType>, Args&&... args)
     {
         create<Tp>(std::forward<Args>(args)...);
     }
@@ -1161,7 +1127,7 @@ public:
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfPmrT<PmrAlias>>
-    explicit unbounded_variant(Pmr* const mem_res, ub_var::in_place_type_t<ValueType>, Args&&... args)
+    explicit unbounded_variant(Pmr* const mem_res, in_place_type_t<ValueType>, Args&&... args)
         : base{mem_res}
     {
         create<Tp>(std::forward<Args>(args)...);
@@ -1187,7 +1153,7 @@ public:
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfNotPmrT<PmrAlias>>
-    explicit unbounded_variant(ub_var::in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
+    explicit unbounded_variant(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
         create<Tp>(list, std::forward<Args>(args)...);
     }
@@ -1212,7 +1178,7 @@ public:
               typename PmrAlias = Pmr,
               typename          = detail::EnableIfPmrT<PmrAlias>>
     explicit unbounded_variant(Pmr* const mem_res,
-                               ub_var::in_place_type_t<ValueType>,
+                               in_place_type_t<ValueType>,
                                std::initializer_list<Up> list,
                                Args&&... args)
         : base{mem_res}
@@ -1358,6 +1324,18 @@ private:
     template <typename ValueType, typename UnboundedVariant>
     friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
 
+    template <typename>
+    struct is_in_place_type_impl : std::false_type
+    {};
+    template <typename T>
+    struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
+    {};
+    template <typename T>
+    struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
+    {};
+    static_assert(is_in_place_type<in_place_type_t<int>>::value, "self-test failure");
+    static_assert(!is_in_place_type<int>::value, "self-test failure");
+
     template <typename Tp, typename... Args>
     Tp* create(Args&&... args)
     {
@@ -1501,7 +1479,7 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
-    return UnboundedVariant(ub_var::in_place_type<ValueType>, std::forward<Args>(args)...);
+    return UnboundedVariant(UnboundedVariant::template in_place_type<ValueType>, std::forward<Args>(args)...);
 }
 
 /// \brief Constructs an unbounded_variant object containing an object of type T,
@@ -1515,7 +1493,7 @@ template <typename ValueType,
           typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
-    return UnboundedVariant(ub_var::in_place_type<ValueType>, list, std::forward<Args>(args)...);
+    return UnboundedVariant(UnboundedVariant::template in_place_type<ValueType>, list, std::forward<Args>(args)...);
 }
 
 /// \brief Performs type-safe access to the contained object.
