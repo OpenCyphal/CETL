@@ -1002,8 +1002,9 @@ public:
     ///
     /// In use by several \ref cetl::unbounded_variant constructors.
     ///
-    /// Can't use directly either of already existing `std::in_place_type_t` or `cetl::pf17::in_place_type_t` types due to
-    /// C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code duplication.
+    /// Can't use directly either of already existing `std::in_place_type_t` or `cetl::pf17::in_place_type_t` types due
+    /// to C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code
+    /// duplication.
     ///
     template <typename T>
     struct in_place_type_t
@@ -1056,12 +1057,12 @@ public:
     ///                   Its size must be less than or equal to `Footprint` in case of PMR support.
     /// \param value Value to be stored.
     ///
-    template <typename ValueType,
-              typename Tp       = std::decay_t<ValueType>,
-              typename PmrAlias = Pmr,
-              typename          = detail::EnableIfNotPmrT<PmrAlias>,
-              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !is_in_place_type<ValueType>::value>>
+    template <
+        typename ValueType,
+        typename Tp       = std::decay_t<ValueType>,
+        typename PmrAlias = Pmr,
+        typename          = detail::EnableIfNotPmrT<PmrAlias>,
+        typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
@@ -1077,12 +1078,12 @@ public:
     /// \param mem_res Pointer to a memory resource to be used by the variant.
     /// \param value Value to be stored.
     ///
-    template <typename ValueType,
-              typename Tp       = std::decay_t<ValueType>,
-              typename PmrAlias = Pmr,
-              typename          = detail::EnableIfPmrT<PmrAlias>,
-              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !is_in_place_type<ValueType>::value>>
+    template <
+        typename ValueType,
+        typename Tp       = std::decay_t<ValueType>,
+        typename PmrAlias = Pmr,
+        typename          = detail::EnableIfPmrT<PmrAlias>,
+        typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(Pmr* const mem_res, ValueType&& value)
         : base{mem_res}
     {
@@ -1477,7 +1478,8 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
-    return UnboundedVariant(UnboundedVariant::template in_place_type<ValueType>, std::forward<Args>(args)...);
+    using in_place_type_t = UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(in_place_type_t{}, std::forward<Args>(args)...);
 }
 
 /// \brief Constructs an unbounded_variant object containing an object of type T,
@@ -1489,7 +1491,8 @@ template <typename ValueType,
           typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
-    return UnboundedVariant(UnboundedVariant::template in_place_type<ValueType>, list, std::forward<Args>(args)...);
+    using in_place_type_t = UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(in_place_type_t{}, list, std::forward<Args>(args)...);
 }
 
 /// \brief Performs type-safe access to the contained object.
