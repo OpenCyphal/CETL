@@ -1478,7 +1478,7 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
-    using in_place_type_t = UnboundedVariant::template in_place_type_t<ValueType>;
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
     return UnboundedVariant(in_place_type_t{}, std::forward<Args>(args)...);
 }
 
@@ -1491,7 +1491,7 @@ template <typename ValueType,
           typename... Args>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
-    using in_place_type_t = UnboundedVariant::template in_place_type_t<ValueType>;
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
     return UnboundedVariant(in_place_type_t{}, list, std::forward<Args>(args)...);
 }
 
