@@ -8,18 +8,9 @@
 ///
 
 #include "cetl/unbounded_variant.hpp"
+#include "cetlvast/helpers_rtti.hpp"
 
 #include <cstdint>
-
-namespace cetl
-{
-template <>
-constexpr type_id type_id_value<uint8_t>{};
-
-template <>
-constexpr type_id type_id_value<uint16_t>{};
-
-}  // namespace cetl
 
 int main()
 {

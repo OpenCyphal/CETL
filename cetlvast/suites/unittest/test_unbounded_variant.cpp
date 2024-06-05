@@ -7,6 +7,7 @@
 /// SPDX-License-Identifier: MIT
 
 #include <cetl/unbounded_variant.hpp>
+#include <cetlvast/helpers_rtti.hpp>
 #include <cetlvast/memory_resource_mock.hpp>
 #include <cetlvast/tracking_memory_resource.hpp>
 
@@ -19,44 +20,6 @@
 
 // NOLINTBEGIN(*-use-after-move)
 
-namespace cetl
-{
-
-template <>
-constexpr type_id type_id_value<bool> = {1};
-
-template <>
-constexpr type_id type_id_value<int> = {2};
-
-template <>
-constexpr type_id type_id_value<float> = {3};
-
-template <>
-constexpr type_id type_id_value<double> = {4};
-
-template <>
-constexpr type_id type_id_value<char> = {5};
-
-template <>
-constexpr type_id type_id_value<std::string> = {6};
-
-template <>
-constexpr type_id type_id_value<uint16_t> = {7};
-
-template <>
-constexpr type_id type_id_value<std::complex<double>> = {8};
-
-template <>
-constexpr type_id type_id_value<std::function<const char*()>> = {9};
-
-template <>
-constexpr type_id type_id_value<std::uint32_t> = {10};
-
-template <>
-constexpr type_id type_id_value<std::vector<char>> = {11};
-
-}  // namespace cetl
-
 namespace
 {
 
@@ -66,7 +29,7 @@ using cetl::get_if;
 using cetl::make_unbounded_variant;
 using cetl::type_id;
 using cetl::type_id_type;
-using cetl::type_id_invalid;
+using cetl::type_id_value;
 using cetl::rtti_helper;
 
 using testing::_;
@@ -422,7 +385,7 @@ TEST_F(TestPmrUnboundedVariant, cppref_example)
 TEST_F(TestPmrUnboundedVariant, ctor_1_default)
 {
     EXPECT_THAT(unbounded_variant<1>{}.type_size(), 0UL);
-    EXPECT_THAT(unbounded_variant<1>{}.type_id(), type_id_invalid);
+    EXPECT_THAT(unbounded_variant<1>{}.type_id(), type_id_value<void>);
 
     EXPECT_FALSE((unbounded_variant<1>{}.has_value()));
     EXPECT_FALSE((unbounded_variant<1, false>{}.has_value()));
@@ -440,7 +403,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_1_default)
 TEST_F(TestPmrUnboundedVariant, ctor_1_default_pmr)
 {
     EXPECT_THAT((unbounded_variant<0, true, true, 8, pmr>{get_mr()}.type_size()), 0UL);
-    EXPECT_THAT((unbounded_variant<0, true, true, 8, pmr>{get_mr()}.type_id()), type_id_invalid);
+    EXPECT_THAT((unbounded_variant<0, true, true, 8, pmr>{get_mr()}.type_id()), type_id_value<void>);
 
     EXPECT_FALSE((unbounded_variant<0, false, false, 8, pmr>{get_mr()}.has_value()));
     EXPECT_FALSE((unbounded_variant<0, false, true, 8, pmr>{get_mr()}.has_value()));
@@ -466,20 +429,20 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
 
         const ub_var src{42};
         EXPECT_THAT(src.type_size(), sizeof(int));
-        EXPECT_THAT(src.type_id(), cetl::type_id_value<int>);
+        EXPECT_THAT(src.type_id(), type_id_value<int>);
 
         ub_var dst{src};
         EXPECT_THAT(src.type_size(), sizeof(int));
-        EXPECT_THAT(src.type_id(), cetl::type_id_value<int>);
+        EXPECT_THAT(src.type_id(), type_id_value<int>);
         EXPECT_THAT(dst.type_size(), sizeof(int));
-        EXPECT_THAT(dst.type_id(), cetl::type_id_value<int>);
+        EXPECT_THAT(dst.type_id(), type_id_value<int>);
 
         EXPECT_THAT(get<int>(src), 42);
         EXPECT_THAT(get<int>(dst), 42);
 
         const ub_var empty{};
         EXPECT_THAT(empty.type_size(), 0);
-        EXPECT_THAT(empty.type_id(), type_id_invalid);
+        EXPECT_THAT(empty.type_id(), type_id_value<void>);
 
         ub_var       dst2{empty};
         EXPECT_THAT(dst2.has_value(), false);
@@ -1067,7 +1030,7 @@ TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 
         ub_var test_ubv = MyCopyableAndMovable{'Y', side_effects};
         EXPECT_THAT(test_ubv.type_size(), sizeof(MyCopyableAndMovable));
-        EXPECT_THAT(test_ubv.type_id(), cetl::type_id_value<MyCopyableAndMovable>);
+        EXPECT_THAT(test_ubv.type_id(), type_id_value<MyCopyableAndMovable>);
 
         auto& test_base1 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base1.payload_, 'Y');
@@ -1078,7 +1041,7 @@ TEST_F(TestPmrUnboundedVariant, get_if_polymorphic)
 
         test_ubv = MyBase{'X', side_effects};
         EXPECT_THAT(test_ubv.type_size(), sizeof(MyBase));
-        EXPECT_THAT(test_ubv.type_id(), cetl::type_id_value<MyBase>);
+        EXPECT_THAT(test_ubv.type_id(), type_id_value<MyBase>);
 
         auto& test_base2 = get<const MyBase&>(test_ubv);
         EXPECT_THAT(test_base2.payload_, 'X');
@@ -1226,7 +1189,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
         EXPECT_THAT(t.has_value(), false);
         EXPECT_THAT(t.valueless_by_exception(), true);
         EXPECT_THAT(t.type_size(), 0);
-        EXPECT_THAT(t.type_id(), type_id_invalid);
+        EXPECT_THAT(t.type_id(), type_id_value<void>);
         EXPECT_THAT(stats.constructs, 1);
         EXPECT_THAT(stats.destructs, 0);
         t.reset();
@@ -1464,7 +1427,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
         EXPECT_THAT(dst.has_value(), false);
         EXPECT_THAT(dst.valueless_by_exception(), true);
         EXPECT_THAT(dst.type_size(), 0);
-        EXPECT_THAT(dst.type_id(), type_id_invalid);
+        EXPECT_THAT(dst.type_id(), type_id_value<void>);
         EXPECT_THAT(stats.ops, "@");
     }
     EXPECT_THAT(stats.constructs, stats.destructs);

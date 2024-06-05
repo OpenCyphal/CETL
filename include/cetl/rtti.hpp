@@ -35,7 +35,7 @@ using type_id = std::array<std::uint8_t, type_id_size>;
 /// The bytes of the UUID are given as a list of template parameters; there shall be at most 16 of them;
 /// if any are missing, they are assumed to be 0.
 /// For conversion to \ref type_id use \ref cetl::type_id_type_value.
-/// Please don't use empty or all zeros bytes, as it will be treated as the invalid type ID (see \ref type_id_invalid).
+/// Please don't use empty or all zeros bytes (reserved for `type_id_value<void>` specialization).
 template <std::uint8_t... Bytes>
 using type_id_type = std::integer_sequence<std::uint8_t, Bytes...>;
 
@@ -82,14 +82,10 @@ constexpr type_id type_id_type_value() noexcept
 template <typename T>
 constexpr type_id type_id_value = T::_get_type_id_();
 
-/// The type ID value specializations for `void` type.
-///
-/// In use for the `type_id_invalid` constant, which f.e. is in use at
-/// `unbounded_variant::type_id()` method to indicate that the variant is valueless.
+/// The type ID value specialization reserved for `void` type - all zeros.
 ///
 template <>
 constexpr type_id type_id_value<void>{};
-constexpr type_id type_id_invalid{type_id_value<void>};
 
 /// An alternative implementation of simple runtime type information (RTTI) capability designed for high-integrity
 /// real-time systems, where the use of the standard C++ RTTI is discouraged.

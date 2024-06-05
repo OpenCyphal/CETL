@@ -585,13 +585,13 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     }
 
     /// \brief Returns the unique identifier of the actual type of the stored value.
-    ///        `cetl::type_id_invalid` if storage is empty.
+    ///        `cetl::type_id_value<void>` if storage is empty.
     ///
     CETL_NODISCARD cetl::type_id type_id() const noexcept
     {
         if (!has_value())
         {
-            return cetl::type_id_invalid;
+            return cetl::type_id_value<void>;
         }
         CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
@@ -684,7 +684,7 @@ private:
     // - Converted raw pointer to the destination const value type (according to `dst_type_id`),
     //   otherwise `nullptr` if conversion is impossible (or `self` is `nullptr`);
     // - Unique identifier of the actual type of the stored value,
-    //   otherwise `type_id_invalid` (all zeros) if storage is empty.
+    //   otherwise `type_id_value<void>` (all zeros) if storage is empty.
     //
     using ValueConstPtrAndTypeId = std::pair<const void*, cetl::type_id>;
     ValueConstPtrAndTypeId (*value_const_converter_)(const void* self, const cetl::type_id& dst_type_id) = nullptr;
