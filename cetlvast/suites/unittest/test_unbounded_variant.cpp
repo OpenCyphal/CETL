@@ -349,6 +349,7 @@ TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_assignment)
 TEST_F(TestPmrUnboundedVariant, cppref_example)
 {
     using ub_var = unbounded_variant<std::max(sizeof(int), sizeof(double))>;
+    static_assert(std::is_void<ub_var::pmr_type>::value, "pmr_type should be `void`");
 
     ub_var a = 1;
     EXPECT_THAT(get<int>(a), 1);
@@ -1208,6 +1209,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_2_initializer_list)
 TEST_F(TestPmrUnboundedVariant, pmr_only_ctor)
 {
     using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 1 /*Alignment*/, pmr>;
+    static_assert(std::is_same<ub_var::pmr_type, pmr>::value, "pmr_type should be `pmr`");
 
     ub_var dst{get_default_mr()};
     EXPECT_THAT(dst.has_value(), false);
@@ -1692,6 +1694,30 @@ TEST_F(TestPmrUnboundedVariant, pmr_make_unbounded_variant_2_list)
     const auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 2);
     EXPECT_THAT(test.number_, 42);
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_use_mock_as_custom_mr_type)
+{
+    using custom_mr_mock = StrictMock<cetlvast::MemoryResourceMock>;
+    custom_mr_mock mr_mock{};
+
+    const auto Alignment = alignof(std::max_align_t);
+    using ub_var         = unbounded_variant<sizeof(int), true, true, Alignment, custom_mr_mock>;
+    static_assert(std::is_same<ub_var::pmr_type, custom_mr_mock>::value, "should be custom memory resource mock");
+
+    auto src = make_unbounded_variant<int, ub_var>(&mr_mock, 42);
+    EXPECT_THAT(get<int>(src), 42);
+
+    EXPECT_CALL(mr_mock, do_allocate(sizeof(double), Alignment))
+        .WillOnce(
+            [this](std::size_t size_bytes, std::size_t alignment) { return mr_.allocate(size_bytes, alignment); });
+    EXPECT_CALL(mr_mock, do_deallocate(_, sizeof(double), Alignment))
+        .WillOnce([this](void* p, std::size_t size_bytes, std::size_t alignment) {
+            mr_.deallocate(p, size_bytes, alignment);
+        });
+
+    src = 3.1415926;
+    EXPECT_THAT(get<double>(src), 3.1415926);
 }
 
 }  // namespace

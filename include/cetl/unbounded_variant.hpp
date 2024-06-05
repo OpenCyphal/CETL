@@ -998,8 +998,7 @@ public:
     ///
     /// `void` if PMR support is disabled.
     ///
-    using PmrType = Pmr;
-    using IsPmr   = detail::IsPmr<Pmr>;
+    using pmr_type = Pmr;
 
     using base::reset;
     using base::has_value;
@@ -1488,7 +1487,7 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename... Args,
-          typename = std::enable_if_t<!UnboundedVariant::IsPmr::value>>
+          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
@@ -1512,7 +1511,7 @@ template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename Up,
           typename... Args,
-          typename = std::enable_if_t<!UnboundedVariant::IsPmr::value>>
+          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
@@ -1535,9 +1534,9 @@ CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up>
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename... Args,
-          typename Pmr = typename UnboundedVariant::PmrType,
-          typename     = std::enable_if_t<UnboundedVariant::IsPmr::value>>
-CETL_NODISCARD UnboundedVariant make_unbounded_variant(Pmr* const mem_res, Args&&... args)
+          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
+                                                       Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
     return UnboundedVariant(mem_res, in_place_type_t{}, std::forward<Args>(args)...);
@@ -1561,10 +1560,9 @@ template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename Up,
           typename... Args,
-          typename Pmr = typename UnboundedVariant::PmrType,
-          typename     = std::enable_if_t<UnboundedVariant::IsPmr::value>>
-CETL_NODISCARD UnboundedVariant make_unbounded_variant(Pmr* const                mem_res,
-                                                       std::initializer_list<Up> list,
+          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
+                                                       std::initializer_list<Up>                  list,
                                                        Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
