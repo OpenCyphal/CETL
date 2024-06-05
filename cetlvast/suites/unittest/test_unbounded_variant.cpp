@@ -1646,6 +1646,54 @@ TEST_F(TestPmrUnboundedVariant, pmr_reset_memory_resource)
     EXPECT_THAT(a.get_memory_resource(), get_default_mr());
 }
 
+TEST_F(TestPmrUnboundedVariant, pmr_make_unbounded_variant_cppref_example)
+{
+    using ub_var = unbounded_variant<0, true, true, alignof(std::max_align_t), pmr>;
+
+    auto a0 = make_unbounded_variant<std::string, ub_var>(get_mr(), "Hello, cetl::unbounded_variant!\n");
+    auto a1 = make_unbounded_variant<std::complex<double>, ub_var>(get_mr(), 0.1, 2.3);
+
+    EXPECT_THAT(get<std::string>(a0), "Hello, cetl::unbounded_variant!\n");
+    EXPECT_THAT(get<std::complex<double>>(a1), std::complex<double>(0.1, 2.3));
+
+    using lambda        = std::function<const char*()>;
+    using ub_var_lambda = cetl::unbounded_variant<0, true, true, alignof(std::max_align_t), pmr>;
+
+    auto a3 = make_unbounded_variant<lambda, ub_var_lambda>(get_mr(), [] { return "Lambda #3.\n"; });
+    EXPECT_TRUE(a3.has_value());
+    EXPECT_THAT(get<lambda>(a3)(), "Lambda #3.\n");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_make_unbounded_variant_1)
+{
+    using ub_var = unbounded_variant<sizeof(int), false, true, 16, pmr>;
+
+    auto src = make_unbounded_variant<int, ub_var>(get_mr(), 42);
+    EXPECT_THAT(get<int>(src), 42);
+    static_assert(std::is_same<decltype(src), ub_var>::value, "");
+}
+
+TEST_F(TestPmrUnboundedVariant, pmr_make_unbounded_variant_2_list)
+{
+    struct MyType : rtti_helper<type_id_type<13>>
+    {
+        std::size_t size_;
+        int         number_;
+
+        MyType(const std::initializer_list<char> chars, const int number)
+        {
+            size_   = chars.size();
+            number_ = number;
+        }
+    };
+    using ub_var = unbounded_variant<sizeof(MyType), true, true, alignof(std::max_align_t), pmr>;
+
+    const auto  src  = make_unbounded_variant<MyType, ub_var>(get_mr(), {'A', 'C'}, 42);
+    const auto& test = get<const MyType&>(src);
+    EXPECT_THAT(test.size_, 2);
+    EXPECT_THAT(test.number_, 42);
+}
+
 }  // namespace
 
 namespace cetl
