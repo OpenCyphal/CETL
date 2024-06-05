@@ -10,10 +10,10 @@
 #define CETL_UNBOUNDED_VARIANT_HPP_INCLUDED
 
 #include "rtti.hpp"
-#include "pf17/cetlpf.hpp"
-#include "pf17/utility.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <exception>
 #include <initializer_list>
 
 namespace cetl
@@ -989,14 +989,37 @@ class unbounded_variant : detail::base_move<Pmr, Footprint, Copyable, Movable, A
     using IsMovableT = std::integral_constant<bool, Movable>;
     using base       = detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>;
 
+    // Forward declaration.
+    template <typename T>
+    struct is_in_place_type;
+
 public:
+    /// Type of the Polymorphic Memory Resource (PMR) used by the variant.
+    ///
+    /// `void` if PMR support is disabled.
+    ///
+    using pmr_type = Pmr;
+
     using base::reset;
     using base::has_value;
     using base::valueless_by_exception;
 
-    /// \brief Constructs an empty `unbounded_variant` object.
+    /// Implementation similar to \ref std::in_place_type_t or \ref cetl::pf17::in_place_type_t.
     ///
-    /// In case of enabled PMR support, the default memory resource is used.
+    /// In use by several \ref cetl::unbounded_variant constructors,
+    /// but please consider using \ref cetl::make_unbounded_variant instead.
+    ///
+    /// Can't use directly either of already existing `std::in_place_type_t` or `cetl::pf17::in_place_type_t` types due
+    /// to C++14 limitation and polyfill optionality (by design in CETL, according to Scott), so a bit of code
+    /// duplication.
+    ///
+    template <typename T>
+    struct in_place_type_t
+    {
+        explicit in_place_type_t() = default;
+    };
+
+    /// \brief Constructs an empty `unbounded_variant` object.
     ///
     template <typename PmrAlias = Pmr, typename = detail::EnableIfNotPmrT<PmrAlias>>
     unbounded_variant()
@@ -1029,22 +1052,19 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object by forwarding a value into variant's storage.
     ///
-    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
-    /// and it can't be bigger than `Footprint` in case of disabled PMR support.
+    /// Size of the value must be less than or equal to `Footprint`.
     /// Any failure during the value forwarding will result in the "valueless by exception" state.
-    ///
-    /// In case of enabled PMR support, the default memory resource is used.
     ///
     /// \tparam ValueType Type of the value to be stored.
     ///                   Its size must be less than or equal to `Footprint` in case of PMR support.
     /// \param value Value to be stored.
     ///
-    template <typename ValueType,
-              typename Tp       = std::decay_t<ValueType>,
-              typename PmrAlias = Pmr,
-              typename          = detail::EnableIfNotPmrT<PmrAlias>,
-              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !pf17::detail::is_in_place_type<ValueType>::value>>
+    template <
+        typename ValueType,
+        typename Tp       = std::decay_t<ValueType>,
+        typename PmrAlias = Pmr,
+        typename          = detail::EnableIfNotPmrT<PmrAlias>,
+        typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
         create<Tp>(std::forward<ValueType>(value));
@@ -1060,12 +1080,12 @@ public:
     /// \param mem_res Pointer to a memory resource to be used by the variant.
     /// \param value Value to be stored.
     ///
-    template <typename ValueType,
-              typename Tp       = std::decay_t<ValueType>,
-              typename PmrAlias = Pmr,
-              typename          = detail::EnableIfPmrT<PmrAlias>,
-              typename          = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value &&
-                                                   !pf17::detail::is_in_place_type<ValueType>::value>>
+    template <
+        typename ValueType,
+        typename Tp       = std::decay_t<ValueType>,
+        typename PmrAlias = Pmr,
+        typename          = detail::EnableIfPmrT<PmrAlias>,
+        typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(Pmr* const mem_res, ValueType&& value)
         : base{mem_res}
     {
@@ -1074,11 +1094,10 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object with in place constructed value.
     ///
-    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
-    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
-    /// Any failure during the construction will result in the "valueless by exception" state.
+    /// Please consider using \ref cetl::make_unbounded_variant helper instead.
     ///
-    /// In case of enabled PMR support, the default memory resource is used.
+    /// Size of the value must be less than or equal to `Footprint`.
+    /// Any failure during the construction will result in the "valueless by exception" state.
     ///
     /// \tparam ValueType Type of the value to be stored.
     /// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
@@ -1094,7 +1113,9 @@ public:
         create<Tp>(std::forward<Args>(args)...);
     }
 
-    /// \brief Constructs an `unbounded_variant` object with in place constructed value.
+    /// \brief Constructs a PMR-enabled `unbounded_variant` object with in place constructed value.
+    ///
+    /// Please consider using \ref cetl::make_unbounded_variant helper instead.
     ///
     /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
     /// otherwise the value will be stored into PMR allocated storage.
@@ -1118,11 +1139,10 @@ public:
 
     /// \brief Constructs an `unbounded_variant` object with in place constructed value and initializer list.
     ///
-    /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
-    /// and it can't be bigger than `Footprint` in case of PMR support is disabled.
-    /// Any failure during the construction will result in the "valueless by exception" state.
+    /// Please consider using \ref cetl::make_unbounded_variant helper instead.
     ///
-    /// In case of enabled PMR support, the default memory resource is used.
+    /// Size of the value must be less than or equal to `Footprint`.
+    /// Any failure during the construction will result in the "valueless by exception" state.
     ///
     /// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
     /// \tparam Up Type of the elements of the initializer list.
@@ -1141,7 +1161,7 @@ public:
         create<Tp>(list, std::forward<Args>(args)...);
     }
 
-    /// \brief Constructs an `unbounded_variant` object with in place constructed value and initializer list.
+    /// \brief Constructs a PMR-enabled `unbounded_variant` object with in place constructed value and initializer list.
     ///
     /// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
     /// otherwise the value will be stored into PMR allocated storage.
@@ -1307,6 +1327,18 @@ private:
     template <typename ValueType, typename UnboundedVariant>
     friend std::add_pointer_t<std::add_const_t<ValueType>> get_if(const UnboundedVariant* operand) noexcept;
 
+    template <typename>
+    struct is_in_place_type_impl : std::false_type
+    {};
+    template <typename T>
+    struct is_in_place_type_impl<in_place_type_t<T>> : std::true_type
+    {};
+    template <typename T>
+    struct is_in_place_type : is_in_place_type_impl<std::decay_t<T>>
+    {};
+    static_assert(is_in_place_type<in_place_type_t<int>>::value, "self-test failure");
+    static_assert(!is_in_place_type<int>::value, "self-test failure");
+
     template <typename Tp, typename... Args>
     Tp* create(Args&&... args)
     {
@@ -1442,29 +1474,99 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
                                                  std::is_move_constructible<ValueType>::value,
                                                  alignof(ValueType)>;
 
-/// \brief Constructs an unbounded_variant object containing an object of type T,
-///        passing the provided arguments to T's constructor.
+/// \brief Makes an `unbounded_variant` object with in place constructed value.
 ///
-/// Equivalent to `cetl::unbounded_variant(cetl::in_place_type<ValueType>, std::forward<Args>(args)...)`.
+/// Size of the value must be less than or equal to `Footprint`.
+/// Any failure during the construction will result in the "valueless by exception" state.
 ///
-template <typename ValueType, typename UnboundedVariant = unbounded_variant_like<ValueType>, typename... Args>
+/// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+/// \tparam UnboundedVariant Template type of the result unbounded variant.
+/// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+/// \param args Arguments to be forwarded to the constructor of `ValueType`.
+///
+template <typename ValueType,
+          typename UnboundedVariant = unbounded_variant_like<ValueType>,
+          typename... Args,
+          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
-    return UnboundedVariant(in_place_type<ValueType>, std::forward<Args>(args)...);
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(in_place_type_t{}, std::forward<Args>(args)...);
 }
 
-/// \brief Constructs an unbounded_variant object containing an object of type T,
-///        passing the provided arguments to T's constructor.
+/// \brief Makes an `unbounded_variant` object with in place constructed value and initializer list.
 ///
-/// Equivalent to `cetl::unbounded_variant(cetl::in_place_type<ValueType>, list, std::forward<Args>(args)...)`.
+/// Size of the value must be less than or equal to `Footprint`.
+/// Any failure during the construction will result in the "valueless by exception" state.
+///
+/// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+/// \tparam UnboundedVariant Template type of the result unbounded variant.
+/// \tparam Up Type of the elements of the initializer list.
+/// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+/// \param mem_res Pointer to a memory resource to be used by the variant.
+/// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+/// \param args Arguments to be forwarded to the constructor of `ValueType`.
 ///
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename Up,
-          typename... Args>
+          typename... Args,
+          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
-    return UnboundedVariant(in_place_type<ValueType>, list, std::forward<Args>(args)...);
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(in_place_type_t{}, list, std::forward<Args>(args)...);
+}
+
+/// \brief Makes a PMR-enabled `unbounded_variant` object with in place constructed value.
+///
+/// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+/// otherwise the value will be stored into PMR allocated storage.
+/// Any failure during the construction will result in the "valueless by exception" state.
+///
+/// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+/// \tparam UnboundedVariant Template type of the result unbounded variant.
+/// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+/// \param mem_res Pointer to a memory resource to be used by the variant.
+/// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+/// \param args Arguments to be forwarded to the constructor of `ValueType`.
+///
+template <typename ValueType,
+          typename UnboundedVariant = unbounded_variant_like<ValueType>,
+          typename... Args,
+          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
+                                                       Args&&... args)
+{
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(mem_res, in_place_type_t{}, std::forward<Args>(args)...);
+}
+
+/// \brief Makes a PMR-enabled `unbounded_variant` object with in place constructed value and initializer list.
+///
+/// Size of the value must be less than or equal to `Footprint` to benefit small object optimization,
+/// otherwise the value will be stored into PMR allocated storage.
+/// Any failure during the construction will result in the "valueless by exception" state.
+///
+/// \tparam ValueType Type of the value to be stored. Its size must be less than or equal to `Footprint`.
+/// \tparam UnboundedVariant Template type of the result unbounded variant.
+/// \tparam Up Type of the elements of the initializer list.
+/// \tparam Args Types of arguments to be passed to the constructor of `ValueType`.
+/// \param mem_res Pointer to a memory resource to be used by the variant.
+/// \param list Initializer list to be forwarded to the constructor of `ValueType`.
+/// \param args Arguments to be forwarded to the constructor of `ValueType`.
+///
+template <typename ValueType,
+          typename UnboundedVariant = unbounded_variant_like<ValueType>,
+          typename Up,
+          typename... Args,
+          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
+                                                       std::initializer_list<Up>                  list,
+                                                       Args&&... args)
+{
+    using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
+    return UnboundedVariant(mem_res, in_place_type_t{}, list, std::forward<Args>(args)...);
 }
 
 /// \brief Performs type-safe access to the contained object.
