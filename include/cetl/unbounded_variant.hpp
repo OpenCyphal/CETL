@@ -557,13 +557,14 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     template <typename Tp, std::enable_if_t<is_rtti_convertible<Tp>, int> = 0>
     void make_converters() noexcept
     {
-        value_const_converter_ = [](const void* const storage, const cetl::type_id& dst_type_id) {
+        value_const_converter_ = [](const void* const    storage,
+                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             const auto        ptr     = static_cast<const Tp*>(storage);
             const void* const dst_ptr = ptr->_cast_(dst_type_id);
             return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
-        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) {
+        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             const auto ptr = static_cast<Tp*>(storage);
             return ptr->_cast_(dst_type_id);
@@ -573,12 +574,13 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     template <typename Tp, std::enable_if_t<!is_rtti_convertible<Tp>, int> = 0>
     void make_converters() noexcept
     {
-        value_const_converter_ = [](const void* const storage, const cetl::type_id& dst_type_id) {
+        value_const_converter_ = [](const void* const    storage,
+                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             const void* const dst_ptr = (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
             return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
-        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) {
+        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             return (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
         };
