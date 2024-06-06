@@ -76,16 +76,28 @@ constexpr type_id type_id_type_value() noexcept
     return detail::type_id_type_value_impl(TypeIDType{});
 }
 
+/// The type ID getter for the given type.
+/// This helper is provided for regularity; it returns the same value as \c T::_get_type_id_().
+/// The type shall satisfy \ref cetl::has_type_id.
+template <typename T>
+constexpr type_id type_id_getter() noexcept
+{
+    return T::_get_type_id_();
+}
+
+/// The type ID getter specialization reserved for `void` type - returns all zeros.
+///
+template <>
+constexpr type_id type_id_getter<void>() noexcept
+{
+    return {};
+}
+
 /// The type ID value of the given type.
 /// This helper is provided for regularity; it has the same value as \c T::_get_type_id_().
 /// The type shall satisfy \ref cetl::has_type_id.
 template <typename T>
-constexpr type_id type_id_value = T::_get_type_id_();
-
-/// The type ID value specialization reserved for `void` type - all zeros.
-///
-template <>
-constexpr type_id type_id_value<void>{};
+constexpr type_id type_id_value = type_id_getter<T>();
 
 /// An alternative implementation of simple runtime type information (RTTI) capability designed for high-integrity
 /// real-time systems, where the use of the standard C++ RTTI is discouraged.
