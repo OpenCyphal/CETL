@@ -79,6 +79,8 @@ constexpr type_id type_id_type_value() noexcept
 /// The type ID getter for the given type.
 /// This helper is provided for regularity; it returns the same value as \c T::_get_type_id_().
 /// The type shall satisfy \ref cetl::has_type_id.
+/// Specialize this getter to add RTTI support to types where it is not possible to define a static method
+/// (e.g., builtins, pointers, third-party classes, etc).
 template <typename T>
 constexpr type_id type_id_getter() noexcept
 {
