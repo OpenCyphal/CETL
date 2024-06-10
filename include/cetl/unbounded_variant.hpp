@@ -15,6 +15,7 @@
 #include <cstddef>
 #include <exception>
 #include <initializer_list>
+#include <utility>
 
 namespace cetl
 {
@@ -542,7 +543,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         base::template check_footprint<Tp>();
 
         CETL_DEBUG_ASSERT(nullptr == value_destroyer_, "Expected to be empty before making handlers.");
-        CETL_DEBUG_ASSERT(nullptr == value_converter_, "");
+        CETL_DEBUG_ASSERT(nullptr == value_mut_converter_, "");
         CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
 
         value_destroyer_ = [](void* const storage) {
@@ -556,25 +557,55 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     template <typename Tp, std::enable_if_t<is_rtti_convertible<Tp>, int> = 0>
     void make_converters() noexcept
     {
-        value_const_converter_ = [](const void* const storage, const type_id& id) {
-            const auto ptr = static_cast<const Tp*>(storage);
-            return ptr->_cast_(id);
+        value_const_converter_ = [](const void* const    storage,
+                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
+            CETL_DEBUG_ASSERT(nullptr != storage, "");
+            const auto        ptr     = static_cast<const Tp*>(storage);
+            const void* const dst_ptr = ptr->_cast_(dst_type_id);
+            return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
-        value_converter_ = [](void* const storage, const type_id& id) {
-            auto ptr = static_cast<Tp*>(storage);
-            return ptr->_cast_(id);
+        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
+            CETL_DEBUG_ASSERT(nullptr != storage, "");
+            const auto ptr = static_cast<Tp*>(storage);
+            return ptr->_cast_(dst_type_id);
         };
     }
 
     template <typename Tp, std::enable_if_t<!is_rtti_convertible<Tp>, int> = 0>
     void make_converters() noexcept
     {
-        value_const_converter_ = [](const void* const storage, const type_id& id) {
-            return (id == type_id_value<Tp>) ? storage : nullptr;
+        value_const_converter_ = [](const void* const    storage,
+                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
+            CETL_DEBUG_ASSERT(nullptr != storage, "");
+            const void* const dst_ptr = (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
+            return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
-        value_converter_ = [](void* const storage, const type_id& id) {
-            return (id == type_id_value<Tp>) ? storage : nullptr;
+        value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
+            CETL_DEBUG_ASSERT(nullptr != storage, "");
+            return (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
         };
+    }
+
+    /// \brief Returns the unique identifier of the actual type of the stored value.
+    ///        `cetl::type_id_value<void>` if storage is empty.
+    ///
+    CETL_NODISCARD cetl::type_id type_id() const noexcept
+    {
+        if (!has_value())
+        {
+            return cetl::type_id_value<void>;
+        }
+        CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
+
+        return value_const_converter_(base::get_raw_storage(), {}).second;
+    }
+
+    /// \brief Returns the size of the stored value in bytes.
+    ///        Zero if storage is empty.
+    ///
+    CETL_NODISCARD std::size_t type_size() const noexcept
+    {
+        return has_value() ? base::get_value_size() : 0UL;
     }
 
     template <typename ValueType>
@@ -588,7 +619,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         }
         CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        return value_converter_(base::get_raw_storage(), type_id_value<ValueType>);
+        return value_mut_converter_(base::get_raw_storage(), cetl::type_id_value<ValueType>);
     }
 
     template <typename ValueType>
@@ -602,20 +633,20 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         }
         CETL_DEBUG_ASSERT(nullptr != value_const_converter_, "Non-empty storage is expected to have value converter.");
 
-        return value_const_converter_(base::get_raw_storage(), type_id_value<ValueType>);
+        return value_const_converter_(base::get_raw_storage(), cetl::type_id_value<ValueType>).first;
     }
 
     void copy_handlers_from(const base_access& src) noexcept
     {
         value_destroyer_       = src.value_destroyer_;
-        value_converter_       = src.value_converter_;
+        value_mut_converter_   = src.value_mut_converter_;
         value_const_converter_ = src.value_const_converter_;
     }
 
     void move_handlers_from(base_access& src) noexcept
     {
         value_destroyer_       = src.value_destroyer_;
-        value_converter_       = src.value_converter_;
+        value_mut_converter_   = src.value_mut_converter_;
         value_const_converter_ = src.value_const_converter_;
 
         src.reset();
@@ -632,7 +663,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         }
 
         value_destroyer_       = nullptr;
-        value_converter_       = nullptr;
+        value_mut_converter_   = nullptr;
         value_const_converter_ = nullptr;
 
         base::reset();
@@ -644,10 +675,21 @@ private:
     // Holds type-erased value destroyer. `nullptr` if storage has no value stored.
     void (*value_destroyer_)(void* self) = nullptr;
 
-    // Holds type-erased value converters (const and non-const). `nullptr` if storage has no value stored.
+    // Holds type-erased value converter. `nullptr` if storage has no value stored.
+    // This function does polymorphic casting, and returns converted raw pointer to the destination mutable value
+    // type (according to `dst_type_id`), otherwise `nullptr` if conversion is impossible (or `self` is `nullptr`).
     //
-    void* (*value_converter_)(void* self, const type_id& id)                   = nullptr;
-    const void* (*value_const_converter_)(const void* self, const type_id& id) = nullptr;
+    void* (*value_mut_converter_)(void* self, const cetl::type_id& dst_type_id) = nullptr;
+
+    // Holds type-erased const value converter. `nullptr` if storage has no value stored.
+    // This function does polymorphic casting, and returns:
+    // - Converted raw pointer to the destination const value type (according to `dst_type_id`),
+    //   otherwise `nullptr` if conversion is impossible (or `self` is `nullptr`);
+    // - Unique identifier of the actual type of the stored value,
+    //   otherwise `type_id_value<void>` (all zeros) if storage is empty.
+    //
+    using ValueConstPtrAndTypeId = std::pair<const void*, cetl::type_id>;
+    ValueConstPtrAndTypeId (*value_const_converter_)(const void* self, const cetl::type_id& dst_type_id) = nullptr;
 
 };  // base_access
 
@@ -1001,6 +1043,8 @@ public:
     using pmr_type = Pmr;
 
     using base::reset;
+    using base::type_id;
+    using base::type_size;
     using base::has_value;
     using base::valueless_by_exception;
 

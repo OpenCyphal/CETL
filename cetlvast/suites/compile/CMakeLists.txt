@@ -21,7 +21,7 @@ set(ALL_TESTS_RUN "")
 
 foreach(COMPILE_TEST ${COMPILE_TESTS})
     define_compile_failure_test(TEST_SOURCE ${COMPILE_TEST}
-                                EXTRA_TEST_LIBS cetl
+                                EXTRA_TEST_LIBS cetl cetlvast
                                 OUT_TEST_BUILD_TARGET COMPILE_TEST_BUILD_TARGET
                                 OUT_TEST_PRECHECK_TARGET COMPILE_TEST_PRECHECK_TARGET)
     list(APPEND ALL_TESTS_BUILD "${COMPILE_TEST_BUILD_TARGET}")

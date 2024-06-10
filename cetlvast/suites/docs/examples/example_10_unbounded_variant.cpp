@@ -13,14 +13,27 @@
 //! [example_10_unbounded_variant_type_id]
 namespace cetl
 {
+
 template <>
-constexpr type_id type_id_value<bool> = {1};
+constexpr type_id type_id_getter<bool>() noexcept
+{
+    return {1};
+}
 template <>
-constexpr type_id type_id_value<int> = {2};
+constexpr type_id type_id_getter<int>() noexcept
+{
+    return {2};
+}
 template <>
-constexpr type_id type_id_value<float> = {3};
+constexpr type_id type_id_getter<float>() noexcept
+{
+    return {3};
+}
 template <>
-constexpr type_id type_id_value<double> = {4};
+constexpr type_id type_id_getter<double>() noexcept
+{
+    return {4};
+}
 
 }  // namespace cetl
 //! [example_10_unbounded_variant_type_id]
