@@ -235,4 +235,17 @@ TEST_F(TestPmrInterfacePtr, make_unique_myobj_ctor_throws)
 #endif
 }
 
+TEST_F(TestPmrInterfacePtr, initially_empty_with_default_deleter)
+{
+    cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
+
+    // 1. Create initially empty interface pointer.
+    cetl::pmr::InterfacePtr<INamed> obj0;
+    EXPECT_THAT(obj0, IsNull());
+
+    // 2. Now assign a new instance.
+    obj0 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0");
+    EXPECT_THAT(obj0, NotNull());
+}
+
 }  // namespace
