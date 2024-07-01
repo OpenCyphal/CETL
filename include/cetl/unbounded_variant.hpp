@@ -176,7 +176,7 @@ private:
     // NB! It's intentional and by design that the `inplace_buffer_` is the very first member of `unbounded_variant`
     // memory layout. In such way pointer to a `unbounded_variant` and its stored value are the same -
     // could be useful during debugging/troubleshooting.
-    alignas(Alignment) std::uint8_t inplace_buffer_[std::max(Footprint, 1UL)];
+    alignas(Alignment) std::uint8_t inplace_buffer_[std::max<std::size_t>(Footprint, 1UL)];
 
     // Stores the size of the allocated space in the buffer for a value.
     // The size could be less than `Footprint`, but never zero except when variant is empty (valid and valueless).
