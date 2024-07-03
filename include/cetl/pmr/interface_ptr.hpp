@@ -29,6 +29,12 @@ template <typename Interface>
 class PmrInterfaceDeleter final
 {
 public:
+    /// Constructs empty no-operation deleter.
+    ///
+    /// Useful for initially empty `InterfacePtr` instance without deleter attached.
+    ///
+    PmrInterfaceDeleter() = default;
+
     /// Constructs a Concrete type-erased deleter for the given interface type.
     ///
     /// @tparam PmrAllocator The type of the polymorphic allocator to use for deallocation.
@@ -51,7 +57,12 @@ public:
     ///
     void operator()(Interface* ptr) noexcept
     {
-        deleter_(ptr);
+        CETL_DEBUG_ASSERT((nullptr != ptr) == static_cast<bool>(deleter_), "Empty deleter is fine for null ptr!");
+
+        if ((nullptr != ptr) && static_cast<bool>(deleter_))
+        {
+            deleter_(ptr);
+        }
     }
 
     // Below convertor constructor is only possible with enabled PMR at `function`.
@@ -143,7 +154,7 @@ private:
         using Concrete = typename PmrAllocator::value_type;
 
     public:
-        ConcreteRaii(PmrAllocator& pmr_allocator)
+        explicit ConcreteRaii(PmrAllocator& pmr_allocator)
             : concrete_{pmr_allocator.allocate(1)}
             , constructed_{false}
             , pmr_allocator_{pmr_allocator}
