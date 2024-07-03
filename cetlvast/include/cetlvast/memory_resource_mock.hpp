@@ -17,6 +17,11 @@ namespace cetlvast
 class MemoryResourceMock : public cetl::pmr::memory_resource
 {
 public:
+    cetl::pmr::memory_resource* resource() noexcept
+    {
+        return this;
+    }
+
     MOCK_METHOD(void*, do_allocate, (std::size_t, std::size_t), (override));
     MOCK_METHOD(void, do_deallocate, (void*, std::size_t, std::size_t));
     // NOLINTNEXTLINE(bugprone-exception-escape)
