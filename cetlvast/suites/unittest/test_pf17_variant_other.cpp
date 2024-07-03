@@ -8,6 +8,7 @@
 // CSpell: words chronomorphize
 
 #include <cetl/pf17/variant.hpp>  // The tested header always goes first.
+#include <cetl/visit_helpers.hpp>
 #include "test_pf17_variant.hpp"
 #include <cetlvast/helpers.hpp>
 
@@ -675,7 +676,7 @@ TEST(test_variant, basic_operations)
     using cetl::pf17::holds_alternative;
     using cetl::pf17::get;
     using cetl::pf17::get_if;
-    using cetl::pf17::make_overloaded;
+    using cetl::make_overloaded;
     using cetl::pf17::in_place_index;
 
     variant<int, char, monostate> var;
@@ -818,7 +819,7 @@ TEST(test_variant, visit)
     using cetl::pf17::get;
     using cetl::pf17::visit;
     using cetl::pf17::monostate;
-    using cetl::pf17::make_overloaded;
+    using cetl::make_overloaded;
 #if __cpp_exceptions
     using cetl::pf17::bad_variant_access;
 #endif
@@ -898,7 +899,7 @@ TEST(test_variant, visit)
 
     // Constexpr visitation is not possible in C++14.
 #if __cplusplus >= 201703L
-    using cetl::pf17::make_overloaded;
+    using cetl::make_overloaded;
     using cetl::pf17::in_place_type;
     static_assert(1110 == visit(make_overloaded([](const std::int8_t a,
                                                    const float       b) { return a + static_cast<std::int64_t>(b); },
