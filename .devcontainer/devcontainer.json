@@ -1,6 +1,6 @@
 {
     "name": "linux development environment",
-    "image": "ghcr.io/opencyphal/toolshed:ts22.4.7",
+    "image": "ghcr.io/opencyphal/toolshed:ts22.4.10",
     "customizations": {
         "vscode": {
             "extensions": [
