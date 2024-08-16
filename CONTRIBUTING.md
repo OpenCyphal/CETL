@@ -40,10 +40,10 @@ and manually run it.
 
 ### TLDR
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.7
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.10
 git clone {this repo}
 cd CETL
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.7
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.10
 ./build-tools/bin/verify.py -vv --online configure
 cd build
 ninja release
@@ -53,7 +53,7 @@ ninja release
 
 1. Pull the OpenCyphal dev-container used for CETL:
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.7
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.10
 ```
 2. Clone CETL, cd into the repo, and launch an interactive terminal session of
 the dev container. This command will mount the current directory (`${PWD}`) in
@@ -89,7 +89,7 @@ To ensure that the formatting matches the expectations of the CI suite,
 invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
 
 ```
-docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.7 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.10 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
 ```
 
 # `issue/*` and hashtag-based CI triggering
