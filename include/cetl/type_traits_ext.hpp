@@ -105,7 +105,8 @@ struct partial
 namespace detail
 {
 enum narrowing_detector_tag
-{};
+{
+};
 template <typename T>
 struct narrowing_detector
 {
@@ -127,12 +128,8 @@ template <typename From, typename To>
 struct is_convertible_without_narrowing<
     From,
     To,
-    void_t<decltype(detail::narrowing_detector<To>
-    {
-        std::declval<detail::narrowing_detector_tag>(),
-        {std::declval<From>(), std::declval<From>()}
-    })>
-> : std::true_type
+    void_t<decltype(detail::narrowing_detector<To>{std::declval<detail::narrowing_detector_tag>(),
+                                                   {std::declval<From>(), std::declval<From>()}})>> : std::true_type
 {};
 static_assert(is_convertible_without_narrowing<std::uint32_t, std::uint64_t>::value, "self-test failure");
 static_assert(!is_convertible_without_narrowing<std::uint64_t, std::uint32_t>::value, "self-test failure");
@@ -200,7 +197,8 @@ struct impl : std::integral_constant<std::size_t, std::numeric_limits<std::size_
 {};
 template <template <typename...> class Q, typename F, typename... Ts>
 struct impl<Q, F, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>()))>>
-    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>())){};
+    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>()))
+{};
 }  // namespace best_conversion_index
 }  // namespace detail
 
