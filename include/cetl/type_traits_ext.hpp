@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <array>
 #include <utility>
-#include <initializer_list>
 #include <limits>
 #include <cstdint>
 #include <tuple>
