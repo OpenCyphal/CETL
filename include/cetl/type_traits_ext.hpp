@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <utility>
+#include <initializer_list>
 #include <limits>
 #include <tuple>
 #include <type_traits>
@@ -100,9 +101,22 @@ struct partial
 
 // --------------------------------------------------------------------------------------------
 
+namespace detail
+{
+enum narrowing_detector_tag
+{};
+template <typename T>
+struct narrowing_detector
+{
+    narrowing_detector(narrowing_detector_tag, std::initializer_list<T> il)
+    {
+    }
+};
+}  // namespace detail
+
 /// The `value` is true if the following expression is well-formed:
 /// @code
-/// To x[] = { std::forward<From>(from) };
+/// To x[] = { std::forward<From>(from), std::forward<From>(from) };
 /// @endcode
 template <typename From, typename To, typename = void>
 struct is_convertible_without_narrowing : std::false_type
@@ -111,19 +125,15 @@ template <typename From, typename To>
 struct is_convertible_without_narrowing<
     From,
     To,
-    // The number of braces is of an essential importance here: {{ }} attempts to initialize the first element
-    // of the array with the value, while {{{ }}} performs direct-list-initialization of To.
-    // Incorrect usage of the braces will cause incorrect detection of the applicable conversion.
-    // Notice that there is a subtle difference between C++14 and the newer standards with the guaranteed copy
-    // elision: a double-brace conversion is invalid in C++14 for noncopyable types while in C++17+ it is valid.
-    //
-    // An alternative way to test the conversion is to define a function that accepts an array rvalue:
-    //  static void test_conversion(To (&&)[1]);
-    // And check if it is invocable with the argument of type From.
-    void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
+    void_t<decltype(detail::narrowing_detector<To>
+    {
+        std::declval<detail::narrowing_detector_tag>(),
+        {std::declval<From>(), std::declval<From>()}
+    })>
+> : std::true_type
 {};
-static_assert(is_convertible_without_narrowing<int, long long>::value, "self-test failure");
-static_assert(!is_convertible_without_narrowing<long long, int>::value, "self-test failure");
+static_assert(is_convertible_without_narrowing<std::uint32_t, std::uint64_t>::value, "self-test failure");
+static_assert(!is_convertible_without_narrowing<std::uint64_t, std::uint32_t>::value, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
 

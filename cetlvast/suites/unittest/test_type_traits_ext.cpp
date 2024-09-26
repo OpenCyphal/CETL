@@ -58,19 +58,19 @@ static_assert(!is_convertible_without_narrowing<long double, float>::value, "");
 
 struct foo_ref
 {
-    foo_ref(const bool&);
+    foo_ref(const std::uint8_t&);
 };
 struct foo_val
 {
-    foo_val(bool);
+    foo_val(std::uint8_t);
 };
 
-static_assert(is_convertible_without_narrowing<bool, foo_val>::value, "");
-static_assert(is_convertible_without_narrowing<bool, foo_ref>::value, "");
+static_assert(is_convertible_without_narrowing<std::uint8_t, foo_val>::value, "");
+static_assert(is_convertible_without_narrowing<std::uint8_t, foo_ref>::value, "");
 
-static_assert(!is_convertible_without_narrowing<long, foo_val>::value, "");
+static_assert(!is_convertible_without_narrowing<std::uint16_t, foo_val>::value, "");
 #if defined(__GNUC__) && !defined(__clang__)  // https://twitter.com/PavelKirienko/status/1766446559971914238
-static_assert(!is_convertible_without_narrowing<long, foo_ref>::value, "");
+static_assert(!is_convertible_without_narrowing<std::uint16_t, foo_ref>::value, "");
 #endif
 
 }  // namespace test_convertible_without_narrowing
@@ -106,19 +106,78 @@ static_assert(best_conversion_index_v<std::is_volatile, char, int, const int, vo
 
 struct foo
 {
-    foo(bool);
+    foo(std::uint16_t);
 };
 // Shifting priorities depending on the available conversions.
-static_assert(best_conversion_index_v<universal_predicate, char, foo, int> == 1, "");
-static_assert(best_conversion_index_v<universal_predicate, char, foo> == 0, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::uint8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::int16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo, std::int8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint8_t, foo> == 0, "");
+//
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::uint8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::int16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo, std::int8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint16_t, foo> == 0, "");
+//
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::uint8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::int16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo, std::int8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint32_t, foo> == 0, "");
+//
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::uint8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::int16_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo, std::int8_t> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, std::uint64_t, foo> == 0, "");
 
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo, int> ==
-                  1,
-              "");
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo> == bad,
-              "");
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, bool>::template type, bool, foo> == 0,
-              "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::uint8_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::int16_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo, std::int8_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint8_t>::template type, std::uint8_t, foo> == 0, "");
+//
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::uint16_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::uint8_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::int32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::int16_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::int8_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo> == 0, "");
+//
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint16_t> == bad, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint8_t> == bad, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int32_t> == bad, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int16_t> == bad, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int8_t> == bad, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo> == bad, "");
 
 }  // namespace test_best_conversion_index
 
