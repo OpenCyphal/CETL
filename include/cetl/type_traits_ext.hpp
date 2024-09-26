@@ -111,6 +111,7 @@ struct narrowing_detector
 {
     narrowing_detector(narrowing_detector_tag, std::initializer_list<T> il)
     {
+        (void) il;
     }
 };
 }  // namespace detail
