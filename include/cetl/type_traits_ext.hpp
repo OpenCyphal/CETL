@@ -14,6 +14,7 @@
 #include <utility>
 #include <initializer_list>
 #include <limits>
+#include <cstdint>
 #include <tuple>
 #include <type_traits>
 #include <cetl/pf17/type_traits.hpp>
