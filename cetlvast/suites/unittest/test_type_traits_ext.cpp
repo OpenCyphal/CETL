@@ -68,9 +68,12 @@ struct foo_val
 static_assert(is_convertible_without_narrowing<std::uint8_t, foo_val>::value, "");
 static_assert(is_convertible_without_narrowing<std::uint8_t, foo_ref>::value, "");
 
+// It seems that GCC below 9 doesn't respect narrowing rules (see https://github.com/OpenCyphal/CETL/issues/136)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ < 9))
 static_assert(!is_convertible_without_narrowing<std::uint16_t, foo_val>::value, "");
 #if defined(__GNUC__) && !defined(__clang__)  // https://twitter.com/PavelKirienko/status/1766446559971914238
 static_assert(!is_convertible_without_narrowing<std::uint16_t, foo_ref>::value, "");
+#endif
 #endif
 
 }  // namespace test_convertible_without_narrowing
@@ -95,10 +98,17 @@ static_assert(best_conversion_index_v<universal_predicate, int, float, int> == 1
 static_assert(best_conversion_index_v<universal_predicate, int&, float, int> == 1, "");
 // Ambiguous case
 static_assert(best_conversion_index_v<universal_predicate, int, long, float, bool> == bad, "");
-// No longer ambiguous because we prohibit narrowing conversions
+// No longer ambiguous because we prohibit narrowing conversions, but
+// it seems that GCC below 9 doesn't respect narrowing rules (see https://github.com/OpenCyphal/CETL/issues/136)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ < 9))
 static_assert(
     best_conversion_index_v<partial<is_convertible_without_narrowing, int>::template type, int, float, bool, long> == 2,
     "");
+#else
+static_assert(
+    best_conversion_index_v<partial<is_convertible_without_narrowing, int>::template type, int, float, bool, long> == bad,
+    "");
+#endif
 
 static_assert(best_conversion_index_v<std::is_signed, long, char, long, unsigned long> == 1, "");
 static_assert(best_conversion_index_v<std::is_unsigned, long, char, long, unsigned long> == 2, "");
@@ -171,6 +181,8 @@ static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, 
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo, std::int8_t> == 0, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint16_t>::template type, std::uint16_t, foo> == 0, "");
 //
+// It seems that GCC below 9 doesn't respect narrowing rules (see https://github.com/OpenCyphal/CETL/issues/136)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ < 9))
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint64_t> == 1, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint32_t> == 1, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint16_t> == bad, "");
@@ -180,6 +192,17 @@ static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, 
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int16_t> == bad, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int8_t> == bad, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo> == bad, "");
+#else
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint32_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint16_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::uint8_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int64_t> == 1, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int32_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int16_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo, std::int8_t> == 0, "");
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, std::uint32_t>::template type, std::uint32_t, foo> == 0, "");
+#endif
 
 // clang-format on
 

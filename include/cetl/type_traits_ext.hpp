@@ -123,7 +123,11 @@ struct is_convertible_without_narrowing<
     // And check if it is invocable with the argument of type From.
     void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
 {};
+
+// It seems that GCC below 9 doesn't respect narrowing rules (see https://github.com/OpenCyphal/CETL/issues/136)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ < 9))
 static_assert(is_convertible_without_narrowing<std::uint32_t, std::uint64_t>::value, "self-test failure");
+#endif
 static_assert(!is_convertible_without_narrowing<std::uint64_t, std::uint32_t>::value, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
