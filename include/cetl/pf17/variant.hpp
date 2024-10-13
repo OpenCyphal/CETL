@@ -87,9 +87,9 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
 #endif
             std::array<R (*)(F&&, Args&&...), sizeof...(Is)>
                 lut = {
-                    [](F&& fn, Args&&... ar) -> R {
+                    [](F&& fn, Args&&... arr) -> R {
                         return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{},
-                                                   std::forward<Args>(ar)...);
+                                                   std::forward<Args>(arr)...);
                     }...,
                 };
         return lut.at(index)(std::forward<F>(fun), std::forward<Args>(ar)...);
@@ -212,7 +212,7 @@ constexpr inline void bad_access_unless(const bool condition)
 {
     if (!condition)
     {
-#if __cpp_exceptions
+#if defined(__cpp_exceptions)
         throw bad_variant_access{};
 #else
         std::terminate();
