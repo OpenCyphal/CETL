@@ -236,12 +236,7 @@ public:
     /// @}
 
 protected:
-    rtti()                       = default;
-    rtti(const rtti&)            = default;
-    rtti(rtti&&)                 = default;
-    virtual ~rtti() noexcept     = default;
-    rtti& operator=(const rtti&) = default;
-    rtti& operator=(rtti&&)      = default;
+    ~rtti() noexcept = default;
 };
 
 /// Non-polymorphic types that want to support RTTI should simply provide a \c _get_type_id_()
@@ -289,6 +284,8 @@ struct rtti_helper : public virtual cetl::rtti, public Bases...
         return (id == _get_type_id_()) ? static_cast<const void*>(this) : search<Bases...>(id);
     }
     /// @}
+
+    virtual ~rtti_helper() noexcept = default;
 
 private:
     // Exhaustively search for a matching conversion throughout the entire type hierarchy tree.
