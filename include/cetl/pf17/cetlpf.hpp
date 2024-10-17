@@ -42,6 +42,7 @@
 #    include <cstddef>
 #    include <optional>
 #    include <variant>
+#    include <string_view>
 
 namespace cetl
 {
@@ -113,6 +114,9 @@ using std::get_if;
 using std::visit;
 using std::holds_alternative;
 
+// string_view
+using std::string_view;
+
 }  // namespace cetl
 
 #else
@@ -120,6 +124,7 @@ using std::holds_alternative;
 #    include "cetl/pf17/utility.hpp"
 #    include "cetl/pf17/optional.hpp"
 #    include "cetl/pf17/variant.hpp"
+#    include "cetl/pf17/string_view.hpp"
 
 namespace cetl
 {
@@ -195,6 +200,9 @@ using cetl::pf17::holds_alternative;
 #    if defined(__cpp_exceptions) || defined(CETL_DOXYGEN)
 using cetl::pf17::bad_variant_access;
 #    endif
+
+// string_view
+using cetl::pf17::string_view;
 
 }  // namespace cetl
 #endif
