@@ -285,7 +285,8 @@ struct rtti_helper : public virtual cetl::rtti, public Bases...
     }
     /// @}
 
-    virtual ~rtti_helper() noexcept = default;
+protected:
+    ~rtti_helper() noexcept = default;
 
 private:
     // Exhaustively search for a matching conversion throughout the entire type hierarchy tree.
