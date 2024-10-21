@@ -59,7 +59,7 @@ public:
 
 };  // TestStringView
 
-TYPED_TEST_SUITE(TestStringView, CharTs);
+TYPED_TEST_SUITE(TestStringView, CharTs, );
 
 /// TESTS -----------------------------------------------------------------------------------------------------------
 
