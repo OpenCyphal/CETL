@@ -15,6 +15,8 @@
 #include <array>
 #include <cassert>
 #include <cstdlib>
+#include <iomanip>
+#include <sstream>
 #include <string>
 #include <cetl/cetl.hpp>
 
@@ -54,6 +56,7 @@ public:
         std::array<wchar_t, 256> wstr{};
         const auto result = std::mbstowcs(wstr.data(), cstr, wstr.size());
         assert(result == std::strlen(cstr));
+        (void) result;
         return {wstr.data()};
     }
 
@@ -407,4 +410,31 @@ TYPED_TEST(TestStringView, CopyOutOfBounds)
 #else
     GTEST_SKIP() << "Not applicable when exceptions are disabled.";
 #endif
+}
+
+TYPED_TEST(TestStringView, stream_operator)
+{
+    using SV = basic_string_view<TypeParam>;
+
+    const auto test_str = TestFixture::toStr("Test");
+    {
+        std::basic_stringstream<TypeParam> ss;
+        ss << SV{test_str} << SV{test_str};
+        EXPECT_THAT(ss.str(), TestFixture::toStr("TestTest"));
+    }
+    {
+        std::basic_stringstream<TypeParam> ss;
+        ss << std::setw(9) << std::setfill(TestFixture::toChar('-')) << std::left << SV{test_str};
+        EXPECT_THAT(ss.str(), TestFixture::toStr("Test-----"));
+    }
+    {
+        std::basic_stringstream<TypeParam> ss;
+        ss << std::setw(9) << std::setfill(TestFixture::toChar('-')) << std::right << SV{test_str};
+        EXPECT_THAT(ss.str(), TestFixture::toStr("-----Test"));
+    }
+    {
+        std::basic_stringstream<TypeParam> ss;
+        ss << std::setw(2) << SV{test_str};
+        EXPECT_THAT(ss.str(), test_str);
+    }
 }

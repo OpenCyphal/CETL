@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstring>
 #include <exception>  // We need this even if exceptions are disabled for std::terminate.
+#include <ios>
 #include <stdexcept>
 #include <string>
 
@@ -335,6 +336,50 @@ public:
         return result != data_ + size_ ? static_cast<size_type>(result - data_) : npos;
     }
 
+    /// Performs stream output on string view.
+    ///
+    friend std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
+                                                         const basic_string_view&           sv)
+    {
+        const auto sv_length = static_cast<std::streamsize>(sv.length());
+
+        typename std::basic_ostream<CharT, Traits>::sentry s{os};
+        if (s)
+        {
+            const std::streamsize width = os.width();
+
+            if (sv_length < width)
+            {
+                auto pad = [&os, fill = os.fill()](std::streamsize padding_width) {
+                    while (padding_width--)
+                    {
+                        os.put(fill);
+                    }
+                };
+
+                const std::streamsize padding_len = width - sv_length;
+                const bool            left        = os.flags() & std::basic_ios<CharT, Traits>::left;
+                const bool            right       = os.flags() & std::basic_ios<CharT, Traits>::right;
+
+                if (right)
+                {
+                    pad(padding_len);
+                }
+                os.write(sv.data(), sv_length);
+                if (left)
+                {
+                    pad(padding_len);
+                }
+            }
+            else
+            {
+                os.write(sv.data(), sv_length);
+            }
+        }
+        os.width(0);
+        return os;
+    }
+
 private:
     const CharT* data_;
     size_type    size_;
@@ -343,7 +388,8 @@ private:
 
 // non-member functions
 
-// swap
+/// Exchanges the given string views.
+///
 template <typename CharT>
 void swap(basic_string_view<CharT>& lhs, basic_string_view<CharT>& rhs) noexcept
 {
