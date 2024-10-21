@@ -20,87 +20,118 @@ namespace cetl
 namespace pf17
 {
 
-class string_view
+/// The class template basic_string_view describes an object that can refer to a constant contiguous sequence of CharT
+/// with the first element of the sequence at position zero.
+///
+template <typename CharT, typename Traits = std::char_traits<CharT>>
+class basic_string_view
 {
 public:
     // types
-    using value_type      = char;
-    using pointer         = char*;
-    using const_pointer   = const char*;
-    using reference       = const char&;
-    using const_reference = const char&;
-    using const_iterator  = const char*;
+    using traits_type     = Traits;
+    using value_type      = CharT;
+    using pointer         = CharT*;
+    using const_pointer   = const CharT*;
+    using reference       = CharT&;
+    using const_reference = const CharT&;
+    using const_iterator  = const CharT*;
     using iterator        = const_iterator;
     using size_type       = std::size_t;
+    using difference_type = std::ptrdiff_t;
 
     enum : size_type
     {
         npos = static_cast<size_type>(-1)
     };
 
-    constexpr string_view() noexcept
+    /// Default constructor. Constructs an empty basic_string_view. After construction, data() is equal to nullptr,
+    /// and size() is equal to 0.
+    constexpr basic_string_view() noexcept
         : data_{nullptr}
         , size_{0}
     {
     }
 
+    /// Constructs a view of the null-terminated character string pointed to by s, not including the terminating null
+    /// character.
+    ///
     /// No lint and Sonar cpp:S1709 b/c this is an intentional implicit conversion.
     ///
     /// NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
-    string_view(const char* const str)  // NOSONAR cpp:S1709
+    basic_string_view(const CharT* const str)  // NOSONAR cpp:S1709
         : data_{str}
-        , size_{std::char_traits<char>::length(str)}
+        , size_{traits_type::length(str)}
     {
     }
 
     /// No lint and Sonar cpp:S1709 b/c this is an intentional implicit conversion.
     ///
     /// NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
-    string_view(const std::string& str)  // NOSONAR cpp:S1709
+    template <typename Alloc>
+    basic_string_view(const std::basic_string<CharT, Traits, Alloc>& str)  // NOSONAR cpp:S1709
         : data_{str.data()}
         , size_{str.size()}
     {
     }
 
-    constexpr string_view(const char* const str, const size_type size)
+    ///  Constructs a view of the first count characters of the character array starting with the element pointed by
+    ///  str. str can contain null characters.
+    ///
+    constexpr basic_string_view(const CharT* const str, const size_type size)
         : data_{str}
         , size_{size}
     {
     }
 
-    constexpr string_view(std::nullptr_t) = delete;
+    /// basic_string_view cannot be constructed from nullptr.
+    ///
+    constexpr basic_string_view(std::nullptr_t) = delete;
 
+    /// Returns the number of CharT elements in the view, i.e. `std::distance(begin(), end())`.
+    ///
     constexpr size_type size() const noexcept
     {
         return size_;
     }
 
+    /// Returns the number of CharT elements in the view, i.e. `std::distance(begin(), end())`.
+    ///
     constexpr size_type length() const noexcept
     {
         return size_;
     }
 
+    /// The largest possible number of char-like objects that can be referred to by a basic_string_view.
+    ///
     constexpr size_type max_size() const noexcept
     {
         return (npos - sizeof(size_type) - sizeof(void*)) / sizeof(value_type) / 4;
     }
 
+    /// Checks if the view has no characters, i.e. whether `size() == 0`.
+    ///
     constexpr bool empty() const noexcept
     {
         return size_ == 0;
     }
 
+    /// Returns a const reference to the character at specified location `pos`.
+    ///
     constexpr const_reference operator[](const size_type pos) const
     {
         return data_[pos];
     }
 
+    /// Returns a const reference to the character at specified location `pos`.
+    ///
+    /// Bounds checking is performed, exception of type `std::out_of_range` will be thrown on invalid access.
+    ///
     constexpr const_reference at(const size_type pos) const
     {
         if (pos >= size_)
         {
 #if defined(__cpp_exceptions)
-            throw std::out_of_range("string_view::at");
+            throw std::out_of_range("basic_string_view::at");
 #else
             std::terminate();
 #endif
@@ -108,41 +139,66 @@ public:
         return data_[pos];
     }
 
+    /// Returns reference to the first character in the view. The behavior is undefined if `empty() == true`.
+    ///
     constexpr const_reference front() const
     {
         return data_[0];
     }
 
+    /// Returns reference to the last character in the view. The behavior is undefined if `empty() == true`.
+    ///
     constexpr const_reference back() const
     {
         return data_[size_ - 1];
     }
 
+    /// Returns a pointer to the underlying character array.
+    ///
+    /// The pointer is such that the range `[data(), data() + size())` is valid and the values in it correspond to the
+    /// values of the view.
+    ///
     constexpr const_pointer data() const noexcept
     {
         return data_;
     }
 
+    /// Returns an iterator to the first character of the view.
+    ///
     constexpr const_iterator begin() const noexcept
     {
         return data_;
     }
 
+    /// Returns an iterator to the character following the last character of the view.
+    ///
+    /// This character acts as a placeholder, attempting to access it results in undefined behavior.
+    ///
     constexpr const_iterator end() const noexcept
     {
         return data_ + size_;
     }
 
+    /// Returns a constant iterator to the first character of the view.
+    ///
     constexpr const_iterator cbegin() const noexcept
     {
         return data_;
     }
 
+    /// Returns a constant iterator to the character following the last character of the view.
+    ///
+    /// This character acts as a placeholder, attempting to access it results in undefined behavior.
+    ///
     constexpr const_iterator cend() const noexcept
     {
         return data_ + size_;
     }
 
+    /// Moves the start of the view forward by n characters.
+    ///
+    /// The behavior is undefined if `n > size()`.
+    ///
     constexpr void remove_prefix(const size_type n)
     {
         const size_type to_remove = std::min(n, size_);
@@ -150,28 +206,39 @@ public:
         size_ -= to_remove;
     }
 
+    /// Moves the end of the view back by n characters.
+    ///
+    /// The behavior is undefined if `n > size()`.
+    ///
     constexpr void remove_suffix(const size_type n)
     {
         const size_type to_remove = std::min(n, size_);
         size_ -= to_remove;
     }
 
-    constexpr void swap(string_view& sv) noexcept
+    /// Exchanges the view with that of `sv`.
+    ///
+    constexpr void swap(basic_string_view& sv) noexcept
     {
-        const char* const tmp_data = data_;
-        const size_type   tmp_size = size_;
-        data_                      = sv.data_;
-        size_                      = sv.size_;
-        sv.data_                   = tmp_data;
-        sv.size_                   = tmp_size;
+        const CharT* const tmp_data = data_;
+        const size_type    tmp_size = size_;
+        data_                       = sv.data_;
+        size_                       = sv.size_;
+        sv.data_                    = tmp_data;
+        sv.size_                    = tmp_size;
     }
 
-    size_type copy(char* const dest, const size_type count, const size_type pos = 0) const
+    /// Copies the substring [pos, pos + rcount) to the character array pointed to by dest, where rcount is the smaller
+    /// of count and size() - pos.
+    ///
+    /// Equivalent to `Traits::copy(dest, data() + pos, rcount)`.
+    ///
+    size_type copy(CharT* const dest, const size_type count, const size_type pos = 0) const
     {
         if (pos > size_)
         {
 #if defined(__cpp_exceptions)
-            throw std::out_of_range("string_view::copy");
+            throw std::out_of_range("basic_string_view::copy");
 #else
             std::terminate();
 #endif
@@ -181,24 +248,31 @@ public:
         return rcount;
     }
 
-    constexpr string_view substr(const size_type pos = 0, const size_type count = npos) const
+    /// Returns a view of the substring `[pos, pos + rlen)`, where `rlen` is the smaller of `count` and `size() - pos`.
+    ///
+    constexpr basic_string_view substr(const size_type pos = 0, const size_type count = npos) const
     {
         if (pos > size_)
         {
 #if defined(__cpp_exceptions)
-            throw std::out_of_range("string_view::substr");
+            throw std::out_of_range("basic_string_view::substr");
 #else
             std::terminate();
 #endif
         }
         const size_type rcount = std::min(count, size_ - pos);
-        return string_view(data_ + pos, rcount);
+        return basic_string_view(data_ + pos, rcount);
     }
 
-    int compare(const string_view sv) const noexcept
+    /// Compares two character sequences.
+    ///
+    /// @return Negative value if this view is less than the other character sequence, zero if the both character
+    ///         sequences are equal, positive value if this view is greater than the other character sequence.
+    ///
+    int compare(const basic_string_view sv) const noexcept
     {
         const size_type rlen = std::min(size_, sv.size_);
-        const int       cmp  = std::char_traits<char>::compare(data_, sv.data_, rlen);
+        const int       cmp  = traits_type::compare(data_, sv.data_, rlen);
         if (cmp != 0)
         {
             return cmp;
@@ -210,37 +284,36 @@ public:
         return size_ < sv.size_ ? -1 : 1;
     }
 
-    friend bool operator==(const string_view lhs, const string_view rhs) noexcept
+    /// Compares two views.
+    ///
+    friend bool operator==(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) == 0;
     }
-
-    friend bool operator!=(const string_view lhs, const string_view rhs) noexcept
+    friend bool operator!=(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) != 0;
     }
-
-    friend bool operator<(const string_view lhs, const string_view rhs) noexcept
+    friend bool operator<(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) < 0;
     }
-
-    friend bool operator>(const string_view lhs, const string_view rhs) noexcept
+    friend bool operator>(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) > 0;
     }
-
-    friend bool operator<=(const string_view lhs, const string_view rhs) noexcept
+    friend bool operator<=(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) <= 0;
     }
-
-    friend bool operator>=(const string_view lhs, const string_view rhs) noexcept
+    friend bool operator>=(const basic_string_view lhs, const basic_string_view rhs) noexcept
     {
         return lhs.compare(rhs) >= 0;
     }
 
-    constexpr size_type find(const char ch, const size_type pos = 0) const noexcept
+    /// Finds the first substring equal to the given character.
+    ///
+    constexpr size_type find(const CharT ch, const size_type pos = 0) const noexcept
     {
         if (pos >= size_)
         {
@@ -250,7 +323,9 @@ public:
         return result != data_ + size_ ? static_cast<size_type>(result - data_) : npos;
     }
 
-    constexpr size_type find(const string_view sv, const size_type pos = 0) const noexcept
+    /// Finds the first substring equal to the given character sequence.
+    ///
+    constexpr size_type find(const basic_string_view sv, const size_type pos = 0) const noexcept
     {
         if (pos > size_ || sv.size_ > size_ - pos)
         {
@@ -260,34 +335,22 @@ public:
         return result != data_ + size_ ? static_cast<size_type>(result - data_) : npos;
     }
 
-    constexpr bool starts_with(const string_view sv) const noexcept
-    {
-        return size_ >= sv.size_ && compare(0, sv.size_, sv) == 0;
-    }
-
-    constexpr bool ends_with(const string_view sv) const noexcept
-    {
-        return size_ >= sv.size_ && compare(size_ - sv.size_, sv.size_, sv) == 0;
-    }
-
 private:
-    int compare(const size_type pos, const size_type count, const string_view sv) const noexcept
-    {
-        return substr(pos, count).compare(sv);
-    }
+    const CharT* data_;
+    size_type    size_;
 
-    const char* data_;
-    size_type   size_;
-
-};  // string_view
+};  // basic_string_view
 
 // non-member functions
 
 // swap
-inline void swap(string_view& lhs, string_view& rhs) noexcept
+template <typename CharT>
+void swap(basic_string_view<CharT>& lhs, basic_string_view<CharT>& rhs) noexcept
 {
     lhs.swap(rhs);
 }
+
+using string_view = basic_string_view<char>;
 
 }  // namespace pf17
 }  // namespace cetl
