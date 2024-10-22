@@ -7,8 +7,6 @@
 /// SPDX-License-Identifier: MIT
 ///
 
-#include <cetlvast/helpers_gtest.hpp>
-
 #include <cetl/cetl.hpp>
 #include <cetl/pf17/cetlpf.hpp>
 #include <cetl/pf17/string_view.hpp>
