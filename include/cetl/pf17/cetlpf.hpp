@@ -115,6 +115,7 @@ using std::visit;
 using std::holds_alternative;
 
 // string_view
+using std::basic_string_view;
 using std::string_view;
 
 }  // namespace cetl
