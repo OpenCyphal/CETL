@@ -202,6 +202,7 @@ using cetl::pf17::bad_variant_access;
 #    endif
 
 // string_view
+using cetl::pf17::basic_string_view;
 using cetl::pf17::string_view;
 
 }  // namespace cetl
