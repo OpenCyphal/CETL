@@ -1,5 +1,5 @@
 /// @file
-/// Defines the C++17 std::variant type and several related entities.
+/// Defines the C++17 std::basic_string_view type and several related entities.
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
 /// Copyright Amazon.com Inc. or its affiliates.
