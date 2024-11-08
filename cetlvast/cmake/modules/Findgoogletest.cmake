@@ -49,7 +49,7 @@ include(FetchContent)
 include(FindPackageHandleStandardArgs)
 
 set(googletest_GIT_REPOSITORY "https://github.com/google/googletest.git")
-set(googletest_GIT_TAG "b796f7d44681514f58a683a3a71ff17c94edb0c1")
+set(googletest_GIT_TAG "v1.15.2")
 
 FetchContent_Declare(
     googletest

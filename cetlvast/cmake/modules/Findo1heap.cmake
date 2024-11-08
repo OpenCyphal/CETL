@@ -8,7 +8,7 @@ include(FetchContent)
 include(FindPackageHandleStandardArgs)
 
 set(o1heap_GIT_REPOSITORY "https://github.com/pavel-kirienko/o1heap.git")
-set(o1heap_GIT_TAG "aa3c253923db36eee7d73a4a5e30884a5fe7a6eb")
+set(o1heap_GIT_TAG "master")
 
 FetchContent_Declare(
     o1heap

@@ -45,7 +45,7 @@ jobs:
         cache-name: cetlvast-ext-cache
       with:
         path: cetlvast/build_external
-        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+        key: gtest_v1_15_2
     - name: run tests
       env:
         GTEST_COLOR: yes
@@ -90,7 +90,7 @@ jobs:
         cache-name: cetlvast-ext-cache
       with:
         path: cetlvast/build_external
-        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+        key: gtest_v1_15_2
     - name: doc-gen
       run: >
         ./build-tools/bin/verify.py
@@ -141,7 +141,7 @@ jobs:
         cache-name: cetlvast-ext-cache
       with:
         path: cetlvast/build_external
-        key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
+        key: gtest_v1_15_2
     - uses: actions/download-artifact@v3
       with:
         name: Coverage-exceptions-14-gcc
