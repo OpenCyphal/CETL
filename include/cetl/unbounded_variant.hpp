@@ -657,7 +657,9 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         // Non-PMR storage can store any value as long as it fits into the footprint.
         static_assert((Footprint > 0) || IsPmr<Pmr>::value, "Make non-zero footprint, or enable PMR support.");
 
-        if (has_value())
+        // `has_value()` already checks for `value_destroyer_` not being `nullptr`,
+        // but clang-tidy doesn't see it, so we get false positive here - hence the explicit double check.
+        if (has_value() && (nullptr != value_destroyer_))
         {
             value_destroyer_(base::get_raw_storage());
         }
