@@ -162,6 +162,7 @@ add_project_library(
 )
 
 find_package(clangformat)
+find_package(benchmark)
 
 if(clangformat_FOUND)
     # define a dry-run version that we always run.
@@ -198,7 +199,9 @@ endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/unittest)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/docs)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
-
+if(benchmark_FOUND)
+    add_subdirectory(${CMAKE_SOURCE_DIR}/suites/benchmark)
+endif()
 # +---------------------------------------------------------------------------+
 # | BUILD TARGET ALIASES
 # +---------------------------------------------------------------------------+
