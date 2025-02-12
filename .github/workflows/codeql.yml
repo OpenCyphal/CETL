@@ -34,7 +34,7 @@ jobs:
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: ${{ matrix.language }}
         # If you wish to specify custom queries, you can do so here or in a config file.
@@ -50,10 +50,21 @@ jobs:
     #   If the Autobuild fails above, remove it and uncomment the following three lines.
     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
 
-    - run: |
-        ./build-tools/bin/verify.py -v --dont-force-ninja --online clean-build-build_examples
+    - name: Cache ext modules
+      uses: actions/cache@v4
+      id: cetlvast-ext
+      with:
+        path: cetlvast/build_external
+        key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
+    - name: simple-build-online
+      working-directory: cetlvast
+      if: steps.cetlvast-ext.outputs.cache-hit != 'true'
+      run: cmake --workflow --preset manual-simple-workflow-online
+    - name: simple-build-offline
+      working-directory: cetlvast
+      run: cmake --workflow --preset manual-simple-workflow-offline
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
       with:
         category: "/language:${{matrix.language}}"

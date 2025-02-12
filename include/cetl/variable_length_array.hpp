@@ -642,6 +642,13 @@ protected:
                 data_     = new_data;
                 capacity_ = no_shrink_capacity;
             }
+#if defined(__cpp_exceptions)
+            else
+            {
+                // protect against invalid standard libraries that do not throw as required.
+                throw std::bad_alloc();
+            }
+#endif
         }
     }
 

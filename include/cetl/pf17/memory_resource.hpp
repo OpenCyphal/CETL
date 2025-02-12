@@ -422,6 +422,9 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (14882:7.6.2.8).");
         new (p) U(std::forward<UArgsT>(uArgs)...);
     }
 
@@ -430,6 +433,9 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (14882:7.6.2.8).");
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::allocator_arg, *this, std::forward<UArgsT>(uArgs)...);
     }
@@ -439,6 +445,9 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (14882:7.6.2.8).");
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::forward<UArgsT>(uArgs)..., *this);
     }
@@ -538,6 +547,9 @@ public:
                    std::tuple<FirstTypeConstructorArgs...>  x,
                    std::tuple<SecondTypeConstructorArgs...> y)
     {
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (14882:7.6.2.8).");
         new (p) std::pair<FirstType, SecondType>{std::piecewise_construct,
                                                  make_pair_member_args<FirstType, FirstTypeConstructorArgs...>(x),
                                                  make_pair_member_args<SecondType, SecondTypeConstructorArgs...>(y)};

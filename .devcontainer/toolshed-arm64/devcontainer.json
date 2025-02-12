@@ -1,0 +1,21 @@
+{
+    "name": "linux development environment (linux/arm64)",
+    "image": "ghcr.io/opencyphal/toolshed:ts24.4.3",
+    "workspaceFolder": "/repo",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/repo,type=bind,consistency=delegated",
+    "mounts": [
+        "source=profile-cetl,target=/root,type=volume",
+        "target=/root/.vscode-server,type=volume"
+    ],
+    "customizations": {
+        "vscode": {
+            "extensions":[
+                "ms-vscode.cpptools-extension-pack",
+                "vadimcn.vscode-lldb",
+                "matepek.vscode-catch2-test-adapter"
+            ]
+        }
+    },
+    "runArgs": ["--platform=linux/arm64", "-i"]
+
+}

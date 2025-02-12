@@ -288,25 +288,25 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
     ~base_move_assignment() noexcept = default;
 };
 
-/// True if T is constructible or convertible from const F& or F&&.
-/// CAVEAT: in C++14, std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T,
-/// so we use std::is_convertible<F, T&&> instead.
+/// True if T is constructible or convertible from const Fun& or Fun&&.
+/// CAVEAT: in C++14, std::is_convertible<Fun, T> is not true if T is not copyable, even if Fun is convertible to T,
+/// so we use std::is_convertible<Fun, T&&> instead.
 /// The specification of std::optional<> prescribes the use of T over T&& because it is written for C++17.
-template <typename T, typename F>
-constexpr bool convertible = std::is_constructible<T, F&>::value ||         //
-                             std::is_constructible<T, const F&>::value ||   //
-                             std::is_constructible<T, F&&>::value ||        //
-                             std::is_constructible<T, const F&&>::value ||  //
-                             std::is_convertible<F&, T&&>::value ||         //
-                             std::is_convertible<const F&, T&&>::value ||   //
-                             std::is_convertible<F&&, T&&>::value ||        //
-                             std::is_convertible<const F&&, T&&>::value;
-/// True if T is assignable from const F& or F&&.
-template <typename T, typename F>
-constexpr bool assignable = std::is_assignable<T, F&>::value ||        //
-                            std::is_assignable<T, const F&>::value ||  //
-                            std::is_assignable<T, F&&>::value ||       //
-                            std::is_assignable<T, const F&&>::value;
+template <typename T, typename Fun>
+constexpr bool convertible = std::is_constructible<T, Fun&>::value ||         //
+                             std::is_constructible<T, const Fun&>::value ||   //
+                             std::is_constructible<T, Fun&&>::value ||        //
+                             std::is_constructible<T, const Fun&&>::value ||  //
+                             std::is_convertible<Fun&, T&&>::value ||         //
+                             std::is_convertible<const Fun&, T&&>::value ||   //
+                             std::is_convertible<Fun&&, T&&>::value ||        //
+                             std::is_convertible<const Fun&&, T&&>::value;
+/// True if T is assignable from const Fun& or Fun&&.
+template <typename T, typename Fun>
+constexpr bool assignable = std::is_assignable<T, Fun&>::value ||        //
+                            std::is_assignable<T, const Fun&>::value ||  //
+                            std::is_assignable<T, Fun&&>::value ||       //
+                            std::is_assignable<T, const Fun&&>::value;
 /// True if T is a specialization of optional.
 template <typename T>
 struct is_optional : std::false_type
@@ -316,8 +316,8 @@ struct is_optional<optional<T>> : std::true_type
 {};
 
 /// https://en.cppreference.com/w/cpp/utility/optional/optional
-/// CAVEAT: in C++14, std::is_convertible<F, T> is not true if T is not copyable, even if F is convertible to T,
-/// so we use std::is_convertible<F, T&&> instead.
+/// CAVEAT: in C++14, std::is_convertible<Fun, T> is not true if T is not copyable, even if Fun is convertible to T,
+/// so we use std::is_convertible<Fun, T&&> instead.
 /// The specification of std::optional<> prescribes the use of T over T&& because it is written for C++17.
 template <typename T, typename U, bool Explicit>
 constexpr bool enable_ctor4 = (!std::is_same<bool, std::decay_t<T>>::value) &&            //
@@ -367,14 +367,29 @@ public:
     using value_type = T;
 
     /// Constructor 1
-    constexpr optional() noexcept = default;
-    constexpr optional(const nullopt_t) noexcept {}  // NOLINT(*-explicit-constructor)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    // workaround for GCC7 bug (https://github.com/OpenCyphal/CETL/issues/154)
+    constexpr
+#endif
+        optional() noexcept = default;
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        optional(const nullopt_t) noexcept
+    {
+    }  // NOLINT(*-explicit-constructor)
 
     /// Constructor 2
-    constexpr optional(const optional&) = default;
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        optional(const optional&) = default;
 
     /// Constructor 3
-    constexpr optional(optional&&) noexcept(std::is_nothrow_move_constructible<T>::value) = default;
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        optional(optional&&) noexcept(std::is_nothrow_move_constructible<T>::value) = default;
 
     /// Constructor 4
     template <typename U, std::enable_if_t<detail::opt::enable_ctor4<T, U, false>, int> = 0>
@@ -402,7 +417,10 @@ public:
 
     /// Constructor 6
     template <typename... Args>
-    explicit constexpr optional(const in_place_t, Args&&... args)  //
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit optional(const in_place_t, Args&&... args)  //
         noexcept(std::is_nothrow_constructible<T, Args...>::value)
         : base(in_place, std::forward<Args>(args)...)
     {
@@ -410,7 +428,10 @@ public:
 
     /// Constructor 7
     template <typename U, typename... Args>
-    explicit constexpr optional(const in_place_t, std::initializer_list<U> il, Args&&... args)  //
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit optional(const in_place_t, std::initializer_list<U> il, Args&&... args)  //
         noexcept(std::is_nothrow_constructible<T, std::initializer_list<U>, Args...>::value)
         : base(in_place, il, std::forward<Args>(args)...)
     {
@@ -418,13 +439,19 @@ public:
 
     /// Constructor 8
     template <typename U = T, std::enable_if_t<detail::opt::enable_ctor8<T, U, false>, int> = 0>
-    constexpr optional(U&& value)  // NOLINT(*-explicit-constructor)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        optional(U&& value)  // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {
     }
     template <typename U = T, std::enable_if_t<detail::opt::enable_ctor8<T, U, true>, int> = 0>
-    explicit constexpr optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit optional(U&& value) noexcept(std::is_nothrow_constructible<T, U>::value)
         : base(in_place, std::forward<U>(value))
     {
     }
@@ -866,17 +893,31 @@ constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= st
 /// An implementation of C++17 \ref std::make_optional.
 /// @{
 template <typename T>
-constexpr optional<std::decay_t<T>> make_optional(T&& value)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+// workaround for GCC7 bug (https://github.com/OpenCyphal/CETL/issues/154)
+constexpr
+#endif
+    optional<std::decay_t<T>>
+    make_optional(T&& value)
 {
     return optional<std::decay_t<T>>{std::forward<T>(value)};
 }
 template <typename T, typename... Args>
-constexpr optional<T> make_optional(Args&&... args)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+constexpr
+#endif
+    optional<T>
+    make_optional(Args&&... args)
 {
     return optional<T>{in_place, std::forward<Args>(args)...};
 }
+
 template <typename T, typename U, typename... Args>
-constexpr optional<T> make_optional(std::initializer_list<U> il, Args&&... args)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+constexpr
+#endif
+    optional<T>
+    make_optional(std::initializer_list<U> il, Args&&... args)
 {
     return optional<T>{in_place, il, std::forward<Args>(args)...};
 }

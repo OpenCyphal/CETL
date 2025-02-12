@@ -6,6 +6,8 @@
 
 if(NOT TARGET gmock)
 
+include(${CMAKE_CURRENT_LIST_DIR}/ExternalDependenciesGitHub.cmake.in)
+
 #
 # Googletest uses CMAKE_BINARY_DIR to determine where to put its output files.
 # This changes this to a specified directory for each library provided.
@@ -48,67 +50,51 @@ enable_testing()
 include(FetchContent)
 include(FindPackageHandleStandardArgs)
 
-set(googletest_GIT_REPOSITORY "https://github.com/google/googletest.git")
-set(googletest_GIT_TAG "b796f7d44681514f58a683a3a71ff17c94edb0c1")
+list(APPEND LOCAL_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/ExternalDependenciesPatch.sh "${CMAKE_CURRENT_LIST_DIR}/patches/googletest.patch")
 
 FetchContent_Declare(
     googletest
-    GIT_REPOSITORY  ${googletest_GIT_REPOSITORY}
-    GIT_TAG         ${googletest_GIT_TAG}
+    SOURCE_DIR      "${CETLVAST_EXTERNAL_ROOT}/googletest"
+    GIT_REPOSITORY  "https://github.com/google/googletest.git"
+    GIT_TAG         ${GIT_TAG_googletest}
+    PATCH_COMMAND   ${LOCAL_PATCH_COMMAND}
+    GIT_SHALLOW     ON
+    GIT_SUBMODULES_RECURSE OFF
 )
 
-# The automatic management of the <lowercase>_POPULATED name appears to be broken in
-# cmake 3.21 and earlier.  This workaround may not be needed after 3.24.
-get_property(googletest_POPULATED GLOBAL PROPERTY googletest_POPULATED)
+set(INSTALL_GTEST OFF CACHE BOOL "We don't want to install googletest; just use it locally.")
+set(cxx_base_flags "" CACHE STRING "")
+set(cxx_no_rtti_flags "" CACHE STRING "")
+set(cxx_exception_flags "" CACHE STRING "")
+set(cxx_no_exception_flags "" CACHE STRING "")
+set(cxx_strict_flags "" CACHE STRING "")
 
-if(NOT googletest_POPULATED)
+FetchContent_MakeAvailable(
+    googletest
+)
 
-    if (NOT FETCHCONTENT_SOURCE_DIR_googletest)
-        set(FETCHCONTENT_SOURCE_DIR_googletest ${CETLVAST_EXTERNAL_ROOT}/googletest)
-    endif()
+_fix_gtest_library_properties(
+    GTEST_LIBS
+        gmock
+        gmock_main
+        gtest
+        gtest_main
+    GTEST_COMPILE_OPTIONS
+        "-Wno-sign-conversion"
+        "-Wno-zero-as-null-pointer-constant"
+        "-Wno-switch-enum"
+        "-Wno-float-equal"
+        "-Wno-double-promotion"
+        "-Wno-conversion"
+        "-Wno-missing-declarations"
+    OUTPUT_DIRECTORY
+        ${CMAKE_BINARY_DIR}/googletest
+)
 
-    if (NOT ${FETCHCONTENT_FULLY_DISCONNECTED})
-        FetchContent_Populate(
-            googletest
-            SOURCE_DIR      ${FETCHCONTENT_SOURCE_DIR_googletest}
-            GIT_REPOSITORY  ${googletest_GIT_REPOSITORY}
-            GIT_TAG         ${googletest_GIT_TAG}
-        )
-    else()
-        set(googletest_SOURCE_DIR ${FETCHCONTENT_SOURCE_DIR_googletest})
-    endif()
+find_package_handle_standard_args(googletest
+    REQUIRED_VARS googletest_SOURCE_DIR
+)
 
-    # The automatic management of the <lowercase>_POPULATED name appears to be broken in
-    # cmake 3.21 and earlier.  This workaround may not be needed after 3.24.
-    set_property(GLOBAL PROPERTY googletest_POPULATED true)
-
-    find_package_handle_standard_args(googletest
-        REQUIRED_VARS googletest_SOURCE_DIR
-    )
-
-    set(INSTALL_GTEST OFF CACHE BOOL "We don't want to install googletest; just use it locally.")
-
-    add_subdirectory(${googletest_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/googletest)
-
-    _fix_gtest_library_properties(
-        GTEST_LIBS
-            gmock
-            gmock_main
-            gtest
-            gtest_main
-        GTEST_COMPILE_OPTIONS
-            "-Wno-sign-conversion"
-            "-Wno-zero-as-null-pointer-constant"
-            "-Wno-switch-enum"
-            "-Wno-float-equal"
-            "-Wno-double-promotion"
-            "-Wno-conversion"
-            "-Wno-missing-declarations"
-        OUTPUT_DIRECTORY
-            ${CMAKE_BINARY_DIR}/googletest
-    )
-
-endif()
 endif()
 
 # +---------------------------------------------------------------------------+
@@ -195,6 +181,7 @@ endfunction(mark_as_test_framework)
 # param: RUNTIME_OUTPUT_DIRECTORY path      - A path to output test binaries and coverage data under.
 # param: EXTRA_TEST_LIBS targets            - A list of additional test library targets to get include
 #                                             paths for.
+# param: EXTRA_TEST_SOURCE paths            - A list of additional source files to compile into the test.
 # param: OUT_TEST_LIB_VARIABLE target       - If set, this becomes the name of a variable set, in the parent
 #                                             context, to the test case library build target name.
 #
@@ -203,11 +190,15 @@ function(define_native_gtest_unittest_library)
     #+-[input]----------------------------------------------------------------+
     set(options "")
     set(singleValueArgs TEST_SOURCE RUNTIME_OUTPUT_DIRECTORY OUT_TEST_LIB_VARIABLE)
-    set(multiValueArgs EXTRA_TEST_LIBS)
+    set(multiValueArgs EXTRA_TEST_LIBS EXTRA_TEST_SOURCE)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     if (NOT ARG_RUNTIME_OUTPUT_DIRECTORY)
         set(ARG_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+    endif()
+
+    if (NOT ARG_EXTRA_TEST_SOURCE)
+        set(ARG_EXTRA_TEST_SOURCE)
     endif()
 
     cmake_path(GET ARG_TEST_SOURCE STEM LOCAL_TEST_NAME)
@@ -219,7 +210,7 @@ function(define_native_gtest_unittest_library)
 
     # Create explicit object file target so we can find it.
     add_library(${LOCAL_TEST_LIB_NAME} OBJECT ${ARG_TEST_SOURCE})
-
+    target_sources(${LOCAL_TEST_LIB_NAME} PRIVATE ${ARG_EXTRA_TEST_SOURCE})
     target_link_libraries(${LOCAL_TEST_LIB_NAME} PUBLIC gtest)
     target_link_libraries(${LOCAL_TEST_LIB_NAME} PUBLIC gmock)
     target_link_libraries(${LOCAL_TEST_LIB_NAME} PUBLIC ${ARG_EXTRA_TEST_LIBS})
@@ -231,29 +222,27 @@ function(define_native_gtest_unittest_library)
             gtest
     )
 
-    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-        # Annotate the library target with the byproducts of the coverage instrumentation.
-        _get_internal_output_path_for_source(
-            SOURCEFILE ${ARG_TEST_SOURCE}
-            SOURCEFILE_STEM_SUFFIX "${_PRIVATE_GOOGLETEST_OBJLIB_SUFFIX}"
-            OUT_INTERNAL_DIRECTORY_VARIABLE LOCAL_OBJLIB_FOLDER_REL
-        )
-        cmake_path(ABSOLUTE_PATH LOCAL_OBJLIB_FOLDER_REL
-                    BASE_DIRECTORY ${ARG_RUNTIME_OUTPUT_DIRECTORY}
-                    OUTPUT_VARIABLE LOCAL_OBJLIB_FOLDER)
+    # Annotate the library target with the byproducts of the coverage instrumentation.
+    _get_internal_output_path_for_source(
+        SOURCEFILE ${ARG_TEST_SOURCE}
+        SOURCEFILE_STEM_SUFFIX "${_PRIVATE_GOOGLETEST_OBJLIB_SUFFIX}"
+        OUT_INTERNAL_DIRECTORY_VARIABLE LOCAL_OBJLIB_FOLDER_REL
+    )
+    cmake_path(ABSOLUTE_PATH LOCAL_OBJLIB_FOLDER_REL
+                BASE_DIRECTORY ${ARG_RUNTIME_OUTPUT_DIRECTORY}
+                OUTPUT_VARIABLE LOCAL_OBJLIB_FOLDER)
 
-        cmake_path(GET ARG_TEST_SOURCE EXTENSION LOCAL_TEST_EXT)
+    cmake_path(GET ARG_TEST_SOURCE EXTENSION LOCAL_TEST_EXT)
 
-        # the generation of gcda files assumes "-fprofile-argcs" (or "-coverage" which includes this flag).
-        set(LOCAL_BYPRODUCTS "${LOCAL_OBJLIB_FOLDER}/${LOCAL_TEST_NAME}${LOCAL_TEST_EXT}.gcda")
-        # the generation of gcno files assumes "-ftest-coverage" (or "-coverage" which includes this flag)
-        list(APPEND LOCAL_BYPRODUCTS "${LOCAL_OBJLIB_FOLDER}/${LOCAL_TEST_NAME}${LOCAL_TEST_EXT}.gcno")
+    # the generation of gcda files assumes "-fprofile-argcs" (or "-coverage" which includes this flag).
+    set(LOCAL_BYPRODUCTS "${LOCAL_OBJLIB_FOLDER}/${LOCAL_TEST_NAME}${LOCAL_TEST_EXT}.gcda")
+    # the generation of gcno files assumes "-ftest-coverage" (or "-coverage" which includes this flag)
+    list(APPEND LOCAL_BYPRODUCTS "${LOCAL_OBJLIB_FOLDER}/${LOCAL_TEST_NAME}${LOCAL_TEST_EXT}.gcno")
 
-        set_target_properties(${LOCAL_TEST_LIB_NAME}
-            PROPERTIES
-            POST_BUILD_INSTRUMENTATION_BYPRODUCTS "${LOCAL_BYPRODUCTS}"
-        )
-    endif()
+    set_target_properties(${LOCAL_TEST_LIB_NAME}
+        PROPERTIES
+        POST_BUILD_INSTRUMENTATION_BYPRODUCTS "${LOCAL_BYPRODUCTS}"
+    )
 
     #+-[output]---------------------------------------------------------------+
 
@@ -394,6 +383,8 @@ endfunction(define_native_gtest_unittest_run)
 #           while setting the given extra test libraries on the unittest library target.
 #
 # param: TEST_SOURCE path                   - A single source file that is the test main.
+# param: EXTRA_TEST_SOURCE paths            - An optional list of additional source files to compile into the
+#                                             test.
 # param: RUNTIME_OUTPUT_DIRECTORY path      - A path to output test binaries and coverage data under.
 # param: EXTRA_TEST_LIBS targets            - A list of additional test library targets to link with.
 # option: LINK_TO_MAIN                      - If set, the test executable will be linked the googletest main
@@ -411,7 +402,7 @@ function(define_native_gtest_unittest_targets)
     #+-[input]----------------------------------------------------------------+
     set(options LINK_TO_MAIN)
     set(singleValueArgs TEST_SOURCE RUNTIME_OUTPUT_DIRECTORY OUT_TEST_LIB_VARIABLE OUT_TEST_EXE_VARIABLE OUT_TEST_REPORT_VARIABLE)
-    set(multiValueArgs EXTRA_TEST_LIBS)
+    set(multiValueArgs EXTRA_TEST_LIBS EXTRA_TEST_SOURCE)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     if (NOT ARG_RUNTIME_OUTPUT_DIRECTORY)
@@ -424,11 +415,17 @@ function(define_native_gtest_unittest_targets)
         set(ARG_LINK_TO_MAIN_FORWARD)
     endif()
 
+    if (NOT ARG_EXTRA_TEST_SOURCE)
+        set(ARG_EXTRA_TEST_SOURCE)
+    endif()
+
     #+-[body]-----------------------------------------------------------------+
 
     define_native_gtest_unittest_library(
         TEST_SOURCE
             ${ARG_TEST_SOURCE}
+        EXTRA_TEST_SOURCE
+            ${ARG_EXTRA_TEST_SOURCE}
         RUNTIME_OUTPUT_DIRECTORY
             ${ARG_RUNTIME_OUTPUT_DIRECTORY}
         EXTRA_TEST_LIBS

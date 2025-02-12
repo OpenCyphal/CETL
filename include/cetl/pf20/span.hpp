@@ -420,10 +420,10 @@ public:
     {
         static_assert(Offset <= extent, "subspan Offsets > extent are ill-formed.");
         static_assert((Count == dynamic_extent) || (Count <= extent - Offset), "subspan Count argument is ill-formed");
-        return span < element_type,
-               Count != dynamic_extent
-                   ? Count
-                   : extent - Offset > {&data_[Offset], Count == dynamic_extent ? size() - Offset : Count};
+        return span<element_type, Count != dynamic_extent ? Count : extent - Offset>{&data_[Offset],
+                                                                                     Count == dynamic_extent
+                                                                                         ? size() - Offset
+                                                                                         : Count};
     }
 
     /// Create a new span `Offset` elements from the start of the current span and for either `Count` elements or,

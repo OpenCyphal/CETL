@@ -6,16 +6,6 @@
 
 cmake_minimum_required(VERSION 3.22.0)
 
-###############################################################################
-# DON'T USE CMAKE!
-#
-#     ...directly that is. We provide a verify.py script that wraps up a bunch
-# of conventions and environment variables that you'd otherwise need to know.
-# Use it to invoke cmake or at least use it to tell you how to invoke cmake.
-# We also provide full vscode cmake integration that has the same knowledge
-# of cetlvast that the verify.py script has.
-###############################################################################
-
 # +---------------------------------------------------------------------------+
 # | PROJECT
 # +---------------------------------------------------------------------------+
@@ -36,11 +26,7 @@ endif()
 add_compile_definitions("CETL_VERSION=\"${CETL_VERSION}\"")
 
 if (NOT DEFINED CETL_ROOT)
-    set(LOCAL_PARENT_OF_SOURCE_PATH "${CMAKE_SOURCE_DIR}/../")
-    cmake_path(ABSOLUTE_PATH LOCAL_PARENT_OF_SOURCE_PATH
-               OUTPUT_VARIABLE CETL_ROOT
-               BASE_DIRECTORY "${CMAKE_BINARY_DIR}")
-    cmake_path(NORMAL_PATH CETL_ROOT OUTPUT_VARIABLE CETL_ROOT)
+    cmake_path(GET CMAKE_SOURCE_DIR PARENT_PATH CETL_ROOT)
     message(DEBUG "Setting CETL_ROOT = ${CETL_ROOT}")
 else()
     message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
@@ -63,6 +49,7 @@ message(STATUS
 "[ globals ]-----------------------------------------------\n\
     CETL_ROOT:                       ${CETL_ROOT}\n\
     CETL_VERSION:                    ${CETL_VERSION}\n\
+    CMAKE_GENERATOR:                 ${CMAKE_GENERATOR}\n\
     CMAKE_MODULE_PATH:               ${CMAKE_MODULE_PATH}\n\
     CMAKE_SOURCE_DIR:                ${CMAKE_SOURCE_DIR}\n\
     CMAKE_CURRENT_BINARY_DIR:        ${CMAKE_CURRENT_BINARY_DIR}\n\
@@ -70,6 +57,10 @@ message(STATUS
     CMAKE_INSTALL_PREFIX:            ${CMAKE_INSTALL_PREFIX}\n\
     CETLVAST_EXTERNAL_ROOT:          ${CETLVAST_EXTERNAL_ROOT}\n\
     FETCHCONTENT_FULLY_DISCONNECTED: ${FETCHCONTENT_FULLY_DISCONNECTED}\n\
+    CMAKE_SYSTEM_NAME:               ${CMAKE_SYSTEM_NAME}\n\
+    CMAKE_HOST_SYSTEM_PROCESSOR:     ${CMAKE_HOST_SYSTEM_PROCESSOR}\n\
+    CMAKE_CROSSCOMPILING:            ${CMAKE_CROSSCOMPILING}\n\
+    CMAKE_SYSTEM_PROCESSOR:          ${CMAKE_SYSTEM_PROCESSOR}\n\
 -----------------------------------------------------------\n\
 ")
 
@@ -77,38 +68,26 @@ message(STATUS
 # | OPTIONS/VARIANTS
 # +---------------------------------------------------------------------------+
 
-option(CETL_ENABLE_DEBUG_ASSERT "Enable or disable runtime asserts in CETL code." OFF)
-option(CETLVAST_STYLE_CHECK "Enable or disable a check for violations of the project's style standards." ON)
-
 set(CETLVAST_CPP_STANDARD "20" CACHE STRING "C++ standard to use when compiling.")
 set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20)
 
 set(CMAKE_CXX_STANDARD ${CETLVAST_CPP_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type.")
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS Release Debug)
+add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:ReleaseEP>,$<CONFIG:Coverage>>,0,1>")
 
-set(CETLVAST_COVERAGE_REPORT_FORMAT "html" CACHE STRING "Coverage reporting standard to use when building coverage reports.")
-set_property(CACHE CETLVAST_COVERAGE_REPORT_FORMAT PROPERTY STRINGS "html" "sonarqube" "json")
-
-option(CETLVAST_DISABLE_CPP_EXCEPTIONS "Attempt to disable C++ exceptions for the current toolchain." OFF)
-
-if (CETL_ENABLE_DEBUG_ASSERT)
-add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=1")
-endif()
-
-if (LIBCXX_ENABLE_ASSERTIONS)
-add_compile_definitions("LIBCXX_ENABLE_ASSERTIONS=1")
-endif()
+# See https://libcxx.llvm.org/Hardening.html
+add_compile_definitions(
+    $<$<CONFIG:Release>:_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_FAST>
+    $<$<CONFIG:ReleaseEP>:_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_NONE>
+    $<$<CONFIG:DebugEP>:_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_EXTENSIVE>
+    $<$<CONFIG:Debug>:_LIBCPP_HARDENING_MODE=_LIBCPP_HARDENING_MODE_DEBUG>
+)
 
 message(STATUS "[ Build Options ]--------------------------------------\n\
-    CMAKE_BUILD_TYPE:                ${CMAKE_BUILD_TYPE}\n\
-    CETL_ENABLE_DEBUG_ASSERT:        ${CETL_ENABLE_DEBUG_ASSERT}\n\
-    CETLVAST_COVERAGE_REPORT_FORMAT: ${CETLVAST_COVERAGE_REPORT_FORMAT}\n\
-    CETLVAST_STYLE_CHECK:            ${CETLVAST_STYLE_CHECK}\n\
     CETLVAST_CPP_STANDARD:           ${CETLVAST_CPP_STANDARD}\n\
-    CETLVAST_DISABLE_CPP_EXCEPTIONS: ${CETLVAST_DISABLE_CPP_EXCEPTIONS}\n\
+    CETLVAST_ENABLE_BENCHMARKS       ${CETLVAST_ENABLE_BENCHMARKS}\n\
 -----------------------------------------------------------\n\
 ")
 
@@ -126,6 +105,14 @@ else()
     set(CETLVAST_FLAG_SET ${CETLVAST_FLAG_SET})
 endif()
 
+if(CMAKE_CXX_FLAGS MATCHES "-stdlib=libc\\+\\+")
+    set(LOCAL_CXX_STANDARD_LIBRARY "-stdlib=libc++")
+elseif(COMPILE_FLAGS MATCHES "-stdlib=libstdc\\+\\+")
+    set(LOCAL_CXX_STANDARD_LIBRARY "-stdlib=libstdc++")
+else()
+    set(LOCAL_CXX_STANDARD_LIBRARY "(default)")
+endif()
+
 message(STATUS "[ Build Kit ]-------------------------------------------\n\
     CMAKE_TOOLCHAIN_FILE:           ${CMAKE_TOOLCHAIN_FILE}\n\
     CETLVAST_FLAG_SET:              ${CETLVAST_FLAG_SET}\n\
@@ -135,6 +122,7 @@ message(STATUS "[ Build Kit ]-------------------------------------------\n\
     CMAKE_LINKER:                   ${CMAKE_LINKER}\n\
     CMAKE_RANLIB:                   ${CMAKE_RANLIB}\n\
     CMAKE_[lang]_PLATFORM_ID:       ${CMAKE_CXX_PLATFORM_ID}\n\
+    standard library:               ${LOCAL_CXX_STANDARD_LIBRARY}\n\
 -----------------------------------------------------------\n\
 ")
 
@@ -162,7 +150,9 @@ add_project_library(
 )
 
 find_package(clangformat)
+if(${CETLVAST_ENABLE_BENCHMARKS})
 find_package(benchmark)
+endif()
 
 if(clangformat_FOUND)
     # define a dry-run version that we always run.
@@ -184,13 +174,10 @@ endif()
 add_library(cetlvast STATIC ${CMAKE_SOURCE_DIR}/src/cetlvast.cpp)
 target_include_directories(cetlvast INTERFACE ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(cetlvast PUBLIC cetl gmock gtest)
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    # TODO: submit upstream patch to googletest to make this unnecessary.
-    target_compile_definitions(cetlvast
-        PUBLIC
-            CETLVAST_COVERAGE
-    )
-endif()
+target_compile_definitions(cetlvast
+    PUBLIC
+        $<$<CONFIG:Coverage>:CETLVAST_COVERAGE>
+)
 
 # +---------------------------------------------------------------------------+
 # | TEST SUITES
@@ -233,27 +220,17 @@ add_custom_target(
         build_compile_tests
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    add_custom_target(
-        unittest
-        DEPENDS
-            run_unittests
-            gcovr_sonarqube_report_for_unittest
-            gcovr_html_report_for_unittest
-            run_examples
-            gcovr_sonarqube_report_for_examples
-            gcovr_html_report_for_examples
-            run_compile_precheck_tests
-    )
-else()
-    add_custom_target(
-        unittest
-        DEPENDS
-            run_unittests
-            run_examples
-            run_compile_precheck_tests
-    )
-endif()
+add_custom_target(
+    unittest
+    DEPENDS
+        run_unittests
+        $<$<CONFIG:Coverage>:gcovr_sonarqube_report_for_unittest>
+        $<$<CONFIG:Coverage>:gcovr_html_report_for_unittest>
+        run_examples
+        $<$<CONFIG:Coverage>:gcovr_sonarqube_report_for_examples>
+        $<$<CONFIG:Coverage>:gcovr_html_report_for_examples>
+        run_compile_precheck_tests
+)
 
 # "release" is a legacy target supported for older build systems that use this
 # as a default. It actually doesn't build the docs which is part of a CETL

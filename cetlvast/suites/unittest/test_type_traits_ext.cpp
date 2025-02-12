@@ -100,8 +100,8 @@ static_assert(
     best_conversion_index_v<partial<is_convertible_without_narrowing, int>::template type, int, float, bool, long> == 2,
     "");
 
-static_assert(best_conversion_index_v<std::is_signed, long, char, long, unsigned long> == 1, "");
-static_assert(best_conversion_index_v<std::is_unsigned, long, char, long, unsigned long> == 2, "");
+static_assert(best_conversion_index_v<std::is_signed, long, signed char, long, unsigned long> == 1, "");
+static_assert(best_conversion_index_v<std::is_unsigned, long, signed char, long, unsigned long> == 2, "");
 static_assert(best_conversion_index_v<std::is_volatile, char, int, const int, volatile int> == 2, "");
 
 struct foo
