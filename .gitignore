@@ -48,3 +48,5 @@ Vagrantfile
 # JetBrains
 .idea/*
 cmake-build-*/
+
+*.gcov

@@ -91,11 +91,11 @@ static constexpr std::size_t count_v = count<Predicate, Ts...>::value;
 ///     type_traits_ext::find_v<type_traits_ext::partial<std::is_same, T>::template type, Ts...>;
 /// @endcode
 /// Does not work with non-type template parameters.
-template <template <typename...> class F, typename... Left>
+template <template <typename...> class Fun, typename... Left>
 struct partial
 {
     template <typename... Right>
-    using type = F<Left..., Right...>;
+    using type = Fun<Left..., Right...>;
 };
 
 // --------------------------------------------------------------------------------------------
@@ -107,6 +107,14 @@ struct partial
 template <typename From, typename To, typename = void>
 struct is_convertible_without_narrowing : std::false_type
 {};
+
+#if defined(__GNUG__) && !defined(__clang__)
+#    pragma GCC diagnostic push
+#    if __GNUC__ <= 7
+#        pragma GCC diagnostic ignored "-Wfloat-equal"
+#    endif
+#endif
+
 template <typename From, typename To>
 struct is_convertible_without_narrowing<
     From,
@@ -122,6 +130,11 @@ struct is_convertible_without_narrowing<
     // And check if it is invocable with the argument of type From.
     void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
 {};
+
+#if defined(__GNUG__) && !defined(__clang__)
+#    pragma GCC diagnostic pop
+#endif
+
 static_assert(is_convertible_without_narrowing<int, long long>::value, "self-test failure");
 static_assert(!is_convertible_without_narrowing<long long, int>::value, "self-test failure");
 
@@ -144,7 +157,7 @@ class types;
 //
 // This utility was originally created for the variant class where narrowing conversions are not acceptable.
 // The required behavior is defined as follows:
-//     An overload F(T_i) is only considered if the declaration T_i x[] = { std::forward<T>(t) };
+//     An overload Fun(T_i) is only considered if the declaration T_i x[] = { std::forward<T>(t) };
 //     is valid for some invented variable x;
 //
 // Originally, this utility used to define the match function argument as (T (&&)[1]) to achieve the desired behavior,
@@ -169,12 +182,14 @@ struct candidate
 template <template <typename...> class Q, std::size_t N, typename... Ts>
 struct resolver : resolver<Q, N - 1, Ts...>, candidate<Q, N, std::tuple_element_t<N, std::tuple<Ts...>>>
 {
+    static_assert(sizeof...(Ts) > 0, "tried to match conversion to no types.");
     using candidate<Q, N, std::tuple_element_t<N, std::tuple<Ts...>>>::match;
     using resolver<Q, N - 1, Ts...>::match;
 };
 template <template <typename...> class Q, typename... Ts>
 struct resolver<Q, 0, Ts...> : candidate<Q, 0, std::tuple_element_t<0, std::tuple<Ts...>>>
 {
+    static_assert(sizeof...(Ts) > 0, "tried to match conversion to no types.");
     using candidate<Q, 0, std::tuple_element_t<0, std::tuple<Ts...>>>::match;
 };
 
@@ -186,14 +201,17 @@ struct resolver<Q, 0, Ts...> : candidate<Q, 0, std::tuple_element_t<0, std::tupl
 template <template <typename...> class, typename, typename, typename = void>
 struct impl : std::integral_constant<std::size_t, std::numeric_limits<std::size_t>::max()>
 {};
-template <template <typename...> class Q, typename F, typename... Ts>
-struct impl<Q, F, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>()))>>
-    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<F>())){};
+template <template <typename...> class Q, typename Fun, typename... Ts>
+struct impl<Q, Fun, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))>>
+    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))
+{
+    static_assert(sizeof...(Ts) > 0, "tried to match conversion to no types.");
+};
 }  // namespace best_conversion_index
 }  // namespace detail
 
-/// Index of the type in the \c Tos list selected by overload resolution for the expression F(std::forward<T>(t))
-/// if there was an overload of imaginary function F(T_i) for every T_i from Tos... in scope at the same time.
+/// Index of the type in the \c Tos list selected by overload resolution for the expression Fun(std::forward<T>(t))
+/// if there was an overload of imaginary function Fun(T_i) for every T_i from Tos... in scope at the same time.
 ///
 /// The Predicate is an unary template that, upon successful instantiation with a single argument being a type
 /// from the Tos typelist, contains a static member `value` whose value is truth if the conversion is a valid

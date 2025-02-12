@@ -71,28 +71,33 @@ struct chronomorphize_impl;
 template <std::size_t... Is>
 struct chronomorphize_impl<std::index_sequence<Is...>>
 {
-    template <typename F, typename... Args>
+    ///  GCC 7.2.1 bug workaround. Don't try to change this back into a lambda. It won't work for Arduino atmelsam which
+    /// is fairly ubiquitous (comment written in 2025).
+    template <std::size_t i, typename R, typename Fun, typename... Args>
+    static constexpr auto not_as_fun(Fun&& fn, Args&&... arr) -> R
+    {
+        return std::forward<Fun>(fn)(std::integral_constant<std::size_t, i>{}, std::forward<Args>(arr)...);
+    }
+
+    template <typename Fun, typename... Args>
 #if __cplusplus >= 201703L
     constexpr
 #endif
         static decltype(auto)
-        lookup(F&& fun, const std::size_t index, Args&&... ar)
+        lookup(Fun&& fun, const std::size_t index, Args&&... ar)
     {
-        using R = std::common_type_t<decltype(std::forward<F>(fun)(std::integral_constant<std::size_t, Is>{},
-                                                                   std::forward<Args>(ar)...))...>;
+        using R = std::common_type_t<decltype(std::forward<Fun>(fun)(std::integral_constant<std::size_t, Is>{},
+                                                                     std::forward<Args>(ar)...))...>;
 #if __cplusplus >= 201703L
         constexpr
 #else
         static const  // 'static' cannot occur in a constexpr context until C++23.
 #endif
-            std::array<R (*)(F&&, Args&&...), sizeof...(Is)>
+            std::array<R (*)(Fun&&, Args&&...), sizeof...(Is)>
                 lut = {
-                    [](F&& fn, Args&&... arr) -> R {
-                        return std::forward<F>(fn)(std::integral_constant<std::size_t, Is>{},
-                                                   std::forward<Args>(arr)...);
-                    }...,
+                    not_as_fun<Is, R, Fun, Args...>...,
                 };
-        return lut.at(index)(std::forward<F>(fun), std::forward<Args>(ar)...);
+        return lut.at(index)(std::forward<Fun>(fun), std::forward<Args>(ar)...);
     }
 };
 /// Invokes the specified fun as follows and forwards its result to the caller (argument forwarding not shown):
@@ -103,10 +108,10 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
 /// `N` specifies the maximum value for the index, which also informs the size of the lookup table.
 /// If `index>=N`, behaves like `std::array<...,N>::at(index)`.
 /// The time complexity is constant.
-template <std::size_t N, typename F, typename... Args>
-constexpr decltype(auto) chronomorphize(F&& fun, const std::size_t index, Args&&... extra_args)
+template <std::size_t N, typename Fun, typename... Args>
+constexpr decltype(auto) chronomorphize(Fun&& fun, const std::size_t index, Args&&... extra_args)
 {
-    return chronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<F>(fun),
+    return chronomorphize_impl<std::make_index_sequence<N>>::lookup(std::forward<Fun>(fun),
                                                                     index,
                                                                     std::forward<Args>(extra_args)...);
 }
@@ -152,8 +157,8 @@ struct types final
 {
     static constexpr std::size_t count = sizeof...(Ts);
 
-    template <template <typename> class F>
-    static constexpr bool all_satisfy = conjunction_v<F<Ts>...>;
+    template <template <typename> class Fun>
+    static constexpr bool all_satisfy = conjunction_v<Fun<Ts>...>;
 
     static_assert(conjunction_v<negation<std::is_array<Ts>>...>, "");
     static_assert(conjunction_v<negation<std::is_reference<Ts>>...>, "");
@@ -401,13 +406,13 @@ struct base_storage<types<Ts...>, smf_nontrivial>
 
 /// A safe helper for chronomorphizing the storage base.
 /// Throws bad_variant_access if the variant is valueless.
-template <typename F, typename Seq, int P>
-constexpr decltype(auto) chronomorphize(F&& fun, const base_storage<Seq, P>& self)
+template <typename Fun, typename Seq, int P>
+constexpr decltype(auto) chronomorphize(Fun&& fun, const base_storage<Seq, P>& self)
 {
     bad_access_unless(self.m_index != variant_npos);  // https://twitter.com/PavelKirienko/status/1761525562370040002
     return chronomorphize<Seq::count>(
         [&fun](const auto index) -> decltype(auto) {
-            return std::forward<F>(fun)(index);  //
+            return std::forward<Fun>(fun)(index);  //
         },
         self.m_index);
 }
@@ -742,23 +747,23 @@ static_assert(best_converting_assignment_index_v<double, long, float, double, bo
 
 // --------------------------------------------------------------------------------------------------------------------
 
-template <typename F>
-constexpr decltype(auto) visit(F&& fun)  // For some reason the standard requires this silly overload.
+template <typename Fun>
+constexpr decltype(auto) visit(Fun&& fun)  // For some reason the standard requires this silly overload.
 {
-    return std::forward<F>(fun)();
+    return std::forward<Fun>(fun)();
 }
-template <typename F, typename V>
-constexpr decltype(auto) visit(F&& fun, V&& var)
+template <typename Fun, typename V>
+constexpr decltype(auto) visit(Fun&& fun, V&& var)
 {
     // https://twitter.com/PavelKirienko/status/1761525562370040002
     return chronomorphize(
         [&fun, &var](const auto index) {
-            return std::forward<F>(fun)(alt<index.value>(std::forward<V>(var)));  //
+            return std::forward<Fun>(fun)(alt<index.value>(std::forward<V>(var)));  //
         },
         var);
 }
-template <typename F, typename V0, typename... Vs, std::enable_if_t<(sizeof...(Vs) > 0), int> = 0>
-constexpr decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
+template <typename Fun, typename V0, typename... Vs, std::enable_if_t<(sizeof...(Vs) > 0), int> = 0>
+constexpr decltype(auto) visit(Fun&& fun, V0&& var0, Vs&&... vars)
 {
     // Instead of generating a multidimensional vtable as it is commonly done, we use recursive visiting;
     // this allows us to achieve a similar result with much less code at the expense of one extra call indirection
@@ -768,7 +773,7 @@ constexpr decltype(auto) visit(F&& fun, V0&& var0, Vs&&... vars)
         [&](auto&& hh) {  // https://twitter.com/PavelKirienko/status/1761525562370040002
             return visit(
                 [&](auto&&... tt) {
-                    return std::forward<F>(fun)(std::forward<decltype(hh)>(hh), std::forward<decltype(tt)>(tt)...);
+                    return std::forward<Fun>(fun)(std::forward<decltype(hh)>(hh), std::forward<decltype(tt)>(tt)...);
                 },
                 std::forward<Vs>(vars)...);
         },
@@ -863,22 +868,32 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
     friend constexpr const variant_alternative_t<Ix, variant<Us...>>&& get(const variant<Us...>&& var);
 
     // visit() friends
-    template <typename F, typename V>
-    friend constexpr decltype(auto) detail::var::visit(F&& fun, V&& var);
+    template <typename Fun, typename V>
+    friend constexpr decltype(auto) detail::var::visit(Fun&& fun, V&& var);
 
 public:
     /// Constructor 1 -- default constructor
     template <typename T = nth_type<0>, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-    constexpr variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    // workaround for GCC7 bug (https://github.com/OpenCyphal/CETL/issues/154)
+    constexpr
+#endif
+        variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
         : variant(in_place_index<0>)
     {
     }
 
     /// Constructor 2 -- copy constructor
-    constexpr variant(const variant& other) = default;
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        variant(const variant& other) = default;
 
     /// Constructor 3 -- move constructor
-    constexpr variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
 
     /// Constructor 4 -- converting constructor
     template <typename U,
@@ -889,8 +904,11 @@ public:
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
               std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
               std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
-    constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
-        noexcept(std::is_nothrow_constructible<Alt, U>::value)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        variant(U&& from)  // NOLINT(*-explicit-constructor)
+        noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value)
         : base(in_place_index<Ix>, std::forward<U>(from))
     {
     }
@@ -900,7 +918,11 @@ public:
               std::size_t Ix = index_of<T>,
               typename... Args,
               std::enable_if_t<is_unique<T> && std::is_constructible<T, Args...>::value, int> = 0>
-    constexpr explicit variant(const in_place_type_t<T>, Args&&... args)
+
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit variant(const in_place_type_t<T>, Args&&... args)
         : base(in_place_index<Ix>, std::forward<Args>(args)...)
     {
     }
@@ -912,7 +934,10 @@ public:
         typename U,
         typename... Args,
         std::enable_if_t<is_unique<T> && std::is_constructible<T, std::initializer_list<U>&, Args...>::value, int> = 0>
-    constexpr explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
         : base(in_place_index<Ix>, il, std::forward<Args>(args)...)
     {
     }
@@ -921,7 +946,10 @@ public:
     template <std::size_t Ix,
               typename... Args,
               std::enable_if_t<(Ix < sizeof...(Ts)) && std::is_constructible<nth_type<Ix>, Args...>::value, int> = 0>
-    constexpr explicit variant(const in_place_index_t<Ix>, Args&&... args)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit variant(const in_place_index_t<Ix>, Args&&... args)
         : base(in_place_index<Ix>, std::forward<Args>(args)...)
     {
     }
@@ -933,7 +961,10 @@ public:
               std::enable_if_t<(Ix < sizeof...(Ts)) &&
                                    std::is_constructible<nth_type<Ix>, std::initializer_list<U>&, Args...>::value,
                                int> = 0>
-    constexpr explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
+#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
+    constexpr
+#endif
+        explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
         : base(in_place_index<Ix>, il, std::forward<Args>(args)...)
     {
     }
@@ -1175,10 +1206,10 @@ CETL_NODISCARD constexpr const T&& get(const variant<Ts...>&& var)
 // --------------------------------------------------------------------------------------------------------------------
 
 /// Implementation of \ref std::visit.
-template <typename F, typename... Vs>
-constexpr decltype(auto) visit(F&& fun, Vs&&... vars)
+template <typename Fun, typename... Vs>
+constexpr decltype(auto) visit(Fun&& fun, Vs&&... vars)
 {
-    return detail::var::visit(std::forward<F>(fun), std::forward<Vs>(vars)...);
+    return detail::var::visit(std::forward<Fun>(fun), std::forward<Vs>(vars)...);
 }
 
 // --------------------------------------------------------------------------------------------------------------------

@@ -36,8 +36,7 @@ set(SONARSCANNER_DEFAULT_SOURCE_ENCODING "UTF-8")
 # :param string:        CPP_VERSION         - C++ version number (Just the number. e.g. 14, 17, or 20).
 # :param string:        PROJECT_VERSION     - The version of the project on SonarCloud. Default is "1.0"
 # :param list[target]:  DEPENDS             - A list of targets to depend on.
-# :param path:          COMPILE_COMMANDS    - The path to the compile_commands.json file. Default is
-#                                             "build/comile_commands.json"
+# :param path:          COMPILE_COMMANDS    - The path to the compile_commands.json file.
 # :param list[path]:    SOURCES             - The source directories to scan.
 # :param list[path]:    TESTS               - The test directories to scan.
 # :param glob:          TEST_EXCLUSIONS     - A glob pattern to define exclusions from the test report.
@@ -80,7 +79,7 @@ function (define_sonar_cloud_scan_target_for_c_cpp)
     endif()
 
     if(NOT ARG_COMPILE_COMMANDS)
-        set(ARG_COMPILE_COMMANDS "build/compile_commands.json")
+       message(FATAL_ERROR "COMPILE_COMMANDS argument is required.")
     endif()
 
     if(NOT ARG_BRANCH_NAME)
@@ -127,6 +126,7 @@ function (define_sonar_cloud_scan_target_for_c_cpp)
             --define sonar.coverageReportPaths=${LOCAL_COVERAGE_REPORTS}
             --define sonar.testExecutionReportPaths=${LOCAL_TEST_REPORTS}
             --define sonar.branch.name=${ARG_BRANCH_NAME}
+            --define sonar.token=$ENV{SONAR_TOKEN}
         WORKING_DIRECTORY ${ARG_ROOT_DIRECTORY}
         VERBATIM
         COMMENT "Running sonar-scanner using sonarcloud for ${ARG_PROJECT_KEY}")

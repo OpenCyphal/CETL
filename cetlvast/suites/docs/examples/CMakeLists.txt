@@ -14,18 +14,23 @@ project(cetlvast_docs_examples C CXX)
 
 find_package(googletest REQUIRED)
 find_package(o1heap REQUIRED)
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-find_package(gcovr REQUIRED)
-endif()
+find_package(gcovr)
 
 # +---------------------------------------------------------------------------+
 # | BUILD NATIVE EXAMPLE CODE
 # +---------------------------------------------------------------------------+
 
-file(GLOB NATIVE_EXAMPLES
-    LIST_DIRECTORIES false
-    RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-        example_*.cpp
+set(NATIVE_EXAMPLES
+    example_01_polyfill_20.cpp
+    example_02_span.cpp
+    example_03_memory_resource.cpp
+    example_04_buffer_memory_resource.cpp
+    example_05_array_memory_resource.cpp
+    example_06_memory_resource_deleter.cpp
+    example_07_polymorphic_alloc_deleter.cpp
+    example_08_variable_length_array_vs_vector.cpp
+    example_09_variant.cpp
+    example_10_unbounded_variant.cpp
 )
 
 set(ALL_EXAMPLES "")
@@ -40,7 +45,7 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
         OUT_TEST_EXE_VARIABLE LOCAL_TEST_TARGET
         OUT_TEST_REPORT_VARIABLE LOCAL_TEST_REPORT
     )
-    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    if (GCOVR)
         define_gcovr_tracefile_target(
             TARGET ${LOCAL_TEST_TARGET}
             ROOT_DIRECTORY ${CETL_ROOT}
@@ -49,7 +54,6 @@ foreach(NATIVE_EXAMPLE ${NATIVE_EXAMPLES})
             EXCLUDE_TEST_FRAMEWORKS
             EXCLUDE_TARGET
             ENABLE_INSTRUMENTATION
-            OUT_TRACEFILE_VARIABLE LOCAL_TEST_TRACEFILE
         )
     endif()
     list(APPEND ALL_EXAMPLES "${LOCAL_TEST_TARGET}")
@@ -77,8 +81,6 @@ set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_EXAMPLE_RUNS}"
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    enable_coverage_report(COVERAGE_REPORT_FORMATS sonarqube html
-                           ROOT_DIRECTORY ${CETL_ROOT}
-    )
-endif()
+enable_coverage_report(COVERAGE_REPORT_FORMATS sonarqube html
+                        ROOT_DIRECTORY ${CETL_ROOT}
+)

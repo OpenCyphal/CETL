@@ -5,16 +5,32 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${command:cmake.launchTargetPath}",
+            "name": "cppdb debug (cmake)",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+        },
+        {
             "type": "lldb",
             "request": "launch",
             "program": "${command:cmake.launchTargetPath}",
-            "name": "Launch",
+            "name": "lldb debug (cmake)",
             "args": [],
             "cwd": "${workspaceFolder}",
             "initCommands": ["settings set target.process.thread.step-avoid-regexp \"\""],
             "env": {
                 "PATH": "$PATH:${command:cmake.launchTargetDirectory}",
             },
-        }
+        },
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/cetlvast"
+        },
     ]
 }

@@ -1,0 +1,16 @@
+#
+# Copyright (C) OpenCyphal Development Team  <opencyphal.org>
+# Copyright Amazon.com Inc. or its affiliates.
+# SPDX-License-Identifier: MIT
+#
+
+# +--------------------------------------------------------------------------+
+# | CACHE SUPPORT
+# |     List all keys used to populate "build_external" in this file. We
+# | use the hash of this file and any patch files as the key to caches of the
+# | build_external directory.
+# +--------------------------------------------------------------------------+
+
+set(GIT_TAG_benchmark "v1.9.1")
+set(GIT_TAG_googletest "v1.16.0")
+set(GIT_TAG_o1heap "aa3c253923db36eee7d73a4a5e30884a5fe7a6eb")

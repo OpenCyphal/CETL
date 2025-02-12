@@ -54,7 +54,7 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
                 quirksmode = "ctest"
                 testcase_file = testcase.get("classname")
                 if testcase_file is None:
-                    logging.warn("junit2sonarqube: Unknown tag {} (skipping)".format(testcase.tag))
+                    logging.warning("junit2sonarqube: Unknown tag {} (skipping)".format(testcase.tag))
                     continue
 
             testcase_name: str = testcase.get("name", "")
@@ -162,6 +162,10 @@ def main() -> int:
 
     logging.basicConfig(format="%(levelname)s: %(message)s", level=logging_level)
 
+    if args.input is None:
+        logging.error("No input files specified.")
+        return 1
+
     test_executions = ET.Element("testExecutions", attrib={"version": "1"})
     sq_report = ET.ElementTree(test_executions)
 
@@ -170,11 +174,11 @@ def main() -> int:
             if test_report.suffix == ".xml":
                 logging.info("Found report {}. Trying to combine into sonarqube report.".format(test_report))
                 if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
-                    return 1;
+                    return 1
 
     for test_report in args.input:
         if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
-            return 1;
+            return 1
 
     if args.dry_run:
         logging.info("Would have written a test report for {} files to {}".format(len(test_executions.findall("file")), args.output))

@@ -1,0 +1,2278 @@
+{
+    "version": 9,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 30,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "configure-common",
+            "hidden": true,
+            "generator": "Ninja Multi-Config",
+            "binaryDir": "${sourceDir}/build",
+            "warnings": {
+                "deprecated": true,
+                "uninitialized": true
+            },
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_PREFIX_PATH": "${sourceParentDir}",
+                "CMAKE_CONFIGURATION_TYPES": "Release;ReleaseEP;Debug;DebugEP;Coverage",
+                "CMAKE_CROSS_CONFIGS": "all",
+                "CMAKE_DEFAULT_BUILD_TYPE": "Debug",
+                "CMAKE_DEFAULT_CONFIGS": "Debug",
+                "CETLVAST_ENABLE_BENCHMARKS": "OFF",
+                "CETLVAST_FLAG_SET": "${sourceDir}/cmake/compiler_flag_sets/default.cmake"
+            }
+        },
+        {
+            "name": "manual-simple-configure-common",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build",
+            "warnings": {
+                "deprecated": true,
+                "uninitialized": true
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "${sourceParentDir}",
+                "CETLVAST_ENABLE_BENCHMARKS": "OFF",
+                "CETLVAST_FLAG_SET": "${sourceDir}/cmake/compiler_flag_sets/default.cmake"
+            }
+        },
+        {
+            "name": "manual-simple-configure-online",
+            "inherits": [
+                "manual-simple-configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "manual-simple-configure-offline",
+            "inherits": [
+                "manual-simple-configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-toolchain-gcc-native",
+            "hidden": true,
+            "toolchainFile": "${sourceParentDir}/.devcontainer/cmake/toolchains/gcc-native.cmake",
+            "cacheVariables": {
+                "CETLVAST_TARGET_PLATFORM": "native"
+            }
+        },
+        {
+            "name": "configure-toolchain-gcc-native-32",
+            "hidden": true,
+            "toolchainFile": "${sourceParentDir}/.devcontainer/cmake/toolchains/gcc-native-32.cmake",
+            "cacheVariables": {
+                "CETLVAST_TARGET_PLATFORM": "m32"
+            }
+        },
+        {
+            "name": "configure-toolchain-gcc7-native",
+            "hidden": true,
+            "toolchainFile": "${sourceParentDir}/.devcontainer/cmake/toolchains/gcc7-native.cmake",
+            "cacheVariables": {
+                "CETLVAST_TARGET_PLATFORM": "native"
+            }
+        },
+        {
+            "name": "configure-toolchain-clang-native",
+            "hidden": true,
+            "toolchainFile": "${sourceParentDir}/.devcontainer/cmake/toolchains/clang-native.cmake",
+            "cacheVariables": {
+                "CETLVAST_TARGET_PLATFORM": "native"
+            }
+        },
+        {
+            "name": "configure-standard-cpp-14",
+            "hidden": true,
+            "cacheVariables": {
+                "CETLVAST_CPP_STANDARD": "14"
+            }
+        },
+        {
+            "name": "configure-standard-cpp-17",
+            "hidden": true,
+            "cacheVariables": {
+                "CETLVAST_CPP_STANDARD": "17"
+            }
+        },
+        {
+            "name": "configure-standard-cpp-20",
+            "hidden": true,
+            "cacheVariables": {
+                "CETLVAST_CPP_STANDARD": "20"
+            }
+        },
+        {
+            "name": "configure-update-online",
+            "hidden": true,
+            "cacheVariables": {
+                "FETCHCONTENT_FULLY_DISCONNECTED": "OFF"
+            }
+        },
+        {
+            "name": "configure-update-offline",
+            "hidden": true,
+            "cacheVariables": {
+                "FETCHCONTENT_FULLY_DISCONNECTED": "ON"
+            }
+        },
+        {
+            "name": "configure-gcc-native-cpp-14-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-14-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-17-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-17",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-17-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-17",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-20-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-20",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-20-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-20",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-14-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-14-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-17-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-17",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-17-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-17",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-20-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-20",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-20-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-20",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc7-native-cpp-14-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc7-native",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc7-native-cpp-14-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc7-native",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-14-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-14-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-17-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-17",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-17-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-17",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-20-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-20",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-20-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-20",
+                "configure-update-offline"
+            ]
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "FIX LINT IN-PLACE",
+            "displayName": "Native LLVM in-place linting fixes (Debug, Offline)",
+            "description": "WARNING, this will rewrite source code! Applies automatic fixes to source files (Debug).",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "Debug",
+            "targets": [
+                "danger-danger-cetlvast-clang-format-in-place"
+            ]
+        },
+        {
+            "name": "lint-Debug-clang-native-cpp-14-online",
+            "displayName": "Native LLVM linting (Debug, Online)",
+            "description": "Runs linting targets for llvm-native, cpp-14, Debug configurations.",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "Debug",
+            "targets": [
+                "lint"
+            ]
+        },
+        {
+            "name": "manual-simple-build-online",
+            "displayName": "Simple, representative build (online)",
+            "description": "Default build settings to build and run CETLVaSt tests in a highly portable manner.",
+            "configurePreset": "manual-simple-configure-online",
+            "configuration": "Debug",
+            "targets": [
+                "build"
+            ]
+        },
+        {
+            "name": "manual-simple-build-offline",
+            "displayName": "Simple, representative build (offline)",
+            "description": "Default build settings to build and run CETLVaSt tests in a highly portable manner.",
+            "configurePreset": "manual-simple-configure-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build"
+            ]
+        },
+        {
+            "name": "manual-Coverage-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-14-online",
+            "configurePreset": "configure-gcc-native-cpp-14-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-17-online",
+            "configurePreset": "configure-gcc-native-cpp-17-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-cpp-17-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-20-online",
+            "configurePreset": "configure-gcc-native-cpp-20-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-cpp-20-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-14-online",
+            "configurePreset": "configure-gcc-native-32-cpp-14-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-14-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-17-online",
+            "configurePreset": "configure-gcc-native-32-cpp-17-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-17-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-20-online",
+            "configurePreset": "configure-gcc-native-32-cpp-20-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-20-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc7-native-cpp-14-online",
+            "configurePreset": "configure-gcc7-native-cpp-14-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc7-native-cpp-14-offline",
+            "configurePreset": "configure-gcc7-native-cpp-14-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-14-online",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-14-offline",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-17-online",
+            "configurePreset": "configure-clang-native-cpp-17-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-17-offline",
+            "configurePreset": "configure-clang-native-cpp-17-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-20-online",
+            "configurePreset": "configure-clang-native-cpp-20-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-20-offline",
+            "configurePreset": "configure-clang-native-cpp-20-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-14-online",
+            "configurePreset": "configure-gcc-native-cpp-14-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-17-online",
+            "configurePreset": "configure-gcc-native-cpp-17-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-cpp-17-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-20-online",
+            "configurePreset": "configure-gcc-native-cpp-20-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-cpp-20-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-14-online",
+            "configurePreset": "configure-gcc-native-32-cpp-14-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-14-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-17-online",
+            "configurePreset": "configure-gcc-native-32-cpp-17-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-17-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-20-online",
+            "configurePreset": "configure-gcc-native-32-cpp-20-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-20-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc7-native-cpp-14-online",
+            "configurePreset": "configure-gcc7-native-cpp-14-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc7-native-cpp-14-offline",
+            "configurePreset": "configure-gcc7-native-cpp-14-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-14-online",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-14-offline",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-17-online",
+            "configurePreset": "configure-clang-native-cpp-17-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-17-offline",
+            "configurePreset": "configure-clang-native-cpp-17-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-20-online",
+            "configurePreset": "configure-clang-native-cpp-20-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-20-offline",
+            "configurePreset": "configure-clang-native-cpp-20-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-14-online",
+            "configurePreset": "configure-gcc-native-cpp-14-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-17-online",
+            "configurePreset": "configure-gcc-native-cpp-17-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-cpp-17-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-20-online",
+            "configurePreset": "configure-gcc-native-cpp-20-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-cpp-20-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-14-online",
+            "configurePreset": "configure-gcc-native-32-cpp-14-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-14-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-17-online",
+            "configurePreset": "configure-gcc-native-32-cpp-17-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-17-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-20-online",
+            "configurePreset": "configure-gcc-native-32-cpp-20-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-20-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc7-native-cpp-14-online",
+            "configurePreset": "configure-gcc7-native-cpp-14-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc7-native-cpp-14-offline",
+            "configurePreset": "configure-gcc7-native-cpp-14-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-14-online",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-14-offline",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-17-online",
+            "configurePreset": "configure-clang-native-cpp-17-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-17-offline",
+            "configurePreset": "configure-clang-native-cpp-17-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-20-online",
+            "configurePreset": "configure-clang-native-cpp-20-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-20-offline",
+            "configurePreset": "configure-clang-native-cpp-20-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-14-online",
+            "configurePreset": "configure-gcc-native-cpp-14-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-17-online",
+            "configurePreset": "configure-gcc-native-cpp-17-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-cpp-17-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-20-online",
+            "configurePreset": "configure-gcc-native-cpp-20-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-cpp-20-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-14-online",
+            "configurePreset": "configure-gcc-native-32-cpp-14-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-14-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-17-online",
+            "configurePreset": "configure-gcc-native-32-cpp-17-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-17-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-20-online",
+            "configurePreset": "configure-gcc-native-32-cpp-20-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-20-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc7-native-cpp-14-online",
+            "configurePreset": "configure-gcc7-native-cpp-14-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc7-native-cpp-14-offline",
+            "configurePreset": "configure-gcc7-native-cpp-14-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-14-online",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-14-offline",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-17-online",
+            "configurePreset": "configure-clang-native-cpp-17-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-17-offline",
+            "configurePreset": "configure-clang-native-cpp-17-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-20-online",
+            "configurePreset": "configure-clang-native-cpp-20-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-20-offline",
+            "configurePreset": "configure-clang-native-cpp-20-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-14-online",
+            "configurePreset": "configure-gcc-native-cpp-14-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-17-online",
+            "configurePreset": "configure-gcc-native-cpp-17-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-cpp-17-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-20-online",
+            "configurePreset": "configure-gcc-native-cpp-20-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-cpp-20-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-14-online",
+            "configurePreset": "configure-gcc-native-32-cpp-14-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-17-online",
+            "configurePreset": "configure-gcc-native-32-cpp-17-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-17-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-17-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-20-online",
+            "configurePreset": "configure-gcc-native-32-cpp-20-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-20-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-20-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc7-native-cpp-14-online",
+            "configurePreset": "configure-gcc7-native-cpp-14-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc7-native-cpp-14-offline",
+            "configurePreset": "configure-gcc7-native-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-14-online",
+            "configurePreset": "configure-clang-native-cpp-14-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-14-offline",
+            "configurePreset": "configure-clang-native-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-17-online",
+            "configurePreset": "configure-clang-native-cpp-17-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-17-offline",
+            "configurePreset": "configure-clang-native-cpp-17-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-20-online",
+            "configurePreset": "configure-clang-native-cpp-20-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-20-offline",
+            "configurePreset": "configure-clang-native-cpp-20-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples",
+                "sonar-cloud-scan-OpenCyphal_CETL"
+            ]
+        }
+    ],
+    "workflowPresets": [
+        {
+            "name": "manual-simple-workflow-online",
+            "displayName": "Default, simple build (online)",
+            "description": "Minimal, representative build of CETLVaSt test suites with run targets.",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "manual-simple-configure-online"
+                },
+                {
+                    "type": "build",
+                    "name": "manual-simple-build-online"
+                }
+            ]
+        },
+        {
+            "name": "manual-simple-workflow-offline",
+            "displayName": "Default, simple build (offline)",
+            "description": "Minimal, representative build of CETLVaSt test suites with run targets.",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "manual-simple-configure-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "manual-simple-build-offline"
+                }
+            ]
+        },
+        {
+            "name": "manual-sonar-scan-gcc-native-cpp-14-offline",
+            "displayName": "gcc native cpp 14 offline (Coverage only).",
+            "description": "Hand-managed workflow for generating coverage data for sonarqube scans.",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "manual-Coverage-gcc-native-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "lint-workflow-clang-native-cpp-14-online",
+            "displayName": "clang native cpp 14 online lint workflow.",
+            "description": "Just runs a lint target.",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "lint-Debug-clang-native-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-14-online",
+            "displayName": "gcc native cpp 14 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-14-offline",
+            "displayName": "gcc native cpp 14 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-17-online",
+            "displayName": "gcc native cpp 17 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-17-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-17-offline",
+            "displayName": "gcc native cpp 17 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-17-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-20-online",
+            "displayName": "gcc native cpp 20 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-20-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-20-offline",
+            "displayName": "gcc native cpp 20 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-20-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-14-online",
+            "displayName": "gcc native 32 cpp 14 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-14-offline",
+            "displayName": "gcc native 32 cpp 14 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-17-online",
+            "displayName": "gcc native 32 cpp 17 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-17-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-17-offline",
+            "displayName": "gcc native 32 cpp 17 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-17-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-20-online",
+            "displayName": "gcc native 32 cpp 20 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-20-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-20-offline",
+            "displayName": "gcc native 32 cpp 20 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-20-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc7-native-cpp-14-online",
+            "displayName": "gcc7 native cpp 14 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc7-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc7-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc7-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc7-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc7-native-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc7-native-cpp-14-offline",
+            "displayName": "gcc7 native cpp 14 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc7-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc7-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc7-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc7-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc7-native-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-14-online",
+            "displayName": "clang native cpp 14 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-14-offline",
+            "displayName": "clang native cpp 14 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-17-online",
+            "displayName": "clang native cpp 17 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-17-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-17-offline",
+            "displayName": "clang native cpp 17 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-17-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-20-online",
+            "displayName": "clang native cpp 20 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-20-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-20-offline",
+            "displayName": "clang native cpp 20 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-20-offline"
+                }
+            ]
+        }
+    ],
+    "packagePresets": [],
+    "testPresets": [],
+    "vendor": {
+        "tcpm": {
+            "version": 1,
+            "onload": [
+                "$('#preset-group-build parameters toolchain').json($('#preset-group-config parameters toolchain').json()).exp()",
+                "$('#preset-group-build parameters standard').json($('#preset-group-config parameters standard').json()).exp()",
+                "$('#preset-group-build parameters update').json($('#preset-group-config parameters update').json()).exp()",
+                "$('#preset-group-build parameters configuration').json($('#configure-common cacheVariables CMAKE_CONFIGURATION_TYPES').text().split(';')).exp()",
+                "$('#preset-group-workflow shape-parameters configuration').json($('#configure-common cacheVariables CMAKE_CONFIGURATION_TYPES').text().split(';')).exp()",
+                "$('#preset-group-workflow parameters toolchain').json($('#preset-group-config parameters toolchain').json()).exp()",
+                "$('#preset-group-workflow parameters standard').json($('#preset-group-config parameters standard').json()).exp()",
+                "$('#preset-group-workflow parameters update').json($('#preset-group-config parameters update').json()).exp()"
+            ],
+            "static": {
+                "build-targets-Release": [
+                    "build",
+                    "run_unittests",
+                    "run_examples"
+                ],
+                "build-targets-ReleaseEP": [
+                    "build",
+                    "run_unittests",
+                    "run_examples"
+                ],
+                "build-targets-Debug": [
+                    "build",
+                    "run_unittests",
+                    "run_examples"
+                ],
+                "build-targets-DebugEP": [
+                    "build",
+                    "run_unittests",
+                    "run_examples"
+                ],
+                "build-targets-Coverage": [
+                    "build",
+                    "run_unittests",
+                    "gcovr_html_report_for_unittest",
+                    "gcovr_sonarqube_report_for_unittest",
+                    "run_examples",
+                    "gcovr_html_report_for_examples",
+                    "gcovr_sonarqube_report_for_examples",
+                    "sonar-cloud-scan-OpenCyphal_CETL"
+                ]
+            },
+            "preset-groups": {
+                "configure": {
+                    "name": "preset-group-config",
+                    "common": [
+                        "configure-common"
+                    ],
+                    "parameters": {
+                        "toolchain": [
+                            "gcc-native",
+                            "gcc-native-32",
+                            "gcc7-native",
+                            "clang-native"
+                        ],
+                        "standard": [
+                            "cpp-14",
+                            "cpp-17",
+                            "cpp-20"
+                        ],
+                        "update": [
+                            "online",
+                            "offline"
+                        ]
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": [
+                                "cpp-17",
+                                "cpp-20"
+                            ]
+                        }
+                    ],
+                    "shape": {
+                        "toolchain": {
+                            "toolchainFile": "${{sourceParentDir}}/.devcontainer/cmake/toolchains/{parameter}.cmake",
+                            "cacheVariables": {
+                                "CETLVAST_TARGET_PLATFORM": "{pq}(this).if('{name}' $= 'gcc-native-32', 'm32', 'native')"
+                            }
+                        },
+                        "standard": {
+                            "cacheVariables": {
+                                "CETLVAST_CPP_STANDARD": "{pq}(this).literal('{parameter}').split('{sep}').get(1)"
+                            }
+                        },
+                        "update": {
+                            "cacheVariables": {
+                                "FETCHCONTENT_FULLY_DISCONNECTED": "{pq}(this).if('online' == '{parameter}', 'OFF', 'ON')"
+                            }
+                        }
+                    }
+                },
+                "build": {
+                    "name": "preset-group-build",
+                    "parameters": {
+                        "configuration": [
+                            "Release",
+                            "ReleaseEP",
+                            "Debug",
+                            "DebugEP",
+                            "Coverage"
+                        ],
+                        "toolchain": [
+                            "gcc-native",
+                            "gcc-native-32",
+                            "gcc7-native",
+                            "clang-native"
+                        ],
+                        "standard": [
+                            "cpp-14",
+                            "cpp-17",
+                            "cpp-20"
+                        ],
+                        "update": [
+                            "online",
+                            "offline"
+                        ]
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": [
+                                "cpp-17",
+                                "cpp-20"
+                            ]
+                        }
+                    ],
+                    "shape": {
+                        "configuration": {
+                            "configurePreset": "{pq}(this).literal('{name}').replace('{prefix}{sep}{parameter}', '{groups[configure][prefix]}')",
+                            "configuration": "{parameter}",
+                            "targets": "{pq}(this).json({pq}('vendor tcpm static build-targets-{parameter}').json())"
+                        },
+                        "toolchain": {},
+                        "standard": {},
+                        "update": {}
+                    }
+                },
+                "workflow": {
+                    "name": "preset-group-workflow",
+                    "parameters": {
+                        "toolchain": [
+                            "gcc-native",
+                            "gcc-native-32",
+                            "gcc7-native",
+                            "clang-native"
+                        ],
+                        "standard": [
+                            "cpp-14",
+                            "cpp-17",
+                            "cpp-20"
+                        ],
+                        "update": [
+                            "online",
+                            "offline"
+                        ]
+                    },
+                    "shape-parameters": {
+                        "configuration": [
+                            "Release",
+                            "ReleaseEP",
+                            "Debug",
+                            "DebugEP",
+                            "Coverage"
+                        ]
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": [
+                                "cpp-17",
+                                "cpp-20"
+                            ]
+                        },
+                        {
+                            "configuration": "Coverage"
+                        }
+                    ],
+                    "shape": {
+                        "toolchain": {
+                            "displayName": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}','').replace('{sep}', ' ')",
+                            "description": "autogenerated workflow",
+                            "steps": [
+                                {
+                                    "type": "configure",
+                                    "name": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}', '{groups[configure][prefix]}{sep}')"
+                                }
+                            ]
+                        },
+                        "configuration": {
+                            "steps": [
+                                {
+                                    "type": "build",
+                                    "name": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}', '{groups[build][prefix]}{sep}{parameter}{sep}')"
+                                }
+                            ]
+                        },
+                        "standard": {},
+                        "update": {}
+                    }
+                }
+            }
+        }
+    }
+}

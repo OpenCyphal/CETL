@@ -622,6 +622,14 @@ TYPED_TEST(VLATestsGeneralAllocation, TestPop)
 
 TYPED_TEST(VLATestsGeneralAllocation, TestShrink)
 {
+#ifdef _LIBCPP_VERSION
+    // libc++'s vector moves objects in its shrink_to_fit implementation. This test assumes a non-moving implementation
+    // which holds for libstdc++ and CETL but not libc++ (clang).
+    if (std::is_same<typename TypeParam::container_type, cetlvast::SkipTag>::value)
+    {
+        GTEST_SKIP() << "Skipping test that libc++ can't handle.";
+    }
+#endif
     typename TestFixture::SubjectType subject{TestFixture::make_allocator()};
 
     std::size_t clamped_max = this->clamped_max_size(10ul);

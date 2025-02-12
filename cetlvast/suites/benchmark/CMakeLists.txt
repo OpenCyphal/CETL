@@ -9,11 +9,8 @@ project(cetlvast_benchmark CXX)
 
 find_package(benchmark REQUIRED)
 
-file(GLOB_RECURSE TEST_SOURCES
-        LIST_DIRECTORIES false
-        CONFIGURE_DEPENDS
-        RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-        benchmark_*.cpp **/benchmark_*.cpp
+set(TEST_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/pmr/benchmark_pmr_function.cpp
 )
 
 set(ALL_TESTS_BUILD "")

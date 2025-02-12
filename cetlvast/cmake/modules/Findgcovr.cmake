@@ -6,12 +6,24 @@
 # cSpell: words fprofile fcoverage gcov tracefile objdir gcno gcda objlib tracefiles
 
 find_program(GCOVR gcovr)
+find_program(GCOV gcov)
+find_program(LLVMCOV llvm-cov)
 
 include(FindPackageHandleStandardArgs)
 
 find_package_handle_standard_args(gcovr
     REQUIRED_VARS GCOVR
 )
+
+if(NOT COMMAND enable_instrumentation)
+
+message(STATUS
+"[ gcovr ]-----------------------------------------------\n\
+    GCOVR:                      ${GCOVR}\n\
+    GCOV:                       ${GCOV}\n\
+    LLVMCOV:                    ${LLVMCOV}\n\
+-----------------------------------------------------------\n\
+")
 
 # +---------------------------------------------------------------------------+
 # | Contributed helpers for enabling and processing coverage data
@@ -21,6 +33,8 @@ define_property(DIRECTORY
     BRIEF_DOCS "private collection used by gcovr module."
     FULL_DOCS "private collection used by gcovr module."
 )
+
+endif()
 
 # function: enable_instrumentation
 # Sets well-known compiler flags for gcc and/or clang to insert instrumentations
@@ -38,13 +52,16 @@ function(enable_instrumentation)
     #+-[body]-----------------------------------------------------------------+
     target_compile_options(${ARG_TARGET}
         PRIVATE
-            "--coverage"
-            "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fprofile-instr-generate>"
-            "$<$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>:-fcoverage-mapping>"
+            $<$<CONFIG:Coverage>:--coverage>
+            $<$<AND:$<CONFIG:Coverage>,$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>>:-fprofile-instr-generate>
+            $<$<AND:$<CONFIG:Coverage>,$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>>:-fcoverage-mapping>
+            $<$<AND:$<CONFIG:Coverage>,$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>>:-ftest-coverage> # Create a GCNO file.
+            $<$<AND:$<CONFIG:Coverage>,$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>>:-fprofile-arcs>
+            $<$<AND:$<CONFIG:Coverage>,$<COMPILE_LANG_AND_ID:CXX,AppleClang,Clang>>:-fcoverage-mapping>
     )
     target_link_options(${ARG_TARGET}
         PRIVATE
-            "--coverage"
+            $<$<CONFIG:Coverage>:--coverage>
     )
 endfunction(enable_instrumentation)
 
@@ -142,9 +159,17 @@ function(define_gcovr_tracefile_target)
 
     list(APPEND LOCAL_GCOV_EXE_ARGS "--gcov-executable")
     if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        list(APPEND LOCAL_GCOV_EXE_ARGS "llvm-cov gcov")
+        if (NOT LLVMCOV)
+            message(WARNING "llvm-cov was not found. Coverage reporting for ${CMAKE_CXX_COMPILER_ID} will probably fail.")
+        else()
+            list(APPEND LOCAL_GCOV_EXE_ARGS "${LLVMCOV} gcov")
+        endif()
     else()
-        list(APPEND LOCAL_GCOV_EXE_ARGS "gcov")
+        if (NOT GCOV)
+            message(WARNING "gcov was not found. Coverage reporting for ${CMAKE_CXX_COMPILER_ID} will probably fail.")
+        else()
+            list(APPEND LOCAL_GCOV_EXE_ARGS ${GCOV})
+        endif()
     endif()
 
     set(LOCAL_OBJDIR_ARGS )
@@ -236,6 +261,7 @@ function (enable_coverage_report)
         set(LOCAL_FORMAT_ARGS)
         if (LOCAL_REPORT_FORMAT STREQUAL "html")
             set(LOCAL_REPORT_INDEX "gcovr_html/coverage.html")
+            file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/gcovr_html")
             list(APPEND LOCAL_FORMAT_ARGS "--html-details")
             list(APPEND LOCAL_FORMAT_ARGS "${LOCAL_REPORT_INDEX}")
         elseif (LOCAL_REPORT_FORMAT STREQUAL "sonarqube")

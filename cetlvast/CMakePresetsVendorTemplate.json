@@ -1,0 +1,159 @@
+{
+    "version": 9,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 30,
+        "patch": 0
+    },
+    "configurePresets": [],
+    "buildPresets": [],
+    "workflowPresets": [],
+    "packagePresets": [],
+    "testPresets": [],
+    "vendor": {
+        "tcpm": {
+            "version": 1,
+            "onload": [
+                "$('#preset-group-build parameters toolchain').json($('#preset-group-config parameters toolchain').json()).exp()",
+                "$('#preset-group-build parameters standard').json($('#preset-group-config parameters standard').json()).exp()",
+                "$('#preset-group-build parameters update').json($('#preset-group-config parameters update').json()).exp()",
+                "$('#preset-group-build parameters configuration').json($('#configure-common cacheVariables CMAKE_CONFIGURATION_TYPES').text().split(';')).exp()",
+                "$('#preset-group-workflow shape-parameters configuration').json($('#configure-common cacheVariables CMAKE_CONFIGURATION_TYPES').text().split(';')).exp()",
+                "$('#preset-group-workflow parameters toolchain').json($('#preset-group-config parameters toolchain').json()).exp()",
+                "$('#preset-group-workflow parameters standard').json($('#preset-group-config parameters standard').json()).exp()",
+                "$('#preset-group-workflow parameters update').json($('#preset-group-config parameters update').json()).exp()"
+            ],
+            "static": {
+                "build-targets-Release": [
+                    "build",
+                    "run_unittests",
+                    "run_examples"
+                ],
+                "build-targets-ReleaseEP": "$(this).json($('vendor tcpm static build-targets-Release').json())",
+                "build-targets-Debug": "$(this).json($('vendor tcpm static build-targets-Release').json())",
+                "build-targets-DebugEP": "$(this).json($('vendor tcpm static build-targets-Release').json())",
+                "build-targets-Coverage": [
+                    "build",
+                    "run_unittests",
+                    "gcovr_html_report_for_unittest",
+                    "gcovr_sonarqube_report_for_unittest",
+                    "run_examples",
+                    "gcovr_html_report_for_examples",
+                    "gcovr_sonarqube_report_for_examples",
+                    "sonar-cloud-scan-OpenCyphal_CETL"
+                ]
+            },
+            "preset-groups": {
+                "configure": {
+                    "name": "preset-group-config",
+                    "common": [
+                        "configure-common"
+                    ],
+                    "parameters": {
+                        "toolchain": [
+                            "gcc-native",
+                            "gcc-native-32",
+                            "gcc7-native",
+                            "clang-native"
+                        ],
+                        "standard": [
+                            "cpp-14",
+                            "cpp-17",
+                            "cpp-20"
+                        ],
+                        "update": [
+                            "online",
+                            "offline"
+                        ]
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": ["cpp-17", "cpp-20"]
+                        }
+                    ],
+                    "shape": {
+                        "toolchain": {
+                            "toolchainFile": "${{sourceParentDir}}/.devcontainer/cmake/toolchains/{parameter}.cmake",
+                            "cacheVariables": {
+                                "CETLVAST_TARGET_PLATFORM": "{pq}(this).if('{name}' $= 'gcc-native-32', 'm32', 'native')"
+                            }
+                        },
+                        "standard": {
+                            "cacheVariables": {
+                                "CETLVAST_CPP_STANDARD": "{pq}(this).literal('{parameter}').split('{sep}').get(1)"
+                            }
+                        },
+                        "update": {
+                            "cacheVariables": {
+                                "FETCHCONTENT_FULLY_DISCONNECTED": "{pq}(this).if('online' == '{parameter}', 'OFF', 'ON')"
+                            }
+                        }
+                    }
+                },
+                "build": {
+                    "name": "preset-group-build",
+                    "parameters": {
+                        "configuration": [],
+                        "toolchain": [],
+                        "standard": [],
+                        "update": []
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": ["cpp-17", "cpp-20"]
+                        }
+                    ],
+                    "shape": {
+                        "configuration": {
+                            "configurePreset": "{pq}(this).literal('{name}').replace('{prefix}{sep}{parameter}', '{groups[configure][prefix]}')",
+                            "configuration": "{parameter}",
+                            "targets": "{pq}(this).json({pq}('vendor tcpm static build-targets-{parameter}').json())"
+                        }
+                    }
+                },
+                "workflow": {
+                    "name": "preset-group-workflow",
+                    "parameters": {
+                        "toolchain": [],
+                        "standard": [],
+                        "update": []
+                    },
+                    "shape-parameters": {
+                        "configuration": []
+                    },
+                    "exclude": [
+                        {
+                            "toolchain": "gcc7-native",
+                            "standard": ["cpp-17", "cpp-20"]
+                        },
+                        {
+                            "configuration": "Coverage"
+                        }
+                    ],
+                    "shape": {
+                        "toolchain": {
+                            "displayName": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}','').replace('{sep}', ' ')",
+                            "description": "autogenerated workflow",
+                            "steps": [
+                                {
+                                    "type": "configure",
+                                    "name": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}', '{groups[configure][prefix]}{sep}')"
+                                }
+                            ]
+                        },
+                        "configuration": {
+                            "steps": [
+                                {
+                                    "type": "build",
+                                    "name": "{pq}(this).literal('{name}').replace('{groups[workflow][prefix]}{sep}', '{groups[build][prefix]}{sep}{parameter}{sep}')"
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

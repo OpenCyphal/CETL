@@ -9,11 +9,13 @@ project(cetlvast_compile_tests CXX)
 
 include(CompileTest)
 
-file(GLOB COMPILE_TESTS
-     LIST_DIRECTORIES false
-     CONFIGURE_DEPENDS
-     RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
-     ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp
+set(COMPILE_TESTS
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_cetl_h_erase.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_span_empty.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_unbounded_variant_footprint_get_const.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_unbounded_variant_footprint_get_non_const.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_unbounded_variant_footprint_set.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_unbounded_variant_zero_footprint_non_pmr.cpp
 )
 
 set(ALL_TESTS_BUILD "")
