@@ -105,7 +105,7 @@ jobs:
       uses: actions/configure-pages@v3
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' }}
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: "build/suites/docs/html/"
     - name: upload-pr-docs
