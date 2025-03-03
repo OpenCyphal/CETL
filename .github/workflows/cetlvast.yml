@@ -142,7 +142,7 @@ jobs:
       with:
         path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: Coverage-exceptions-14-gcc
         path: build
