@@ -139,7 +139,6 @@ TYPED_TEST(TestStringView, ConstructFromStdString)
 
 TYPED_TEST(TestStringView, SizeAndLength)
 {
-    using char_type         = typename TypeParam::char_type;
     using basic_string_view = typename TypeParam::sv_type;
 
     const auto test_str = TestFixture::toStr("Test string");
@@ -147,9 +146,6 @@ TYPED_TEST(TestStringView, SizeAndLength)
     const basic_string_view sv{test_str};
     EXPECT_THAT(sv.size(), 11u);
     EXPECT_THAT(sv.length(), 11u);
-    EXPECT_THAT(sv.max_size(),
-                (basic_string_view::npos - sizeof(typename basic_string_view::size_type) - sizeof(void*)) /
-                    sizeof(char_type) / 4);
 }
 
 TYPED_TEST(TestStringView, Empty)

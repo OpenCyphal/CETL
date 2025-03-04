@@ -63,7 +63,7 @@ jobs:
       if: ${{ runner.debug == '1' }}
       run: ls -lAhR build/
     - name: upload-artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ${{ matrix.build_flavor }}-${{ matrix.exceptions }}-${{ matrix.std }}-${{ matrix.toolchain }}
         path: |
@@ -105,12 +105,12 @@ jobs:
       uses: actions/configure-pages@v3
     - name: Upload docs
       if: ${{ github.event_name != 'pull_request' }}
-      uses: actions/upload-pages-artifact@v1
+      uses: actions/upload-pages-artifact@v3
       with:
         path: "build/suites/docs/html/"
     - name: upload-pr-docs
       if: ${{ github.event_name == 'pull_request' }}
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pr-docs
         path: "build/suites/docs/html/"
@@ -142,7 +142,7 @@ jobs:
       with:
         path: cetlvast/build_external
         key: gtest_b796f7d44681514f58a683a3a71ff17c94edb0c1
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: Coverage-exceptions-14-gcc
         path: build
