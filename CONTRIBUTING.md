@@ -19,7 +19,7 @@ cd cetlvast
 cmake --list-presets=workflow
 ```
 
-From this list, chose one and do:
+From this list, choose one and do:
 
 ```
 cmake --workflow --preset one-of-the-presets-from-the-list
