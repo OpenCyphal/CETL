@@ -172,7 +172,7 @@ jobs:
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
       - name: Install sonar-scanner
-        uses: SonarSource/sonarcloud-github-c-cpp@v2
+        uses: SonarSource/sonarcloud-github-c-cpp@v3
 
       - name: Cache ext modules
         uses: actions/cache@v4
