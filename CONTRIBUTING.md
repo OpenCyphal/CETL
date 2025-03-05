@@ -35,8 +35,20 @@ The following build configuration types are available for each configuration in 
 | **ReleaseEP** | (Embedded Profile) Optimized for embedded with exceptions and rtti disabled.                          |
 | **Debug**     | Lightly optimized, with exceptions, rtti, and debug assert enabled.                                   |
 | **DebugEP**   | Similar to Release EP (Embedded Profile) but with no optimizations and debug asserts enabled.         |
+| **Coverage**  | Debug-like build only used to generate and report coverage data for CETLVaSt.                         |
 
 See the CETLVaSt [CMakePresetsVendorTemplate.json](cetlvast/CMakePresetsVendorTemplate.json) for where these types are specified as well as all build parameters used to configure the verification build.
+
+### CMakePresets.json and CMakePresetsVendorTemplate.json
+
+We use [TCPM](https://pypi.org/project/tcpm/) to manage our extensive list of presets. This python tool will utilize configuration in the `CMakePresetsVendorTemplate.json` file to regenerate `CMakePresets.json` in place. The transformation is idempotent so it's safe to run the tool multiple times and any configuration manually added to `CMakePresets.json`, like our "manual-" presets, is preserved. If you change anything in `CMakePresetsVendorTemplate.json` simply install TCPM from pypi and do:
+
+```bash
+cd cetlvast
+tcpm
+```
+
+then submit a PR for the updated files.
 
 # Developer Environment
 
