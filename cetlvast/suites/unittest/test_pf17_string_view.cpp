@@ -27,7 +27,6 @@
 
 using testing::Gt;
 using testing::Lt;
-using testing::Le;
 using testing::IsNull;
 
 template <typename StringViewT, typename CharT>
