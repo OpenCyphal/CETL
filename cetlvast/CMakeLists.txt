@@ -75,7 +75,7 @@ set(CMAKE_CXX_STANDARD ${CETLVAST_CPP_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:ReleaseEP>>,0,1>")
+add_compile_definitions("CETL_ENABLE_DEBUG_ASSERT=$<IF:$<OR:$<CONFIG:Release>,$<CONFIG:ReleaseEP>,$<CONFIG:Coverage>>,0,1>")
 
 # See https://libcxx.llvm.org/Hardening.html
 add_compile_definitions(
