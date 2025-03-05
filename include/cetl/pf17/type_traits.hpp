@@ -67,12 +67,24 @@ constexpr bool is_nothrow_swappable_v = is_nothrow_swappable<T>::value;
 template <typename...>
 struct conjunction : std::true_type
 {};
+
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    if __GNUC__ <= 7
+#        pragma GCC diagnostic ignored "-Wfloat-equal"
+#    endif
+#endif
+
 template <typename A>
 struct conjunction<A> : A
 {};
 template <typename A, typename... B>
 struct conjunction<A, B...> : std::conditional_t<static_cast<bool>(A::value), conjunction<B...>, A>
 {};
+
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
 
 /// Implementation of \ref std::conjunction_v.
 template <typename... Ts>

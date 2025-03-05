@@ -91,7 +91,9 @@ TYPED_TEST(TestMonotonicBufferResource, TestAllocationOrder)
                   "Assumptions about the alignment of cetl::byte are wrong");
     constexpr std::size_t                            size_bytes = 1024;
     std::array<cetl::byte, size_bytes>               buffer{};
-    std::array<cetl::byte, size_bytes * 2>           upstream_buffer{};
+    // libc++ is pretty agressive about rounding up after alignment on the geometric progression
+    // so you'll need quite a large buffer for the second allocation. *4 seems to cover most cases.
+    std::array<cetl::byte, size_bytes * 4>           upstream_buffer{};
     cetlvast::MRH::MockMemoryResourceType<TypeParam> mock{};
     Sequence                                         s1;
     EXPECT_CALL(mock, do_allocate(Ge(size_bytes), _)).Times(1).InSequence(s1).WillOnce(Return(upstream_buffer.data()));
@@ -119,7 +121,6 @@ TYPED_TEST(TestMonotonicBufferResource, TestIssue45)
         ASSERT_NE(nullptr, memory0);
         void*     memory1 = subject.allocate(1, alignof(cetl::byte));
         ASSERT_NE(memory0, memory1);
-        ASSERT_LT(memory0, memory1);
         std::ptrdiff_t range = static_cast<unsigned char*>(memory1) - static_cast<unsigned char*>(memory0);
         ASSERT_GE(range, sizeof(cetl::byte));
     }

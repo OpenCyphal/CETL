@@ -642,6 +642,15 @@ protected:
                 data_     = new_data;
                 capacity_ = no_shrink_capacity;
             }
+#if defined(__cpp_exceptions)
+            // GCOVR_EXCL_START
+            else
+            {
+                // protect against invalid standard libraries that do not throw as required.
+                throw std::bad_alloc();
+            }
+            // GCOVR_EXCL_STOP
+#endif
         }
     }
 

@@ -32,6 +32,15 @@ list(APPEND C_FLAG_SET
                 "-Wswitch-enum"
                 "-Wtype-limits"
                 "-Wno-error=array-bounds"
+                $<$<CONFIG:Release>:-O3>
+                $<$<CONFIG:ReleaseEP>:-Os>
+                $<$<CONFIG:Coverage>:-O0>
+                $<$<CONFIG:Release,ReleaseEP>:-fno-delete-null-pointer-checks> # https://github.com/OpenCyphal-Garage/libcyphal/pull/347#discussion_r1572254288
+                $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-O0>
+                $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-DDEBUG>
+                $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-ggdb>
+                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-exceptions>
+                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-rtti>
 )
 
 set(CXX_FLAG_SET ${C_FLAG_SET})
@@ -49,27 +58,10 @@ list(APPEND CXX_FLAG_SET
                 "-Woverloaded-virtual"
 )
 
-if (CMAKE_BUILD_TYPE STREQUAL "Release")
-    message(STATUS "Release build. Setting optimization flags.")
-    list(APPEND C_FLAG_SET
-                "-O1"
-                "-fno-delete-null-pointer-checks"  # https://github.com/OpenCyphal-Garage/libcyphal/pull/347#discussion_r1572254288
-    )
-else()
-
-    message(STATUS "Not a Release build. Setting debug flags.")
-    list(APPEND C_FLAG_SET
-                "-O0"
-                "-DDEBUG"
-                "-ggdb"
-    )
-
-endif()
-
-if (CETLVAST_DISABLE_CPP_EXCEPTIONS)
-    message(STATUS "CETLVAST_DISABLE_CPP_EXCEPTIONS is true. Adding -fno-exceptions to compiler flags.")
-    list(APPEND CXX_FLAG_SET
-                "-fno-exceptions")
+if (DEFINED CETLVAST_TARGET_PLATFORM AND (CETLVAST_TARGET_PLATFORM STREQUAL "native32"))
+    message(STATUS "CETLVAST_TARGET_PLATFORM is native32. Adding -m32 to compiler flags.")
+    list(APPEND C_FLAG_SET "-m32")
+    list(APPEND EXE_LINKER_FLAG_SET "-m32")
 endif()
 
 list(APPEND CXX_FLAG_SET ${C_FLAG_SET})

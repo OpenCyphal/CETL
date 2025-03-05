@@ -15,18 +15,45 @@ form of `preview/{your incubating feature name}`.
 # Running CETLVaSt locally
 
 ```
-./build-tools/bin/verify.py --online
+cd cetlvast
+cmake --list-presets=workflow
 ```
 
-need help?
+From this list, choose one and do:
 
 ```
-./build-tools/bin/verify.py -h
+cmake --workflow --preset one-of-the-presets-from-the-list
 ```
+
+## Build Configurations
+
+The following build configuration types are available for each configuration in the build (We use Ninja Multi-Config which generates build targets for all types in each cmake configuration).
+
+| Type          | Description                                                                                           |
+|---------------|-------------------------------------------------------------------------------------------------------|
+| **Release**   | Highly Optimized, with exceptions enabled, and rtti.                                                  |
+| **ReleaseEP** | (Embedded Profile) Optimized for embedded with exceptions and rtti disabled.                          |
+| **Debug**     | Lightly optimized, with exceptions, rtti, and debug assert enabled.                                   |
+| **DebugEP**   | Similar to Release EP (Embedded Profile) but with no optimizations and debug asserts enabled.         |
+| **Coverage**  | Debug-like build only used to generate and report coverage data for CETLVaSt.                         |
+
+See the CETLVaSt [CMakePresetsVendorTemplate.json](cetlvast/CMakePresetsVendorTemplate.json) for where these types are specified as well as all build parameters used to configure the verification build.
+
+### CMakePresets.json and CMakePresetsVendorTemplate.json
+
+We use [TCPM](https://pypi.org/project/tcpm/) to manage our extensive list of presets. This python tool will utilize configuration in the `CMakePresetsVendorTemplate.json` file to regenerate `CMakePresets.json` in place. The transformation is idempotent so it's safe to run the tool multiple times and any configuration manually added to `CMakePresets.json`, like our "manual-" presets, is preserved. If you change anything in `CMakePresetsVendorTemplate.json` simply install TCPM from pypi and do:
+
+```bash
+cd cetlvast
+tcpm
+```
+
+then submit a PR for the updated files.
 
 # Developer Environment
 
-## ![visual-studio code](.vscode/vscode-alt.svg#gh-dark-mode-only) ![visual-studio code](.vscode/vscode.svg#gh-light-mode-only)
+![visual-studio code](.vscode/vscode-alt.svg#gh-dark-mode-only) ![visual-studio code](.vscode/vscode.svg#gh-light-mode-only)
+
 We support the vscode IDE using
 [cmake](https://github.com/microsoft/vscode-cmake-tools/blob/main/docs/README.md) and
 [development containers](https://containers.dev/). Simply clone CETL, open the
@@ -39,21 +66,23 @@ If you don't want to use vscode you can pull our [Toolshed devcontainer](https:/
 and manually run it.
 
 ### TLDR
+
+See [devcontainer.json](.devcontainer/toolshed/devcontainer.json) for the current value of x for `ts22.4.x`.
+
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.10
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.x
 git clone {this repo}
 cd CETL
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.10
-./build-tools/bin/verify.py -vv --online configure
-cd build
-ninja release
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x
+cd cetlvast
+cmake --workflow --preset workflow-clang-native-cpp-14-online
 ```
 
 ### Step-by-Step
 
 1. Pull the OpenCyphal dev-container used for CETL:
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts22.4.10
+docker pull ghcr.io/opencyphal/toolshed:ts22.4.x
 ```
 2. Clone CETL, cd into the repo, and launch an interactive terminal session of
 the dev container. This command will mount the current directory (`${PWD}`) in
@@ -66,20 +95,22 @@ git clone {this repo}
 cd CETL
 docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x
 ```
-3. run the verify script to configure cetlvast. By including `-vv` you can see
-the exact cmake commands verify.py is executing and you can use `--dry-run`
-if you really hate my python script so much that you want to do all the typing
-yourself (It's not like I spent a ton of time documenting all of these options
-for you. No no. It's fine. Don't try to apologize now...):
+3. See available configurations
 ```
-./build-tools/bin/verify.py -vv configure
+cd cetlvast
+cmake --list-presets=configure
 ```
-4. Finally, you can cd into the top-level cmake directory you just configured
-and run ninja directly.
+4. Select a configuration and run the configuration for it. Use an "online" variant the first time to pull external dependencies.
 ```
-cd build
-ninja help
-ninja release
+cmake --preset configure-gcc-native-cpp-14-online
+```
+5. List available build targets
+```
+cmake --list-presets=build | grep gcc-native-cpp-14-online
+```
+6. Build a configuration
+```
+cmake --build --preset build-Release-gcc-native-cpp-14-online
 ```
 
 ### Format the sources
@@ -89,7 +120,7 @@ To ensure that the formatting matches the expectations of the CI suite,
 invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
 
 ```
-docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.10 ./build-tools/bin/verify.py build-danger-danger-cetlvast-clang-format-in-place
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts22.4.x /bin/sh -c 'cd cetlvast && cmake --preset configure-clang-native-cpp-17-offline && cd build && ninja' danger-danger-cetlvast-clang-format-in-place'
 ```
 
 # `issue/*` and hashtag-based CI triggering
@@ -102,7 +133,7 @@ green and test coverage is adequate - to do that:
 for example, making a commit with a message like `Add feature such and such #verification #docs #sonar`
 will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
 
-Note that if the job you requested is dependent on other jobs that are not triggered, it will not run; 
+Note that if the job you requested is dependent on other jobs that are not triggered, it will not run;
 for example, if `sonar` requires `docs`, pushing a commit with `#sonar` alone will not make it run.
 
 # IDE-specific notes

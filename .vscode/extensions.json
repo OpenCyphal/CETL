@@ -7,6 +7,7 @@
         "xaver.clang-format",
         "vadimcn.vscode-lldb",
         "matepek.vscode-catch2-test-adapter",
-        "ms-vscode.hexeditor"
+        "ms-vscode.hexeditor",
+        "Jme797.prettier-vscode-extension"
     ]
 }

@@ -300,7 +300,8 @@ struct OnlyMovable
 {
     OnlyMovable()
         : value{nullptr}
-    {}
+    {
+    }
 
     OnlyMovable(OnlyMovable&& rhs)
         : value(rhs.value)
@@ -315,7 +316,7 @@ struct OnlyMovable
         return *this;
     }
 
-    OnlyMovable(const OnlyMovable&) = delete;
+    OnlyMovable(const OnlyMovable&)            = delete;
     OnlyMovable& operator=(const OnlyMovable&) = delete;
 
     OnlyMovable(int* value)
@@ -345,8 +346,8 @@ TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestDefaultConstruction)
 
 TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestEmplace)
 {
-    int test_data = 0;
-    int other_test_data = 0;
+    int                                                             test_data       = 0;
+    int                                                             other_test_data = 0;
     typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
         cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
     using AllocatorType = typename TestFixture::template AllocatorType<OnlyMovable>;
@@ -362,3 +363,75 @@ TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestEmplace)
     ASSERT_EQ(nullptr, other.value);
     subject.deallocate(p, 1);
 }
+
+// +----------------------------------------------------------------------+
+// | DEATH TESTS
+// +----------------------------------------------------------------------+
+
+#if CETL_ENABLE_DEBUG_ASSERT
+
+static void TestNullResourceToCtor()
+{
+    flush_coverage_on_death();
+    cetl::pf17::pmr::polymorphic_allocator<int> subject{nullptr};
+    static_cast<void>(subject);
+}
+
+TEST(DeathTestPmrPolymorphicAllocator, TestNullResourceToCtor)
+{
+    EXPECT_DEATH(TestNullResourceToCtor(), "CDE_pmr_001");
+}
+
+static void TestNullPointerToPairConstruct()
+{
+    flush_coverage_on_death();
+    cetl::pf17::pmr::polymorphic_allocator<std::pair<int, int>> subject{cetl::pf17::pmr::get_default_resource()};
+    std::pair<int, int>*                                        p{nullptr};
+    static_cast<void>(subject.construct(p));
+}
+
+TEST(DeathTestPmrPolymorphicAllocator, TestNullPointerToPairConstruct)
+{
+    EXPECT_DEATH(TestNullPointerToPairConstruct(), "CDE_pmr_005");
+}
+
+static void TestNullPointerToNoPairConstructNotAlloc()
+{
+    flush_coverage_on_death();
+    cetl::pf17::pmr::polymorphic_allocator<int> subject{cetl::pf17::pmr::get_default_resource()};
+    int*                                        p{nullptr};
+    static_cast<void>(subject.construct(p));
+}
+
+TEST(DeathTestPmrPolymorphicAllocator, TestNullPointerToNoPairConstructNotAlloc)
+{
+    EXPECT_DEATH(TestNullPointerToNoPairConstructNotAlloc(), "CDE_pmr_002");
+}
+
+static void TestNullPointerToNoPairConstructAllocFirst()
+{
+    flush_coverage_on_death();
+    cetl::pf17::pmr::polymorphic_allocator<int>                    subject{cetl::pf17::pmr::get_default_resource()};
+    LeadingAllocType<cetl::pf17::pmr::polymorphic_allocator<int>>* p{nullptr};
+    static_cast<void>(subject.construct(p, 1));
+}
+
+TEST(DeathTestPmrPolymorphicAllocator, TestNullPointerToNoPairConstructAllocFirst)
+{
+    EXPECT_DEATH(TestNullPointerToNoPairConstructAllocFirst(), "CDE_pmr_003");
+}
+
+static void TestNullPointerToNoPairConstructAllocLast()
+{
+    flush_coverage_on_death();
+    cetl::pf17::pmr::polymorphic_allocator<int>                     subject{cetl::pf17::pmr::get_default_resource()};
+    TrailingAllocType<cetl::pf17::pmr::polymorphic_allocator<int>>* p{nullptr};
+    static_cast<void>(subject.construct(p, 1));
+}
+
+TEST(DeathTestPmrPolymorphicAllocator, TestNullPointerToNoPairConstructAllocLast)
+{
+    EXPECT_DEATH(TestNullPointerToNoPairConstructAllocLast(), "CDE_pmr_004");
+}
+
+#endif  // CETL_ENABLE_DEBUG_ASSERT

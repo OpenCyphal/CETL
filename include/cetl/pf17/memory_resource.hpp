@@ -422,6 +422,12 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        // GCOVR_EXCL_START
+        // we actually do cover this in unit tests but we don't take coverage credit for DEBUG ASSERT testing.
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (CDE_pmr_002, 14882:7.6.2.8).");
+        // GCOVR_EXCL_END
         new (p) U(std::forward<UArgsT>(uArgs)...);
     }
 
@@ -430,6 +436,12 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        // GCOVR_EXCL_START
+        // we actually do cover this in unit tests but we don't take coverage credit for DEBUG ASSERT testing.
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (CDE_pmr_003, 14882:7.6.2.8).");
+        // GCOVR_EXCL_END
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::allocator_arg, *this, std::forward<UArgsT>(uArgs)...);
     }
@@ -439,6 +451,12 @@ class polymorphic_allocator
         U* p,
         UArgsT&&... uArgs)
     {
+        // GCOVR_EXCL_START
+        // we actually do cover this in unit tests but we don't take coverage credit for DEBUG ASSERT testing.
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (CDE_pmr_004, 14882:7.6.2.8).");
+        // GCOVR_EXCL_END
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::forward<UArgsT>(uArgs)..., *this);
     }
@@ -459,9 +477,12 @@ public:
     polymorphic_allocator(memory_resource* r) noexcept
         : memory_resource_(r)
     {
+        // GCOVR_EXCL_START
+        // we actually do cover this in unit tests but we don't take coverage credit for DEBUG ASSERT testing.
         CETL_DEBUG_ASSERT(nullptr != r,
                           "Passing a null memory_resource to polymorphic_allocator is undefined per the C++ "
-                          "specification.");
+                          "specification. (CDE_pmr_001)");
+        // GCOVR_EXCL_END
     }
 
     polymorphic_allocator(const polymorphic_allocator&)            = default;
@@ -538,6 +559,12 @@ public:
                    std::tuple<FirstTypeConstructorArgs...>  x,
                    std::tuple<SecondTypeConstructorArgs...> y)
     {
+        // GCOVR_EXCL_START
+        // we actually do cover this in unit tests but we don't take coverage credit for DEBUG ASSERT testing.
+        CETL_DEBUG_ASSERT(nullptr != p,
+                          "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
+                          "behaviour (CDE_pmr_005, 14882:7.6.2.8).");
+        // GCOVR_EXCL_END
         new (p) std::pair<FirstType, SecondType>{std::piecewise_construct,
                                                  make_pair_member_args<FirstType, FirstTypeConstructorArgs...>(x),
                                                  make_pair_member_args<SecondType, SecondTypeConstructorArgs...>(y)};

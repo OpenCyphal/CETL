@@ -28,6 +28,9 @@ find_package_handle_standard_args(clangformat
 # :param GLOB_PATTERN glob          - A pattern to match files against.
 # :option ADD_TO_ALL                - If set the target is added to the default build target.
 # :option FORMAT_IN_PLACE           - If set the target is defined as an in-place formatter.
+# :option CONFIGURE_DEPENDS         - If set the file glob will have the CONFIGURE_DEPENDS
+#                                     flag set. See https://cmake.org/cmake/help/latest/command/file.html#filesystem
+#                                     for details.
 # :return OUT_TARGET_NAME           - The name of a variable, in the parent scope, to set to the
 #                                     name of the target created.
 #
@@ -42,6 +45,11 @@ function(enable_clang_format_check_for_directory)
         set(ARG_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 
+    if(ARG_CONFIGURE_DEPENDS)
+        set(LOCAL_CONFIGURE_DEPENDS CONFIGURE_DEPENDS)
+    else()
+        set(LOCAL_CONFIGURE_DEPENDS)
+    endif()
     #+-[body]-----------------------------------------------------------------+
     cmake_path(GET CMAKE_CURRENT_SOURCE_DIR STEM LOCAL_DIRECTORY_NAME)
 
@@ -54,7 +62,7 @@ function(enable_clang_format_check_for_directory)
     endif()
 
     file(GLOB_RECURSE LOCAL_SOURCE_FILES
-         CONFIGURE_DEPENDS
+         ${LOCAL_CONFIGURE_DEPENDS}
          LIST_DIRECTORIES false
          RELATIVE ${ARG_DIRECTORY}
          ${LOCAL_GLOB_PATTERN_WITH_PATH}

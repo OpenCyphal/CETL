@@ -40,7 +40,7 @@ function(define_compile_failure_test)
     add_custom_target(
           "run_${LOCAL_TEST_NAME}_precheck"
           COMMAND
-               ${CMAKE_CURRENT_BINARY_DIR}/${LOCAL_TEST_NAME}_precheck
+               ${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${LOCAL_TEST_NAME}_precheck
           DEPENDS
                "${LOCAL_TEST_NAME}_precheck"
     )
@@ -61,7 +61,7 @@ function(define_compile_failure_test)
             ${CMAKE_COMMAND}
             --build ${CMAKE_BINARY_DIR}
             --target ${LOCAL_TEST_NAME}
-            --config $<CONFIGURATION>
+            --config $<CONFIG>
     )
 
     set_tests_properties(

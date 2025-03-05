@@ -4,31 +4,31 @@
     "cmake.buildDirectory": "${workspaceFolder}/build",
     "cmake.sourceDirectory": "${workspaceFolder}/cetlvast",
     "cmake.buildBeforeRun": true,
-    "cmake.configureSettings": {
-        "FETCHCONTENT_UPDATES_DISCONNECTED": true,
-        "FETCHCONTENT_FULLY_DISCONNECTED": true,
-        "CMAKE_MESSAGE_LOG_LEVEL": "STATUS",
-        "CYPHAL_PROJECT_VERSION": "0.0.0"
-    },
-    "cmake.buildArgs": [
-        "--verbose"
-    ],
-    "cmake.configureArgs": [
-        "--warn-uninitialized"
-    ],
-    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "editor.wordWrapColumn": 120,
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
-    "python.linting.mypyEnabled": true,
-    "python.linting.enabled": true,
+    "editor.rulers": [
+        120
+    ],
+    "black-formatter.args": [
+        "--line-length=120"
+    ],
+    "isort.args": [
+        "--line-length=120"
+    ],
+    "pylint.args": [
+        "--line-length=120"
+    ],
     "testMate.cpp.test.advancedExecutables": [
         {
-            "pattern": "${workspaceFolder}/build/suites/unittest/test_*"
+            "pattern": "${workspaceFolder}/cetlvast/build/suites/unittest/**/test_*"
         },
         {
-            "pattern": "${workspaceFolder}/build/suites/docs/examples/example_*"
+            "pattern": "${workspaceFolder}/cetlvast/build/suites/docs/examples/**/example_*"
+        },
+        {
+            "pattern": "${workspaceFolder}/cetlvast/build/suites/benchmark/**/benchmark_*"
         }
     ],
     "sonarlint.pathToCompileCommands": "${workspaceFolder}/build/compile_commands.json",
@@ -39,56 +39,25 @@
     "sonarlint.analyzerProperties": {
         "sonar.cfamily.reportingCppStandardOverride": "c++14"
     },
-    "cSpell.words": [
-        "arity",
-        "AUTOSAR",
-        "builddir",
-        "cetl",
-        "cetlpf",
-        "cetlvast",
-        "COMPILETEST_PRECHECK",
-        "copydoc",
-        "ctest",
-        "cyphal",
-        "DCETL_",
-        "DCETLVAST_",
-        "DCMAKE_",
-        "DCTEST_",
-        "DCYPHAL",
-        "devcontainer",
-        "DFETCHCONTENT_FULLY_DISCONNECTED",
-        "doxygen",
-        "DSDL",
-        "endforeach",
-        "endfunction",
-        "gcovr",
-        "gmock",
-        "googlemock",
-        "googletest",
-        "gtest",
-        "insertable",
-        "Kirienko",
-        "mainpage",
-        "NOLINT",
-        "NOLINTBEGIN",
-        "NOLINTEND",
-        "NOLINTNEXTLINE",
-        "NOTFOUND",
-        "opencyphal",
-        "Pavel",
-        "popd",
-        "pushd",
-        "rbegin",
-        "rend",
-        "sonarcloud",
-        "sonarqube",
-        "STREQUAL",
-        "subpage",
-        "tparam",
-        "trimleft",
-        "unsynchronized"
-    ],
+    "cSpell.allowCompoundWords": true,
+    "cSpell.caseSensitive": false,
+    "cSpell.customDictionaries": {
+        "cyphal" : {
+            "name": "Cyphal-words",
+            "path": "${workspaceRoot}/cyphal-words.txt",
+            "description": "Words used in Cyphal and UAVCAN to add to spell checker dictionaries.",
+            "addWords": false
+          },
+          "cetl" : {
+            "name": "CETL-words",
+            "path": "${workspaceRoot}/.vscode/words-cetl.txt",
+            "description": "Words used in this, the CETL, project.",
+            "addWords": true
+          }
+    },
     "files.associations": {
+        "*.in": "cmake",
+        "Config": "perl",
         "memory_resource": "cpp",
         "any": "cpp",
         "array": "cpp",
@@ -191,7 +160,7 @@
         "csignal": "cpp",
         "format": "cpp",
         "execution": "cpp",
-        "filesystem": "cpp"
-    },
-    "git-blame.gitWebUrl": ""
+        "filesystem": "cpp",
+        "print": "cpp"
+    }
 }
