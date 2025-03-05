@@ -146,7 +146,7 @@ jobs:
       - name: Deploy to GitHub Pages
         if: ${{ github.event_name != 'pull_request' }}
         id: deployment
-        uses: actions/deploy-pages@v4.0.5
+        uses: actions/deploy-pages@v4
       - name: upload-pr-docs
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/upload-pages-artifact@v3
@@ -213,4 +213,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v4
