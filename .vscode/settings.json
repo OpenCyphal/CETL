@@ -8,6 +8,9 @@
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
+    "editor.rulers": [
+        120
+    ],
     "black-formatter.args": [
         "--line-length=120"
     ],
