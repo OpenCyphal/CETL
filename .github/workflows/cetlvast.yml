@@ -13,6 +13,8 @@ on:
 jobs:
   cache-warmup:
     if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.event.head_commit.message, '#docs') ||
       contains(github.ref, '/main') ||
@@ -35,6 +37,8 @@ jobs:
 
   verification-amd64:
     if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
@@ -74,6 +78,8 @@ jobs:
 
   verification-arm64:
     if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
@@ -113,6 +119,8 @@ jobs:
 
   docs:
     if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#docs') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
@@ -146,6 +154,8 @@ jobs:
 
   sonarqube:
     if: >
+      (github.event_name == 'release' && !github.event.release.prerelease) ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#sonar') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
