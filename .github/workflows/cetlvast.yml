@@ -197,6 +197,7 @@ jobs:
       github.event_name == 'workflow_dispatch'
     needs:
       - sonarqube
+      - docs
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
       contents: read

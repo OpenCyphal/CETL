@@ -427,7 +427,7 @@ class polymorphic_allocator
         CETL_DEBUG_ASSERT(nullptr != p,
                           "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
                           "behaviour (CDE_pmr_002, 14882:7.6.2.8).");
-        // GCOVR_EXCL_END
+        // GCOVR_EXCL_STOP
         new (p) U(std::forward<UArgsT>(uArgs)...);
     }
 
@@ -441,7 +441,7 @@ class polymorphic_allocator
         CETL_DEBUG_ASSERT(nullptr != p,
                           "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
                           "behaviour (CDE_pmr_003, 14882:7.6.2.8).");
-        // GCOVR_EXCL_END
+        // GCOVR_EXCL_STOP
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::allocator_arg, *this, std::forward<UArgsT>(uArgs)...);
     }
@@ -456,7 +456,7 @@ class polymorphic_allocator
         CETL_DEBUG_ASSERT(nullptr != p,
                           "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
                           "behaviour (CDE_pmr_004, 14882:7.6.2.8).");
-        // GCOVR_EXCL_END
+        // GCOVR_EXCL_STOP
         // https://cplusplus.github.io/LWG/issue2969
         new (p) U(std::forward<UArgsT>(uArgs)..., *this);
     }
@@ -482,7 +482,7 @@ public:
         CETL_DEBUG_ASSERT(nullptr != r,
                           "Passing a null memory_resource to polymorphic_allocator is undefined per the C++ "
                           "specification. (CDE_pmr_001)");
-        // GCOVR_EXCL_END
+        // GCOVR_EXCL_STOP
     }
 
     polymorphic_allocator(const polymorphic_allocator&)            = default;
@@ -564,7 +564,7 @@ public:
         CETL_DEBUG_ASSERT(nullptr != p,
                           "nullptr passed as target for polymorphic_allocator's construct method. This is undefined "
                           "behaviour (CDE_pmr_005, 14882:7.6.2.8).");
-        // GCOVR_EXCL_END
+        // GCOVR_EXCL_STOP
         new (p) std::pair<FirstType, SecondType>{std::piecewise_construct,
                                                  make_pair_member_args<FirstType, FirstTypeConstructorArgs...>(x),
                                                  make_pair_member_args<SecondType, SecondTypeConstructorArgs...>(y)};
