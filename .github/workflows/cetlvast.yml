@@ -143,16 +143,6 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: "cetlvast/build/suites/docs/html/"
-      - name: Deploy to GitHub Pages
-        if: ${{ github.event_name != 'pull_request' }}
-        id: deployment
-        uses: actions/deploy-pages@v4.0.5
-      - name: upload-pr-docs
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: pr-docs
-          path: "cetlvast/build/suites/docs/html/"
 
   sonarqube:
     if: >
@@ -214,4 +204,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v1
+        uses: actions/deploy-pages@v4
