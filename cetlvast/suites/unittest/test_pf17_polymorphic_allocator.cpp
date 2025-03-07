@@ -44,7 +44,7 @@ struct ObjectConstructionProtocol
     {
         if (p)
         {
-            p->~value_type();
+            alloc_.get().destroy(p);
         }
         alloc_.get().deallocate(reinterpret_cast<byte_type*>(p), allocated_size_bytes_);
     }

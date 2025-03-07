@@ -45,7 +45,7 @@ public:
             using Concrete = typename PmrAllocator::value_type;
 
             auto* concrete_ptr = static_cast<Concrete*>(ptr);
-            concrete_ptr->~Concrete();
+            alloc.destroy(concrete_ptr);
             alloc.deallocate(concrete_ptr, obj_count);
         }}
     {
@@ -118,6 +118,11 @@ using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface>>;
 /// Example usage:
 ///
 /// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_2
+///
+/// As shown in the next example, objects can maintain tight control of their lifecycle by befriending the allocators
+/// used to create cetl::pmr::InterfacePtr objects.
+///
+/// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_3
 /// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
 ///
 class InterfaceFactory final
@@ -166,7 +171,7 @@ private:
             {
                 if (constructed_)
                 {
-                    concrete_->~Concrete();
+                    pmr_allocator_.destroy(concrete_);
                 }
 
                 pmr_allocator_.deallocate(concrete_, 1);

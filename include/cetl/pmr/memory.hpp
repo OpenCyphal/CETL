@@ -195,9 +195,7 @@ public:
     {
         if (nullptr != p)
         {
-            // while pmr allocators define a destroy method, it is deprecated in C++20
-            // since it adds little value over simply calling the destructor directly.
-            p->~value_type();
+            alloc_.destroy(p);
         }
         alloc_.deallocate(p, obj_count_);
     }
