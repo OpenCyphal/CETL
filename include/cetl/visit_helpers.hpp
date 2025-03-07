@@ -10,6 +10,7 @@
 #define CETL_VISIT_HELPERS_HPP_INCLUDED
 
 #include <type_traits>
+#include <utility>
 
 namespace cetl
 {
