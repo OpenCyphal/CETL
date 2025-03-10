@@ -267,3 +267,49 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 
     //![example_usage_2]
 }
+
+//![example_usage_3]
+
+// Note that this concrete type is final because it extends `cetl::rtti` non-virtually which is not reccommended
+// for any non-final type. Inversely, the InterfaceFactory only works with non-virtual inheritance of the interface
+// used in the InterfacePtr type since a static downcast must be performed by the deleter.
+// Finally, this encapsulation technique of befriending the polymorphic allocator will always work with CETL PMR
+// but may not work with other standard libraries.
+class MyConcreteType final : public cetl::rtti
+{
+public:
+    using ConcreteAllocator = cetl::pf17::pmr::polymorphic_allocator<MyConcreteType>;
+    // By making this allocator a friend we ensure that this class can only be created using PMR.
+    friend ConcreteAllocator;
+
+    // Since this class's constructor is private the only way to instantiate it is using a ConcreteAllocator. This
+    // method bundles that constraint up with the proper RAII semantics making it easy to properly construct
+    // MyConcreteType classes and hard to construct them improperly.
+    template <typename... Args>
+    static cetl::pmr::InterfacePtr<cetl::rtti> make(std::allocator_arg_t, ConcreteAllocator alloc, Args&&... args)
+    {
+        return cetl::pmr::InterfaceFactory::make_unique<cetl::rtti>(alloc, std::forward<Args>(args)...);
+    }
+
+    CETL_NODISCARD void* _cast_(const cetl::type_id&) & noexcept override
+    {
+        return nullptr;
+    }
+    CETL_NODISCARD const void* _cast_(const cetl::type_id&) const& noexcept override
+    {
+        return nullptr;
+    }
+
+private:
+    MyConcreteType()          = default;
+    virtual ~MyConcreteType() = default;
+};
+
+//![example_usage_3]
+
+TEST_F(example_07_polymorphic_alloc_deleter, example_usage_3)
+{
+    auto dark_ptr = MyConcreteType::make(std::allocator_arg,
+                                         MyConcreteType::ConcreteAllocator{cetl::pf17::pmr::get_default_resource()});
+    static_cast<void>(dark_ptr);
+}
