@@ -273,10 +273,12 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 // Note that this concrete type is final because it extends `cetl::rtti` non-virtually which is not reccommended
 // for any non-final type. Inversely, the InterfaceFactory only works with non-virtual inheritance of the interface
 // used in the InterfacePtr type since a static downcast must be performed by the deleter.
+// Finally, this encapsulation technique of befriending the polymorphic allocator will always work with CETL PMR
+// but may not work with other standard libraries.
 class MyConcreteType final : public cetl::rtti
 {
 public:
-    using ConcreteAllocator = cetl::pmr::polymorphic_allocator<MyConcreteType>;
+    using ConcreteAllocator = cetl::pf17::pmr::polymorphic_allocator<MyConcreteType>;
     // By making this allocator a friend we ensure that this class can only be created using PMR.
     friend ConcreteAllocator;
 
@@ -307,7 +309,7 @@ private:
 
 TEST_F(example_07_polymorphic_alloc_deleter, example_usage_3)
 {
-    auto dark_ptr =
-        MyConcreteType::make(std::allocator_arg, MyConcreteType::ConcreteAllocator{cetl::pmr::get_default_resource()});
+    auto dark_ptr = MyConcreteType::make(std::allocator_arg,
+                                         MyConcreteType::ConcreteAllocator{cetl::pf17::pmr::get_default_resource()});
     static_cast<void>(dark_ptr);
 }

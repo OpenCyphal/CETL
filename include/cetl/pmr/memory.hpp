@@ -195,7 +195,17 @@ public:
     {
         if (nullptr != p)
         {
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+            // https://cplusplus.github.io/LWG/issue3036 (deprecates this function)
+            // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2875r4.pdf un-deprecated this function
+            // whoops!
             alloc_.destroy(p);
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
         }
         alloc_.deallocate(p, obj_count_);
     }
