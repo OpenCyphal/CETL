@@ -59,7 +59,8 @@
                         "standard": [
                             "cpp-14",
                             "cpp-17",
-                            "cpp-20"
+                            "cpp-20",
+                            "cpp-23"
                         ],
                         "update": [
                             "online",

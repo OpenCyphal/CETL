@@ -36,7 +36,10 @@ struct O1HeapAlignedStorage
 
     static_assert(O1HEAP_ALIGNMENT >= alignof(std::max_align_t), "O1HEAP_ALIGNMENT is too small for this platform.");
 
-    typename std::aligned_storage<sizeof(unsigned char), alignment>::type storage[size_bytes];
+    struct alignas(alignment) type
+    {
+        unsigned char data[((size_bytes + alignment - 1) / alignment) * alignment];
+    } storage[1];
 };
 
 class UnsynchronizedO1HeapMemoryResourceDelegate

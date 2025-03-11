@@ -70,6 +70,8 @@ inline memory_resource* set_default_resource(memory_resource* mr) noexcept
 {
     return std::pmr::set_default_resource(mr);
 }
+using std::pmr::monotonic_buffer_resource;
+
 }  // namespace pmr
 
 // utility
@@ -154,6 +156,8 @@ inline memory_resource* set_default_resource(memory_resource* mr) noexcept
 {
     return cetl::pf17::pmr::set_default_resource(mr);
 }
+using monotonic_buffer_resource = cetl::pf17::pmr::monotonic_buffer_resource;
+
 }  // namespace pmr
 
 // utility

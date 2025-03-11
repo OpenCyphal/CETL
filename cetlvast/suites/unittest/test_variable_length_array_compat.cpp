@@ -571,8 +571,10 @@ TYPED_TEST(VLATestsCompatAnyType, TestAtThrows)
     std::allocator<int>                                                      allocator{};
     typename TestFixture::template TestSubjectType<int, std::allocator<int>> subject{{5}, allocator};
     ASSERT_EQ(1, subject.size());
-    ASSERT_THROW(subject.at(1), std::out_of_range);
-    ASSERT_THROW(subject.at(2), std::out_of_range);
+    int r{0}; // just to silence compiler warnings (GCC-14 marks vector::at as nodiscard)
+    ASSERT_THROW(r = subject.at(1), std::out_of_range);
+    ASSERT_THROW(r = subject.at(2), std::out_of_range);
+    static_cast<void>(r);
 }
 
 TYPED_TEST(VLATestsCompatAnyType, TestConstAtThrows)
@@ -581,8 +583,10 @@ TYPED_TEST(VLATestsCompatAnyType, TestConstAtThrows)
     std::allocator<int>                                                      allocator{};
     typename TestFixture::template TestSubjectType<int, std::allocator<int>> subject{{2}, allocator};
     ASSERT_EQ(1, subject.size());
-    ASSERT_THROW(reinterpret_cast<const decltype(subject)*>(&subject)->at(1), std::out_of_range);
-    ASSERT_THROW(reinterpret_cast<const decltype(subject)*>(&subject)->at(2), std::out_of_range);
+    int r{0}; // just to silence compiler warnings (GCC-14 marks vector::at as nodiscard)
+    ASSERT_THROW(r = reinterpret_cast<const decltype(subject)*>(&subject)->at(1), std::out_of_range);
+    ASSERT_THROW(r = reinterpret_cast<const decltype(subject)*>(&subject)->at(2), std::out_of_range);
+    static_cast<void>(r);
 }
 
 #endif  // __cpp_exceptions
