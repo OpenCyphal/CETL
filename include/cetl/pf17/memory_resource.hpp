@@ -604,7 +604,7 @@ public:
                   std::forward_as_tuple(std::forward<MoveFromSecondType>(moveFrom.second)));
     }
 
-    // https://cplusplus.github.io/LWG/issue3036 (deprecates this function)
+    // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2875r4.pdf un-deprecated this function
     template <typename U>
     void destroy(U* p)
     {

@@ -45,7 +45,17 @@ public:
             using Concrete = typename PmrAllocator::value_type;
 
             auto* concrete_ptr = static_cast<Concrete*>(ptr);
-            concrete_ptr->~Concrete();
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+            // https://cplusplus.github.io/LWG/issue3036 (deprecates this function)
+            // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2875r4.pdf un-deprecated this function
+            // whoops!
+            alloc.destroy(concrete_ptr);
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
             alloc.deallocate(concrete_ptr, obj_count);
         }}
     {
@@ -118,6 +128,11 @@ using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface>>;
 /// Example usage:
 ///
 /// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_2
+///
+/// As shown in the next example, objects can maintain tight control of their lifecycle by befriending the allocators
+/// used to create cetl::pmr::InterfacePtr objects.
+///
+/// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_3
 /// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
 ///
 class InterfaceFactory final
@@ -166,9 +181,18 @@ private:
             {
                 if (constructed_)
                 {
-                    concrete_->~Concrete();
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+                    // https://cplusplus.github.io/LWG/issue3036 (deprecates this function)
+                    // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2024/p2875r4.pdf un-deprecated this function
+                    // whoops!
+                    pmr_allocator_.destroy(concrete_);
                 }
-
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
                 pmr_allocator_.deallocate(concrete_, 1);
             }
         }

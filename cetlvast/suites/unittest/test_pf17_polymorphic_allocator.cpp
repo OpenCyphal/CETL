@@ -44,7 +44,15 @@ struct ObjectConstructionProtocol
     {
         if (p)
         {
-            p->~value_type();
+#if defined(__GNUG__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+            alloc_.get().destroy(p);
+#if defined(__GNUG__)
+#    pragma GCC diagnostic pop
+#endif
         }
         alloc_.get().deallocate(reinterpret_cast<byte_type*>(p), allocated_size_bytes_);
     }
