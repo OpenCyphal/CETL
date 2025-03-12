@@ -50,7 +50,7 @@ jobs:
     strategy:
       matrix:
         toolchain: ["gcc-native-32", "clang-native"]
-        standard: ["cpp-14", "cpp-17", "cpp-20"]
+        standard: ["cpp-14", "cpp-17", "cpp-20", "cpp-23"]
     steps:
       - uses: actions/checkout@v4
       - name: Cache ext modules

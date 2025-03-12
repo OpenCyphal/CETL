@@ -12,6 +12,7 @@
 #define CETL_PF17_PMR_SYS_MEMORY_RESOURCE_H_INCLUDED
 
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <new>
