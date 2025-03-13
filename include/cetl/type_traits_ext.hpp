@@ -201,9 +201,12 @@ struct resolver<Q, 0, Ts...> : candidate<Q, 0, std::tuple_element_t<0, std::tupl
 template <template <typename...> class, typename, typename, typename = void>
 struct impl : std::integral_constant<std::size_t, std::numeric_limits<std::size_t>::max()>
 {};
-template <template <typename...> class Q, typename Fun, typename... Ts>
-struct impl<Q, Fun, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))>>
-    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))
+template <template <typename...> class Q, typename From, typename... Ts>
+struct impl<Q,
+            From,
+            types<Ts...>,
+            void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<From>()))>>
+    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<From>()))
 {
     static_assert(sizeof...(Ts) > 0, "tried to match conversion to no types.");
 };
