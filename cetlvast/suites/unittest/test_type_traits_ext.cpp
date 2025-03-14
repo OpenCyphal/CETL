@@ -87,8 +87,8 @@ using cetl::type_traits_ext::partial;
 constexpr auto bad = std::numeric_limits<std::size_t>::max();
 
 // Easy cases
-static_assert(best_conversion_index_v<universal_predicate, float, long, float, double, bool> == 1, "");
-static_assert(best_conversion_index_v<universal_predicate, float&, long, float, double, bool> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, float, long, float, bool> == 1, "");
+static_assert(best_conversion_index_v<universal_predicate, float&, long, float, bool> == 1, "");
 static_assert(best_conversion_index_v<universal_predicate, long, float> == 0, "");
 static_assert(best_conversion_index_v<universal_predicate, long&, float> == 0, "");
 static_assert(best_conversion_index_v<universal_predicate, int, float, int> == 1, "");

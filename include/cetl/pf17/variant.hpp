@@ -726,7 +726,7 @@ constexpr std::size_t best_converting_ctor_index_v = type_traits_ext::
     best_conversion_index_v<type_traits_ext::partial<best_converting_ctor_predicate, U>::template type, U, Ts...>;
 
 static_assert(best_converting_ctor_index_v<float, long, float, bool> == 1, "self-test failure");
-static_assert(best_converting_ctor_index_v<double, long, float, double, bool> == 2, "self-test failure");
+static_assert(best_converting_ctor_index_v<double, long, char, double, bool> == 2, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -743,7 +743,7 @@ constexpr std::size_t best_converting_assignment_index_v = type_traits_ext::
     best_conversion_index_v<type_traits_ext::partial<best_converting_assignment_predicate, U>::template type, U, Ts...>;
 
 static_assert(best_converting_assignment_index_v<float, long, float, bool> == 1, "self-test failure");
-static_assert(best_converting_assignment_index_v<double, long, float, double, bool> == 2, "self-test failure");
+static_assert(best_converting_assignment_index_v<double, long, char, double, bool> == 2, "self-test failure");
 
 // --------------------------------------------------------------------------------------------------------------------
 

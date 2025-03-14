@@ -201,9 +201,12 @@ struct resolver<Q, 0, Ts...> : candidate<Q, 0, std::tuple_element_t<0, std::tupl
 template <template <typename...> class, typename, typename, typename = void>
 struct impl : std::integral_constant<std::size_t, std::numeric_limits<std::size_t>::max()>
 {};
-template <template <typename...> class Q, typename Fun, typename... Ts>
-struct impl<Q, Fun, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))>>
-    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<Fun>()))
+template <template <typename...> class Q, typename From, typename... Ts>
+struct impl<Q,
+            From,
+            types<Ts...>,
+            void_t<decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<From>()))>>
+    : decltype(resolver<Q, sizeof...(Ts) - 1U, Ts...>::match(std::declval<From>()))
 {
     static_assert(sizeof...(Ts) > 0, "tried to match conversion to no types.");
 };
@@ -222,15 +225,17 @@ struct impl<Q, Fun, types<Ts...>, void_t<decltype(resolver<Q, sizeof...(Ts) - 1U
 ///
 /// Hint: to weed out narrowing conversions, use \ref is_convertible_without_narrowing in the predicate.
 ///
-/// If no suitable conversion is available, the value is `std::numeric_limits<std::size_t>::max()`.
+/// If no suitable conversion is available, or the best conversion is ambiguous,
+/// the value is `std::numeric_limits<std::size_t>::max()`.
+/// One way to get this error is to choose between `long` and `int` on a platform where they have the same size.
 ///
 /// \code
 /// best_conversion_index_v<universal_predicate, long, float> == 0
-/// best_conversion_index_v<universal_predicate, float, long, float, double, bool> == 1
+/// best_conversion_index_v<universal_predicate, float, long, float, bool> == 1
 /// best_conversion_index_v<universal_predicate, int, long, float, bool> == ambiguity
 ///
-/// best_conversion_index_v<std::is_signed, long, char, long, unsigned long> == 1
-/// best_conversion_index_v<std::is_unsigned, long, char, long, unsigned long> == 2
+/// best_conversion_index_v<std::is_signed, long, unsigned char, long, unsigned long> == 1
+/// best_conversion_index_v<std::is_unsigned, long, signed char, long, unsigned long> == 2
 /// best_conversion_index_v<std::is_volatile, char, int, const int, volatile int> == 2
 ///
 /// best_conversion_index_v<partial<is_convertible_without_narrowing, int>::template type, int, float, bool, long> == 2
