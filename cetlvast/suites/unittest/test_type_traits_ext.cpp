@@ -108,14 +108,17 @@ struct foo
 {
     foo(bool);
 };
+
+static_assert(std::is_same<cetl::type_traits_ext::detail::ctor_arg<foo, char>::type, bool>::value,
+              "foo's bool ctor wasn't used for char?");
 // Shifting priorities depending on the available conversions.
 static_assert(best_conversion_index_v<universal_predicate, char, foo, int> == 1, "");
 static_assert(best_conversion_index_v<universal_predicate, char, foo> == 0, "");
 
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo, int> ==
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo, int> ==
                   1,
               "");
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo> == bad,
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo> == bad,
               "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, bool>::template type, bool, foo> == 0,
               "");

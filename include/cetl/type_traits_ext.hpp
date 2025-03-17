@@ -108,12 +108,157 @@ template <typename From, typename To, typename = void>
 struct is_convertible_without_narrowing : std::false_type
 {};
 
-#if defined(__GNUG__) && !defined(__clang__)
+#if defined(__GNUG__) && !defined(__clang__) && (__GNUC__ <= 7)
 #    pragma GCC diagnostic push
-#    if __GNUC__ <= 7
-#        pragma GCC diagnostic ignored "-Wfloat-equal"
-#    endif
-#endif
+#    pragma GCC diagnostic ignored "-Wfloat-equal"
+#    pragma GCC diagnostic ignored "-Wnon-template-friend"
+
+namespace detail
+{
+
+// based on https://www.youtube.com/watch?v=UlNUNxLtBI0 Antony Polukhin and
+// https://github.com/alexpolt/luple/blob/master/type-loophole.h (public domain)
+// This relies on stateful metaprogramming and probably doesn't work past C++17-ish. This is why we only use this
+// to work around GCC7 bugs.
+
+template <typename T, std::size_t N>
+struct tag
+{
+    friend auto&                 loophole(tag<T, N>);
+    constexpr friend std::size_t cloophole(tag<T, N>);
+};
+
+template <typename T,
+          typename FieldType,
+          std::size_t N,
+          bool        B,
+          typename =
+              typename std::enable_if_t<!std::is_same<std::remove_cv_t<std::remove_reference_t<T>>,
+                                                      std::remove_cv_t<std::remove_reference_t<FieldType>>>::value>>
+struct fn_def
+{
+    // Remember; friend functions declared in a class body are available in the enclosing namespace scope.
+    friend auto& loophole(tag<T, N>)
+    {
+        // we have to use local static to avoid a copy in GCC7. Even if this is all compile-time, types with deleted
+        // copy constructors cannot be reflected unless we do this.
+        static FieldType field{};
+        return field;
+    }
+    constexpr friend std::size_t cloophole(tag<T, N>)
+    {
+        return 0;
+    }
+};
+
+// termination of fn_def type
+template <typename T, typename FieldType, std::size_t N>
+struct fn_def<T, FieldType, N, true>
+{};
+
+template <typename T, std::size_t N>
+struct c_op
+{
+    template <typename U, std::size_t M>
+    static auto instantiate(...) -> std::size_t;
+    template <typename U, std::size_t M, std::size_t = cloophole(tag<T, M>{})>
+    static char instantiate(int);
+
+    template <typename U, std::size_t = sizeof(fn_def<T, U, N, sizeof(instantiate<U, N>(int{})) == sizeof(char)>)>
+    constexpr operator U&() const noexcept;
+};
+
+// we modify Antony's original code to terminate on the first successful conversion rather than enumerating all fields
+// in a non-aggregate type T. This is not ideal and will spin out of control if multiple constructors are valid.
+template <typename T, std::size_t... Ns>
+constexpr auto constructors(int) -> decltype(T{c_op<T, Ns>{}...}, static_cast<std::size_t>(0))
+{
+    return sizeof...(Ns);
+}
+
+template <typename T, std::size_t... Ns>
+constexpr std::size_t constructors(...)
+{
+    return constructors<T, Ns..., sizeof...(Ns)>(int{});
+}
+
+/// Transform loophole cached types into a tuple so we can access them by index.
+template <typename T, typename Ns>
+struct loophole_type_list;
+
+template <typename T, std::size_t... Ns>
+struct loophole_type_list<T, std::integer_sequence<std::size_t, Ns...>>
+{
+    using type = std::tuple<decltype(loophole(tag<T, Ns>{}))...>;
+};
+
+// For a type that has a single constructor that can construct a To using From, this is the type the consturctor uses.
+// For example:
+// ```
+//      struct Foo
+//      {
+//          Foo(double);
+//      };
+// ```
+//
+// static_assert(std::is_same<detail::ctor_arg<Foo, float>::type, double>::value,
+//               "Foo's double ctor wasn't used for float.");
+//
+template <typename To,
+          typename From,
+          typename = std::enable_if_t<not std::is_arithmetic<To>::value and std::is_constructible<To, From>::value and
+                                      (constructors<To>(int{}) == 1)>>
+struct ctor_arg
+{
+    using type = std::remove_reference_t<std::tuple_element_t<
+        0,
+        typename loophole_type_list<To, std::make_integer_sequence<std::size_t, constructors<To>(int{})>>::type>>;
+};
+}  // namespace detail
+
+template <typename From, typename To>
+struct is_convertible_without_narrowing<From, To, typename std::enable_if_t<std::is_same<From, To>::value>>
+    : std::true_type
+{};
+
+template <typename From, typename To>
+struct is_convertible_without_narrowing<From, To, typename std::enable_if_t<not std::is_same<From, To>::value>>
+{
+private:
+    template <typename UTo,
+              typename UFrom,
+              typename U = std::enable_if_t<is_convertible_without_narrowing<
+                  std::remove_cv_t<std::remove_reference_t<UFrom>>,
+                  std::remove_cv_t<typename detail::ctor_arg<UTo, UFrom>::type>>::value>>
+    static constexpr auto is_constructable_without_narrowing(int) -> std::true_type;
+
+    template <typename, typename>
+    static constexpr auto is_constructable_without_narrowing(...) -> std::false_type;
+
+public:
+    // clang-format off
+    static constexpr bool are_both_arithmetic = (std::is_arithmetic<From>::value && std::is_arithmetic<To>::value);
+    static constexpr bool are_both_arithmetic_and_not_narrowing = are_both_arithmetic &&
+        (
+            (
+                sizeof(From) <= sizeof(To)
+            )
+            &&
+            (
+                std::is_floating_point<From>::value == std::is_floating_point<To>::value
+            )
+            &&
+            (
+                std::is_signed<From>::value == std::is_signed<To>::value
+            )
+        );
+    static constexpr bool are_same = std::is_same<From, To>::value;
+    static constexpr bool value = are_both_arithmetic_and_not_narrowing || decltype(is_constructable_without_narrowing<To, From>(int{}))::value;
+    // clang-format on
+};
+
+#    pragma GCC diagnostic pop
+#else
 
 template <typename From, typename To>
 struct is_convertible_without_narrowing<
@@ -131,8 +276,6 @@ struct is_convertible_without_narrowing<
     void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
 {};
 
-#if defined(__GNUG__) && !defined(__clang__)
-#    pragma GCC diagnostic pop
 #endif
 
 static_assert(is_convertible_without_narrowing<int, long long>::value, "self-test failure");
