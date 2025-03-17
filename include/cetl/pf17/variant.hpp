@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <exception>  // We need this even if exceptions are disabled for std::terminate.
 #include <type_traits>
+#include <cetl/pf17/utility.hpp>
 
 namespace cetl
 {
@@ -874,40 +875,26 @@ class variant : private detail::var::base_move_assignment<detail::var::types<Ts.
 public:
     /// Constructor 1 -- default constructor
     template <typename T = nth_type<0>, std::enable_if_t<std::is_default_constructible<T>::value, int> = 0>
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    // workaround for GCC7 bug (https://github.com/OpenCyphal/CETL/issues/154)
-    constexpr
-#endif
-        variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
+    constexpr variant() noexcept(std::is_nothrow_default_constructible<nth_type<0>>::value)
         : variant(in_place_index<0>)
     {
     }
 
     /// Constructor 2 -- copy constructor
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        variant(const variant& other) = default;
+    constexpr variant(const variant& other) = default;
 
     /// Constructor 3 -- move constructor
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
+    constexpr variant(variant&& other) noexcept(tys::nothrow_move_constructible) = default;
 
     /// Constructor 4 -- converting constructor
     template <typename U,
               std::size_t Ix = detail::var::best_converting_ctor_index_v<U, Ts...>,
               std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int>     = 0,
-              typename Alt                                                              = nth_type<Ix>,
-              std::enable_if_t<std::is_constructible<Alt, U>::value, int>               = 0,
+              std::enable_if_t<std::is_constructible<nth_type<Ix>, U>::value, int>      = 0,
               std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
               std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
               std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        variant(U&& from)  // NOLINT(*-explicit-constructor)
+    constexpr variant(U&& from)  // NOLINT(*-explicit-constructor)
         noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value)
         : base(in_place_index<Ix>, std::forward<U>(from))
     {
@@ -919,10 +906,7 @@ public:
               typename... Args,
               std::enable_if_t<is_unique<T> && std::is_constructible<T, Args...>::value, int> = 0>
 
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        explicit variant(const in_place_type_t<T>, Args&&... args)
+    constexpr explicit variant(const in_place_type_t<T>, Args&&... args)
         : base(in_place_index<Ix>, std::forward<Args>(args)...)
     {
     }
@@ -934,10 +918,7 @@ public:
         typename U,
         typename... Args,
         std::enable_if_t<is_unique<T> && std::is_constructible<T, std::initializer_list<U>&, Args...>::value, int> = 0>
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
+    constexpr explicit variant(const in_place_type_t<T>, const std::initializer_list<U> il, Args&&... args)
         : base(in_place_index<Ix>, il, std::forward<Args>(args)...)
     {
     }
@@ -946,10 +927,7 @@ public:
     template <std::size_t Ix,
               typename... Args,
               std::enable_if_t<(Ix < sizeof...(Ts)) && std::is_constructible<nth_type<Ix>, Args...>::value, int> = 0>
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        explicit variant(const in_place_index_t<Ix>, Args&&... args)
+    constexpr explicit variant(const in_place_index_t<Ix>, Args&&... args)
         : base(in_place_index<Ix>, std::forward<Args>(args)...)
     {
     }
@@ -961,10 +939,7 @@ public:
               std::enable_if_t<(Ix < sizeof...(Ts)) &&
                                    std::is_constructible<nth_type<Ix>, std::initializer_list<U>&, Args...>::value,
                                int> = 0>
-#if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
-    constexpr
-#endif
-        explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
+    constexpr explicit variant(const in_place_index_t<Ix>, const std::initializer_list<U> il, Args&&... args)
         : base(in_place_index<Ix>, il, std::forward<Args>(args)...)
     {
     }
@@ -983,16 +958,17 @@ public:
                                                          tys::nothrow_move_assignable) = default;
 
     /// Assignment 3 -- converting assignment
-    template <typename U,
-              std::size_t Ix = detail::var::best_converting_assignment_index_v<U, Ts...>,
-              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int> = 0,
-              typename Alt                                                          = nth_type<Ix>,
-              std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
-              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,
-              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int>                         = 0>
-    variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<Alt, U>::value &&
-                                          std::is_nothrow_assignable<Alt&, U>::value)
+    template <
+        typename U,
+        std::size_t Ix = detail::var::best_converting_assignment_index_v<U, Ts...>,
+        std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int>     = 0,
+        std::enable_if_t<std::is_constructible<nth_type<Ix>, U>::value && std::is_assignable<nth_type<Ix>&, U>::value,
+                         int>                                                     = 0,
+        std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
+        std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
+        std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
+    variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value &&
+                                          std::is_nothrow_assignable<nth_type<Ix>&, U>::value)
     {
         if (Ix == this->m_index)
         {

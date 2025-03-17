@@ -247,7 +247,7 @@ static_assert(best_converting_ctor_index_v<std::int32_t, C, B> == bad, "");
 static_assert(best_converting_ctor_index_v<float, std::int32_t, float, double, bool> == 1, "");
 static_assert(best_converting_ctor_index_v<double, std::int32_t, float, double, bool> == 2, "");
 static_assert(best_converting_ctor_index_v<float, std::int32_t, long double, double, bool> == 2, "");
-static_assert(best_converting_ctor_index_v<char, float, double, bool> == bad, "");  // not unique
+static_assert(best_converting_ctor_index_v<signed char, float, double, bool> == bad, "");  // not unique
 
 static_assert(best_converting_ctor_index_v<int, int, bool> == 0, "");
 static_assert(best_converting_ctor_index_v<bool, int, bool> == 1, "");
@@ -291,7 +291,7 @@ static_assert(best_converting_assignment_index_v<double, C, B> == 0, "");
 static_assert(best_converting_assignment_index_v<float, std::int32_t, float, double, bool> == 1, "");
 static_assert(best_converting_assignment_index_v<double, std::int32_t, float, double, bool> == 2, "");
 static_assert(best_converting_assignment_index_v<float, std::int32_t, long double, double, bool> == 2, "");
-static_assert(best_converting_assignment_index_v<char, float, double, bool> == bad, "");  // not unique
+static_assert(best_converting_assignment_index_v<signed char, float, double, bool> == bad, "");  // not unique
 
 static_assert(best_converting_assignment_index_v<int, int, bool> == 0, "");
 static_assert(best_converting_assignment_index_v<bool, int, bool> == 1, "");
@@ -321,6 +321,26 @@ static_assert(0 == test_a(true, 123), "");
 static_assert(1 == test_a(true, 'a'), "");
 
 }  // namespace test_constexpr
+
+// --------------------------------------------------------------------------------------------
+
+TEST(test_variant, various_examples)
+{
+    using cetl::pf17::variant;
+    using cetl::pf17::get;
+
+    static_assert(1 == variant<int, bool>(true).index(), "");
+
+    // Example from cppreference
+    variant<float, long, double> v4 = 0;
+    EXPECT_EQ(0, get<long>(v4));
+
+    // Example from Scott
+    const std::size_t i0 = variant<std::string, void const*>("abc").index();
+    EXPECT_EQ(1, i0);
+    const std::size_t i1 = variant<std::string, void*>("abc").index();
+    EXPECT_EQ(0, i1);
+}
 
 // --------------------------------------------------------------------------------------------
 

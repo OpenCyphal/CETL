@@ -42,16 +42,6 @@ TYPED_TEST(test_smf_policy_combinations, ctor_4)
     EXPECT_EQ(2, V(tag).index());
     EXPECT_EQ(3, V(monostate{}).index());
     static_assert(!std::is_constructible<V, double>::value, "");  // Ambiguity!
-
-    static_assert(1 == variant<int, bool>(true).index(), "");
-
-    // Example from cppreference
-    variant<float, long, double> v4 = 0;
-    EXPECT_EQ(0, get<long>(v4));
-
-    // Example from Scott
-    EXPECT_EQ(1, (variant<std::string, void const*>("abc").index()));
-    EXPECT_EQ(0, (variant<std::string, void*>("abc").index()));
 }
 
 static_assert(cetl::pf17::variant<int, void*, double>(123).index() == 0, "");

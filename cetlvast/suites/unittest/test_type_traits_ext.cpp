@@ -112,10 +112,10 @@ struct foo
 static_assert(best_conversion_index_v<universal_predicate, char, foo, int> == 1, "");
 static_assert(best_conversion_index_v<universal_predicate, char, foo> == 0, "");
 
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo, int> ==
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo, int> ==
                   1,
               "");
-static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, char>::template type, char, foo> == bad,
+static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo> == bad,
               "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, bool>::template type, bool, foo> == 0,
               "");
