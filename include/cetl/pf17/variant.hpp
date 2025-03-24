@@ -958,16 +958,17 @@ public:
                                                          tys::nothrow_move_assignable) = default;
 
     /// Assignment 3 -- converting assignment
-    template <typename U,
-              std::size_t Ix = detail::var::best_converting_assignment_index_v<U, Ts...>,
-              std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int> = 0,
-              typename Alt                                                          = nth_type<Ix>,
-              std::enable_if_t<std::is_constructible<Alt, U>::value && std::is_assignable<Alt&, U>::value, int> = 0,
-              std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>                             = 0,
-              std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>                          = 0,
-              std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int>                         = 0>
-    variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<Alt, U>::value &&
-                                          std::is_nothrow_assignable<Alt&, U>::value)
+    template <
+        typename U,
+        std::size_t Ix = detail::var::best_converting_assignment_index_v<U, Ts...>,
+        std::enable_if_t<(Ix < std::numeric_limits<std::size_t>::max()), int>     = 0,
+        std::enable_if_t<std::is_constructible<nth_type<Ix>, U>::value && std::is_assignable<nth_type<Ix>&, U>::value,
+                         int>                                                     = 0,
+        std::enable_if_t<!std::is_same<std::decay_t<U>, variant>::value, int>     = 0,
+        std::enable_if_t<!detail::is_in_place_type<std::decay_t<U>>::value, int>  = 0,
+        std::enable_if_t<!detail::is_in_place_index<std::decay_t<U>>::value, int> = 0>
+    variant& operator=(U&& from) noexcept(std::is_nothrow_constructible<nth_type<Ix>, U>::value &&
+                                          std::is_nothrow_assignable<nth_type<Ix>&, U>::value)
     {
         if (Ix == this->m_index)
         {

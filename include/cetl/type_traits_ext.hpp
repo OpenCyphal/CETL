@@ -124,7 +124,7 @@ namespace detail
 template <typename T, std::size_t N>
 struct tag
 {
-    friend auto&                 loophole(tag<T, N>);
+    friend auto                 loophole(tag<T, N>);
     constexpr friend std::size_t cloophole(tag<T, N>);
 };
 
@@ -133,17 +133,29 @@ template <typename T,
           std::size_t N,
           bool        B,
           typename =
-              typename std::enable_if_t<!std::is_same<std::remove_cv_t<std::remove_reference_t<T>>,
-                                                      std::remove_cv_t<std::remove_reference_t<FieldType>>>::value>>
+              typename std::enable_if_t<!std::is_same<std::decay_t<T>,
+                                                      std::decay_t<FieldType>>::value>>
 struct fn_def
 {
+    template <typename UFieldType>
+    static std::enable_if_t<std::is_copy_constructible<UFieldType>::value, UFieldType> loophole_impl()
+    {
+        return UFieldType{};
+    }
+
+    template <typename UFieldType>
+    static std::enable_if_t<not std::is_copy_constructible<UFieldType>::value, UFieldType&> loophole_impl()
+    {
+        static UFieldType field{};
+        return field;
+    }
+
     // Remember; friend functions declared in a class body are available in the enclosing namespace scope.
-    friend auto& loophole(tag<T, N>)
+    friend auto loophole(tag<T, N>)
     {
         // we have to use local static to avoid a copy in GCC7. Even if this is all compile-time, types with deleted
         // copy constructors cannot be reflected unless we do this.
-        static FieldType field{};
-        return field;
+        return loophole_impl<FieldType>();
     }
     constexpr friend std::size_t cloophole(tag<T, N>)
     {
@@ -164,7 +176,10 @@ struct c_op
     template <typename U, std::size_t M, std::size_t = cloophole(tag<T, M>{})>
     static char instantiate(int);
 
-    template <typename U, std::size_t = sizeof(fn_def<T, U, N, sizeof(instantiate<U, N>(int{})) == sizeof(char)>)>
+    template <typename U, std::size_t = sizeof(fn_def<T, U, N, sizeof(instantiate<U, N>(int{})) == sizeof(char)>), typename = std::enable_if_t<std::is_copy_constructible<U>::value>>
+    constexpr operator U() const noexcept;
+
+    template <typename U, std::size_t = sizeof(fn_def<T, U, N, sizeof(instantiate<U, N>(int{})) == sizeof(char)>), typename = std::enable_if_t<not std::is_copy_constructible<U>::value>>
     constexpr operator U&() const noexcept;
 };
 
@@ -214,25 +229,41 @@ struct ctor_arg
         0,
         typename loophole_type_list<To, std::make_integer_sequence<std::size_t, constructors<To>(int{})>>::type>>;
 };
+
+template <typename From, typename To>
+struct is_same_or_both_references
+{
+    using type =
+        typename std::conditional_t<(std::is_reference<From>::value && std::is_reference<To>::value &&
+                                     std::is_constructible<To, From>::value) ||
+                                        std::is_same<std::decay_t<From>, std::decay_t<To>>::value,
+                                    std::true_type,
+                                    std::false_type>;
+    static constexpr bool value = type::value;
+};
 }  // namespace detail
 
 template <typename From, typename To>
-struct is_convertible_without_narrowing<From, To, typename std::enable_if_t<std::is_same<From, To>::value>>
+struct is_convertible_without_narrowing<From,
+                                        To,
+                                        typename std::enable_if_t<detail::is_same_or_both_references<From, To>::value>>
     : std::true_type
 {};
 
 template <typename From, typename To>
-struct is_convertible_without_narrowing<From, To, typename std::enable_if_t<not std::is_same<From, To>::value>>
+struct is_convertible_without_narrowing<
+    From,
+    To,
+    typename std::enable_if_t<not detail::is_same_or_both_references<From, To>::value>>
 {
-private:
     template <typename UTo,
               typename UFrom,
               typename U = std::enable_if_t<is_convertible_without_narrowing<
-                  std::remove_cv_t<std::remove_reference_t<UFrom>>,
-                  std::remove_cv_t<typename detail::ctor_arg<UTo, UFrom>::type>>::value>>
+                  std::decay_t<UFrom>,
+                  std::decay_t<typename detail::ctor_arg<UTo, UFrom>::type>>::value>>
     static constexpr auto is_constructable_without_narrowing(int) -> std::true_type;
 
-    template <typename, typename>
+    template <typename UTo, typename UFrom>
     static constexpr auto is_constructable_without_narrowing(...) -> std::false_type;
 
 public:
@@ -252,7 +283,6 @@ public:
                 std::is_signed<From>::value == std::is_signed<To>::value
             )
         );
-    static constexpr bool are_same = std::is_same<From, To>::value;
     static constexpr bool value = are_both_arithmetic_and_not_narrowing || decltype(is_constructable_without_narrowing<To, From>(int{}))::value;
     // clang-format on
 };
@@ -278,8 +308,19 @@ struct is_convertible_without_narrowing<
 
 #endif
 
+struct Foo
+{
+    Foo() = default;
+    Foo(int);
+    Foo(const Foo&) = delete;
+};
+
+
 static_assert(is_convertible_without_narrowing<int, long long>::value, "self-test failure");
 static_assert(!is_convertible_without_narrowing<long long, int>::value, "self-test failure");
+static_assert(is_convertible_without_narrowing<int, Foo>::value, "self-test failure");
+//static_assert(is_convertible_without_narrowing<const char*, std::string>::value, "self-test failure");
+//static_assert(detail::constructors<std::string>(0) == 1, "self-test failure");
 
 // --------------------------------------------------------------------------------------------
 
