@@ -70,7 +70,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
                         }
                     ],
                     "shape": {
@@ -103,7 +103,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
                         }
                     ],
                     "shape": {
@@ -127,7 +127,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
                         },
                         {
                             "configuration": "Coverage"

@@ -295,24 +295,6 @@
             ]
         },
         {
-            "name": "configure-gcc7-native-cpp-23-online",
-            "inherits": [
-                "configure-common",
-                "configure-toolchain-gcc7-native",
-                "configure-standard-cpp-23",
-                "configure-update-online"
-            ]
-        },
-        {
-            "name": "configure-gcc7-native-cpp-23-offline",
-            "inherits": [
-                "configure-common",
-                "configure-toolchain-gcc7-native",
-                "configure-standard-cpp-23",
-                "configure-update-offline"
-            ]
-        },
-        {
             "name": "configure-clang-native-cpp-14-online",
             "inherits": [
                 "configure-common",
@@ -622,26 +604,6 @@
             ]
         },
         {
-            "name": "build-Release-gcc7-native-cpp-23-online",
-            "configurePreset": "configure-gcc7-native-cpp-23-online",
-            "configuration": "Release",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-Release-gcc7-native-cpp-23-offline",
-            "configurePreset": "configure-gcc7-native-cpp-23-offline",
-            "configuration": "Release",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
             "name": "build-Release-clang-native-cpp-14-online",
             "configurePreset": "configure-clang-native-cpp-14-online",
             "configuration": "Release",
@@ -894,26 +856,6 @@
         {
             "name": "build-ReleaseEP-gcc7-native-cpp-14-offline",
             "configurePreset": "configure-gcc7-native-cpp-14-offline",
-            "configuration": "ReleaseEP",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-ReleaseEP-gcc7-native-cpp-23-online",
-            "configurePreset": "configure-gcc7-native-cpp-23-online",
-            "configuration": "ReleaseEP",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-ReleaseEP-gcc7-native-cpp-23-offline",
-            "configurePreset": "configure-gcc7-native-cpp-23-offline",
             "configuration": "ReleaseEP",
             "targets": [
                 "build",
@@ -1182,26 +1124,6 @@
             ]
         },
         {
-            "name": "build-Debug-gcc7-native-cpp-23-online",
-            "configurePreset": "configure-gcc7-native-cpp-23-online",
-            "configuration": "Debug",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-Debug-gcc7-native-cpp-23-offline",
-            "configurePreset": "configure-gcc7-native-cpp-23-offline",
-            "configuration": "Debug",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
             "name": "build-Debug-clang-native-cpp-14-online",
             "configurePreset": "configure-clang-native-cpp-14-online",
             "configuration": "Debug",
@@ -1454,26 +1376,6 @@
         {
             "name": "build-DebugEP-gcc7-native-cpp-14-offline",
             "configurePreset": "configure-gcc7-native-cpp-14-offline",
-            "configuration": "DebugEP",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-DebugEP-gcc7-native-cpp-23-online",
-            "configurePreset": "configure-gcc7-native-cpp-23-online",
-            "configuration": "DebugEP",
-            "targets": [
-                "build",
-                "run_unittests",
-                "run_examples"
-            ]
-        },
-        {
-            "name": "build-DebugEP-gcc7-native-cpp-23-offline",
-            "configurePreset": "configure-gcc7-native-cpp-23-offline",
             "configuration": "DebugEP",
             "targets": [
                 "build",
@@ -1819,36 +1721,6 @@
         {
             "name": "build-Coverage-gcc7-native-cpp-14-offline",
             "configurePreset": "configure-gcc7-native-cpp-14-offline",
-            "configuration": "Coverage",
-            "targets": [
-                "build",
-                "run_unittests",
-                "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
-                "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
-            ]
-        },
-        {
-            "name": "build-Coverage-gcc7-native-cpp-23-online",
-            "configurePreset": "configure-gcc7-native-cpp-23-online",
-            "configuration": "Coverage",
-            "targets": [
-                "build",
-                "run_unittests",
-                "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
-                "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
-            ]
-        },
-        {
-            "name": "build-Coverage-gcc7-native-cpp-23-offline",
-            "configurePreset": "configure-gcc7-native-cpp-23-offline",
             "configuration": "Coverage",
             "targets": [
                 "build",
@@ -2530,60 +2402,6 @@
             ]
         },
         {
-            "name": "workflow-gcc7-native-cpp-23-online",
-            "displayName": "gcc7 native cpp 23 online",
-            "description": "autogenerated workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "configure-gcc7-native-cpp-23-online"
-                },
-                {
-                    "type": "build",
-                    "name": "build-Release-gcc7-native-cpp-23-online"
-                },
-                {
-                    "type": "build",
-                    "name": "build-ReleaseEP-gcc7-native-cpp-23-online"
-                },
-                {
-                    "type": "build",
-                    "name": "build-Debug-gcc7-native-cpp-23-online"
-                },
-                {
-                    "type": "build",
-                    "name": "build-DebugEP-gcc7-native-cpp-23-online"
-                }
-            ]
-        },
-        {
-            "name": "workflow-gcc7-native-cpp-23-offline",
-            "displayName": "gcc7 native cpp 23 offline",
-            "description": "autogenerated workflow",
-            "steps": [
-                {
-                    "type": "configure",
-                    "name": "configure-gcc7-native-cpp-23-offline"
-                },
-                {
-                    "type": "build",
-                    "name": "build-Release-gcc7-native-cpp-23-offline"
-                },
-                {
-                    "type": "build",
-                    "name": "build-ReleaseEP-gcc7-native-cpp-23-offline"
-                },
-                {
-                    "type": "build",
-                    "name": "build-Debug-gcc7-native-cpp-23-offline"
-                },
-                {
-                    "type": "build",
-                    "name": "build-DebugEP-gcc7-native-cpp-23-offline"
-                }
-            ]
-        },
-        {
             "name": "workflow-clang-native-cpp-14-online",
             "displayName": "clang native cpp 14 online",
             "description": "autogenerated workflow",
@@ -2876,7 +2694,8 @@
                             "toolchain": "gcc7-native",
                             "standard": [
                                 "cpp-17",
-                                "cpp-20"
+                                "cpp-20",
+                                "cpp-23"
                             ]
                         }
                     ],
@@ -2931,7 +2750,8 @@
                             "toolchain": "gcc7-native",
                             "standard": [
                                 "cpp-17",
-                                "cpp-20"
+                                "cpp-20",
+                                "cpp-23"
                             ]
                         }
                     ],
@@ -2980,7 +2800,8 @@
                             "toolchain": "gcc7-native",
                             "standard": [
                                 "cpp-17",
-                                "cpp-20"
+                                "cpp-20",
+                                "cpp-23"
                             ]
                         },
                         {
