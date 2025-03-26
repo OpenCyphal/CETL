@@ -18,6 +18,7 @@ devcontainer
 DFETCHCONTENT_FULLY_DISCONNECTED
 doxygen
 DSDL
+eabi
 endforeach
 endfunction
 gcovr

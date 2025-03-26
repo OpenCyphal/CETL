@@ -36,11 +36,13 @@ list(APPEND C_FLAG_SET
                 $<$<CONFIG:ReleaseEP>:-Os>
                 $<$<CONFIG:Coverage>:-O0>
                 $<$<CONFIG:Release,ReleaseEP>:-fno-delete-null-pointer-checks> # https://github.com/OpenCyphal-Garage/libcyphal/pull/347#discussion_r1572254288
+                $<$<COMPILE_LANGUAGE:ASM>:-x$<SEMICOLON>assembler-with-cpp>
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-O0>
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-DDEBUG>
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-ggdb>
                 $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-exceptions>
                 $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-rtti>
+                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-use-cxa-atexit>
 )
 
 set(CXX_FLAG_SET ${C_FLAG_SET})
