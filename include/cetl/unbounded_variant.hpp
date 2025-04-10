@@ -1699,7 +1699,6 @@ CETL_NODISCARD std::add_pointer_t<ValueType> get_if(
     return static_cast<ReturnType>(ptr);
 }
 
-
 /// \brief Performs type-safe access to the contained object.
 ///
 /// \param operand Target unbounded_variant object.
