@@ -98,7 +98,7 @@ struct side_effect_stats
 
 struct MyBase : rtti_helper<type_id_type<0x1, 0x0>>
 {
-    char payload_;
+    char payload_{};
     int  value_ = 0;
     bool moved_ = false;
 
@@ -300,7 +300,7 @@ protected:
         return &mr_;
     }
 
-    pmr* get_default_mr() noexcept
+    static pmr* get_default_mr() noexcept
     {
         return cetl::pmr::get_default_resource();
     }
@@ -334,12 +334,12 @@ TEST_F(TestPmrUnboundedVariant, bad_unbounded_variant_access_assignment)
 #if defined(__cpp_exceptions)
 
     // Test the copy assignment operator.
-    cetl::bad_unbounded_variant_access test_exception1;
-    cetl::bad_unbounded_variant_access test_exception2;
+    const cetl::bad_unbounded_variant_access test_exception1{};
+    cetl::bad_unbounded_variant_access       test_exception2{};
     test_exception2 = test_exception1;
 
     // Test the move assignment operator.
-    cetl::bad_unbounded_variant_access test_exception3;
+    cetl::bad_unbounded_variant_access test_exception3{};
     test_exception3 = std::move(test_exception2);
     EXPECT_THAT(test_exception3.what(), "bad unbounded variant access");
 
@@ -458,10 +458,10 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
         const ub_var src{test{}};
         ub_var       dst{src};
 
-        EXPECT_THAT(get<test>(src).value_, 1 + 10);
+        EXPECT_THAT(get<test>(src).value_, 1);
         EXPECT_THAT(get<const test&>(src).value_, 1);
 
-        EXPECT_THAT(get<test>(dst).value_, 1 + 10 + 10);
+        EXPECT_THAT(get<test>(dst).value_, 1 + 10);
         EXPECT_THAT(get<test&>(dst).value_, 1 + 10);
         EXPECT_THAT(get<const test&>(dst).value_, 1 + 10);
 
@@ -512,7 +512,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
         using ub_var = unbounded_variant<sizeof(test), false>;
 
         ub_var src{test{}};
-        EXPECT_THAT(get<test>(src).value_, 1 + 10);
+        EXPECT_THAT(get<test>(src).value_, 1);
         EXPECT_THAT(get<test&>(src).value_, 1);
         EXPECT_THAT(get<test>(std::move(src)).value_, 1 + 1);
         // const ub_var dst{src}; //< expectedly won't compile (due to !copyable `unbounded_variant`)
@@ -611,7 +611,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_5_in_place)
 
     const ub_var src{ub_var::in_place_type_t<MyType>{}, 'Y', 42};
 
-    const auto test = get<MyType>(src);
+    const auto& test = get<MyType>(src);
     EXPECT_THAT(test.ch_, 'Y');
     EXPECT_THAT(test.number_, 42);
 }
@@ -633,7 +633,7 @@ TEST_F(TestPmrUnboundedVariant, ctor_6_in_place_initializer_list)
 
     const ub_var src{ub_var::in_place_type_t<MyType>{}, {'A', 'B', 'C'}, 42};
 
-    auto& test = get<const MyType&>(src);
+    const auto& test = get<const MyType&>(src);
     EXPECT_THAT(test.size_, 3);
     EXPECT_THAT(test.number_, 42);
 }
@@ -697,8 +697,8 @@ TEST_F(TestPmrUnboundedVariant, assign_1_copy)
         dst = src2;
         EXPECT_THAT(stats.ops, "@CC@C~C");
 
-        auto dst_ptr = &dst;
-        dst          = *dst_ptr;
+        const auto* const dst_ptr = &dst;
+        dst                       = *dst_ptr;
         EXPECT_THAT(stats.ops, "@CC@C~C");
 
         EXPECT_THAT(get<const test&>(src2).value_, 10);
@@ -730,8 +730,8 @@ TEST_F(TestPmrUnboundedVariant, assign_2_move)
         dst = ub_var{147};
         EXPECT_THAT(get<int>(dst), 147);
 
-        auto dst_ptr = &dst;
-        dst          = std::move(*dst_ptr);
+        auto* const dst_ptr = &dst;
+        dst                 = std::move(*dst_ptr);
         EXPECT_THAT(get<int>(dst), 147);
 
         dst = ub_var{};
@@ -839,7 +839,7 @@ TEST_F(TestPmrUnboundedVariant, make_unbounded_variant_2_list)
     using ub_var = unbounded_variant<sizeof(MyType)>;
 
     const auto  src  = make_unbounded_variant<MyType, ub_var>({'A', 'C'}, 42);
-    const auto& test = get<const MyType&>(src);
+    const auto& test = get<MyType>(src);
     EXPECT_THAT(test.size_, 2);
     EXPECT_THAT(test.number_, 42);
 
@@ -874,7 +874,7 @@ TEST_F(TestPmrUnboundedVariant, get_cppref_example)
     ra[1]    = 'o';
     EXPECT_THAT(get<const std::string&>(a1), "hollo");  //< const reference
 
-    auto s1 = get<std::string&&>(std::move(a1));  //< rvalue reference
+    auto s1 = get<std::string>(std::move(a1));  //< rvalue reference
     // Note: `s1` is a move-constructed std::string, `a1` is empty
     static_assert(std::is_same<decltype(s1), std::string>::value, "");
     EXPECT_THAT(s1, "hollo");
@@ -1133,8 +1133,8 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
     {
         using ub_var = unbounded_variant<sizeof(char)>;
 
-        ub_var src;
-        auto   y_ptr = src.emplace<char>('Y');
+        ub_var     src;
+        const auto y_ptr = src.emplace<char>('Y');
         EXPECT_THAT(get_if<char>(&src), y_ptr);
         EXPECT_THAT(get<char>(src), 'Y');
     }
@@ -1146,7 +1146,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
             char ch_;
             int  number_;
 
-            MyType(char ch, int number)
+            MyType(const char ch, const int number)
             {
                 ch_     = ch;
                 number_ = number;
@@ -1154,8 +1154,8 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
         };
         using ub_var = unbounded_variant<sizeof(MyType)>;
 
-        ub_var t;
-        auto   my_ptr = t.emplace<MyType>('Y', 147);
+        ub_var     t;
+        const auto my_ptr = t.emplace<MyType>('Y', 147);
         EXPECT_THAT(get_if<MyType>(&t), my_ptr);
         EXPECT_THAT(get<MyType>(t).ch_, 'Y');
         EXPECT_THAT(get<MyType>(t).number_, 147);
@@ -1169,7 +1169,7 @@ TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
         using ub_var = unbounded_variant<sizeof(MyCopyableAndMovable)>;
 
         auto stats_side_effects    = stats.make_side_effect_fn();
-        auto throwing_side_effects = [=](side_effect_op op) {
+        auto throwing_side_effects = [=](const side_effect_op op) {
             stats_side_effects(op);
             if (op == side_effect_op::Construct)
             {
@@ -1436,8 +1436,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
 
 TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory)
 {
-    const auto Alignment = alignof(std::max_align_t);
-    using ub_var         = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
+    constexpr auto Alignment = alignof(std::max_align_t);
+    using ub_var             = unbounded_variant<2 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1498,8 +1498,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_copy_value_when_out_of_memory
 
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
 {
-    const auto Alignment = alignof(std::max_align_t);
-    using ub_var         = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, pmr>;
+    constexpr auto Alignment = alignof(std::max_align_t);
+    using ub_var             = unbounded_variant<0 /*Footprint*/, false /*Copyable*/, true /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1530,8 +1530,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_move_value_when_out_of_memory)
 
 TEST_F(TestPmrUnboundedVariant, pmr_no_footprint_copy_value_when_out_of_memory)
 {
-    const auto Alignment = alignof(std::max_align_t);
-    using ub_var         = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
+    constexpr auto Alignment = alignof(std::max_align_t);
+    using ub_var             = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, false /*Movable*/, Alignment, pmr>;
 
     side_effect_stats stats;
     auto              side_effects = stats.make_side_effect_fn();
@@ -1727,8 +1727,8 @@ TEST_F(TestPmrUnboundedVariant, pmr_use_mock_as_custom_mr_type)
     using custom_mr_mock = StrictMock<cetlvast::MemoryResourceMock>;
     custom_mr_mock mr_mock{};
 
-    const auto Alignment = alignof(std::max_align_t);
-    using ub_var         = unbounded_variant<sizeof(int), true, true, Alignment, custom_mr_mock>;
+    constexpr auto Alignment = alignof(std::max_align_t);
+    using ub_var             = unbounded_variant<sizeof(int), true, true, Alignment, custom_mr_mock>;
     static_assert(std::is_same<ub_var::pmr_type, custom_mr_mock>::value, "should be custom memory resource mock");
 
     auto src = make_unbounded_variant<int, ub_var>(&mr_mock, 42);
@@ -1744,6 +1744,70 @@ TEST_F(TestPmrUnboundedVariant, pmr_use_mock_as_custom_mr_type)
 
     src = 3.1415926;
     EXPECT_THAT(get<double>(src), 3.1415926);
+}
+
+TEST_F(TestPmrUnboundedVariant, get_if_for_both_bounded_and_unbounded_variants)
+{
+    using Var   = cetl::variant<int, std::string>;
+    using UbVar = unbounded_variant<sizeof(int)>;
+
+    constexpr int test_value = 42;
+
+    // Const
+    {
+        const Var  var{test_value};
+        const auto ub_var = make_unbounded_variant<int, UbVar>(test_value);
+
+        // Var
+        {
+            const int* const pv = cetl::get_if<int>(&var);
+            ASSERT_THAT(pv, NotNull());
+            EXPECT_THAT(*pv, test_value);
+
+            const int& vr = cetl::get<int>(var);
+            EXPECT_THAT(vr, test_value);
+        }
+        // UbVar
+        {
+            const int* pv = cetl::get_if<int>(&ub_var);
+            ASSERT_THAT(pv, NotNull());
+            EXPECT_THAT(*pv, test_value);
+
+            const int& vr = cetl::get<int>(ub_var);
+            EXPECT_THAT(vr, test_value);
+        }
+    }
+
+    // Non-const
+    {
+        Var  var{test_value};
+        auto ub_var = make_unbounded_variant<int, UbVar>(test_value);
+
+        // Var
+        {
+            int* pv = cetl::get_if<int>(&var);
+            ASSERT_THAT(pv, NotNull());
+            EXPECT_THAT(*pv, test_value);
+
+            int& vr = cetl::get<int>(var);
+            EXPECT_THAT(vr, test_value);
+
+            int v = cetl::get<int>(std::move(var));
+            EXPECT_THAT(v, test_value);
+        }
+        // UbVar
+        {
+            int* pv = cetl::get_if<int>(&ub_var);
+            ASSERT_THAT(pv, NotNull());
+            EXPECT_THAT(*pv, test_value);
+
+            int& vr = cetl::get<int>(ub_var);
+            EXPECT_THAT(vr, test_value);
+
+            int v = cetl::get<int>(std::move(ub_var));
+            EXPECT_THAT(v, test_value);
+        }
+    }
 }
 
 }  // namespace
