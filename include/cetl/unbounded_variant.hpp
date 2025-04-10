@@ -1005,29 +1005,6 @@ private:
 
 }  // namespace detail
 
-// Forward declarations of free standing `get_if`-s.
-//
-template <typename ValueType,
-          template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
-          std::size_t Footprint,
-          bool        Copyable,
-          bool        Movable,
-          std::size_t Alignment,
-          typename Pmr,
-          typename Enabler>
-std::add_pointer_t<ValueType> get_if(UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* operand) noexcept;
-//
-template <typename ValueType,
-          template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
-          std::size_t Footprint,
-          bool        Copyable,
-          bool        Movable,
-          std::size_t Alignment,
-          typename Pmr,
-          typename Enabler>
-std::add_pointer_t<std::add_const_t<ValueType>> get_if(
-    const UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* operand) noexcept;
-
 /// \brief The class `unbounded_variant` describes a type-safe container
 ///        for single values of unbounded_variant copy and/or move constructible type.
 ///
@@ -1650,6 +1627,79 @@ CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant
     return UnboundedVariant(mem_res, in_place_type_t{}, list, std::forward<Args>(args)...);
 }
 
+/// \brief Performs type-safe access to the `const` contained object.
+///
+/// \tparam ValueType Type of the requested value; may not be a reference.
+/// \tparam UbVar Template type of the `unbounded_variant` object.
+/// \param operand Target constant unbounded_variant object.
+/// \return If operand is not a null pointer,
+///     and the typeid of the requested `ValueType` matches that of the contents of operand,
+///     a pointer to the value contained by operand, otherwise a null pointer.
+///
+template <
+    typename ValueType,
+    template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
+    std::size_t Footprint,
+    bool        Copyable,
+    bool        Movable,
+    std::size_t Alignment,
+    typename Pmr,
+    typename = std::enable_if_t<std::is_same<UbVar<Footprint, Copyable, Movable, Alignment, Pmr>,
+                                             unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
+CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> get_if(
+    const UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* const operand) noexcept
+{
+    static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
+
+    if (!operand)
+    {
+        return nullptr;
+    }
+
+    using RawValueType    = std::remove_cv_t<ValueType>;
+    const auto* const ptr = operand->template get_ptr<RawValueType>();
+
+    using ReturnType = std::add_pointer_t<std::add_const_t<ValueType>>;
+    return static_cast<ReturnType>(ptr);
+}
+
+/// \brief Performs type-safe access to the contained object.
+///
+/// \tparam ValueType Type of the requested value; may not be a reference.
+/// \tparam UbVar Template type of the `unbounded_variant` object.
+/// \param operand Target `unbounded_variant` object.
+/// \return If operand is not a null pointer,
+///     and the typeid of the requested `ValueType` matches that of the contents of operand,
+///     a pointer to the value contained by operand, otherwise a null pointer.
+///
+template <
+    typename ValueType,
+    template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
+    std::size_t Footprint,
+    bool        Copyable,
+    bool        Movable,
+    std::size_t Alignment,
+    typename Pmr,
+    typename = std::enable_if_t<std::is_same<UbVar<Footprint, Copyable, Movable, Alignment, Pmr>,
+                                             unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
+CETL_NODISCARD std::add_pointer_t<ValueType> get_if(
+    UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* const operand) noexcept
+{
+    static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
+
+    if (!operand)
+    {
+        return nullptr;
+    }
+
+    using RawValueType = std::remove_cv_t<ValueType>;
+    auto* const ptr    = operand->template get_ptr<RawValueType>();
+
+    using ReturnType = std::add_pointer_t<ValueType>;
+    return static_cast<ReturnType>(ptr);
+}
+
+
 /// \brief Performs type-safe access to the contained object.
 ///
 /// \param operand Target unbounded_variant object.
@@ -1732,78 +1782,6 @@ CETL_NODISCARD ValueType get(UbVar<Footprint, Copyable, Movable, Alignment, Pmr>
         detail::throw_bad_unbounded_variant_access();
     }
     return std::move(*ptr);
-}
-
-/// \brief Performs type-safe access to the `const` contained object.
-///
-/// \tparam ValueType Type of the requested value; may not be a reference.
-/// \tparam UbVar Template type of the `unbounded_variant` object.
-/// \param operand Target constant unbounded_variant object.
-/// \return If operand is not a null pointer,
-///     and the typeid of the requested `ValueType` matches that of the contents of operand,
-///     a pointer to the value contained by operand, otherwise a null pointer.
-///
-template <
-    typename ValueType,
-    template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
-    std::size_t Footprint,
-    bool        Copyable,
-    bool        Movable,
-    std::size_t Alignment,
-    typename Pmr,
-    typename = std::enable_if_t<std::is_same<UbVar<Footprint, Copyable, Movable, Alignment, Pmr>,
-                                             unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
-CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> get_if(
-    const UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* const operand) noexcept
-{
-    static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
-
-    if (!operand)
-    {
-        return nullptr;
-    }
-
-    using RawValueType    = std::remove_cv_t<ValueType>;
-    const auto* const ptr = operand->template get_ptr<RawValueType>();
-
-    using ReturnType = std::add_pointer_t<std::add_const_t<ValueType>>;
-    return static_cast<ReturnType>(ptr);
-}
-
-/// \brief Performs type-safe access to the contained object.
-///
-/// \tparam ValueType Type of the requested value; may not be a reference.
-/// \tparam UbVar Template type of the `unbounded_variant` object.
-/// \param operand Target `unbounded_variant` object.
-/// \return If operand is not a null pointer,
-///     and the typeid of the requested `ValueType` matches that of the contents of operand,
-///     a pointer to the value contained by operand, otherwise a null pointer.
-///
-template <
-    typename ValueType,
-    template <std::size_t, bool, bool, std::size_t, typename> class UbVar,
-    std::size_t Footprint,
-    bool        Copyable,
-    bool        Movable,
-    std::size_t Alignment,
-    typename Pmr,
-    typename = std::enable_if_t<std::is_same<UbVar<Footprint, Copyable, Movable, Alignment, Pmr>,
-                                             unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
-CETL_NODISCARD std::add_pointer_t<ValueType> get_if(
-    UbVar<Footprint, Copyable, Movable, Alignment, Pmr>* const operand) noexcept
-{
-    static_assert(!std::is_reference<ValueType>::value, "`ValueType` may not be a reference.");
-
-    if (!operand)
-    {
-        return nullptr;
-    }
-
-    using RawValueType = std::remove_cv_t<ValueType>;
-    auto* const ptr    = operand->template get_ptr<RawValueType>();
-
-    using ReturnType = std::add_pointer_t<ValueType>;
-    return static_cast<ReturnType>(ptr);
 }
 
 }  // namespace cetl
