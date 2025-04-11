@@ -54,7 +54,8 @@
                             "gcc-native",
                             "gcc-native-32",
                             "gcc7-native",
-                            "clang-native"
+                            "clang-native",
+                            "arm-none-eabi-gcc"
                         ],
                         "standard": [
                             "cpp-14",
@@ -104,6 +105,10 @@
                         {
                             "toolchain": "gcc7-native",
                             "standard": ["cpp-17", "cpp-20", "cpp-23"]
+                        },
+                        {
+                            "toolchain": "arm-none-eabi-gcc",
+                            "configuration": ["Debug", "Coverage", "Release"]
                         }
                     ],
                     "shape": {
@@ -131,6 +136,10 @@
                         },
                         {
                             "configuration": "Coverage"
+                        },
+                        {
+                            "toolchain": "arm-none-eabi-gcc",
+                            "configuration": ["Debug", "Coverage", "Release"]
                         }
                     ],
                     "shape": {

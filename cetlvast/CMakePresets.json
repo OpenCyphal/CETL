@@ -91,6 +91,14 @@
             }
         },
         {
+            "name": "configure-toolchain-arm-none-eabi-gcc",
+            "hidden": true,
+            "toolchainFile": "${sourceParentDir}/.devcontainer/cmake/toolchains/arm-none-eabi-gcc.cmake",
+            "cacheVariables": {
+                "CETLVAST_TARGET_PLATFORM": "native"
+            }
+        },
+        {
             "name": "configure-standard-cpp-14",
             "hidden": true,
             "cacheVariables": {
@@ -362,6 +370,78 @@
             "inherits": [
                 "configure-common",
                 "configure-toolchain-clang-native",
+                "configure-standard-cpp-23",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-14-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-14",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-14-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-14",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-17-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-17",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-17-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-17",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-20-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-20",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-20-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-20",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-23-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-23",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-23-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
                 "configure-standard-cpp-23",
                 "configure-update-offline"
             ]
@@ -944,6 +1024,86 @@
             ]
         },
         {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-14-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-14-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-14-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-14-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-17-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-17-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-17-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-17-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-20-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-20-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-20-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-20-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-23-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-23-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-23-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-23-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
             "name": "build-Debug-gcc-native-cpp-14-online",
             "configurePreset": "configure-gcc-native-cpp-14-online",
             "configuration": "Debug",
@@ -1456,6 +1616,86 @@
         {
             "name": "build-DebugEP-clang-native-cpp-23-offline",
             "configurePreset": "configure-clang-native-cpp-23-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-14-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-14-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-14-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-14-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-17-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-17-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-17-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-17-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-20-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-20-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-20-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-20-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-23-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-23-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-23-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-23-offline",
             "configuration": "DebugEP",
             "targets": [
                 "build",
@@ -2616,6 +2856,158 @@
                     "name": "build-DebugEP-clang-native-cpp-23-offline"
                 }
             ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-14-online",
+            "displayName": "arm none eabi gcc cpp 14 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-14-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-14-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-14-offline",
+            "displayName": "arm none eabi gcc cpp 14 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-17-online",
+            "displayName": "arm none eabi gcc cpp 17 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-17-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-17-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-17-offline",
+            "displayName": "arm none eabi gcc cpp 17 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-17-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-17-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-20-online",
+            "displayName": "arm none eabi gcc cpp 20 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-20-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-20-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-20-offline",
+            "displayName": "arm none eabi gcc cpp 20 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-20-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-20-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-23-online",
+            "displayName": "arm none eabi gcc cpp 23 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-23-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-23-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-23-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-23-offline",
+            "displayName": "arm none eabi gcc cpp 23 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-23-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-23-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-23-offline"
+                }
+            ]
         }
     ],
     "packagePresets": [],
@@ -2676,7 +3068,8 @@
                             "gcc-native",
                             "gcc-native-32",
                             "gcc7-native",
-                            "clang-native"
+                            "clang-native",
+                            "arm-none-eabi-gcc"
                         ],
                         "standard": [
                             "cpp-14",
@@ -2732,7 +3125,8 @@
                             "gcc-native",
                             "gcc-native-32",
                             "gcc7-native",
-                            "clang-native"
+                            "clang-native",
+                            "arm-none-eabi-gcc"
                         ],
                         "standard": [
                             "cpp-14",
@@ -2752,6 +3146,14 @@
                                 "cpp-17",
                                 "cpp-20",
                                 "cpp-23"
+                            ]
+                        },
+                        {
+                            "toolchain": "arm-none-eabi-gcc",
+                            "configuration": [
+                                "Debug",
+                                "Coverage",
+                                "Release"
                             ]
                         }
                     ],
@@ -2773,7 +3175,8 @@
                             "gcc-native",
                             "gcc-native-32",
                             "gcc7-native",
-                            "clang-native"
+                            "clang-native",
+                            "arm-none-eabi-gcc"
                         ],
                         "standard": [
                             "cpp-14",
@@ -2806,6 +3209,14 @@
                         },
                         {
                             "configuration": "Coverage"
+                        },
+                        {
+                            "toolchain": "arm-none-eabi-gcc",
+                            "configuration": [
+                                "Debug",
+                                "Coverage",
+                                "Release"
+                            ]
                         }
                     ],
                     "shape": {
