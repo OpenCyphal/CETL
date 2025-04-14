@@ -40,8 +40,8 @@ list(APPEND C_FLAG_SET
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-O0>
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-DDEBUG>
                 $<$<NOT:$<CONFIG:Release,ReleaseEP>>:-ggdb>
-                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP,Coverage>>:-fno-exceptions>
-                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP,Coverage>>:-fno-rtti>
+                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-exceptions>
+                $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-rtti>
                 $<$<AND:$<COMPILE_LANGUAGE:CXX>,$<CONFIG:ReleaseEP,DebugEP>>:-fno-use-cxa-atexit>
 )
 
