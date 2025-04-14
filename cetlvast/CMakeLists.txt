@@ -179,16 +179,17 @@ target_compile_definitions(cetlvast
         $<$<CONFIG:Coverage>:CETLVAST_COVERAGE>
 )
 
+if (NOT CMAKE_CROSSCOMPILING)
 # +---------------------------------------------------------------------------+
 # | TEST SUITES
 # +---------------------------------------------------------------------------+
-
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/unittest)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/docs)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
 if(benchmark_FOUND)
     add_subdirectory(${CMAKE_SOURCE_DIR}/suites/benchmark)
 endif()
+
 # +---------------------------------------------------------------------------+
 # | BUILD TARGET ALIASES
 # +---------------------------------------------------------------------------+
@@ -241,3 +242,11 @@ add_custom_target(
         build
         unittest
 )
+
+else()
+# +---------------------------------------------------------------------------+
+# | MCU TEST SUITES
+# +---------------------------------------------------------------------------+
+add_subdirectory(${CMAKE_SOURCE_DIR}/suites/mcu)
+
+endif()
