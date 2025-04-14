@@ -1306,6 +1306,10 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
     EXPECT_THAT(dst3.has_value(), true);
     EXPECT_THAT(get<bool>(dst3), true);
 
+    const ub_var dst3b{dst3};
+    EXPECT_THAT(dst3b.has_value(), true);
+    EXPECT_THAT(get<bool>(dst3b), true);
+
     const ub_var src_empty{get_mr()};
     ub_var       dst4{src_empty};
     EXPECT_THAT(dst4.has_value(), false);
