@@ -1382,6 +1382,21 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint)
     EXPECT_THAT(dst5.get_memory_resource(), get_default_mr());
 }
 
+TEST_F(TestPmrUnboundedVariant, pmr_ctor_no_footprint_no_memory)
+{
+    using ub_var = unbounded_variant<0 /*Footprint*/, true /*Copyable*/, true /*Movable*/, 2 /*Alignment*/, pmr>;
+
+    StrictMock<cetlvast::MemoryResourceMock> mr_mock{};
+    EXPECT_CALL(mr_mock, do_allocate(_, _)).WillOnce(Return(nullptr));
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(sink(ub_var{mr_mock.resource(), 'x'}), std::bad_alloc);
+#else
+    const ub_var test{mr_mock.resource(), 'x'};
+    EXPECT_THAT(test.has_value(), false);
+#endif
+}
+
 TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory)
 {
     using ub_var = unbounded_variant<2 /*Footprint*/, false /*Copyable*/, true /*Movable*/, 4 /*Alignment*/, pmr>;
@@ -1415,7 +1430,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_with_footprint_move_value_when_out_of_memory
         EXPECT_THAT(dst.valueless_by_exception(), false);
     }
 
-    // Assign even bigger (`double`) type value which requires more than 2 bytes.
+    // Assign an even bigger (`double`) type value which requires more than 2 bytes.
     // Emulate that there is no memory enough.
     {
         MyMovableOnly my_move_only{'X', side_effects};
