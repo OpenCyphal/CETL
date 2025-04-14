@@ -438,7 +438,9 @@ TEST_F(TestPmrUnboundedVariant, ctor_2_copy)
         EXPECT_THAT(dst.type_id(), type_id_value<int>);
 
         EXPECT_THAT(get<int>(src), 42);
+        EXPECT_THAT(get_if<char>(&src), IsNull());
         EXPECT_THAT(get<int>(dst), 42);
+        EXPECT_THAT(get_if<char>(&dst), IsNull());
 
         const ub_var empty{};
         EXPECT_THAT(empty.type_size(), 0);
@@ -1296,6 +1298,7 @@ TEST_F(TestPmrUnboundedVariant, pmr_ctor_with_footprint)
     dst2 = int{-1};
     EXPECT_THAT(dst2.has_value(), true);
     EXPECT_THAT(get<int>(dst2), -1);
+    EXPECT_THAT(get<int>(static_cast<const ub_var&>(dst2)), -1);
 
     ub_var dst3{std::move(dst2)};
     EXPECT_THAT(dst3.get_memory_resource(), get_mr());
