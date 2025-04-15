@@ -128,12 +128,13 @@
 #    undef CETL_ENABLE_DEBUG_ASSERT
 #endif
 
-#if defined CETL_ENABLE_DEBUG_ASSERT
+// Intentional violation of Sonar: the assertions check macro cannot be replaced with a function definition.
+#if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
-#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))
+#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))  // NOSONAR cpp:S960
 #else
-#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))
-#endif  // CETL_ENABLE_DEBUG_ASSERT
+#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))  // NOSONAR cpp:S960
+#endif
 
 // Make the standard exceptions available only if exceptions are enabled.
 #if defined(__cpp_exceptions)
@@ -191,8 +192,8 @@ static_assert(__cplusplus >= CETL_CPP_STANDARD_14,
               "Unsupported language: ISO C14, C++14, or a newer version of either is required to use this type.");
 
 // Detect weird versions
-static_assert((__cplusplus == CETL_CPP_STANDARD_14 || __cplusplus == CETL_CPP_STANDARD_17 ||
-               __cplusplus >= CETL_CPP_STANDARD_20),
+static_assert((__cplusplus == CETL_CPP_STANDARD_14) || (__cplusplus == CETL_CPP_STANDARD_17) ||
+                  (__cplusplus >= CETL_CPP_STANDARD_20),
               "Unknown __cplusplus value found?");
 
 /// CETL_NODISCARD
