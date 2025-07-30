@@ -845,6 +845,7 @@ protected:
             }
             capacity_ = rhs.capacity_;
             size_     = rhs.size_;
+            fast_deallocate(rhs.data_, rhs.size_, rhs.capacity_, rhs.alloc_);
         }
         rhs.size_     = 0;
         rhs.capacity_ = 0;

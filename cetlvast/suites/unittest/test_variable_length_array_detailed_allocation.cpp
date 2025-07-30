@@ -712,4 +712,39 @@ TYPED_TEST(VLADetailedAllocationTests, MoveConstruct)
     EXPECT_EQ(0, TestFixture::ItemT::total_instances_default_constructed);
 }
 
+using VLAWithNoPropagateOnMoveAllocator =
+    cetl::VariableLengthArray<
+        InstrumentedType,
+        cetlvast::InstrumentedNewDeleteAllocator<
+            InstrumentedType,
+            std::false_type,  // Is always equal
+            std::false_type,  // Is equal
+            std::false_type,  // Propagate on container move assignment
+            std::true_type    // Propagate on container copy assignment
+        >
+    >;
+using VLAWithNoPropagateOnMoveAllocatorTests = VLADetailedAllocationTests<VLAWithNoPropagateOnMoveAllocator>;
+TEST_F(VLAWithNoPropagateOnMoveAllocatorTests, MoveConstructWithNewAllocator)
+{
+    using TestFixture = VLAWithNoPropagateOnMoveAllocatorTests;
+    using VlaType = VLAWithNoPropagateOnMoveAllocator;
+    using AllocatorType = VlaType::allocator_type;
+
+    VlaType test_source{{1, 2, 3, 4}, AllocatorType{}};
+    VlaType copy_of_source{test_source};
+    VlaType test_subject{std::move(test_source), AllocatorType{}};
+
+    EXPECT_EQ(test_subject, copy_of_source);
+    this->account_for_all_memory(test_subject, copy_of_source);
+
+    EXPECT_EQ(16, TestFixture::ItemT::total_instances_constructed);
+    EXPECT_EQ(4, TestFixture::ItemT::total_instances_implicit_int_constructed); // Test source init list instances
+    EXPECT_EQ(8, TestFixture::ItemT::total_instances_copy_constructed); // Test source and copy of source instances
+    EXPECT_EQ(4, TestFixture::ItemT::total_instances_move_constructed); // Test subject instances
+
+    // Expect allocation of test source, copy of source, and test subject because source allocator is not propagated
+    EXPECT_EQ(3, cetlvast::InstrumentedAllocatorStatistics::get().allocations);
+    EXPECT_EQ(3, cetlvast::InstrumentedAllocatorStatistics::get().deallocations);
+}
+
 // +---------------------------------------------------------------------------+
