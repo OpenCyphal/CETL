@@ -95,7 +95,7 @@
 /// and minor version. A patch version number change will only occur if library source code is changed.
 /// Documentation or test suite changes will not require a change to `cetl/cetl.hpp` and will not bump
 /// the patch version.
-#define CETL_VERSION_PATCH 0
+#define CETL_VERSION_PATCH 2
 
 /// @def CETL_VERSION_MINOR
 /// CETL minor version.
