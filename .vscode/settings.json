@@ -1,7 +1,6 @@
 {
     "cmake.configureOnOpen": false,
     "cmake.configureOnEdit": false,
-    "cmake.buildDirectory": "${workspaceFolder}/build",
     "cmake.sourceDirectory": "${workspaceFolder}/cetlvast",
     "cmake.buildBeforeRun": true,
     "editor.wordWrapColumn": 120,

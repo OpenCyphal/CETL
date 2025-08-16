@@ -192,7 +192,7 @@ set_directory_properties(PROPERTIES
 
 enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
                         ROOT_DIRECTORY ${CETL_ROOT}
-                        OUT_REPORT_INDICES LOCAL_COVERAGE_REPORT_INDICIES
+                        OUT_REPORT_INDICES LOCAL_COVERAGE_REPORT_INDICES
 )
 
 
@@ -224,31 +224,21 @@ if (${SonarScanner_FOUND})
 
     message(STATUS "SonarScanner found. Adding a local Sonar Scanner target.")
 
-    if(NOT DEFINED ENV{SONAR_TOKEN})
-        message(WARNING "SONAR_TOKEN token not found. Set this in the environment upload scan results to "
-                        "${SONARSCANNER_SONARCLOUD_URL}. While the scan will still run, the scanner will return an "
-                        "error which will fail the build.")
-    endif()
-
     define_sonar_cloud_scan_target_for_c_cpp(
         ROOT_DIRECTORY ${CETL_ROOT}
         PROJECT_KEY OpenCyphal_CETL
         PROJECT_NAME CETLVaSt
         DEPENDS
             unittest-sonarqube.xml
-            ${LOCAL_COVERAGE_REPORT_INDICIES}
+            ${LOCAL_COVERAGE_REPORT_INDICES}
             cetlvast_sonar
         SOURCES
-            "include"
+            "${CETL_ROOT}/include"
             "${CMAKE_CURRENT_SOURCE_DIR}/sonar.cpp"
         TESTS
             "${CMAKE_CURRENT_SOURCE_DIR}"
         TEST_INCLUSIONS
-            "test_*.cpp"
-        EXCLUDE_COVERAGE
-            "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
-        EXCLUDE_CPD
-            "${CMAKE_CURRENT_SOURCE_DIR}/**/*,**/sonar.cpp"
+            "**/test_*.cpp"
         CPP_VERSION ${CETLVAST_CPP_STANDARD}
         COMPILE_COMMANDS
             "${CMAKE_BINARY_DIR}/compile_commands.json"

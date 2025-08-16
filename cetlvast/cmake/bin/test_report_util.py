@@ -15,6 +15,7 @@
 
 import argparse
 import logging
+import os
 import pathlib
 import sys
 import typing
@@ -22,7 +23,7 @@ import xml.etree.ElementTree as ET
 
 # +---------------------------------------------------------------------------+
 
-def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, test_executions: ET.Element) -> None:
+def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, test_executions: ET.Element, base_dir: typing.Optional[pathlib.Path] = None) -> None:
     """Append junit testsuite data to sonarqube testExecutions data.
 
     Input Format: http://google.github.io/googletest/advanced.html#generating-an-xml-report
@@ -67,7 +68,15 @@ def _junit_to_sonarqube_generic_execution_format(junit_report: pathlib.Path, tes
             try:
                 sq_file = sq_files[testcase_file]
             except KeyError:
-                sq_file = ET.Element("file", attrib={"path": testcase_file})
+                  # Make path relative to base_dir if provided
+                file_path = testcase_file
+                if base_dir is not None:
+                    try:
+                        rel_path = os.path.relpath(testcase_file, base_dir)
+                        file_path = rel_path
+                    except ValueError:
+                        file_path = testcase_file
+                sq_file = ET.Element("file", attrib={"path": file_path})
                 test_executions.append(sq_file)
                 sq_files[testcase_file] = sq_file
 
@@ -129,15 +138,19 @@ def _make_parser() -> argparse.ArgumentParser:
                         "--input",
                         action="append",
                         help="Input files to convert.")
+    parser.add_argument("-b",
+                        "--base-dir",
+                        type=pathlib.Path,
+                        help="Base directory to make file paths relative to.")
     return parser
 
 
 # +---------------------------------------------------------------------------+
 
 
-def append(test_report: pathlib.Path, sq_report: ET.Element) -> int:
+def append(test_report: pathlib.Path, sq_report: ET.Element, base_dir: typing.Optional[pathlib.Path] = None) -> int:
     try:
-        _junit_to_sonarqube_generic_execution_format(test_report, sq_report)
+        _junit_to_sonarqube_generic_execution_format(test_report, sq_report, base_dir)
         return 0
     except ET.ParseError as err:
         logging.warning("Failed to parse report {}: {}".format(test_report, err))
@@ -173,11 +186,11 @@ def main() -> int:
         for test_report in pathlib.Path.cwd().glob(args.pattern):
             if test_report.suffix == ".xml":
                 logging.info("Found report {}. Trying to combine into sonarqube report.".format(test_report))
-                if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
+                if append(test_report, sq_report.getroot(), args.base_dir) != 0 and args.stop_on_failure:
                     return 1
 
     for test_report in args.input:
-        if append(test_report, sq_report.getroot()) != 0 and args.stop_on_failure:
+        if append(test_report, sq_report.getroot(), args.base_dir) != 0 and args.stop_on_failure:
             return 1
 
     if args.dry_run:

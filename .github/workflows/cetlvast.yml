@@ -171,9 +171,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
-      - name: Install sonar-scanner
-        uses: SonarSource/sonarcloud-github-c-cpp@v3
-
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -186,10 +183,29 @@ jobs:
       - name: Check for SONAR_TOKEN
         if: ${{ env.SONAR_TOKEN == '' && github.event_name != 'pull_request' }}
         run: echo "::error file=cetlvast.yml,line=191,col=8,endColumn=80,title=SONAR_TOKEN-missing::SONAR_TOKEN was empty or not found."
-      - name: Run sonar-scanner
+      - name: Run build for sonar-scanner
         if: ${{ env.SONAR_TOKEN != '' }}
         working-directory: cetlvast
-        run: cmake --workflow --preset manual-sonar-scan-gcc-native-cpp-14-offline
+        run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v5.3.0
+        if: ${{ env.SONAR_TOKEN != '' }}
+        with:
+          args: >
+            -Dsonar.organization=opencyphal
+            -Dsonar.projectKey=OpenCyphal_CETL
+            -Dsonar.projectName=CETLVaSt
+            -Dsonar.verbose=true
+            -Dsonar.cfamily.compile-commands=cetlvast/build/compile_commands.json
+            -Dsonar.cfamily.cobertura.reportPath=cetlvast/build/suites/unittest/coverage.xml
+            -Dsonar.testExecutionReportPaths=cetlvast/build/suites/unittest/unittest-sonarqube.xml
+            -Dsonar.sources="include,cetlvast/suites/unittest/sonar.cpp"
+            -Dsonar.tests="cetlvast/suites/unittest"
+            -Dsonar.test.inclusions="**/test_*.cpp"
+            -Dsonar.cfamily.ignoreHeaderComments=false
+            -Dsonar.coverage.exclusions="cetlvast/**/*,**/sonar.cpp"
+            -Dsonar.cpd.exclusions="cetlvast/**/*,**/sonar.cpp"
+            -Dsonar.cfamily.reportingCppStandardOverride=c++14
 
   deploy-docs:
     if: >
