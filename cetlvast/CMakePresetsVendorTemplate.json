@@ -39,8 +39,7 @@
                     "gcovr_sonarqube_report_for_unittest",
                     "run_examples",
                     "gcovr_html_report_for_examples",
-                    "gcovr_sonarqube_report_for_examples",
-                    "sonar-cloud-scan-OpenCyphal_CETL"
+                    "gcovr_sonarqube_report_for_examples"
                 ]
             },
             "preset-groups": {
