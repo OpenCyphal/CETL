@@ -499,8 +499,21 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
+            ]
+        },
+        {
+            "name": "manual-Coverage-no-scan-gcc-native-cpp-14-offline",
+            "configurePreset": "configure-gcc-native-cpp-14-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "gcovr_sonarqube_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples",
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1714,8 +1727,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1729,8 +1741,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1744,8 +1755,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1759,8 +1769,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1774,8 +1783,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1789,8 +1797,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1804,8 +1811,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1819,8 +1825,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1834,8 +1839,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1849,8 +1853,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1864,8 +1867,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1879,8 +1881,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1894,8 +1895,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1909,8 +1909,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1924,8 +1923,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1939,8 +1937,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1954,8 +1951,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1969,8 +1965,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1984,8 +1979,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -1999,8 +1993,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2014,8 +2007,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2029,8 +2021,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2044,8 +2035,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2059,8 +2049,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2074,8 +2063,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         },
         {
@@ -2089,8 +2077,7 @@
                 "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
                 "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples",
-                "sonar-cloud-scan-OpenCyphal_CETL"
+                "gcovr_sonarqube_report_for_examples"
             ]
         }
     ],
@@ -2137,6 +2124,21 @@
                 {
                     "type": "build",
                     "name": "manual-Coverage-gcc-native-cpp-14-offline"
+                }
+            ]
+        },
+        {
+            "name": "manual-coverage-gcc-native-cpp-14-offline",
+            "displayName": "gcc native cpp 14 offline (Coverage only).",
+            "description": "Hand-managed workflow for generating coverage data for sonarqube scans.",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-14-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "manual-Coverage-no-scan-gcc-native-cpp-14-offline"
                 }
             ]
         },
@@ -3053,8 +3055,7 @@
                     "gcovr_sonarqube_report_for_unittest",
                     "run_examples",
                     "gcovr_html_report_for_examples",
-                    "gcovr_sonarqube_report_for_examples",
-                    "sonar-cloud-scan-OpenCyphal_CETL"
+                    "gcovr_sonarqube_report_for_examples"
                 ]
             },
             "preset-groups": {

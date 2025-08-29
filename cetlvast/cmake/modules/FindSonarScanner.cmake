@@ -97,6 +97,12 @@ function (define_sonar_cloud_scan_target_for_c_cpp)
         endif()
     endif()
 
+    if(NOT DEFINED ENV{SONAR_TOKEN})
+        message(WARNING "SONAR_TOKEN environment variable is not set.")
+    else()
+        set(LOCAL_SONAR_TOKEN $ENV{SONAR_TOKEN})
+    endif()
+
     #+-[body]-----------------------------------------------------------------+
 
     list(JOIN ARG_SOURCES "," LOCAL_SOURCES)
@@ -107,7 +113,8 @@ function (define_sonar_cloud_scan_target_for_c_cpp)
     add_custom_target(sonar-cloud-scan-${ARG_PROJECT_KEY}
         DEPENDS ${ARG_DEPENDS}
         USES_TERMINAL
-        COMMAND ${SONAR_SCANNER} --debug
+        COMMAND ${SONAR_SCANNER}
+            --define sonar.verbose=true
             --define sonar.organization=${ARG_ORGANIZATION}
             --define sonar.projectKey=${ARG_PROJECT_KEY}
             --define sonar.projectName=${ARG_PROJECT_NAME}
@@ -123,10 +130,10 @@ function (define_sonar_cloud_scan_target_for_c_cpp)
             --define sonar.cpd.exclusions=${ARG_EXCLUDE_CPD}
             --define sonar.cfamily.compile-commands=${ARG_COMPILE_COMMANDS}
             --define sonar.cfamily.reportingCppStandardOverride=c++${ARG_CPP_VERSION}
-            --define sonar.coverageReportPaths=${LOCAL_COVERAGE_REPORTS}
+            --define sonar.cfamily.cobertura.reportPaths=${LOCAL_COVERAGE_REPORTS}
             --define sonar.testExecutionReportPaths=${LOCAL_TEST_REPORTS}
             --define sonar.branch.name=${ARG_BRANCH_NAME}
-            --define sonar.token=$ENV{SONAR_TOKEN}
+            --define sonar.token=${LOCAL_SONAR_TOKEN}
         WORKING_DIRECTORY ${ARG_ROOT_DIRECTORY}
         VERBATIM
         COMMENT "Running sonar-scanner using sonarcloud for ${ARG_PROJECT_KEY}")

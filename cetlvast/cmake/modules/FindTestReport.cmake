@@ -37,19 +37,22 @@ find_package_handle_standard_args(TestReport
 function(define_junit_to_sonarqube_conversion_rule)
     #+-[input]----------------------------------------------------------------+
     set(options "")
-    set(singleValueArgs OUTPUT)
+    set(singleValueArgs OUTPUT BASEDIR)
     set(multiValueArgs SOURCE_FILES)
     cmake_parse_arguments(PARSE_ARGV 0 ARG "${options}" "${singleValueArgs}" "${multiValueArgs}")
 
     #+-[body]-----------------------------------------------------------------+
-    set(LOCAL_INPUT_FILE_LIST)
+    set(LOCAL_ARG_LIST)
+    if (ARG_BASEDIR)
+        list(APPEND LOCAL_ARG_LIST "--base-dir" ${ARG_BASEDIR})
+    endif()
     foreach(LOCAL_INPUT_FILE ${ARG_SOURCE_FILES})
-        list(APPEND LOCAL_INPUT_FILE_LIST "-i")
-        list(APPEND LOCAL_INPUT_FILE_LIST ${LOCAL_INPUT_FILE})
+        list(APPEND LOCAL_ARG_LIST "-i")
+        list(APPEND LOCAL_ARG_LIST ${LOCAL_INPUT_FILE})
     endforeach()
     add_custom_command(OUTPUT ${ARG_OUTPUT}
                        COMMAND ${LOCAL_TEST_REPORT_UTILITY}
-                               ${LOCAL_INPUT_FILE_LIST}
+                               ${LOCAL_ARG_LIST}
                                ${ARG_OUTPUT}
                        DEPENDS ${ARG_SOURCE_FILES}
                        VERBATIM
