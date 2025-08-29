@@ -197,7 +197,7 @@ jobs:
             -Dsonar.projectName=CETLVaSt
             -Dsonar.verbose=true
             -Dsonar.cfamily.compile-commands=cetlvast/build/compile_commands.json
-            -Dsonar.cfamily.cobertura.reportPath=cetlvast/build/suites/unittest/coverage.xml
+            -Dsonar.cfamily.cobertura.reportPaths=cetlvast/build/suites/unittest/coverage.xml
             -Dsonar.testExecutionReportPaths=cetlvast/build/suites/unittest/unittest-sonarqube.xml
             -Dsonar.sources="include,cetlvast/suites/unittest/sonar.cpp"
             -Dsonar.tests="cetlvast/suites/unittest"
