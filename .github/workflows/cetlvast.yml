@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         id: cetlvast-ext
         uses: actions/cache@v4
@@ -52,7 +52,7 @@ jobs:
         toolchain: ["gcc-native-32", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20", "cpp-23"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -93,7 +93,7 @@ jobs:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -130,7 +130,7 @@ jobs:
     needs:
       - cache-warmup
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -168,7 +168,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
       - name: Cache ext modules
