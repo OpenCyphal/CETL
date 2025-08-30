@@ -206,12 +206,16 @@ else()
     )
 endif()
 
-add_custom_target(
-    docs
-    DEPENDS
-        lint
-        generate_CETL_docs
-)
+if(DEFINED Doxygen_FOUND)
+if(${Doxygen_FOUND})
+    add_custom_target(
+        docs
+        DEPENDS
+            lint
+            generate_CETL_docs
+    )
+endif()
+endif()
 
 add_custom_target(
     build

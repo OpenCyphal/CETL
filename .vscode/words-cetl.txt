@@ -1,9 +1,10 @@
- arity
+arity
 AUTOSAR
 builddir
 cetl
 cetlpf
 cetlvast
+cfamily
 COMPILETEST_PRECHECK
 copydoc
 ctest
@@ -32,6 +33,7 @@ NOLINT
 NOLINTBEGIN
 NOLINTEND
 NOLINTNEXTLINE
+NOSONAR
 NOTFOUND
 opencyphal
 Pavel
