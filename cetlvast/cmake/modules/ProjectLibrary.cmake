@@ -10,7 +10,7 @@
 
 # Function: add_project_library
 #
-# Add and install a library. This method combines all the most common setup for libcyphal library definitions
+# Add and install a library. This method combines all the most common setup for cetlvast library definitions
 # including defining install rules. Additional properties, dependencies, etc can be added after this function
 # using the library target named by the `NAME` argument you passed in.
 #

@@ -190,23 +190,6 @@ jobs:
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v5.3.0
         if: ${{ env.SONAR_TOKEN != '' }}
-        with:
-          args: >
-            -Dsonar.organization=opencyphal
-            -Dsonar.projectKey=OpenCyphal_CETL
-            -Dsonar.projectName=CETLVaSt
-            -Dsonar.verbose=true
-            -Dsonar.cfamily.compile-commands=cetlvast/build/compile_commands.json
-            -Dsonar.cfamily.cobertura.reportPaths=cetlvast/build/suites/unittest/coverage.xml
-            -Dsonar.testExecutionReportPaths=cetlvast/build/suites/unittest/unittest-sonarqube.xml
-            -Dsonar.sources="include,cetlvast/suites/unittest/sonar.cpp"
-            -Dsonar.tests="cetlvast/suites/unittest"
-            -Dsonar.test.inclusions="**/test_*.cpp"
-            -Dsonar.cfamily.ignoreHeaderComments=false
-            -Dsonar.coverage.exclusions="cetlvast/**/*,**/sonar.cpp"
-            -Dsonar.cpd.exclusions="cetlvast/**/*,**/sonar.cpp"
-            -Dsonar.cfamily.reportingCppStandardOverride=c++14
-
   deploy-docs:
     if: >
       (github.event_name == 'release' && !github.event.release.prerelease) ||

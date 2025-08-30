@@ -56,9 +56,9 @@ function(enable_clang_format_check_for_directory)
     cmake_path(APPEND ARG_DIRECTORY "${ARG_GLOB_PATTERN}" OUTPUT_VARIABLE LOCAL_GLOB_PATTERN_WITH_PATH)
 
     if  (ARG_ADD_TO_ALL)
-    set(LOCAL_ALL "ALL")
+        set(LOCAL_ALL "ALL")
     else()
-    set(LOCAL_ALL  "")
+        set(LOCAL_ALL  "")
     endif()
 
     file(GLOB_RECURSE LOCAL_SOURCE_FILES
