@@ -22,6 +22,7 @@
 #include <array>
 
 #include "o1heap.h"
+#include <cstddef>  // for max_align_t
 
 namespace cetl
 {
