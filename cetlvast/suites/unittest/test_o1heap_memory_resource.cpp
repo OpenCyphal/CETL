@@ -22,24 +22,23 @@ namespace test
 
 class O1HeapMemoryResourceTest : public ::testing::Test
 {
-    static constexpr std::size_t TestBufferSize = 0x100000;
+    static constexpr std::size_t TestBufferSize = 4096;
 
-public:
-    cetl::pmr::O1HeapAlignedStorage<TestBufferSize> large_buffer{};
+    void SetUp() override
+    {
+        // Fill the buffer with a known pattern to help identify uninitialized memory usage
+        memset(&large_buffer, 0xAA, sizeof(large_buffer));  // NOLINT
+    }
+
+protected:
+    static cetl::pmr::O1HeapAlignedStorage<TestBufferSize> large_buffer;
 };
 
-TEST_F(O1HeapMemoryResourceTest, TestDefault)
-{
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{large_buffer};
-    void*                                                 mem = test_subject.allocate(8);
-    ASSERT_NE(nullptr, mem);
-    test_subject.deallocate(mem, 8);
-}
+cetl::pmr::O1HeapAlignedStorage<O1HeapMemoryResourceTest::TestBufferSize> O1HeapMemoryResourceTest::large_buffer;
 
 TEST_F(O1HeapMemoryResourceTest, O1HeapAlignedStorageTest)
 {
-    cetl::pmr::O1HeapAlignedStorage<4096>                 aligned_storage{};
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{aligned_storage};
+    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{large_buffer};
     void*                                                 mem = test_subject.allocate(16);
     ASSERT_NE(nullptr, mem);
     test_subject.deallocate(mem, 16);
@@ -89,12 +88,7 @@ TEST_F(O1HeapMemoryResourceTest, TestAllocationFailureThrowsBadAlloc)
     void* final_alloc = test_subject.allocate(64);
     EXPECT_EQ(nullptr, final_alloc) << "Allocation should return nullptr when heap is exhausted";
 #endif
-
-    // Clean up allocations
-    for (void* mem : allocations)
-    {
-        test_subject.deallocate(mem, 64);
-    }
+    // Don't worry about deallocating memory since the allocator and small_buffer both go out of scope with the test.
 }
 
 }  // namespace test

@@ -208,5 +208,3 @@ add_executable(cetlvast_sonar
 target_link_libraries(cetlvast_sonar
     PRIVATE cetl
 )
-
-find_package(SonarScanner)

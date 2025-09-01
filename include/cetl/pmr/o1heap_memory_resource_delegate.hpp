@@ -4,7 +4,7 @@
 /// include cetl/pf17/cetlpf.hpp or provide the memory_resource definition you want this class to use.
 /// You'll also need to provide an include path to o1heap.h and compile in o1heap.c when using this type.
 ///
-/// @snippet{trimleft} example_11_memory_resource_01heap.cpp main
+/// @snippet{trimleft} example_11_memory_resource_o1heap.cpp main
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -38,10 +38,10 @@ struct O1HeapAlignedStorage
 
     static_assert(O1HEAP_ALIGNMENT >= alignof(std::max_align_t), "O1HEAP_ALIGNMENT is too small for this platform.");
 
-    struct alignas(alignment) type
+    struct alignas(alignment) type  // NOSONAR cpp:5945
     {
         std::array<unsigned char, arena_size> data;
-    } storage[1];
+    } storage[1];  // NOSONAR cpp:3646
 };
 
 class UnsynchronizedO1HeapMemoryResourceDelegate
@@ -51,11 +51,8 @@ public:
         : o1heap_{o1heapInit(buffer, buffer_size_bytes)}
     {
 #if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
-        if (nullptr == o1heap_)
-        {
-            CETL_DEBUG_ASSERT(o1heapMinArenaSize <= buffer_size_bytes, "CDE_o1h_002: buffer_size_bytes is too small.");
-            CETL_DEBUG_ASSERT(nullptr != o1heap_, "CDE_o1h_001: o1heapInit failed.");
-        }
+        CETL_DEBUG_ASSERT(o1heapMinArenaSize <= buffer_size_bytes, "CDE_o1h_002: buffer_size_bytes is too small.");
+        CETL_DEBUG_ASSERT(nullptr != o1heap_, "CDE_o1h_001: o1heapInit failed.");
 #endif
     }
 

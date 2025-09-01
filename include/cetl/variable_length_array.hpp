@@ -1438,7 +1438,7 @@ public:
             return;
         }
 
-        push_back_impl(std::move(value));
+        push_back_impl(std::forward<value_type>(value));
     }
 
     ///

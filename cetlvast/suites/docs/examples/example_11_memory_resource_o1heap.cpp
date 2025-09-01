@@ -16,7 +16,7 @@ namespace cetl
 namespace pf17
 {
 
-TEST(example_11_memory_resource_01heap, main)
+TEST(example_11_memory_resource_o1heap, main)
 {
     //! [main]
     // We'll use the aligned-storage helper class to defined properly aligned storage for the 01-heap areana. As this

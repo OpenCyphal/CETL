@@ -31,7 +31,7 @@
 /// - @subpage example_08_variable_length_array_vs_vector
 /// - @subpage example_09_variant
 /// - @subpage example_10_unbounded_variant
-/// - @subpage example_11_memory_resource_01heap
+/// - @subpage example_11_memory_resource_o1heap
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -74,9 +74,9 @@
 /// Full example for cetl::unbounded_variant
 /// @include example_10_unbounded_variant.cpp
 ///
-/// @page example_11_memory_resource_01heap Example 11: Using the 01Heap memory_resource
+/// @page example_11_memory_resource_o1heap Example 11: Using the 01heap memory_resource
 /// Full example for cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate
-/// @include example_11_memory_resource_01heap.cpp
+/// @include example_11_memory_resource_o1heap.cpp
 ///
 
 #ifndef CETL_H_INCLUDED
