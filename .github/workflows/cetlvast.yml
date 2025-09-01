@@ -188,7 +188,7 @@ jobs:
         working-directory: cetlvast
         run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.3.0
+        uses: SonarSource/sonarqube-scan-action@v5.3.1
         if: ${{ env.SONAR_TOKEN != '' }}
         with:
           args: >
