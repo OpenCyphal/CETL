@@ -767,7 +767,7 @@ private:
     void* do_allocate_from_current_buffer(std::size_t size_bytes, std::size_t alignment)
     {
         void* result = nullptr;
-        if (current_buffer_->buffer && current_buffer_->remaining_buffer_size >= size_bytes)
+        if ((nullptr != current_buffer_->buffer) && (current_buffer_->remaining_buffer_size >= size_bytes))
         {
             CETL_DEBUG_ASSERT(current_buffer_->buffer_size >= current_buffer_->remaining_buffer_size,
                               "remaining_buffer_size exceeded total buffer size? We have corrupt internal logic.");

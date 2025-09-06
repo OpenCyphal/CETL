@@ -31,6 +31,7 @@
 /// - @subpage example_08_variable_length_array_vs_vector
 /// - @subpage example_09_variant
 /// - @subpage example_10_unbounded_variant
+/// - @subpage example_11_memory_resource_o1heap
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -73,6 +74,10 @@
 /// Full example for cetl::unbounded_variant
 /// @include example_10_unbounded_variant.cpp
 ///
+/// @page example_11_memory_resource_o1heap Example 11: Using the 01heap memory_resource
+/// Full example for cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate
+/// @include example_11_memory_resource_o1heap.cpp
+///
 
 #ifndef CETL_H_INCLUDED
 #define CETL_H_INCLUDED
@@ -95,18 +100,18 @@
 /// and minor version. A patch version number change will only occur if library source code is changed.
 /// Documentation or test suite changes will not require a change to `cetl/cetl.hpp` and will not bump
 /// the patch version.
-#define CETL_VERSION_PATCH 2
+#define CETL_VERSION_PATCH 0  // NOSONAR cpp:5028
 
 /// @def CETL_VERSION_MINOR
 /// CETL minor version.
 /// Minor versions shall only add to CETL or modify it in a backwards compatible way.
-#define CETL_VERSION_MINOR 4
+#define CETL_VERSION_MINOR 5  // NOSONAR cpp:5028
 
 /// @def CETL_VERSION_MAJOR
 /// CETL Major version.
 /// New major versions shall be rare. No overarching guarantees are made about compatibility
 /// between major versions.
-#define CETL_VERSION_MAJOR 1
+#define CETL_VERSION_MAJOR 1  // NOSONAR cpp:5028
 
 /// @}
 
@@ -125,7 +130,7 @@
 /// in production code is <em>strongly</em> discouraged.
 ///
 #if defined NDEBUG && defined CETL_ENABLE_DEBUG_ASSERT
-#    undef CETL_ENABLE_DEBUG_ASSERT
+#    undef CETL_ENABLE_DEBUG_ASSERT  // NOSONAR cpp:s959
 #endif
 
 // Intentional violation of Sonar: the assertions check macro cannot be replaced with a function definition.
@@ -138,7 +143,7 @@
 
 // Make the standard exceptions available only if exceptions are enabled.
 #if defined(__cpp_exceptions)
-#    include <stdexcept>
+#    include <stdexcept>  // NOLINT
 #endif
 
 /// @defgroup CETL_CPP_STANDARD Guaranteed CETL c++ standard numbers
@@ -162,7 +167,7 @@
 /// #include <something_from_cpp_14>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_14 201402L
+#define CETL_CPP_STANDARD_14 201402L  // NOSONAR cpp:5028
 
 /// @def CETL_CPP_STANDARD_17
 /// Provides the proper value to test against `__cplusplus` for c++14.
@@ -172,7 +177,7 @@
 /// #include <something_from_cpp_17>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_17 201703L
+#define CETL_CPP_STANDARD_17 201703L  // NOSONAR cpp:5028
 
 /// @def CETL_CPP_STANDARD_20
 /// Provides the proper value to test against `__cplusplus` for c++14.
@@ -183,7 +188,7 @@
 /// #include <something_from_cpp_20>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_20 202002L
+#define CETL_CPP_STANDARD_20 202002L  // NOSONAR cpp:5028
 
 /// @}
 

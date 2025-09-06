@@ -256,7 +256,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestAllocateAllocateDealloc
 // +----------------------------------------------------------------------+
 // | ☠️ DEATH TESTS ☠️
 // +----------------------------------------------------------------------+
-#if CETL_ENABLE_DEBUG_ASSERT
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
 
 static void TestNullUpstreamInCtor()
 {

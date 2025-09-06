@@ -31,6 +31,7 @@ set(NATIVE_EXAMPLES
     example_08_variable_length_array_vs_vector.cpp
     example_09_variant.cpp
     example_10_unbounded_variant.cpp
+    example_11_memory_resource_o1heap.cpp
 )
 
 set(ALL_EXAMPLES "")

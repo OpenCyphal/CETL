@@ -4,7 +4,7 @@
 /// include cetl/pf17/cetlpf.hpp or provide the memory_resource definition you want this class to use.
 /// You'll also need to provide an include path to o1heap.h and compile in o1heap.c when using this type.
 ///
-/// TODO: examples
+/// @snippet{trimleft} example_11_memory_resource_o1heap.cpp main
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -19,9 +19,10 @@
 #    include "cetl/cetl.hpp"
 #endif
 
-#include <type_traits>  // for aligned_storage
+#include <array>
 
 #include "o1heap.h"
+#include <cstddef>  // for max_align_t
 
 namespace cetl
 {
@@ -33,13 +34,14 @@ struct O1HeapAlignedStorage
 {
     static constexpr std::size_t size_bytes = StorageSizeBytes;
     static constexpr std::size_t alignment  = O1HEAP_ALIGNMENT;
+    static constexpr std::size_t arena_size = ((size_bytes + (alignment - 1)) / alignment) * alignment;
 
     static_assert(O1HEAP_ALIGNMENT >= alignof(std::max_align_t), "O1HEAP_ALIGNMENT is too small for this platform.");
 
-    struct alignas(alignment) type
+    struct alignas(alignment) type  // NOSONAR cpp:5945
     {
-        unsigned char data[((size_bytes + alignment - 1) / alignment) * alignment];
-    } storage[1];
+        std::array<unsigned char, arena_size> data;
+    } storage[1];  // NOSONAR cpp:3646
 };
 
 class UnsynchronizedO1HeapMemoryResourceDelegate
@@ -47,10 +49,11 @@ class UnsynchronizedO1HeapMemoryResourceDelegate
 public:
     UnsynchronizedO1HeapMemoryResourceDelegate(void* buffer, std::size_t buffer_size_bytes)
         : o1heap_{o1heapInit(buffer, buffer_size_bytes)}
-        , max_size_bytes_{buffer_size_bytes}
     {
-        // TODO: https://github.com/pavel-kirienko/o1heap/issues/17
+#if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
+        CETL_DEBUG_ASSERT(o1heapMinArenaSize <= buffer_size_bytes, "CDE_o1h_002: buffer_size_bytes is too small.");
         CETL_DEBUG_ASSERT(nullptr != o1heap_, "CDE_o1h_001: o1heapInit failed.");
+#endif
     }
 
     template <typename AlignedStorageType>
@@ -90,14 +93,11 @@ public:
 
     std::size_t max_size() const noexcept
     {
-        // TODO: https://github.com/pavel-kirienko/o1heap/issues/18
-        return max_size_bytes_;
+        return o1heapGetMaxAllocationSize(o1heap_);
     }
 
 private:
     O1HeapInstance* o1heap_;
-    // TODO: remove when https://github.com/pavel-kirienko/o1heap/issues/18 is fixed.
-    std::size_t max_size_bytes_;
 };
 
 }  // namespace pmr
