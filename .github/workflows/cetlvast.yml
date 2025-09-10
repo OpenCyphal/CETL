@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         id: cetlvast-ext
         uses: actions/cache@v4
@@ -52,7 +52,7 @@ jobs:
         toolchain: ["gcc-native-32", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20", "cpp-23"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -93,7 +93,7 @@ jobs:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -130,7 +130,7 @@ jobs:
     needs:
       - cache-warmup
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Cache ext modules
         uses: actions/cache@v4
         with:
@@ -148,7 +148,7 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Upload docs
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: "cetlvast/build/suites/docs/html/"
 
@@ -168,7 +168,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
       - name: Cache ext modules
@@ -188,25 +188,8 @@ jobs:
         working-directory: cetlvast
         run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.3.0
+        uses: SonarSource/sonarqube-scan-action@v5.3.1
         if: ${{ env.SONAR_TOKEN != '' }}
-        with:
-          args: >
-            -Dsonar.organization=opencyphal
-            -Dsonar.projectKey=OpenCyphal_CETL
-            -Dsonar.projectName=CETLVaSt
-            -Dsonar.verbose=true
-            -Dsonar.cfamily.compile-commands=cetlvast/build/compile_commands.json
-            -Dsonar.cfamily.cobertura.reportPaths=cetlvast/build/suites/unittest/coverage.xml
-            -Dsonar.testExecutionReportPaths=cetlvast/build/suites/unittest/unittest-sonarqube.xml
-            -Dsonar.sources="include,cetlvast/suites/unittest/sonar.cpp"
-            -Dsonar.tests="cetlvast/suites/unittest"
-            -Dsonar.test.inclusions="**/test_*.cpp"
-            -Dsonar.cfamily.ignoreHeaderComments=false
-            -Dsonar.coverage.exclusions="cetlvast/**/*,**/sonar.cpp"
-            -Dsonar.cpd.exclusions="cetlvast/**/*,**/sonar.cpp"
-            -Dsonar.cfamily.reportingCppStandardOverride=c++14
-
   deploy-docs:
     if: >
       (github.event_name == 'release' && !github.event.release.prerelease) ||

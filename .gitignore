@@ -50,3 +50,6 @@ Vagrantfile
 cmake-build-*/
 
 *.gcov
+
+# clangd
+.cache

@@ -152,6 +152,8 @@ endfunction(create_docs_target)
 
 if (${Doxygen_FOUND})
 
+set(Doxygen_FOUND TRUE PARENT_SCOPE)
+
 file(GLOB_RECURSE DOXYGEN_INPUT_LIST
     LIST_DIRECTORIES false
     CONFIGURE_DEPENDS

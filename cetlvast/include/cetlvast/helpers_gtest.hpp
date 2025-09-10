@@ -15,7 +15,7 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 
-#if CETL_ENABLE_DEBUG_ASSERT
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
 
 /// Workaround limitation in googletest to enable coverage data from the
 /// forked or cloned processes used by google death-tests.
