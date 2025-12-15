@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Cache ext modules
         id: cetlvast-ext
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -95,7 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -132,7 +132,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -172,7 +172,7 @@ jobs:
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}

@@ -51,7 +51,7 @@ jobs:
     #   modify them (or add more) to build your code if your project, please refer to the EXAMPLE below for guidance.
 
     - name: Cache ext modules
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       id: cetlvast-ext
       with:
         path: cetlvast/build_external
