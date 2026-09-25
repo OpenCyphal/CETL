@@ -11,3 +11,7 @@ updates:
     ignore:
       - dependency-name: "actions/*"
         update-types: ["version-update:semver-patch"]
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
         id: cetlvast-ext
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -52,9 +52,9 @@ jobs:
         toolchain: ["gcc-native-32", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20", "cpp-23"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -66,7 +66,7 @@ jobs:
         run: >
           cmake --workflow --preset workflow-${{ matrix.toolchain }}-${{ matrix.standard }}-offline
       - name: upload-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-amd64
           path: |
@@ -93,9 +93,9 @@ jobs:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -107,7 +107,7 @@ jobs:
         run: >
           cmake --workflow --preset workflow-${{ matrix.toolchain }}-${{ matrix.standard }}-offline
       - name: upload-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-arm64
           path: |
@@ -130,9 +130,9 @@ jobs:
     needs:
       - cache-warmup
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -145,10 +145,10 @@ jobs:
         run: ninja docs
       - name: Setup Pages
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Upload docs
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: "cetlvast/build/suites/docs/html/"
 
@@ -168,11 +168,11 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -188,7 +188,7 @@ jobs:
         working-directory: cetlvast
         run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
       - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.3.1
+        uses: SonarSource/sonarqube-scan-action@v8
         if: ${{ env.SONAR_TOKEN != '' }}
   deploy-docs:
     if: >
@@ -213,4 +213,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
