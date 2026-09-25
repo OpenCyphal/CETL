@@ -229,10 +229,8 @@ add_custom_target(
     unittest
     DEPENDS
         run_unittests
-        $<$<CONFIG:Coverage>:gcovr_sonarqube_report_for_unittest>
         $<$<CONFIG:Coverage>:gcovr_html_report_for_unittest>
         run_examples
-        $<$<CONFIG:Coverage>:gcovr_sonarqube_report_for_examples>
         $<$<CONFIG:Coverage>:gcovr_html_report_for_examples>
         run_compile_precheck_tests
 )

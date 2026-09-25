@@ -226,7 +226,7 @@ endfunction(define_gcovr_tracefile_target)
 # for the current directory. Be sure to call this only after all calls to define_gcovr_tracefile_target
 # have been made.
 #
-# param: COVERAGE_REPORT_FORMATS - Supports html or sonarqube
+# param: COVERAGE_REPORT_FORMATS - Supports html
 # param: ROOT_DIRECTORY string - The root directory of the source to be covered.
 # param: OUT_REPORT_INDICES list[string] - The name of a variable to set to a list of index files of the reports.
 #
@@ -263,10 +263,6 @@ function (enable_coverage_report)
             set(LOCAL_REPORT_INDEX "gcovr_html/coverage.html")
             file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/gcovr_html")
             list(APPEND LOCAL_FORMAT_ARGS "--html-details")
-            list(APPEND LOCAL_FORMAT_ARGS "${LOCAL_REPORT_INDEX}")
-        elseif (LOCAL_REPORT_FORMAT STREQUAL "sonarqube")
-            set(LOCAL_REPORT_INDEX "coverage.xml")
-            list(APPEND LOCAL_FORMAT_ARGS "--cobertura")
             list(APPEND LOCAL_FORMAT_ARGS "${LOCAL_REPORT_INDEX}")
         else()
             message(FATAL_ERROR "${LOCAL_REPORT_FORMAT} is not a supported coverage report format.")

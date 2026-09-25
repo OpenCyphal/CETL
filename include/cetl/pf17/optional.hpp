@@ -90,7 +90,7 @@ struct base_destruction<T, true>
     {
         if (m_engaged)
         {
-            new (std::addressof(m_value)) T(std::forward<U>(other).m_value);  // NOSONAR cpp:S984
+            new (std::addressof(m_value)) T(std::forward<U>(other).m_value);
         }
     }
     void reset() noexcept

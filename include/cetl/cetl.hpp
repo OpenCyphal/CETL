@@ -100,18 +100,18 @@
 /// and minor version. A patch version number change will only occur if library source code is changed.
 /// Documentation or test suite changes will not require a change to `cetl/cetl.hpp` and will not bump
 /// the patch version.
-#define CETL_VERSION_PATCH 0  // NOSONAR cpp:5028
+#define CETL_VERSION_PATCH 0
 
 /// @def CETL_VERSION_MINOR
 /// CETL minor version.
 /// Minor versions shall only add to CETL or modify it in a backwards compatible way.
-#define CETL_VERSION_MINOR 5  // NOSONAR cpp:5028
+#define CETL_VERSION_MINOR 5
 
 /// @def CETL_VERSION_MAJOR
 /// CETL Major version.
 /// New major versions shall be rare. No overarching guarantees are made about compatibility
 /// between major versions.
-#define CETL_VERSION_MAJOR 1  // NOSONAR cpp:5028
+#define CETL_VERSION_MAJOR 1
 
 /// @}
 
@@ -130,15 +130,15 @@
 /// in production code is <em>strongly</em> discouraged.
 ///
 #if defined NDEBUG && defined CETL_ENABLE_DEBUG_ASSERT
-#    undef CETL_ENABLE_DEBUG_ASSERT  // NOSONAR cpp:s959
+#    undef CETL_ENABLE_DEBUG_ASSERT
 #endif
 
-// Intentional violation of Sonar: the assertions check macro cannot be replaced with a function definition.
+// Intentional deviation: the assertions check macro cannot be replaced with a function definition.
 #if defined CETL_ENABLE_DEBUG_ASSERT && CETL_ENABLE_DEBUG_ASSERT
 #    include <cassert>
-#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))  // NOSONAR cpp:S960
+#    define CETL_DEBUG_ASSERT(c, m) assert(((void) (m), (c)))
 #else
-#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))  // NOSONAR cpp:S960
+#    define CETL_DEBUG_ASSERT(c, m) ((void) (m))
 #endif
 
 // Make the standard exceptions available only if exceptions are enabled.
@@ -167,7 +167,7 @@
 /// #include <something_from_cpp_14>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_14 201402L  // NOSONAR cpp:5028
+#define CETL_CPP_STANDARD_14 201402L
 
 /// @def CETL_CPP_STANDARD_17
 /// Provides the proper value to test against `__cplusplus` for c++14.
@@ -177,7 +177,7 @@
 /// #include <something_from_cpp_17>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_17 201703L  // NOSONAR cpp:5028
+#define CETL_CPP_STANDARD_17 201703L
 
 /// @def CETL_CPP_STANDARD_20
 /// Provides the proper value to test against `__cplusplus` for c++14.
@@ -188,7 +188,7 @@
 /// #include <something_from_cpp_20>
 /// #endif
 /// ```
-#define CETL_CPP_STANDARD_20 202002L  // NOSONAR cpp:5028
+#define CETL_CPP_STANDARD_20 202002L
 
 /// @}
 

@@ -496,10 +496,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1710,10 +1708,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1724,10 +1720,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1738,10 +1732,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1752,10 +1744,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1766,10 +1756,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1780,10 +1768,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1794,10 +1780,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1808,10 +1792,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1822,10 +1804,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1836,10 +1816,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1850,10 +1828,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1864,10 +1840,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1878,10 +1852,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1892,10 +1864,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1906,10 +1876,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1920,10 +1888,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1934,10 +1900,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1948,10 +1912,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1962,10 +1924,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1976,10 +1936,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -1990,10 +1948,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -2004,10 +1960,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -2018,10 +1972,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -2032,10 +1984,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -2046,10 +1996,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         },
         {
@@ -2060,10 +2008,8 @@
                 "build",
                 "run_unittests",
                 "gcovr_html_report_for_unittest",
-                "gcovr_sonarqube_report_for_unittest",
                 "run_examples",
-                "gcovr_html_report_for_examples",
-                "gcovr_sonarqube_report_for_examples"
+                "gcovr_html_report_for_examples"
             ]
         }
     ],
@@ -2101,7 +2047,7 @@
         {
             "name": "manual-coverage-gcc-native-cpp-14-offline",
             "displayName": "gcc native cpp 14 offline (Coverage only).",
-            "description": "Hand-managed workflow for generating coverage data for sonarqube scans.",
+            "description": "Hand-managed workflow for generating local coverage reports.",
             "steps": [
                 {
                     "type": "configure",
@@ -3023,10 +2969,8 @@
                     "build",
                     "run_unittests",
                     "gcovr_html_report_for_unittest",
-                    "gcovr_sonarqube_report_for_unittest",
                     "run_examples",
-                    "gcovr_html_report_for_examples",
-                    "gcovr_sonarqube_report_for_examples"
+                    "gcovr_html_report_for_examples"
                 ]
             },
             "preset-groups": {

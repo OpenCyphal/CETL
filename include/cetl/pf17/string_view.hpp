@@ -56,20 +56,20 @@ public:
     /// Constructs a view of the null-terminated character string pointed to by s, not including the terminating null
     /// character.
     ///
-    /// No lint and Sonar cpp:S1709 b/c this is an intentional implicit conversion.
+    /// No lint b/c this is an intentional implicit conversion.
     ///
     /// NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
-    basic_string_view(const CharT* const str)  // NOSONAR cpp:S1709
+    basic_string_view(const CharT* const str)
         : data_{str}
         , size_{traits_type::length(str)}
     {
     }
 
-    /// No lint and Sonar cpp:S1709 b/c this is an intentional implicit conversion.
+    /// No lint b/c this is an intentional implicit conversion.
     ///
     /// NOLINTNEXTLINE(google-explicit-constructor, hicpp-explicit-conversions)
     template <typename Alloc>
-    basic_string_view(const std::basic_string<CharT, Traits, Alloc>& str)  // NOSONAR cpp:S1709
+    basic_string_view(const std::basic_string<CharT, Traits, Alloc>& str)
         : data_{str.data()}
         , size_{str.size()}
     {

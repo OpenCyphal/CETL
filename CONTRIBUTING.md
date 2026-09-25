@@ -130,11 +130,10 @@ Often, however, you will want to run it on your branch before proposing the chan
 green and test coverage is adequate - to do that:
 - either target your PR to any `issue/NN_LABEL` branch, where `NN` is the issue number and `LABEL` is a small title giving context (like `issue/83_any`)
 - or add a hashtag with the name of the workflow you need to run to the head commit;
-for example, making a commit with a message like `Add feature such and such #verification #docs #sonar`
-will force the CI to execute jobs named `verification`, `docs`, and `sonar`.
+for example, making a commit with a message like `Add feature such and such #verification #docs`
+will force the CI to execute jobs named `verification` and `docs`.
 
-Note that if the job you requested is dependent on other jobs that are not triggered, it will not run;
-for example, if `sonar` requires `docs`, pushing a commit with `#sonar` alone will not make it run.
+Note that if the job you requested is dependent on other jobs that are not triggered, it will not run.
 
 # IDE-specific notes
 

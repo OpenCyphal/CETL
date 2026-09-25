@@ -8,7 +8,6 @@ cmake_minimum_required(VERSION 3.22.0)
 project(cetlvast_unittest CXX)
 
 find_package(googletest REQUIRED)
-find_package(TestReport REQUIRED)
 find_package(o1heap REQUIRED)
 find_package(gcovr)
 
@@ -175,36 +174,17 @@ add_custom_target(
           ${ALL_TESTS_BUILD}
 )
 
-define_junit_to_sonarqube_conversion_rule(
-    SOURCE_FILES ${ALL_TESTS_RUN}
-    OUTPUT "unittest-sonarqube.xml"
-)
-
 add_custom_target(
      run_unittests
      DEPENDS
-        "unittest-sonarqube.xml"
+        ${ALL_TESTS_RUN}
 )
 
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_TESTS_RUN}"
 )
 
-enable_coverage_report(COVERAGE_REPORT_FORMATS html sonarqube
+enable_coverage_report(COVERAGE_REPORT_FORMATS html
                         ROOT_DIRECTORY ${CETL_ROOT}
                         OUT_REPORT_INDICES LOCAL_COVERAGE_REPORT_INDICES
-)
-
-
-# +---------------------------------------------------------------------------+
-# | SONARQUBE
-# +---------------------------------------------------------------------------+
-# we need to build at least one source file to get sonarqube to look at the cetl
-# headers.
-add_executable(cetlvast_sonar
-    "sonar.cpp"
-)
-
-target_link_libraries(cetlvast_sonar
-    PRIVATE cetl
 )

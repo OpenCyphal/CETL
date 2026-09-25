@@ -71,7 +71,6 @@ jobs:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-amd64
           path: |
             cetlvast/build/compile_commands.json
-            cetlvast/build/*/**/coverage.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
@@ -111,7 +110,6 @@ jobs:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-arm64
           path: |
             cetlvast/build/compile_commands.json
-            cetlvast/build/*/**/coverage.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
