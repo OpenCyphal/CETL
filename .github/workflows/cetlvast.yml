@@ -72,7 +72,6 @@ jobs:
           path: |
             cetlvast/build/compile_commands.json
             cetlvast/build/*/**/coverage.xml
-            cetlvast/build/*/**/*-sonarqube.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
@@ -113,7 +112,6 @@ jobs:
           path: |
             cetlvast/build/compile_commands.json
             cetlvast/build/*/**/coverage.xml
-            cetlvast/build/*/**/*-sonarqube.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
@@ -152,50 +150,11 @@ jobs:
         with:
           path: "cetlvast/build/suites/docs/html/"
 
-  sonarqube:
-    if: >
-      (github.event_name == 'release' && !github.event.release.prerelease) ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.message, '#sonar') ||
-      contains(github.ref, '/main') ||
-      contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
-    needs:
-      - cache-warmup
-    runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
-      - name: Cache ext modules
-        uses: actions/cache@v6
-        with:
-          path: cetlvast/build_external
-          key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
-          fail-on-cache-miss: true
-      - name: Check for SONAR_TOKEN
-        if: ${{ env.SONAR_TOKEN == '' && github.event_name == 'pull_request' }}
-        run: echo "::notice file=cetlvast.yml,line=188,col=8,endColumn=80,title=No-Sonar::SONAR_TOKEN is not available for pull requests from external repositories."
-      - name: Check for SONAR_TOKEN
-        if: ${{ env.SONAR_TOKEN == '' && github.event_name != 'pull_request' }}
-        run: echo "::error file=cetlvast.yml,line=191,col=8,endColumn=80,title=SONAR_TOKEN-missing::SONAR_TOKEN was empty or not found."
-      - name: Run build for sonar-scanner
-        if: ${{ env.SONAR_TOKEN != '' }}
-        working-directory: cetlvast
-        run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v8
-        if: ${{ env.SONAR_TOKEN != '' }}
   deploy-docs:
     if: >
       (github.event_name == 'release' && !github.event.release.prerelease) ||
       github.event_name == 'workflow_dispatch'
     needs:
-      - sonarqube
       - docs
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
