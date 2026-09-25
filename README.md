@@ -11,11 +11,6 @@ Cyphal Embedded Template Library
 [![CETLVaSt](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml/badge.svg)](https://github.com/OpenCyphal/CETL/actions/workflows/cetlvast.yml)
 [![Open Bugs](https://img.shields.io/github/issues/OpenCyphal/CETL/bug?label=bugs&logo=github)](https://github.com/OpenCyphal/CETL/issues?q=is%3Aopen+is%3Aissue+label%3Abug)
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=coverage)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=OpenCyphal_CETL&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=OpenCyphal_CETL)
-
-
 ## include
 
 The include directory contains the CETL headers all within a folder, "cetl". Types found under "cetl/pfXX" folders and

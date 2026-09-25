@@ -67,21 +67,16 @@ add_custom_target(
           ${ALL_EXAMPLES}
 )
 
-define_junit_to_sonarqube_conversion_rule(
-    SOURCE_FILES ${ALL_EXAMPLE_RUNS}
-    OUTPUT "examples-sonarqube.xml"
-)
-
 add_custom_target(
      run_examples
      DEPENDS
-        "examples-sonarqube.xml"
+        ${ALL_EXAMPLE_RUNS}
 )
 
 set_directory_properties(PROPERTIES
     IN_BUILD_TESTS "${ALL_EXAMPLE_RUNS}"
 )
 
-enable_coverage_report(COVERAGE_REPORT_FORMATS sonarqube html
+enable_coverage_report(COVERAGE_REPORT_FORMATS html
                         ROOT_DIRECTORY ${CETL_ROOT}
 )

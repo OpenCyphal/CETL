@@ -23,10 +23,10 @@ jobs:
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
         id: cetlvast-ext
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -52,9 +52,9 @@ jobs:
         toolchain: ["gcc-native-32", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20", "cpp-23"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -66,13 +66,11 @@ jobs:
         run: >
           cmake --workflow --preset workflow-${{ matrix.toolchain }}-${{ matrix.standard }}-offline
       - name: upload-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-amd64
           path: |
             cetlvast/build/compile_commands.json
-            cetlvast/build/*/**/coverage.xml
-            cetlvast/build/*/**/*-sonarqube.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
@@ -93,9 +91,9 @@ jobs:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -107,13 +105,11 @@ jobs:
         run: >
           cmake --workflow --preset workflow-${{ matrix.toolchain }}-${{ matrix.standard }}-offline
       - name: upload-artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.toolchain }}-${{ matrix.standard }}-arm64
           path: |
             cetlvast/build/compile_commands.json
-            cetlvast/build/*/**/coverage.xml
-            cetlvast/build/*/**/*-sonarqube.xml
             cetlvast/build/*/**/gcovr_html/*.*
           if-no-files-found: error
 
@@ -130,9 +126,9 @@ jobs:
     needs:
       - cache-warmup
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Cache ext modules
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: cetlvast/build_external
           key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
@@ -145,57 +141,18 @@ jobs:
         run: ninja docs
       - name: Setup Pages
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Upload docs
         if: ${{ github.event_name != 'pull_request' }}
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: "cetlvast/build/suites/docs/html/"
 
-  sonarqube:
-    if: >
-      (github.event_name == 'release' && !github.event.release.prerelease) ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.head_commit.message, '#sonar') ||
-      contains(github.ref, '/main') ||
-      contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
-    needs:
-      - cache-warmup
-    runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis by sonarqube.
-      - name: Cache ext modules
-        uses: actions/cache@v4
-        with:
-          path: cetlvast/build_external
-          key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
-          fail-on-cache-miss: true
-      - name: Check for SONAR_TOKEN
-        if: ${{ env.SONAR_TOKEN == '' && github.event_name == 'pull_request' }}
-        run: echo "::notice file=cetlvast.yml,line=188,col=8,endColumn=80,title=No-Sonar::SONAR_TOKEN is not available for pull requests from external repositories."
-      - name: Check for SONAR_TOKEN
-        if: ${{ env.SONAR_TOKEN == '' && github.event_name != 'pull_request' }}
-        run: echo "::error file=cetlvast.yml,line=191,col=8,endColumn=80,title=SONAR_TOKEN-missing::SONAR_TOKEN was empty or not found."
-      - name: Run build for sonar-scanner
-        if: ${{ env.SONAR_TOKEN != '' }}
-        working-directory: cetlvast
-        run: cmake --workflow --preset manual-coverage-gcc-native-cpp-14-offline
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@v5.3.1
-        if: ${{ env.SONAR_TOKEN != '' }}
   deploy-docs:
     if: >
       (github.event_name == 'release' && !github.event.release.prerelease) ||
       github.event_name == 'workflow_dispatch'
     needs:
-      - sonarqube
       - docs
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
@@ -213,4 +170,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

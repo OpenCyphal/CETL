@@ -33,7 +33,6 @@ NOLINT
 NOLINTBEGIN
 NOLINTEND
 NOLINTNEXTLINE
-NOSONAR
 NOTFOUND
 opencyphal
 Pavel
@@ -42,8 +41,6 @@ pushd
 rbegin
 regen
 rend
-sonarcloud
-sonarqube
 ssep
 STREQUAL
 subpage
