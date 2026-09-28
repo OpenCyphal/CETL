@@ -90,6 +90,7 @@ set(NATIVE_TESTS
     test_pf17_polymorphic_allocator.cpp
     test_pf17_string_view.cpp
     test_pf17_type_traits.cpp
+    test_pf17_variant_asserts.cpp
     test_pf17_variant_assignment_1.cpp
     test_pf17_variant_assignment_2.cpp
     test_pf17_variant_assignment_3.cpp

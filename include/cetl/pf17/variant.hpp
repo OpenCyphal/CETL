@@ -333,7 +333,8 @@ struct base_storage<types<Ts...>, smf_trivial>
     template <std::size_t N, typename... Args>
     auto& init(Args&&... args)
     {
-        assert(variant_npos == m_index);  // Internal contract check; the caller is responsible to ensure valuelessness.
+        // Internal contract check; the caller is responsible to ensure valuelessness.
+        CETL_DEBUG_ASSERT(variant_npos == m_index, "variant internal contract");
         auto& p = construct<N>(m_arena, std::forward<Args>(args)...);
         m_index = N;  // If constructor succeeds, become non-valueless.
         return p;
@@ -372,7 +373,8 @@ struct base_storage<types<Ts...>, smf_nontrivial>
     template <std::size_t N, typename... Args>
     auto& init(Args&&... args)
     {
-        assert(variant_npos == m_index);  // Internal contract check; the caller is responsible to ensure valuelessness.
+        // Internal contract check; the caller is responsible to ensure valuelessness.
+        CETL_DEBUG_ASSERT(variant_npos == m_index, "variant internal contract");
         auto& p = construct<N>(m_arena, std::forward<Args>(args)...);
         m_index = N;  // If constructor succeeds, become non-valueless.
         return p;
@@ -394,7 +396,7 @@ struct base_storage<types<Ts...>, smf_nontrivial>
         {
             chronomorphize<sizeof...(Ts)>(
                 [this](const auto index) {
-                    assert(index.value == m_index);
+                    CETL_DEBUG_ASSERT(index.value == m_index, "variant internal contract");
                     using T = nth_type<index.value, Ts...>;
                     alt<index.value>(m_arena).~T();
                 },
@@ -424,25 +426,29 @@ constexpr decltype(auto) chronomorphize(Fun&& fun, const base_storage<Seq, P>& s
 template <std::size_t N, typename Seq, int P>
 CETL_NODISCARD constexpr auto& alt(base_storage<Seq, P>& self) noexcept
 {
-    assert(N == self.m_index);  // Internal contract check; the caller is responsible for the correctness of N.
+    // Internal contract check; the caller is responsible for the correctness of N.
+    CETL_DEBUG_ASSERT(N == self.m_index, "variant internal contract");
     return alt<N>(self.m_arena);
 }
 template <std::size_t N, typename Seq, int P>
 CETL_NODISCARD constexpr const auto& alt(const base_storage<Seq, P>& self) noexcept
 {
-    assert(N == self.m_index);  // Internal contract check; the caller is responsible for the correctness of N.
+    // Internal contract check; the caller is responsible for the correctness of N.
+    CETL_DEBUG_ASSERT(N == self.m_index, "variant internal contract");
     return alt<N>(self.m_arena);
 }
 template <std::size_t N, typename Seq, int P>
 CETL_NODISCARD constexpr auto&& alt(base_storage<Seq, P>&& self) noexcept
 {
-    assert(N == self.m_index);  // Internal contract check; the caller is responsible for the correctness of N.
+    // Internal contract check; the caller is responsible for the correctness of N.
+    CETL_DEBUG_ASSERT(N == self.m_index, "variant internal contract");
     return std::move(alt<N>(std::move(self.m_arena)));
 }
 template <std::size_t N, typename Seq, int P>
 CETL_NODISCARD constexpr const auto&& alt(const base_storage<Seq, P>&& self) noexcept
 {
-    assert(N == self.m_index);  // Internal contract check; the caller is responsible for the correctness of N.
+    // Internal contract check; the caller is responsible for the correctness of N.
+    CETL_DEBUG_ASSERT(N == self.m_index, "variant internal contract");
     return std::move(alt<N>(std::move(self.m_arena)));
 }
 
@@ -583,12 +589,13 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
     {
         if ((variant_npos != this->m_index) && (this->m_index == other.m_index))  // Invoke copy assignment.
         {
-            assert(other.m_index != variant_npos);
+            CETL_DEBUG_ASSERT(other.m_index != variant_npos, "variant internal contract");
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's copy assignment.
             chronomorphize(
                 [this, &other](const auto index) {
-                    assert((index.value == other.m_index) && (index.value == this->m_index));
+                    CETL_DEBUG_ASSERT((index.value == other.m_index) && (index.value == this->m_index),
+                                      "variant internal contract");
                     // We need the temporaries to work around a GCC bug where it complains about unused result of as()
                     auto&       dst = alt<index.value>(*this);
                     const auto& src = alt<index.value>(other);
@@ -606,7 +613,7 @@ struct base_copy_assignment<types<Ts...>, smf_nontrivial> : base_move_constructi
         }
         else
         {
-            assert(other.m_index == variant_npos);
+            CETL_DEBUG_ASSERT(other.m_index == variant_npos, "variant internal contract");
             this->reset();  // This is a no-op if this is already valueless.
         }
         return *this;
@@ -670,12 +677,13 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
     {
         if ((variant_npos != this->m_index) && (this->m_index == other.m_index))  // Invoke move assignment.
         {
-            assert(other.m_index != variant_npos);
+            CETL_DEBUG_ASSERT(other.m_index != variant_npos, "variant internal contract");
             // If an exception is thrown, *this does not become valueless:
             // the value depends on the exception safety guarantee of the alternative's move assignment.
             chronomorphize(
                 [this, &other](const auto index) {
-                    assert((index.value == other.m_index) && (index.value == this->m_index));
+                    CETL_DEBUG_ASSERT((index.value == other.m_index) && (index.value == this->m_index),
+                                      "variant internal contract");
                     // We need the temporaries to work around a GCC bug where it complains about unused result of as()
                     auto& dst = alt<index.value>(*this);
                     auto& src = alt<index.value>(other);
@@ -694,7 +702,7 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
         }
         else
         {
-            assert(other.m_index == variant_npos);
+            CETL_DEBUG_ASSERT(other.m_index == variant_npos, "variant internal contract");
             this->reset();  // This is a no-op if this is already valueless.
         }
         return *this;
