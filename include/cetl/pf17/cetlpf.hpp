@@ -38,6 +38,7 @@
 /// @namespace cetl::pf17::pmr::deviant Types or methods that deviate from the C++17 specification.
 ///
 #if (__cplusplus >= CETL_CPP_STANDARD_17 && !defined(CETL_DOXYGEN))
+#    include <memory>
 #    include <memory_resource>
 #    include <cstddef>
 #    include <optional>
@@ -47,6 +48,9 @@
 namespace cetl
 {
 using byte = std::byte;
+
+// memory
+using std::uninitialized_move;
 
 // pmr
 namespace pmr
@@ -124,6 +128,7 @@ using std::string_view;
 
 #else
 #    include "cetl/pf17/byte.hpp"
+#    include "cetl/pf17/memory.hpp"
 #    include "cetl/pf17/utility.hpp"
 #    include "cetl/pf17/optional.hpp"
 #    include "cetl/pf17/variant.hpp"
@@ -133,6 +138,9 @@ namespace cetl
 {
 
 using byte = cetl::pf17::byte;
+
+// memory
+using cetl::pf17::uninitialized_move;
 
 // pmr
 namespace pmr

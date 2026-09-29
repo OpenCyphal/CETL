@@ -85,6 +85,7 @@ set(NATIVE_TESTS
     test_buffer_memory_resource_users.cpp
     test_buffer_memory_resource.cpp
     test_o1heap_memory_resource.cpp
+    test_pf17_memory.cpp
     test_pf17_memory_resource.cpp
     test_pf17_monotonic_buffer_resource.cpp
     test_pf17_polymorphic_allocator.cpp
