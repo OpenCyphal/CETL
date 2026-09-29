@@ -815,10 +815,9 @@ protected:
     }
 
     template <typename UAlloc>
-    constexpr VariableLengthArrayBase(
-        VariableLengthArrayBase&& rhs,
-        const UAlloc&             rhs_alloc,
-        typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
+    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs,
+                                      const UAlloc&             rhs_alloc,
+                                      typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr)
         : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
         , data_{nullptr}
         , capacity_(0)
@@ -1042,7 +1041,9 @@ public:
         return *this;
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept
+    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
+        std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
+        std::allocator_traits<allocator_type>::is_always_equal::value)
         : Base(std::move(rhs), alloc)
     {
     }
@@ -1910,7 +1911,9 @@ public:
         rhs.last_byte_bit_fill_ = 0;
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept
+    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
+        std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
+        std::allocator_traits<allocator_type>::is_always_equal::value)
         : Base(std::move(rhs), alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {

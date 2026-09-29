@@ -41,7 +41,7 @@ TYPED_TEST(TestVariableLengthArrayCompiles, MoveConstructorIsNoThrow)
     static_assert(noexcept(TypeParam(std::move(std::declval<TypeParam>()))), "Must be no-throw move constructable.");
 }
 
-// used by MoveAssignmentNoexcept test.
+// Used by the allocator-dependent move exception specification tests.
 template <typename T, typename isaType, typename pocmaType>
 struct FakeAllocator
 {
@@ -55,6 +55,30 @@ struct FakeAllocator
         typedef FakeAllocator<U, isaType, pocmaType> other;
     };
 };
+
+TYPED_TEST(TestVariableLengthArrayCompiles, MoveConstructorWithAllocatorNoexcept)
+{
+    using AlwaysEqualPropagating = FakeAllocator<typename TypeParam::value_type, std::true_type, std::true_type>;
+    using AlwaysEqual            = FakeAllocator<typename TypeParam::value_type, std::true_type, std::false_type>;
+    using Propagating            = FakeAllocator<typename TypeParam::value_type, std::false_type, std::true_type>;
+    using Unequal                = FakeAllocator<typename TypeParam::value_type, std::false_type, std::false_type>;
+
+    using VLA0 = cetl::VariableLengthArray<typename TypeParam::value_type, AlwaysEqualPropagating>;
+    using VLA1 = cetl::VariableLengthArray<typename TypeParam::value_type, AlwaysEqual>;
+    using VLA2 = cetl::VariableLengthArray<typename TypeParam::value_type, Propagating>;
+    using VLA3 = cetl::VariableLengthArray<typename TypeParam::value_type, Unequal>;
+
+    static_assert(std::is_nothrow_constructible<VLA0, VLA0&&, const typename VLA0::allocator_type&>::value,
+                  "Transferring storage must remain noexcept.");
+    static_assert(std::is_nothrow_constructible<VLA1, VLA1&&, const typename VLA1::allocator_type&>::value,
+                  "Transferring storage must remain noexcept.");
+    static_assert(std::is_nothrow_constructible<VLA2, VLA2&&, const typename VLA2::allocator_type&>::value,
+                  "Transferring storage must remain noexcept.");
+    static_assert(!std::is_nothrow_constructible<VLA3, VLA3&&, const typename VLA3::allocator_type&>::value,
+                  "Moving with a potentially unequal allocator may allocate and throw.");
+    static_assert(std::is_nothrow_move_constructible<VLA3>::value,
+                  "Moving without a supplied allocator must remain noexcept.");
+}
 
 #if defined(__GNUG__)
 #    pragma GCC diagnostic push
