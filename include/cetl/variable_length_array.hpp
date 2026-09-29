@@ -842,7 +842,7 @@ protected:
                 data_ = std::allocator_traits<allocator_type>::allocate(alloc_, rhs.size_);
                 fast_forward_construct(data_, rhs.size_, rhs.data_, rhs.size_, alloc_);
             }
-            capacity_ = rhs.capacity_;
+            capacity_ = rhs.size_;
             size_     = rhs.size_;
             fast_deallocate(rhs.data_, rhs.size_, rhs.capacity_, rhs.alloc_);
         }
