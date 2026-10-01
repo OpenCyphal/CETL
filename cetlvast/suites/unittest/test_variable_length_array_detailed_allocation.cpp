@@ -701,6 +701,8 @@ TYPED_TEST(VLADetailedAllocationTests, MoveConstruct)
 
     EXPECT_EQ(test_subject, copy_of_source);
     EXPECT_EQ(4, test_subject.size());
+    // The allocator is move constructed from the source's allocator; no soccc is involved.
+    EXPECT_FALSE(test_subject.get_allocator().was_from_soccc);
 
     // For creating the initial values from integers and copying the source
     // array.
@@ -712,39 +714,178 @@ TYPED_TEST(VLADetailedAllocationTests, MoveConstruct)
     EXPECT_EQ(0, TestFixture::ItemT::total_instances_default_constructed);
 }
 
-using VLAWithNoPropagateOnMoveAllocator =
-    cetl::VariableLengthArray<
-        InstrumentedType,
-        cetlvast::InstrumentedNewDeleteAllocator<
-            InstrumentedType,
-            std::false_type,  // Is always equal
-            std::false_type,  // Is equal
-            std::false_type,  // Propagate on container move assignment
-            std::true_type    // Propagate on container copy assignment
-        >
-    >;
-using VLAWithNoPropagateOnMoveAllocatorTests = VLADetailedAllocationTests<VLAWithNoPropagateOnMoveAllocator>;
-TEST_F(VLAWithNoPropagateOnMoveAllocatorTests, MoveConstructWithNewAllocator)
-{
-    using TestFixture = VLAWithNoPropagateOnMoveAllocatorTests;
-    using VlaType = VLAWithNoPropagateOnMoveAllocator;
-    using AllocatorType = VlaType::allocator_type;
+// +---------------------------------------------------------------------------+
+// | TEST CASES :: ALLOCATOR-EXTENDED COPY AND MOVE CONSTRUCT
+// +---------------------------------------------------------------------------+
+//
+// [container.alloc.reqs] specifies the allocator-extended constructors as:
+//
+//   X u(t, m)  - u has copies of the elements of t and u.get_allocator() == m.
+//   X u(rv, m) - u has the elements rv had before the construction and
+//                u.get_allocator() == m. Constant complexity if
+//                m == rv.get_allocator() (the storage is adopted), otherwise
+//                linear (each element is move-inserted into storage obtained
+//                from m).
+//
+// m is used as-is: select_on_container_copy_construction is only applied by
+// the non-extended copy constructor. propagate_on_container_move_assignment
+// has no bearing on construction; it is only consulted by move assignment.
+// These tests run against std::vector as well as VariableLengthArray so the
+// expectations below are known to agree with the standard library.
 
-    VlaType test_source{{1, 2, 3, 4}, AllocatorType{}};
-    VlaType copy_of_source{test_source};
-    VlaType test_subject{std::move(test_source), AllocatorType{}};
+TYPED_TEST(VLADetailedAllocationTests, CopyConstructWithNewAllocator)
+{
+    TypeParam test_source{{1, 2, 3, 4}, typename TypeParam::allocator_type{}};
+    EXPECT_EQ(4, test_source.size());
+    const std::size_t allocations_before = cetlvast::InstrumentedAllocatorStatistics::get().allocations;
+
+    TypeParam test_subject{test_source, typename TypeParam::allocator_type{}};
+
+    EXPECT_EQ(test_subject, test_source);
+    EXPECT_EQ(4, test_subject.size());
+    EXPECT_EQ(4, test_source.size());
+    // The allocator given to the constructor must be used as-is.
+    EXPECT_FALSE(test_subject.get_allocator().was_from_soccc);
+    this->account_for_all_memory(test_subject, test_source);
+
+    // For creating the initial values from integers and copying them out of
+    // the initializer list.
+    EXPECT_EQ(4, TestFixture::ItemT::total_instances_implicit_int_constructed);
+    // The elements are copied into storage obtained from the new allocator
+    // regardless of allocator equality.
+    EXPECT_EQ(4 + 4, TestFixture::ItemT::total_instances_copy_constructed);
+    EXPECT_EQ(0, TestFixture::ItemT::total_instances_move_constructed);
+    EXPECT_EQ(12, TestFixture::ItemT::total_instances_constructed);
+    EXPECT_EQ(0, TestFixture::ItemT::total_instances_default_constructed);
+    EXPECT_EQ(allocations_before + 1, cetlvast::InstrumentedAllocatorStatistics::get().allocations);
+}
+
+// +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLADetailedAllocationTests, MoveConstructWithNewAllocator)
+{
+    TypeParam test_source{{1, 2, 3, 4}, typename TypeParam::allocator_type{}};
+    // Give the source spare capacity so that size and capacity are
+    // distinguishable in the result.
+    test_source.reserve(8);
+    EXPECT_EQ(4, test_source.size());
+    EXPECT_LE(8, test_source.capacity());
+    // copy the source array because we don't inspect the state of a moved
+    // object.
+    TypeParam copy_of_source{test_source};
+    this->account_for_all_memory(test_source, copy_of_source);
+
+    const std::size_t move_constructed_before = TestFixture::ItemT::total_instances_move_constructed;
+    const std::size_t constructed_before      = TestFixture::ItemT::total_instances_constructed;
+    const std::size_t allocations_before      = cetlvast::InstrumentedAllocatorStatistics::get().allocations;
+
+    TypeParam test_subject{std::move(test_source), typename TypeParam::allocator_type{}};
 
     EXPECT_EQ(test_subject, copy_of_source);
-    this->account_for_all_memory(test_subject, copy_of_source);
+    EXPECT_EQ(4, test_subject.size());
+    // The allocator given to the constructor must be used as-is.
+    EXPECT_FALSE(test_subject.get_allocator().was_from_soccc);
+    // Every byte of capacity reported by each container must be backed by an
+    // allocation.
+    this->account_for_all_memory(test_subject, copy_of_source, test_source);
 
-    EXPECT_EQ(16, TestFixture::ItemT::total_instances_constructed);
-    EXPECT_EQ(4, TestFixture::ItemT::total_instances_implicit_int_constructed); // Test source init list instances
-    EXPECT_EQ(8, TestFixture::ItemT::total_instances_copy_constructed); // Test source and copy of source instances
-    EXPECT_EQ(4, TestFixture::ItemT::total_instances_move_constructed); // Test subject instances
+    if (AreAllocatorsEqual<TypeParam>::value)
+    {
+        // Constant complexity: the storage is adopted so no element is touched
+        // and no memory is allocated.
+        EXPECT_EQ(move_constructed_before, TestFixture::ItemT::total_instances_move_constructed);
+        EXPECT_EQ(constructed_before, TestFixture::ItemT::total_instances_constructed);
+        EXPECT_EQ(allocations_before, cetlvast::InstrumentedAllocatorStatistics::get().allocations);
+    }
+    else
+    {
+        // Linear complexity: storage is obtained from the new allocator and
+        // each element is move-inserted into it.
+        EXPECT_EQ(move_constructed_before + 4, TestFixture::ItemT::total_instances_move_constructed);
+        EXPECT_EQ(constructed_before + 4, TestFixture::ItemT::total_instances_constructed);
+        EXPECT_EQ(allocations_before + 1, cetlvast::InstrumentedAllocatorStatistics::get().allocations);
+    }
+    EXPECT_EQ(0, TestFixture::ItemT::total_instances_default_constructed);
 
-    // Expect allocation of test source, copy of source, and test subject because source allocator is not propagated
-    EXPECT_EQ(3, cetlvast::InstrumentedAllocatorStatistics::get().allocations);
-    EXPECT_EQ(3, cetlvast::InstrumentedAllocatorStatistics::get().deallocations);
+    // The source is in a valid but unspecified state. Its allocator was not
+    // moved-from so the source must remain usable.
+    test_source.clear();
+    EXPECT_TRUE(test_source.empty());
+    test_source.push_back(5);
+    EXPECT_EQ(1, test_source.size());
+    EXPECT_EQ(5, static_cast<int>(test_source[0]));
+    this->account_for_all_memory(test_subject, copy_of_source, test_source);
+}
+
+// +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLADetailedAllocationTests, MoveConstructWithNewAllocatorFromEmpty)
+{
+    TypeParam test_source{typename TypeParam::allocator_type{}};
+    // An empty container that nevertheless owns memory.
+    test_source.reserve(4);
+    EXPECT_EQ(0, test_source.size());
+    EXPECT_LE(4, test_source.capacity());
+    this->account_for_all_memory(test_source);
+
+    TypeParam test_subject{std::move(test_source), typename TypeParam::allocator_type{}};
+
+    EXPECT_TRUE(test_subject.empty());
+    EXPECT_FALSE(test_subject.get_allocator().was_from_soccc);
+    // Any capacity the new container reports must be backed by an allocation
+    // made through its own allocator, otherwise the first push_back will write
+    // to memory the container does not own.
+    this->account_for_all_memory(test_subject, test_source);
+    EXPECT_EQ(0, TestFixture::ItemT::total_instances_constructed);
+}
+
+// +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLADetailedAllocationTests, MoveConstructWithNewAllocatorExceptionSpecification)
+{
+    // The non-extended move constructor adopts both the storage and the
+    // allocator so it can never fail.
+    static_assert(std::is_nothrow_move_constructible<TypeParam>::value, "Must be no-throw move constructible.");
+
+    // The allocator-extended move constructor must obtain storage from m when
+    // m != rv.get_allocator(). Allocation can fail so, per [vector.cons], it
+    // is only no-throw when the allocators are always equal. A stronger
+    // specification turns std::bad_alloc into std::terminate.
+    EXPECT_EQ(std::allocator_traits<typename TypeParam::allocator_type>::is_always_equal::value,
+              (std::is_nothrow_constructible<TypeParam, TypeParam&&, const typename TypeParam::allocator_type&>::value));
+}
+
+// +---------------------------------------------------------------------------+
+// | TEST CASES :: ALLOCATOR REPLACEMENT
+// +---------------------------------------------------------------------------+
+
+TYPED_TEST(VLADetailedAllocationTests, MoveAssignReplacesAllocatorByMoveAssignment)
+{
+    TypeParam test_subject{{1, 2, 3, 4}, typename TypeParam::allocator_type{}};
+    TypeParam test_source{{6, 7, 8, 9}, typename TypeParam::allocator_type{}};
+    TypeParam copy_of_source{test_source};
+    const std::size_t copy_assignments_before = cetlvast::InstrumentedAllocatorStatistics::get().allocator_copy_assignments;
+    const std::size_t move_assignments_before = cetlvast::InstrumentedAllocatorStatistics::get().allocator_move_assignments;
+
+    test_subject = std::move(test_source);
+
+    EXPECT_EQ(test_subject, copy_of_source);
+    // [container.alloc.reqs] "Allocator replacement is performed by copy
+    // assignment, move assignment, or swapping of the allocator only if
+    // propagate_on_container_copy_assignment, propagate_on_container_move_assignment,
+    // or propagate_on_container_swap is true within the implementation of the
+    // corresponding container operation." Move assignment of the container
+    // must therefore move assign the allocator, and only when it propagates.
+    EXPECT_EQ(copy_assignments_before, cetlvast::InstrumentedAllocatorStatistics::get().allocator_copy_assignments);
+    if (TypeParam::allocator_type::propagate_on_container_move_assignment::value)
+    {
+        EXPECT_EQ(move_assignments_before + 1,
+                  cetlvast::InstrumentedAllocatorStatistics::get().allocator_move_assignments);
+    }
+    else
+    {
+        EXPECT_EQ(move_assignments_before, cetlvast::InstrumentedAllocatorStatistics::get().allocator_move_assignments);
+    }
 }
 
 // +---------------------------------------------------------------------------+

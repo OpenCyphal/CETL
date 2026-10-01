@@ -15,6 +15,8 @@
 
 #include "cetl/pf17/memory_resource.hpp"
 #include "cetl/pf17/sys/memory_resource.hpp"
+
+#include <memory>
 #if (__cplusplus >= CETL_CPP_STANDARD_17)
 // As of xcode 14, Apple clang doesn't support PMR yet. It's available under
 // an experimental namespace but it isn't fully integrated into Apple's
@@ -315,6 +317,8 @@ private:
         , deallocated_bytes{0}
         , last_allocation_size_bytes{0}
         , last_deallocation_size_bytes{0}
+        , allocator_copy_assignments{0}
+        , allocator_move_assignments{0}
     {
     }
 
@@ -332,6 +336,12 @@ public:
     std::size_t deallocated_bytes;
     std::size_t last_allocation_size_bytes;
     std::size_t last_deallocation_size_bytes;
+    /// Number of times an allocator was copy-assigned (i.e. how containers replace their allocator when
+    /// propagate_on_container_copy_assignment is true).
+    std::size_t allocator_copy_assignments;
+    /// Number of times an allocator was move-assigned (i.e. how containers replace their allocator when
+    /// propagate_on_container_move_assignment is true).
+    std::size_t allocator_move_assignments;
 
     static ::testing::AssertionResult subtract_or_assert(std::size_t& lhs, const std::size_t rhs)
     {
@@ -396,20 +406,20 @@ struct InstrumentedNewDeleteAllocator
     InstrumentedNewDeleteAllocator()
         : is_invalid{false}
         , was_from_soccc{false}
-        , allocated_bytes{0}
+        , allocated_bytes{std::make_shared<std::size_t>(0)}
     {
     }
 
-    InstrumentedNewDeleteAllocator(const InstrumentedNewDeleteAllocator& rhs,
-                                   bool                                  is_soccc) noexcept(IsPropOnCopy::value)
+    // [allocator.requirements] copy construction of an allocator shall not exit via an exception. Only copy
+    // assignment is conditional on propagate_on_container_copy_assignment.
+    InstrumentedNewDeleteAllocator(const InstrumentedNewDeleteAllocator& rhs, bool is_soccc) noexcept
         : is_invalid{false}
         , was_from_soccc{is_soccc}
-        , allocated_bytes{0}
+        , allocated_bytes{rhs.allocated_bytes}
     {
-        (void) rhs;
     }
 
-    InstrumentedNewDeleteAllocator(const InstrumentedNewDeleteAllocator& rhs) noexcept(IsPropOnCopy::value)
+    InstrumentedNewDeleteAllocator(const InstrumentedNewDeleteAllocator& rhs) noexcept
         : InstrumentedNewDeleteAllocator(rhs, rhs.was_from_soccc)
     {
     }
@@ -419,8 +429,7 @@ struct InstrumentedNewDeleteAllocator
         , was_from_soccc{rhs.was_from_soccc}
         , allocated_bytes{rhs.allocated_bytes}
     {
-        rhs.allocated_bytes = 0;
-        rhs.is_invalid      = true;
+        rhs.is_invalid = true;
     }
 
     ~InstrumentedNewDeleteAllocator() {}
@@ -429,9 +438,11 @@ struct InstrumentedNewDeleteAllocator
     {
         EXPECT_FALSE(rhs.is_invalid) << "Attempted to copy from an invalid allocator." << std::endl;
         EXPECT_FALSE(is_invalid) << "Attempted to copy to an invalid allocator." << std::endl;
+        InstrumentedAllocatorStatistics::get().allocator_copy_assignments += 1;
         if (!IsAlwaysEqual::value && !IsEqual::value)
         {
-            EXPECT_EQ(allocated_bytes, 0) << "leaked " << allocated_bytes << " bytes in copy assignment." << std::endl;
+            EXPECT_EQ(*allocated_bytes, 0) << "leaked " << *allocated_bytes << " bytes in copy assignment."
+                                           << std::endl;
         }
         allocated_bytes = rhs.allocated_bytes;
         return *this;
@@ -441,20 +452,17 @@ struct InstrumentedNewDeleteAllocator
     {
         EXPECT_FALSE(rhs.is_invalid) << "Attempted to move from an invalid allocator." << std::endl;
         EXPECT_FALSE(is_invalid) << "Attempted to move to an invalid allocator." << std::endl;
-        if (IsPropOnMove::value)
-        {
-            allocated_bytes += rhs.allocated_bytes;
-        }
-        else
+        InstrumentedAllocatorStatistics::get().allocator_move_assignments += 1;
+        if (!IsPropOnMove::value)
         {
             EXPECT_TRUE(IsAlwaysEqual::value || IsEqual::value)
                 << "Attempted to move from an allocator that is neither equal nor marked for propagation on move."
                 << std::endl;
-            EXPECT_EQ(allocated_bytes, 0) << "leaked " << allocated_bytes << " bytes in move assignment." << std::endl;
-            allocated_bytes = rhs.allocated_bytes;
+            EXPECT_EQ(*allocated_bytes, 0) << "leaked " << *allocated_bytes << " bytes in move assignment."
+                                           << std::endl;
         }
-        rhs.allocated_bytes = 0;
-        rhs.is_invalid      = true;
+        allocated_bytes = rhs.allocated_bytes;
+        rhs.is_invalid  = true;
         return *this;
     }
 
@@ -492,7 +500,7 @@ struct InstrumentedNewDeleteAllocator
         (void) hint;
         const std::size_t bytes_to_allocate = (n * sizeof(T));
         InstrumentedAllocatorStatistics::get().record_allocation(bytes_to_allocate);
-        allocated_bytes += bytes_to_allocate;
+        *allocated_bytes += bytes_to_allocate;
         return reinterpret_cast<pointer>(::operator new(bytes_to_allocate));
     }
 
@@ -500,7 +508,16 @@ struct InstrumentedNewDeleteAllocator
     {
         EXPECT_FALSE(is_invalid) << "Attempted to deallocate from an invalid allocator." << std::endl;
         const std::size_t bytes_to_deallocate = (n * sizeof(T));
-        allocated_bytes -= bytes_to_deallocate;
+        if (!IsAlwaysEqual::value && !IsEqual::value)
+        {
+            // [allocator.requirements] p must have been obtained from allocate() on an allocator that compares equal
+            // to this one. Only copies of this allocator compare equal to it so, between them, they must own what is
+            // being released.
+            EXPECT_GE(*allocated_bytes, bytes_to_deallocate)
+                << "Attempted to deallocate " << bytes_to_deallocate << " bytes from an allocator that owns only "
+                << *allocated_bytes << " bytes." << std::endl;
+        }
+        *allocated_bytes -= bytes_to_deallocate;
         InstrumentedAllocatorStatistics::get().record_deallocation(bytes_to_deallocate);
         ::operator delete(p);
     }
@@ -516,7 +533,9 @@ struct InstrumentedNewDeleteAllocator
     const bool was_from_soccc;
 
 private:
-    std::size_t allocated_bytes;
+    /// Bytes outstanding from this allocator and every copy of it. Copies of an allocator compare equal and may
+    /// release each other's memory so ownership is tracked per family of copies rather than per instance.
+    std::shared_ptr<std::size_t> allocated_bytes;
 };
 
 }  // namespace cetlvast
