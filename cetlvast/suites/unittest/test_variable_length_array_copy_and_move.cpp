@@ -18,6 +18,160 @@
 #include <vector>
 #include <array>
 #include <type_traits>
+#include <new>
+
+#if defined(__cpp_exceptions)
+
+namespace
+{
+struct MoveConstructorAllocatorState
+{
+    bool        fail_allocation         = false;
+    std::size_t allocation_attempts     = 0;
+    std::size_t outstanding_allocations = 0;
+};
+
+// Never always-equal. Pocma selects propagate_on_container_move_assignment, which must have no bearing on
+// allocator-extended move construction.
+template <typename T, typename Pocma>
+struct MoveConstructorAllocator
+{
+    using value_type                             = T;
+    using is_always_equal                        = std::false_type;
+    using propagate_on_container_move_assignment = Pocma;
+
+    explicit MoveConstructorAllocator(MoveConstructorAllocatorState& state) noexcept
+        : state_(&state)
+    {
+    }
+
+    template <typename U>
+    MoveConstructorAllocator(const MoveConstructorAllocator<U, Pocma>& rhs) noexcept
+        : state_(rhs.state_)
+    {
+    }
+
+    T* allocate(std::size_t count)
+    {
+        ++state_->allocation_attempts;
+        if (state_->fail_allocation)
+        {
+            throw std::bad_alloc();
+        }
+        T* const result = std::allocator<T>{}.allocate(count);
+        ++state_->outstanding_allocations;
+        return result;
+    }
+
+    void deallocate(T* pointer, std::size_t count) noexcept
+    {
+        if (pointer != nullptr)
+        {
+            EXPECT_GT(state_->outstanding_allocations, 0U);
+            --state_->outstanding_allocations;
+            std::allocator<T>{}.deallocate(pointer, count);
+        }
+    }
+
+    template <typename U>
+    bool operator==(const MoveConstructorAllocator<U, Pocma>& rhs) const noexcept
+    {
+        return state_ == rhs.state_;
+    }
+
+    template <typename U>
+    bool operator!=(const MoveConstructorAllocator<U, Pocma>& rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+
+    MoveConstructorAllocatorState* state_;
+};
+
+template <typename T, typename Pocma>
+struct MoveConstructorParams
+{
+    using value_type = T;
+    using pocma      = Pocma;
+};
+
+template <typename Params>
+class VLAMoveConstructorExceptionTests : public ::testing::Test
+{
+protected:
+    using T         = typename Params::value_type;
+    using Subject   = cetl::VariableLengthArray<T, MoveConstructorAllocator<T, typename Params::pocma>>;
+    using Allocator = typename Subject::allocator_type;
+};
+
+using MoveConstructorValueTypes = ::testing::Types<MoveConstructorParams<int, std::false_type>,
+                                                   MoveConstructorParams<bool, std::false_type>,
+                                                   MoveConstructorParams<int, std::true_type>,
+                                                   MoveConstructorParams<bool, std::true_type>>;
+TYPED_TEST_SUITE(VLAMoveConstructorExceptionTests, MoveConstructorValueTypes, );
+
+TYPED_TEST(VLAMoveConstructorExceptionTests, UnequalAllocatorAllocationFailure)
+{
+    using Subject   = typename TestFixture::Subject;
+    using Allocator = typename TestFixture::Allocator;
+
+    MoveConstructorAllocatorState source_state;
+    MoveConstructorAllocatorState destination_state;
+    {
+        Subject    source{{1, 0, 1}, Allocator{source_state}};
+        const auto original_capacity      = source.capacity();
+        destination_state.fail_allocation = true;
+
+        EXPECT_THROW((Subject{std::move(source), Allocator{destination_state}}), std::bad_alloc);
+        ASSERT_EQ(source.size(), 3U);
+        EXPECT_EQ(source.capacity(), original_capacity);
+        EXPECT_EQ(source[0], 1);
+        EXPECT_EQ(source[1], 0);
+        EXPECT_EQ(source[2], 1);
+        EXPECT_EQ(source_state.outstanding_allocations, 1U);
+        EXPECT_EQ(destination_state.allocation_attempts, 1U);
+        EXPECT_EQ(destination_state.outstanding_allocations, 0U);
+
+        // The failed allocation must leave the source available for a later move.
+        destination_state.fail_allocation = false;
+        Subject destination{std::move(source), Allocator{destination_state}};
+        ASSERT_EQ(destination.size(), 3U);
+        EXPECT_EQ(destination[0], 1);
+        EXPECT_EQ(destination[1], 0);
+        EXPECT_EQ(destination[2], 1);
+        EXPECT_TRUE(source.empty());
+        EXPECT_EQ(source_state.outstanding_allocations, 0U);
+        EXPECT_EQ(destination_state.allocation_attempts, 2U);
+        EXPECT_EQ(destination_state.outstanding_allocations, 1U);
+    }
+    EXPECT_EQ(source_state.outstanding_allocations, 0U);
+    EXPECT_EQ(destination_state.outstanding_allocations, 0U);
+}
+
+TYPED_TEST(VLAMoveConstructorExceptionTests, EqualAllocatorDoesNotAllocate)
+{
+    using Subject   = typename TestFixture::Subject;
+    using Allocator = typename TestFixture::Allocator;
+
+    MoveConstructorAllocatorState state;
+    {
+        Subject source{{1, 0, 1}, Allocator{state}};
+        state.fail_allocation = true;
+        Subject destination{std::move(source), Allocator{state}};
+
+        EXPECT_TRUE(source.empty());
+        ASSERT_EQ(destination.size(), 3U);
+        EXPECT_EQ(destination[0], 1);
+        EXPECT_EQ(destination[1], 0);
+        EXPECT_EQ(destination[2], 1);
+        EXPECT_EQ(state.allocation_attempts, 1U);
+        EXPECT_EQ(state.outstanding_allocations, 1U);
+    }
+    EXPECT_EQ(state.outstanding_allocations, 0U);
+}
+}  // namespace
+
+#endif  // __cpp_exceptions
 
 // +---------------------------------------------------------------------------+
 // | TEST VALUE TYPES
