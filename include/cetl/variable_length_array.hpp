@@ -28,6 +28,8 @@ static_assert(
 
 namespace cetl
 {
+namespace detail
+{
 
 // Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
 // directly.
@@ -54,6 +56,12 @@ public:
     /// STL-like declaration of the container's size type.
     ///
     using size_type = std::size_t;
+
+    // Assignment is implemented by copy_assign_from/move_assign_from because it needs the derived class's max_size().
+    // Copy construction is implemented by the derived classes via Base(const Base&, const allocator_type&).
+    VariableLengthArrayBase(const VariableLengthArrayBase&)            = delete;
+    VariableLengthArrayBase& operator=(const VariableLengthArrayBase&) = delete;
+    VariableLengthArrayBase& operator=(VariableLengthArrayBase&&)      = delete;
 
 private:
     // +----------------------------------------------------------------------+
@@ -118,8 +126,8 @@ protected:
             nullptr) noexcept(is_pocma_or_is_always_equal<UAlloc>::value)
     {
         static_assert(std::is_nothrow_move_assignable<allocator_type>::value,
-                      "The C++ standard requires anything adhering to propagate_on_container_move_assignment to copy "
-                      "without throwing.");
+                      "The C++ standard requires anything adhering to propagate_on_container_move_assignment to move "
+                      "assign without throwing.");
         alloc_ = std::forward<UAlloc>(rhs);
         return true;
     }
@@ -499,7 +507,7 @@ protected:
         }
 
         fast_deallocate(data_, size_, capacity_, alloc_);
-        move_assign_alloc(rhs.alloc_);
+        move_assign_alloc(std::move(rhs.alloc_));
 
         max_size_max_ = rhs.max_size_max_;
         capacity_     = rhs.capacity_;
@@ -528,7 +536,7 @@ protected:
             // of the incoming memory even if we don't adopt the rhs allocator (SFINAE takes care of that in the
             // move_assign_alloc method).
             fast_deallocate(data_, size_, capacity_, alloc_);
-            move_assign_alloc(rhs.alloc_);
+            move_assign_alloc(std::move(rhs.alloc_));
 
             max_size_max_ = rhs.max_size_max_;
             capacity_     = rhs.capacity_;
@@ -547,7 +555,7 @@ protected:
                 // we adopting it.
 
                 // if POCMA is false then this is a no-op.
-                move_assign_alloc(rhs.alloc_);
+                move_assign_alloc(std::move(rhs.alloc_));
 
                 // Let's go ahead and move-assign what we can.
                 const std::size_t overlap = fast_forward_assign(data_, size_, rhs.data_, rhs.size_);
@@ -585,7 +593,7 @@ protected:
                 // ...
 
                 const size_type new_size = rhs.size_;
-                move_assign_alloc(rhs.alloc_);
+                move_assign_alloc(std::move(rhs.alloc_));
                 reserve(new_size, rhs_max_size);
                 size_ = fast_forward_construct(data_, capacity_, rhs.data_, new_size, alloc_);
                 rhs.resize(0, rhs_max_size);
@@ -772,9 +780,11 @@ protected:
     {
     }
 
-    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& rhs_alloc) noexcept(
+    /// The allocator is used as given. select_on_container_copy_construction is the business of the non-extended
+    /// copy constructor only (see the derived classes).
+    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& alloc) noexcept(
         std::is_nothrow_copy_constructible<allocator_type>::value)
-        : alloc_(std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs_alloc))
+        : alloc_(alloc)
         , data_(nullptr)
         , capacity_(0)
         , size_(0)
@@ -801,9 +811,9 @@ protected:
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
-        const UAlloc&             rhs_alloc,
+        const UAlloc&             alloc,
         typename std::enable_if_t<std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr) noexcept
-        : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
+        : alloc_(alloc)
         , data_(std::move(rhs.data_))
         , capacity_(rhs.capacity_)
         , size_(rhs.size_)
@@ -822,9 +832,9 @@ protected:
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
-        const UAlloc&             rhs_alloc,
+        const UAlloc&             alloc,
         typename std::enable_if_t<!std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr)
-        : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
+        : alloc_(alloc)
         , data_{nullptr}
         , capacity_(0)
         , size_(0)
@@ -848,7 +858,7 @@ protected:
                 data_ = std::allocator_traits<allocator_type>::allocate(alloc_, rhs.size_);
                 fast_forward_construct(data_, rhs.size_, rhs.data_, rhs.size_, alloc_);
             }
-            capacity_ = rhs.capacity_;
+            capacity_ = rhs.size_;
             size_     = rhs.size_;
             fast_deallocate(rhs.data_, rhs.size_, rhs.capacity_, rhs.alloc_);
         }
@@ -868,6 +878,8 @@ protected:
     size_type      size_;
     size_type      max_size_max_;
 };
+
+}  // namespace detail
 
 // +-------------------------------------------------------------------------------------------------------------------+
 // | VariableLengthArray
@@ -895,10 +907,10 @@ protected:
 /// @tparam Allocator    The allocator type to use for all allocations.
 ///
 template <typename T, typename Allocator>
-class VariableLengthArray : protected VariableLengthArrayBase<T, Allocator>
+class VariableLengthArray : protected detail::VariableLengthArrayBase<T, Allocator>
 {
 protected:
-    using Base = VariableLengthArrayBase<T, Allocator>;
+    using Base = detail::VariableLengthArrayBase<T, Allocator>;
     using Base::data_;
     using Base::size_;
     using Base::capacity_;
@@ -1037,7 +1049,8 @@ public:
     }
 
     VariableLengthArray(const VariableLengthArray& rhs)
-        : VariableLengthArray(rhs, rhs.alloc_)
+        : VariableLengthArray(rhs,
+                              std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.alloc_))
     {
     }
 
@@ -1572,12 +1585,12 @@ private:
 /// The internal bit ordering is little-endian.
 /// @tparam Allocator The allocator type to use.
 template <typename Allocator>
-class VariableLengthArray<bool, Allocator> : protected VariableLengthArrayBase<unsigned char, Allocator>
+class VariableLengthArray<bool, Allocator> : protected detail::VariableLengthArrayBase<unsigned char, Allocator>
 {
 protected:
     using Storage = unsigned char;
     static_assert(sizeof(Storage) == 1, "Unsigned char != 1 byte is not implemented (contributions welcome).");
-    using Base = VariableLengthArrayBase<Storage, Allocator>;
+    using Base = detail::VariableLengthArrayBase<Storage, Allocator>;
     using Base::data_;
     using Base::size_;
     using Base::capacity_;
@@ -1898,7 +1911,8 @@ public:
     }
 
     VariableLengthArray(const VariableLengthArray& rhs)
-        : VariableLengthArray(rhs, rhs.alloc_)
+        : VariableLengthArray(rhs,
+                              std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.alloc_))
     {
     }
 
@@ -2462,7 +2476,7 @@ private:
         return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1U);
     }
 
-    /// Note that the underlying size_ and capacity_ of VariableLengthArrayBase are in terms
+    /// Note that the underlying size_ and capacity_ of detail::VariableLengthArrayBase are in terms
     /// of bytes and then converted to bits in size_bits() and capacity_bits().  However
     /// bool VLA (unlike type T VLA) treats max_size_max_ in terms of bits and thus no conversion
     /// is needed.
