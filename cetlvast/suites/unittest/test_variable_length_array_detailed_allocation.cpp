@@ -192,6 +192,16 @@ struct AreAllocatorsEqual : public std::integral_constant<bool,
                                                               TypeParam::allocator_type::is_equal::value>
 {};
 
+// Helper for distinguishing the VariableLengthArray instantiations from the std::vector instantiations used as a
+// reference implementation.
+template <typename TypeParam>
+struct IsVariableLengthArray : public std::false_type
+{};
+
+template <typename T, typename Allocator>
+struct IsVariableLengthArray<cetl::VariableLengthArray<T, Allocator>> : public std::true_type
+{};
+
 // +---------------------------------------------------------------------------+
 
 // clang-format off
@@ -848,11 +858,23 @@ TYPED_TEST(VLADetailedAllocationTests, MoveConstructWithNewAllocatorExceptionSpe
     static_assert(std::is_nothrow_move_constructible<TypeParam>::value, "Must be no-throw move constructible.");
 
     // The allocator-extended move constructor must obtain storage from m when
-    // m != rv.get_allocator(). Allocation can fail so, per [vector.cons], it
-    // is only no-throw when the allocators are always equal. A stronger
-    // specification turns std::bad_alloc into std::terminate.
-    EXPECT_EQ(std::allocator_traits<typename TypeParam::allocator_type>::is_always_equal::value,
-              (std::is_nothrow_constructible<TypeParam, TypeParam&&, const typename TypeParam::allocator_type&>::value));
+    // m != rv.get_allocator(). Allocation can fail so it may only be no-throw
+    // when the allocators are always equal. A stronger specification turns
+    // std::bad_alloc into std::terminate.
+    constexpr bool is_always_equal = std::allocator_traits<typename TypeParam::allocator_type>::is_always_equal::value;
+    constexpr bool is_nothrow =
+        std::is_nothrow_constructible<TypeParam, TypeParam&&, const typename TypeParam::allocator_type&>::value;
+    if (IsVariableLengthArray<TypeParam>::value)
+    {
+        // The VLA is no-throw whenever it can be.
+        EXPECT_EQ(is_always_equal, is_nothrow);
+    }
+    else
+    {
+        // The standard does not specify noexcept for std::vector(vector&&, const Allocator&). libstdc++ makes it
+        // conditional on is_always_equal while libc++ never makes it noexcept, so only the safety requirement holds.
+        EXPECT_TRUE(is_always_equal || !is_nothrow);
+    }
 }
 
 // +---------------------------------------------------------------------------+
