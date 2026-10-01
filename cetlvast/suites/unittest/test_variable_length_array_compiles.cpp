@@ -72,8 +72,9 @@ TYPED_TEST(TestVariableLengthArrayCompiles, MoveConstructorWithAllocatorNoexcept
                   "Transferring storage must remain noexcept.");
     static_assert(std::is_nothrow_constructible<VLA1, VLA1&&, const typename VLA1::allocator_type&>::value,
                   "Transferring storage must remain noexcept.");
-    static_assert(std::is_nothrow_constructible<VLA2, VLA2&&, const typename VLA2::allocator_type&>::value,
-                  "Transferring storage must remain noexcept.");
+    static_assert(!std::is_nothrow_constructible<VLA2, VLA2&&, const typename VLA2::allocator_type&>::value,
+                  "Propagation on move assignment is irrelevant to construction: a potentially unequal allocator may "
+                  "allocate and throw.");
     static_assert(!std::is_nothrow_constructible<VLA3, VLA3&&, const typename VLA3::allocator_type&>::value,
                   "Moving with a potentially unequal allocator may allocate and throw.");
     static_assert(std::is_nothrow_move_constructible<VLA3>::value,
