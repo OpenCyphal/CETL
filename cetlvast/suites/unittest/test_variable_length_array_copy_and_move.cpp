@@ -31,12 +31,14 @@ struct MoveConstructorAllocatorState
     std::size_t outstanding_allocations = 0;
 };
 
-template <typename T>
+// Never always-equal. Pocma selects propagate_on_container_move_assignment, which must have no bearing on
+// allocator-extended move construction.
+template <typename T, typename Pocma>
 struct MoveConstructorAllocator
 {
     using value_type                             = T;
     using is_always_equal                        = std::false_type;
-    using propagate_on_container_move_assignment = std::false_type;
+    using propagate_on_container_move_assignment = Pocma;
 
     explicit MoveConstructorAllocator(MoveConstructorAllocatorState& state) noexcept
         : state_(&state)
@@ -44,7 +46,7 @@ struct MoveConstructorAllocator
     }
 
     template <typename U>
-    MoveConstructorAllocator(const MoveConstructorAllocator<U>& rhs) noexcept
+    MoveConstructorAllocator(const MoveConstructorAllocator<U, Pocma>& rhs) noexcept
         : state_(rhs.state_)
     {
     }
@@ -72,13 +74,13 @@ struct MoveConstructorAllocator
     }
 
     template <typename U>
-    bool operator==(const MoveConstructorAllocator<U>& rhs) const noexcept
+    bool operator==(const MoveConstructorAllocator<U, Pocma>& rhs) const noexcept
     {
         return state_ == rhs.state_;
     }
 
     template <typename U>
-    bool operator!=(const MoveConstructorAllocator<U>& rhs) const noexcept
+    bool operator!=(const MoveConstructorAllocator<U, Pocma>& rhs) const noexcept
     {
         return !(*this == rhs);
     }
@@ -86,15 +88,26 @@ struct MoveConstructorAllocator
     MoveConstructorAllocatorState* state_;
 };
 
-template <typename T>
+template <typename T, typename Pocma>
+struct MoveConstructorParams
+{
+    using value_type = T;
+    using pocma      = Pocma;
+};
+
+template <typename Params>
 class VLAMoveConstructorExceptionTests : public ::testing::Test
 {
 protected:
-    using Subject   = cetl::VariableLengthArray<T, MoveConstructorAllocator<T>>;
+    using T         = typename Params::value_type;
+    using Subject   = cetl::VariableLengthArray<T, MoveConstructorAllocator<T, typename Params::pocma>>;
     using Allocator = typename Subject::allocator_type;
 };
 
-using MoveConstructorValueTypes = ::testing::Types<int, bool>;
+using MoveConstructorValueTypes = ::testing::Types<MoveConstructorParams<int, std::false_type>,
+                                                   MoveConstructorParams<bool, std::false_type>,
+                                                   MoveConstructorParams<int, std::true_type>,
+                                                   MoveConstructorParams<bool, std::true_type>>;
 TYPED_TEST_SUITE(VLAMoveConstructorExceptionTests, MoveConstructorValueTypes, );
 
 TYPED_TEST(VLAMoveConstructorExceptionTests, UnequalAllocatorAllocationFailure)

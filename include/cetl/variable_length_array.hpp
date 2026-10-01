@@ -796,11 +796,13 @@ protected:
         rhs.data_     = nullptr;
     }
 
+    /// Allocator-extended move construction where the allocators are always equal: the storage is simply adopted.
+    /// Note that propagate_on_container_move_assignment has no bearing on construction.
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
         const UAlloc&             rhs_alloc,
-        typename std::enable_if_t<is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
+        typename std::enable_if_t<std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr) noexcept
         : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
         , data_(std::move(rhs.data_))
         , capacity_(rhs.capacity_)
@@ -814,10 +816,14 @@ protected:
         rhs.data_     = nullptr;
     }
 
+    /// Allocator-extended move construction where the allocators may be unequal. If they are equal at runtime the
+    /// storage is adopted, otherwise storage is obtained from the given allocator and the elements are moved into
+    /// it. The latter can throw so this overload is not noexcept.
     template <typename UAlloc>
-    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs,
-                                      const UAlloc&             rhs_alloc,
-                                      typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr)
+    constexpr VariableLengthArrayBase(
+        VariableLengthArrayBase&& rhs,
+        const UAlloc&             rhs_alloc,
+        typename std::enable_if_t<!std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr)
         : alloc_(std::allocator_traits<UAlloc>::select_on_container_copy_construction(rhs_alloc))
         , data_{nullptr}
         , capacity_(0)
@@ -1042,7 +1048,6 @@ public:
     }
 
     VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
-        std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
         : Base(std::move(rhs), alloc)
     {
@@ -1912,7 +1917,6 @@ public:
     }
 
     VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
-        std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
         : Base(std::move(rhs), alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
