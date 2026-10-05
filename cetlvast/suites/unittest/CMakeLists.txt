@@ -138,6 +138,21 @@ foreach(NATIVE_TEST ${NATIVE_TESTS})
     list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
 endforeach()
 
+# Only the injector can throw in embedded profiles; the algorithm and death tests retain -fno-exceptions.
+set_property(SOURCE test_pf17_memory_exception.cpp APPEND PROPERTY COMPILE_OPTIONS -fexceptions)
+define_unittest_targets(
+    TEST_SOURCE
+        test_pf17_memory.cpp
+    EXTRA_TEST_SOURCE
+        test_pf17_memory_exception.cpp
+    OUT_TEST_TARGET
+        LOCAL_TEST_TARGET
+    OUT_TEST_REPORT
+        LOCAL_TEST_REPORT
+)
+list(APPEND ALL_TESTS_BUILD ${LOCAL_TEST_TARGET})
+list(APPEND ALL_TESTS_RUN ${LOCAL_TEST_REPORT})
+
 # +---------------------------------------------------------------------------+
 #   Optional's compilation time is too long to perform within a single
 #   translation unit (server watchdogs can panic if the compiler doesn't
