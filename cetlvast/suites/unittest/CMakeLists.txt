@@ -117,6 +117,7 @@ set(NATIVE_TESTS
     test_variable_length_array_debug_asserts.cpp
     test_variable_length_array_detailed_allocation.cpp
     test_variable_length_array_general_allocation.cpp
+    test_variable_length_array_move_capacity.cpp
     pmr/test_pmr_function.cpp
     pmr/test_pmr_interface_ptr.cpp
 )
