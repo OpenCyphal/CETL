@@ -10,12 +10,73 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <map>
 #include <set>
 #include <type_traits>
 
 namespace
 {
+// Scenario inputs. Counts, payloads, and sentinels are independent choices; the relationships checked below
+// ensure that changing them preserves relocation, first/middle/final failure injection, and recognizable values.
+constexpr std::size_t ElementCount        = 3;
+constexpr std::size_t InitialCapacity     = 16;
+constexpr std::size_t ReserveCapacity     = 128;
+constexpr int         FirstElementValue   = 10;
+constexpr int         FillValue           = 42;
+constexpr int         MovedFromValue      = -1;
+constexpr int         FailureDisabled     = -1;
+constexpr std::size_t PackedTailBits      = 1;
+constexpr std::size_t PackedPatternPeriod = 3;
+
+// VLA packs eight bools per storage byte. Tie the packed scenario to ElementCount storage bytes, leaving a
+// partial final byte and one spare byte before shrink. The shared reserve target must grow both array kinds.
+constexpr std::size_t BitsPerByte = 8;
+static_assert(std::numeric_limits<unsigned char>::digits == BitsPerByte, "VLA bool storage requires octets.");
+static_assert(ElementCount >= 3, "Relocation needs first, middle, and final failure positions.");
+static_assert(ElementCount < std::numeric_limits<std::size_t>::max() / BitsPerByte,
+              "Packed capacities and the spare byte must not overflow.");
+static_assert(PackedTailBits > 0 && PackedTailBits < BitsPerByte, "Packed storage needs a partial final byte.");
+constexpr std::size_t PackedElementCount    = (ElementCount - 1) * BitsPerByte + PackedTailBits;
+constexpr std::size_t PackedShrinkCapacity  = ElementCount * BitsPerByte;
+constexpr std::size_t PackedInitialCapacity = PackedShrinkCapacity + BitsPerByte;
+static_assert(ElementCount < InitialCapacity, "Ordinary elements need spare capacity before shrinking.");
+static_assert(PackedElementCount < PackedShrinkCapacity && PackedShrinkCapacity < PackedInitialCapacity,
+              "Packed shrink must retain a partial byte and release at least one storage byte.");
+static_assert(ReserveCapacity > InitialCapacity && ReserveCapacity > PackedInitialCapacity,
+              "Reserve must grow both ordinary and packed storage.");
+static_assert(ReserveCapacity % BitsPerByte == 0, "The shared reserve target must occupy whole packed storage bytes.");
+static_assert(PackedPatternPeriod > 1 && PackedPatternPeriod < BitsPerByte && BitsPerByte % PackedPatternPeriod != 0,
+              "The packed pattern must mix true/false values and change phase across byte boundaries.");
+
+// Fill an allocation exactly, then append one more element to force implicit growth. The later resize derives
+// its target from the resulting runtime capacity, avoiding a dependency on VLA's geometric growth policy.
+constexpr std::size_t AppendInitialCapacity = ElementCount;
+constexpr std::size_t AppendedElementCount  = AppendInitialCapacity + 1;
+constexpr std::size_t ResizeExtraElements   = ElementCount;
+static_assert(ElementCount < static_cast<std::size_t>(std::numeric_limits<int>::max()),
+              "Element indices and failure countdowns must fit in int.");
+static_assert(FirstElementValue <= std::numeric_limits<int>::max() - static_cast<int>(AppendedElementCount - 1),
+              "The generated payload sequence must not overflow int.");
+constexpr int LastElementValue = FirstElementValue + static_cast<int>(AppendedElementCount - 1);
+static_assert(FillValue < FirstElementValue || FillValue > LastElementValue,
+              "Fill values must be distinguishable from the original element sequence.");
+static_assert((MovedFromValue < FirstElementValue || MovedFromValue > LastElementValue) && MovedFromValue != FillValue,
+              "Moved-from values must be distinguishable from original and fill values.");
+static_assert(FailureDisabled < 0, "The disabled sentinel must not select a construction failure position.");
+
+// Generates the recognizable payload sequence used for setup and verification, including the extra appended element.
+constexpr int element_value(std::size_t index) noexcept
+{
+    return FirstElementValue + static_cast<int>(index);
+}
+
+// Repeats a mixed bit pattern whose phase changes at each byte boundary, exposing incorrect packed-byte copies.
+constexpr bool packed_value(std::size_t index) noexcept
+{
+    return index % PackedPatternPeriod == 0;
+}
+
 // Makes successful reallocation deterministic: allocate a different block before releasing the original.
 // Counters distinguish reallocation from VLA's allocate/construct/destroy fallback. Recorded sizes and alignments
 // verify ownership on every release; failure and decline switches exercise both kinds of fallback failure.
@@ -123,7 +184,7 @@ struct TrivialCopy
 {
     int value;
     TrivialCopy() noexcept
-        : value(42)
+        : value(FillValue)
     {
     }
 };
@@ -142,7 +203,7 @@ struct Lifetimes
     std::size_t           constructed = 0;
     std::size_t           destroyed   = 0;
     std::size_t           moves       = 0;
-    int                   remaining   = -1;
+    int                   remaining   = FailureDisabled;
 
     void construct(const void* address)
     {
@@ -186,7 +247,7 @@ struct MoveOnly
         : MoveOnly(rhs.state, rhs.value)
     {
         ++state.moves;
-        rhs.value = -1;
+        rhs.value = MovedFromValue;
     }
     ~MoveOnly()
     {
@@ -216,8 +277,8 @@ using Array = cetl::VariableLengthArray<T, cetl::pf17::pmr::polymorphic_allocato
 class VLAReallocation : public ::testing::TestWithParam<bool>
 {
 protected:
-    // Runs the capacity change selected by the test parameter: false grows the reservation to 128 elements,
-    // while true requests shrink-to-fit. Setup provides spare capacity below 128 so either operation attempts
+    // Runs the capacity change selected by the test parameter: false grows the reservation to ReserveCapacity,
+    // while true requests shrink-to-fit. Setup provides spare capacity below that target so either operation attempts
     // relocation. Exceptions propagate to the caller so failure tests can check the operation's contract.
     template <typename T>
     void relocate(T& array)
@@ -228,35 +289,35 @@ protected:
         }
         else
         {
-            array.reserve(128);
+            array.reserve(ReserveCapacity);
         }
     }
 
-    // Checks successful relocation of the three address-sensitive elements initialized with values 10, 11, 12.
+    // Checks successful relocation of ElementCount address-sensitive elements initialized by element_value().
     // Each self pointer must refer to its element's current value member, and capacity must match the requested
-    // operation: three elements after shrinking or 128 after reserving.
+    // operation: ElementCount after shrinking or ReserveCapacity after reserving.
     template <typename T>
     void expect_elements(const T& array)
     {
-        ASSERT_EQ(array.size(), 3U);
+        ASSERT_EQ(array.size(), ElementCount);
         for (std::size_t i = 0; i < array.size(); ++i)
         {
-            EXPECT_EQ(array[i].value, static_cast<int>(10 + i));
+            EXPECT_EQ(array[i].value, element_value(i));
             EXPECT_EQ(array[i].self, &array[i].value);
         }
-        EXPECT_EQ(array.capacity(), GetParam() ? 3U : 128U);
+        EXPECT_EQ(array.capacity(), GetParam() ? ElementCount : ReserveCapacity);
     }
 };
 
-// The minimal reproducer: byte relocation corrupts all three self pointers even though destruction is trivial.
+// The minimal reproducer: byte relocation corrupts every self pointer even though destruction is trivial.
 TEST_P(VLAReallocation, TrivialDestructionDoesNotPermitByteRelocation)
 {
     MovingResource       resource;
     Array<SelfReference> array{typename Array<SelfReference>::allocator_type{&resource}};
-    array.reserve(16);
-    for (int i = 10; i < 13; ++i)
+    array.reserve(InitialCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
     {
-        array.emplace_back(i);
+        array.emplace_back(element_value(i));
     }
     const auto allocations = resource.allocations;
     relocate(array);
@@ -272,18 +333,18 @@ TEST_P(VLAReallocation, MoveOnlyElementsUseConstructors)
     MovingResource  resource;
     Lifetimes       state;
     Array<MoveOnly> array{typename Array<MoveOnly>::allocator_type{&resource}};
-    array.reserve(16);
-    for (int i = 10; i < 13; ++i)
+    array.reserve(InitialCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
     {
-        array.emplace_back(state, i);
+        array.emplace_back(state, element_value(i));
     }
     relocate(array);
     expect_elements(array);
     EXPECT_EQ(resource.reallocations, 0U);
-    EXPECT_EQ(state.moves, 3U);
-    EXPECT_EQ(state.constructed, 6U);
-    EXPECT_EQ(state.destroyed, 3U);
-    EXPECT_EQ(state.live.size(), 3U);
+    EXPECT_EQ(state.moves, ElementCount);
+    EXPECT_EQ(state.constructed, ElementCount + ElementCount);
+    EXPECT_EQ(state.destroyed, ElementCount);
+    EXPECT_EQ(state.live.size(), ElementCount);
 }
 
 // Copyable elements with potentially throwing moves must preserve VLA's move_if_noexcept policy.
@@ -292,17 +353,17 @@ TEST_P(VLAReallocation, CopyFallbackUsesConstructors)
     MovingResource      resource;
     Lifetimes           state;
     Array<CopyFallback> array{typename Array<CopyFallback>::allocator_type{&resource}};
-    array.reserve(16);
-    for (int i = 10; i < 13; ++i)
+    array.reserve(InitialCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
     {
-        array.emplace_back(state, i);
+        array.emplace_back(state, element_value(i));
     }
     relocate(array);
     expect_elements(array);
     EXPECT_EQ(resource.reallocations, 0U);
     EXPECT_EQ(state.moves, 0U);
-    EXPECT_EQ(state.constructed, 6U);
-    EXPECT_EQ(state.destroyed, 3U);
+    EXPECT_EQ(state.constructed, ElementCount + ElementCount);
+    EXPECT_EQ(state.destroyed, ElementCount);
 }
 
 // Trivial storage must still use successful moving reallocation, while a declined request must fall back safely.
@@ -313,20 +374,21 @@ TEST_P(VLAReallocation, TrivialStorageRetainsReallocationAndDeclineFallback)
         SCOPED_TRACE(decline);
         MovingResource resource;
         Array<int>     array{typename Array<int>::allocator_type{&resource}};
-        array.reserve(16);
-        for (int i = 10; i < 13; ++i)
+        array.reserve(InitialCapacity);
+        for (std::size_t i = 0; i < ElementCount; ++i)
         {
-            array.push_back(i);
+            array.push_back(element_value(i));
         }
         resource.decline = decline;
         const auto calls = resource.reallocations;
         relocate(array);
         EXPECT_EQ(resource.reallocations, calls + 1);
-        ASSERT_EQ(array.size(), 3U);
-        EXPECT_EQ(array.capacity(), GetParam() ? 3U : 128U);
-        EXPECT_EQ(array[0], 10);
-        EXPECT_EQ(array[1], 11);
-        EXPECT_EQ(array[2], 12);
+        ASSERT_EQ(array.size(), ElementCount);
+        EXPECT_EQ(array.capacity(), GetParam() ? ElementCount : ReserveCapacity);
+        for (std::size_t i = 0; i < array.size(); ++i)
+        {
+            EXPECT_EQ(array[i], element_value(i));
+        }
         EXPECT_EQ(resource.blocks.size(), 1U);
     }
 }
@@ -336,16 +398,16 @@ TEST_P(VLAReallocation, NonTrivialDefaultConstructionStillAllowsReallocation)
 {
     MovingResource     resource;
     Array<TrivialCopy> array{typename Array<TrivialCopy>::allocator_type{&resource}};
-    array.reserve(16);
-    array.resize(3);
+    array.reserve(InitialCapacity);
+    array.resize(ElementCount);
     const auto calls = resource.reallocations;
     relocate(array);
     EXPECT_EQ(resource.reallocations, calls + 1);
-    ASSERT_EQ(array.size(), 3U);
-    EXPECT_EQ(array.capacity(), GetParam() ? 3U : 128U);
+    ASSERT_EQ(array.size(), ElementCount);
+    EXPECT_EQ(array.capacity(), GetParam() ? ElementCount : ReserveCapacity);
     for (const auto& element : array)
     {
-        EXPECT_EQ(element.value, 42);
+        EXPECT_EQ(element.value, FillValue);
     }
 }
 
@@ -354,19 +416,19 @@ TEST_P(VLAReallocation, PackedBoolRetainsReallocation)
 {
     MovingResource resource;
     Array<bool>    array{typename Array<bool>::allocator_type{&resource}};
-    array.reserve(64);
-    for (int i = 0; i < 17; ++i)
+    array.reserve(PackedInitialCapacity);
+    for (std::size_t i = 0; i < PackedElementCount; ++i)
     {
-        array.push_back(i % 3 == 0);
+        array.push_back(packed_value(i));
     }
     const auto calls = resource.reallocations;
     relocate(array);
     EXPECT_EQ(resource.reallocations, calls + 1);
-    ASSERT_EQ(array.size(), 17U);
-    EXPECT_EQ(array.capacity(), GetParam() ? 24U : 128U);
+    ASSERT_EQ(array.size(), PackedElementCount);
+    EXPECT_EQ(array.capacity(), GetParam() ? PackedShrinkCapacity : ReserveCapacity);
     for (std::size_t i = 0; i < array.size(); ++i)
     {
-        EXPECT_EQ(array[i], i % 3 == 0);
+        EXPECT_EQ(array[i], packed_value(i));
     }
     EXPECT_EQ(resource.blocks.size(), 1U);
 }
@@ -375,10 +437,10 @@ TEST_P(VLAReallocation, PackedBoolRetainsReallocation)
 TEST_P(VLAReallocation, StandardAllocatorNeedsNoReallocateMember)
 {
     cetl::VariableLengthArray<SelfReference, std::allocator<SelfReference>> array{std::allocator<SelfReference>{}};
-    array.reserve(16);
-    for (int i = 10; i < 13; ++i)
+    array.reserve(InitialCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
     {
-        array.emplace_back(i);
+        array.emplace_back(element_value(i));
     }
     relocate(array);
     expect_elements(array);
@@ -390,10 +452,10 @@ TEST_P(VLAReallocation, AllocationFailurePreservesNonTrivialStorage)
 {
     MovingResource       resource;
     Array<SelfReference> array{typename Array<SelfReference>::allocator_type{&resource}};
-    array.reserve(16);
-    for (int i = 10; i < 13; ++i)
+    array.reserve(InitialCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
     {
-        array.emplace_back(i);
+        array.emplace_back(element_value(i));
     }
     const auto old_data = array.data();
     resource.fail       = true;
@@ -408,13 +470,13 @@ TEST_P(VLAReallocation, AllocationFailurePreservesNonTrivialStorage)
         relocate(array);
     }
     EXPECT_EQ(array.data(), old_data);
-    EXPECT_EQ(array.capacity(), 16U);
-    ASSERT_EQ(array.size(), 3U);
+    EXPECT_EQ(array.capacity(), InitialCapacity);
+    ASSERT_EQ(array.size(), ElementCount);
     EXPECT_EQ(resource.blocks.size(), 1U);
     EXPECT_EQ(resource.reallocations, 0U);
     for (std::size_t i = 0; i < array.size(); ++i)
     {
-        EXPECT_EQ(array[i].value, static_cast<int>(10 + i));
+        EXPECT_EQ(array[i].value, element_value(i));
         EXPECT_EQ(array[i].self, &array[i].value);
     }
     resource.fail = false;
@@ -427,35 +489,35 @@ TEST_P(VLAReallocation, AllocationFailurePreservesNonTrivialStorage)
 // only the replacement allocation, destroy its completed prefix, and preserve every original value and address.
 TEST_P(VLAReallocation, FailedCopyRelocationRollsBackReplacement)
 {
-    for (int fail_at = 0; fail_at < 3; ++fail_at)
+    for (std::size_t fail_at = 0; fail_at < ElementCount; ++fail_at)
     {
         SCOPED_TRACE(fail_at);
         MovingResource      resource;
         Lifetimes           state;
         Array<CopyFallback> array{typename Array<CopyFallback>::allocator_type{&resource}};
-        array.reserve(16);
-        for (int i = 10; i < 13; ++i)
+        array.reserve(InitialCapacity);
+        for (std::size_t i = 0; i < ElementCount; ++i)
         {
-            array.emplace_back(state, i);
+            array.emplace_back(state, element_value(i));
         }
         const auto old_data = array.data();
-        state.remaining     = fail_at;
+        state.remaining     = static_cast<int>(fail_at);
         EXPECT_THROW(relocate(array), ConstructionFailure);
         EXPECT_EQ(array.data(), old_data);
-        EXPECT_EQ(array.capacity(), 16U);
-        ASSERT_EQ(array.size(), 3U);
+        EXPECT_EQ(array.capacity(), InitialCapacity);
+        ASSERT_EQ(array.size(), ElementCount);
         EXPECT_EQ(resource.reallocations, 0U);
         EXPECT_EQ(resource.blocks.size(), 1U);
-        EXPECT_EQ(state.constructed, 3U + static_cast<std::size_t>(fail_at));
-        EXPECT_EQ(state.destroyed, static_cast<std::size_t>(fail_at));
-        EXPECT_EQ(state.live.size(), 3U);
+        EXPECT_EQ(state.constructed, ElementCount + fail_at);
+        EXPECT_EQ(state.destroyed, fail_at);
+        EXPECT_EQ(state.live.size(), ElementCount);
         EXPECT_EQ(state.moves, 0U);
         for (std::size_t i = 0; i < array.size(); ++i)
         {
-            EXPECT_EQ(array[i].value, static_cast<int>(10 + i));
+            EXPECT_EQ(array[i].value, element_value(i));
             EXPECT_EQ(array[i].self, &array[i].value);
         }
-        state.remaining = -1;
+        state.remaining = FailureDisabled;
         relocate(array);
         expect_elements(array);
     }
@@ -465,38 +527,38 @@ TEST_P(VLAReallocation, FailedCopyRelocationRollsBackReplacement)
 // Clearing and repopulating after failure demonstrates that the surviving container remains reusable.
 TEST_P(VLAReallocation, FailedMoveRelocationPreservesOwnership)
 {
-    for (int fail_at = 0; fail_at < 3; ++fail_at)
+    for (std::size_t fail_at = 0; fail_at < ElementCount; ++fail_at)
     {
         SCOPED_TRACE(fail_at);
         MovingResource  resource;
         Lifetimes       state;
         Array<MoveOnly> array{typename Array<MoveOnly>::allocator_type{&resource}};
-        array.reserve(16);
-        for (int i = 10; i < 13; ++i)
+        array.reserve(InitialCapacity);
+        for (std::size_t i = 0; i < ElementCount; ++i)
         {
-            array.emplace_back(state, i);
+            array.emplace_back(state, element_value(i));
         }
         const auto old_data = array.data();
-        state.remaining     = fail_at;
+        state.remaining     = static_cast<int>(fail_at);
         EXPECT_THROW(relocate(array), ConstructionFailure);
         EXPECT_EQ(array.data(), old_data);
-        EXPECT_EQ(array.capacity(), 16U);
-        ASSERT_EQ(array.size(), 3U);
+        EXPECT_EQ(array.capacity(), InitialCapacity);
+        ASSERT_EQ(array.size(), ElementCount);
         EXPECT_EQ(resource.reallocations, 0U);
         EXPECT_EQ(resource.blocks.size(), 1U);
-        EXPECT_EQ(state.constructed, 3U + static_cast<std::size_t>(fail_at));
-        EXPECT_EQ(state.destroyed, static_cast<std::size_t>(fail_at));
-        EXPECT_EQ(state.live.size(), 3U);
+        EXPECT_EQ(state.constructed, ElementCount + fail_at);
+        EXPECT_EQ(state.destroyed, fail_at);
+        EXPECT_EQ(state.live.size(), ElementCount);
         for (std::size_t i = 0; i < array.size(); ++i)
         {
             EXPECT_EQ(array[i].self, &array[i].value);
             EXPECT_EQ(state.live.count(&array[i]), 1U);
         }
-        state.remaining = -1;
+        state.remaining = FailureDisabled;
         array.clear();
-        for (int i = 10; i < 13; ++i)
+        for (std::size_t i = 0; i < ElementCount; ++i)
         {
-            array.emplace_back(state, i);
+            array.emplace_back(state, element_value(i));
         }
         relocate(array);
         expect_elements(array);
@@ -513,10 +575,10 @@ TEST(VLAReallocationEmpty, ReserveAndShrinkWithoutLiveElements)
 {
     MovingResource       resource;
     Array<SelfReference> array{typename Array<SelfReference>::allocator_type{&resource}};
-    array.reserve(16);
-    EXPECT_EQ(array.capacity(), 16U);
+    array.reserve(InitialCapacity);
+    EXPECT_EQ(array.capacity(), InitialCapacity);
     const auto allocations = resource.allocations;
-    array.reserve(16);
+    array.reserve(InitialCapacity);
     EXPECT_EQ(resource.allocations, allocations);
     array.shrink_to_fit();
     EXPECT_TRUE(array.empty());
@@ -531,15 +593,22 @@ TEST(VLAReallocationGrowth, AppendAndResizePreserveExistingElements)
 {
     MovingResource       resource;
     Array<SelfReference> array{typename Array<SelfReference>::allocator_type{&resource}};
-    array.reserve(1);
-    array.emplace_back(10);
-    array.emplace_back(11);
-    array.resize(12, SelfReference{42});
-    ASSERT_EQ(array.size(), 12U);
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendedElementCount; ++i)
+    {
+        array.emplace_back(element_value(i));
+    }
+    ASSERT_GT(array.capacity(), AppendInitialCapacity);
+    const auto append_capacity = array.capacity();
+    ASSERT_LE(append_capacity, std::numeric_limits<std::size_t>::max() - ResizeExtraElements);
+    const auto resized_count = append_capacity + ResizeExtraElements;
+    array.resize(resized_count, SelfReference{FillValue});
+    ASSERT_EQ(array.size(), resized_count);
+    EXPECT_GT(array.capacity(), append_capacity);
     EXPECT_EQ(resource.reallocations, 0U);
     for (std::size_t i = 0; i < array.size(); ++i)
     {
-        EXPECT_EQ(array[i].value, i < 2 ? static_cast<int>(10 + i) : 42);
+        EXPECT_EQ(array[i].value, i < AppendedElementCount ? element_value(i) : FillValue);
         EXPECT_EQ(array[i].self, &array[i].value);
     }
 }
