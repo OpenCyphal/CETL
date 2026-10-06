@@ -216,6 +216,9 @@ using Array = cetl::VariableLengthArray<T, cetl::pf17::pmr::polymorphic_allocato
 class VLAReallocation : public ::testing::TestWithParam<bool>
 {
 protected:
+    // Runs the capacity change selected by the test parameter: false grows the reservation to 128 elements,
+    // while true requests shrink-to-fit. Setup provides spare capacity below 128 so either operation attempts
+    // relocation. Exceptions propagate to the caller so failure tests can check the operation's contract.
     template <typename T>
     void relocate(T& array)
     {
@@ -229,6 +232,9 @@ protected:
         }
     }
 
+    // Checks successful relocation of the three address-sensitive elements initialized with values 10, 11, 12.
+    // Each self pointer must refer to its element's current value member, and capacity must match the requested
+    // operation: three elements after shrinking or 128 after reserving.
     template <typename T>
     void expect_elements(const T& array)
     {
