@@ -21,6 +21,7 @@ enum class Operation
     Copy,
     Move,
     Default,
+    Read,
     Assign
 };
 struct Failure
@@ -140,9 +141,11 @@ struct AllocationState
 {
     std::map<void*, std::size_t> allocations;
     std::set<void*>              objects;
-    std::size_t                  allocated   = 0;
-    std::size_t                  deallocated = 0;
-    bool                         fail        = false;
+    std::size_t                  allocated                    = 0;
+    std::size_t                  deallocated                  = 0;
+    bool                         fail                         = false;
+    bool                         fail_construct               = false;
+    std::size_t                  constructions_before_failure = 0;
     ~AllocationState()
     {
         EXPECT_TRUE(allocations.empty());
@@ -203,6 +206,14 @@ struct Allocator
     template <typename U, typename... Args>
     void construct(U* pointer, Args&&... args)
     {
+        if (state->fail_construct)
+        {
+            if (state->constructions_before_failure == 0)
+            {
+                throw Failure{};
+            }
+            --state->constructions_before_failure;
+        }
         ::new (static_cast<void*>(pointer)) U(std::forward<Args>(args)...);
         // VLA deliberately elides trivial construction/destruction in its storage fast paths.
         if (!std::is_trivially_destructible<U>::value)
@@ -483,6 +494,115 @@ TEST(VLAExceptionSafety, PropagatingCopyAssignmentRetainsCorrectAllocator)
 TEST(VLAExceptionSafety, UnequalAllocatorMoveAssignmentRollsBackUninitializedElements)
 {
     check_assignment<MoveOnly, false, true>();
+}
+
+TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
+{
+    for (int kind = 0; kind < 3; ++kind)
+    {
+        for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
+        {
+            SCOPED_TRACE(::testing::Message() << "kind=" << kind << " fail_at=" << fail_at);
+            LifetimeState   lifetimes;
+            AllocationState allocations;
+            Array<>         array{Allocator<Value>{allocations}};
+            array.reserve(8);
+            populate(array, lifetimes, 3);
+            const auto constructed                   = lifetimes.constructed;
+            const auto destroyed                     = lifetimes.destroyed;
+            allocations.fail_construct               = true;
+            allocations.constructions_before_failure = fail_at;
+            if (kind == 0)
+            {
+                EXPECT_THROW(array.reserve(16), Failure);
+            }
+            if (kind == 1)
+            {
+                EXPECT_THROW(array.resize(6, array[0]), Failure);
+            }
+            if (kind == 2)
+            {
+                EXPECT_THROW((Array<>{array}), Failure);
+            }
+            EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
+            EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at);
+            EXPECT_EQ(lifetimes.live.size(), 3U);
+            EXPECT_EQ(allocations.objects.size(), 3U);
+            EXPECT_EQ(allocations.allocations.size(), 1U);
+            EXPECT_EQ(array.capacity(), 8U);
+            expect_values(array, 3);
+            allocations.fail_construct = false;
+            array.resize(6, array[0]);
+            EXPECT_EQ(array.size(), 6U);
+            array.clear();
+            EXPECT_TRUE(lifetimes.live.empty());
+            EXPECT_TRUE(allocations.objects.empty());
+        }
+    }
+}
+
+struct ThrowingRange
+{
+    Value*         data;
+    LifetimeState* state;
+    Value&         operator[](std::ptrdiff_t index) const
+    {
+        state->attempt(Operation::Read);
+        return data[index];
+    }
+    bool operator>=(const ThrowingRange& rhs) const
+    {
+        return data >= rhs.data;
+    }
+    std::ptrdiff_t operator-(const ThrowingRange& rhs) const
+    {
+        return data - rhs.data;
+    }
+};
+
+TEST(VLAExceptionSafety, RangeAccessFailuresRollBackCompletedObjects)
+{
+    for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
+    {
+        SCOPED_TRACE(fail_at);
+        LifetimeState       lifetimes;
+        AllocationState     allocations;
+        Value               values[] = {{lifetimes, 10}, {lifetimes, 11}, {lifetimes, 12}};
+        const ThrowingRange first{values, &lifetimes};
+        const ThrowingRange last{values + 3, &lifetimes};
+        const auto          constructed = lifetimes.constructed;
+        const auto          destroyed   = lifetimes.destroyed;
+        lifetimes.arm(Operation::Read, fail_at);
+        EXPECT_THROW((Array<>{first, last, Allocator<Value>{allocations}}), Failure);
+        EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
+        EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at);
+        EXPECT_EQ(lifetimes.live.size(), 3U);
+        EXPECT_TRUE(allocations.objects.empty());
+        EXPECT_TRUE(allocations.allocations.empty());
+        lifetimes.operation = Operation::None;
+        Array<> array{first, last, Allocator<Value>{allocations}};
+        expect_values(array, 3);
+    }
+}
+
+TEST(VLAExceptionSafety, EmptyRangesDoNotInvokeConstruction)
+{
+    LifetimeState   lifetimes;
+    AllocationState allocations;
+    allocations.fail_construct = true;
+    const std::initializer_list<Value> empty;
+    Array<>                            source{empty, Allocator<Value>{allocations}};
+    Array<>                            copy{source};
+    // Reserving an empty nontrivial array exercises a zero-length relocation into allocated storage.
+    source.reserve(4);
+    EXPECT_EQ(source.capacity(), 4U);
+    EXPECT_EQ(lifetimes.constructed, 0U);
+    EXPECT_TRUE(allocations.objects.empty());
+    EXPECT_TRUE(copy.empty());
+    EXPECT_TRUE(source.empty());
+    allocations.fail_construct = false;
+    populate(source, lifetimes, 3);
+    expect_values(source, 3);
 }
 
 TEST(VLAExceptionSafety, AssignmentExceptionsLeaveExistingObjectsAlive)

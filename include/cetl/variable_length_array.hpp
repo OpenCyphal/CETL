@@ -11,8 +11,6 @@
 #ifndef CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 #define CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 
-#include "cetl/pf17/memory.hpp"
-
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -302,15 +300,33 @@ protected:
         return max_copy_size;
     }
 
-    // Reuse uninitialized_move's rollback machinery while preserving allocator hooks and VLA's relocation policy.
-    // The source cursor is an index because copy, move, default, and fill construction share this operation.
+    // Construct a contiguous range, recording only completed constructions. The caller supplies the construction
+    // operation so copy, move, default, and fill construction retain their allocator hooks and relocation policy.
+    // On failure, destroy the completed prefix; allocation ownership remains with the caller.
     template <typename Construct>
     static void construct_n(value_type* dst, size_type count, allocator_type& alloc, Construct construct)
     {
-        (void) cetl::pf17::detail::mem::
-            uninitialized_construct(size_type{0}, count, dst, construct, [&alloc](value_type* address) {
-                std::allocator_traits<allocator_type>::destroy(alloc, address);
-            });
+        size_type constructed = 0;
+#if defined(__cpp_exceptions)
+        try
+        {
+#else
+        (void) alloc;
+#endif
+            for (; constructed < count; ++constructed)
+            {
+                construct(dst + constructed, constructed);
+            }
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            while (constructed > 0)
+            {
+                std::allocator_traits<allocator_type>::destroy(alloc, dst + --constructed);
+            }
+            throw;
+        }
+#endif
     }
 
     // +----------------------------------------------------------------------+
