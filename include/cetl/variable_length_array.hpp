@@ -178,15 +178,22 @@ protected:
     using reallocate_operation =
         decltype(std::declval<U>().reallocate(std::declval<value_type*>(), std::size_t(), std::size_t()));
 
+    // Reallocation may move the block by copying bytes, without invoking element constructors or destructors.
+    // Only trivially copyable storage can use this extension; other types use allocate_and_forward instead.
+    // Apply the same type-level rule to empty buffers. Packed bool remains eligible through its byte storage.
     template <typename UAllocator>
-    static constexpr typename std::enable_if_t<is_detected<reallocate_operation, UAllocator>::value, value_type>*
+    static constexpr typename std::enable_if_t<std::is_trivially_copyable<value_type>::value &&
+                                                   is_detected<reallocate_operation, UAllocator>::value,
+                                               value_type>*
     reallocate(value_type* data, UAllocator& alloc, std::size_t old_object_count, std::size_t new_object_count)
     {
         return alloc.reallocate(data, old_object_count, new_object_count);
     }
 
     template <typename UAllocator>
-    static constexpr typename std::enable_if_t<!is_detected<reallocate_operation, UAllocator>::value, value_type>*
+    static constexpr typename std::enable_if_t<!std::is_trivially_copyable<value_type>::value ||
+                                                   !is_detected<reallocate_operation, UAllocator>::value,
+                                               value_type>*
     reallocate(value_type* data, UAllocator& alloc, std::size_t old_object_count, std::size_t new_object_count)
     {
         (void) data;
@@ -682,8 +689,8 @@ protected:
         }
         else
         {
-            // The allocator was unable to extend the reserved area for the same memory pointer.
-            // We need to allocate a new block of memory and copy the old data into it.
+            // Reallocation is unavailable, unsafe for this element type, or declined by the allocator.
+            // Allocate replacement storage and relocate the elements with the appropriate construction policy.
             new_data = allocate_and_forward(no_shrink_capacity, data_, size_, alloc_);
             if (nullptr != new_data)
             {
@@ -960,6 +967,10 @@ protected:
 /// std::vector does:
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_no_exceptions
 /// (@ref example_08_variable_length_array_vs_vector "See full example here...")
+///
+/// The allocator's optional `reallocate` extension is used only for trivially copyable storage. Non-trivial
+/// elements require replacement storage during capacity changes, even if the allocator could resize in place.
+/// With a resource that supports only one outstanding allocation, reserve sufficient capacity before adding elements.
 ///
 /// With exceptions enabled, failed construction destroys every successfully constructed destination element and
 /// releases abandoned storage. Failed `reserve()` or `shrink_to_fit()` preserves the original values when relocation
