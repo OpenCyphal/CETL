@@ -11,6 +11,8 @@
 #ifndef CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 #define CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 
+#include "cetl/pf17/memory.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
@@ -206,10 +208,12 @@ protected:
     static constexpr void fast_destroy(
         U* const        src,
         const size_type src_size_count,
+        allocator_type& alloc,
         typename std::enable_if_t<std::is_trivially_destructible<U>::value>* = nullptr) noexcept
     {
         (void) src;
         (void) src_size_count;
+        (void) alloc;
     }
 
     ///
@@ -218,13 +222,14 @@ protected:
     template <typename U>
     static constexpr void fast_destroy(U* const        src,
                                        const size_type src_size_count,
+                                       allocator_type& alloc,
                                        typename std::enable_if_t<!std::is_trivially_destructible<U>::value>* =
                                            nullptr) noexcept(std::is_nothrow_destructible<U>::value)
     {
         size_type dtor_iterator = src_size_count;
         while (dtor_iterator > 0)
         {
-            src[--dtor_iterator].~U();
+            std::allocator_traits<allocator_type>::destroy(alloc, std::addressof(src[--dtor_iterator]));
         }
     }
     // +----------------------------------------------------------------------+
@@ -241,7 +246,7 @@ protected:
         allocator_type& alloc,
         typename std::enable_if_t<std::is_trivially_destructible<U>::value>* = nullptr)
     {
-        fast_destroy(src, src_size_count);
+        fast_destroy(src, src_size_count, alloc);
         alloc.deallocate(src, src_capacity_count);
     }
 
@@ -256,7 +261,7 @@ protected:
         allocator_type& alloc,
         typename std::enable_if_t<!std::is_trivially_destructible<U>::value>* = nullptr)
     {
-        fast_destroy(src, src_size_count);
+        fast_destroy(src, src_size_count, alloc);
         alloc.deallocate(src, src_capacity_count);
     }
 
@@ -268,8 +273,7 @@ protected:
     /// @return the number of elements copied.
     ///
     template <typename InputIt>
-    static constexpr size_type fast_copy_assign(value_type* dst, size_type dst_capacity_count, InputIt src) noexcept(
-        noexcept(std::is_nothrow_assignable<value_type, std::remove_pointer_t<InputIt>>::value))
+    static constexpr size_type fast_copy_assign(value_type* dst, size_type dst_capacity_count, InputIt src)
     {
         if (nullptr == dst)
         {
@@ -284,12 +288,10 @@ protected:
     /// @return the number of elements copied.
     ///
     template <typename InputIt>
-    static constexpr size_type fast_copy_assign(
-        value_type* dst,
-        size_type   dst_capacity_count,
-        InputIt     src,
-        size_type   src_len_count) noexcept(noexcept(std::is_nothrow_assignable<value_type,
-                                                                              std::remove_pointer_t<InputIt>>::value))
+    static constexpr size_type fast_copy_assign(value_type* dst,
+                                                size_type   dst_capacity_count,
+                                                InputIt     src,
+                                                size_type   src_len_count)
     {
         if (nullptr == dst || nullptr == src)
         {
@@ -298,6 +300,17 @@ protected:
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
         (void) std::copy_n(src, max_copy_size, dst);
         return max_copy_size;
+    }
+
+    // Reuse uninitialized_move's rollback machinery while preserving allocator hooks and VLA's relocation policy.
+    // The source cursor is an index because copy, move, default, and fill construction share this operation.
+    template <typename Construct>
+    static void construct_n(value_type* dst, size_type count, allocator_type& alloc, Construct construct)
+    {
+        (void) cetl::pf17::detail::mem::
+            uninitialized_construct(size_type{0}, count, dst, construct, [&alloc](value_type* address) {
+                std::allocator_traits<allocator_type>::destroy(alloc, address);
+            });
     }
 
     // +----------------------------------------------------------------------+
@@ -335,20 +348,12 @@ protected:
         size_type         src_len_count,
         allocator_type&   alloc,
         typename std::enable_if_t<
-            !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* =
-            nullptr) noexcept(noexcept(std::allocator_traits<allocator_type>::
-                                           construct(std::declval<std::add_lvalue_reference_t<allocator_type>>(),
-                                                     std::declval<std::add_pointer_t<value_type>>(),
-                                                     std::declval<std::add_lvalue_reference_t<
-                                                         decltype(std::declval<const InputIt>()[0])>>())))
+            !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
-        for (size_type i = 0; i < max_copy_size; ++i)
-        {
-            std::allocator_traits<allocator_type>::construct(alloc,
-                                                             &dst[static_cast<difference_type>(i)],
-                                                             src[static_cast<difference_type>(i)]);
-        }
+        construct_n(dst, max_copy_size, alloc, [&alloc, &src](value_type* address, size_type& i) {
+            std::allocator_traits<allocator_type>::construct(alloc, address, src[static_cast<difference_type>(i)]);
+        });
         return max_copy_size;
     }
 
@@ -381,11 +386,32 @@ protected:
             !is_array_of_type_trivially_copyable<std::add_pointer_t<value_type>, InputIt>::value>* = nullptr)
     {
         const size_type max_copy_size = std::min(dst_capacity_count, src_len_count);
-        for (size_type i = 0; i < max_copy_size; ++i)
-        {
-            std::allocator_traits<allocator_type>::construct(alloc, &dst[i], std::move_if_noexcept(src[i]));
-        }
+        construct_n(dst, max_copy_size, alloc, [&alloc, &src](value_type* address, size_type& i) {
+            std::allocator_traits<allocator_type>::construct(alloc, address, std::move_if_noexcept(src[i]));
+        });
         return max_copy_size;
+    }
+
+    // Construction rollback destroys objects; this helper separately releases an abandoned allocation.
+    static value_type* allocate_and_forward(size_type capacity, value_type* src, size_type count, allocator_type& alloc)
+    {
+        value_type* const result = std::allocator_traits<allocator_type>::allocate(alloc, capacity);
+        if (result != nullptr)
+        {
+#if defined(__cpp_exceptions)
+            try
+            {
+#endif
+                fast_forward_construct(result, capacity, src, count, alloc);
+#if defined(__cpp_exceptions)
+            } catch (...)
+            {
+                std::allocator_traits<allocator_type>::deallocate(alloc, result, capacity);
+                throw;
+            }
+#endif
+        }
+        return result;
     }
 
     // +----------------------------------------------------------------------+
@@ -448,7 +474,7 @@ protected:
             if (rhs.size_ <= size_)
             {
                 // if there's less elements in rhs than in this container, destroy the remaining elements.
-                fast_destroy(&data_[overlap], size_ - overlap);
+                fast_destroy(&data_[overlap], size_ - overlap, alloc_);
             }
             else
             {
@@ -562,7 +588,7 @@ protected:
                 if (rhs.size_ <= size_)
                 {
                     // if there's fewer elements in rhs than in this container, destroy the remaining elements.
-                    fast_destroy(&data_[overlap], size_ - overlap);
+                    fast_destroy(&data_[overlap], size_ - overlap, alloc_);
                 }
                 else
                 {
@@ -642,10 +668,9 @@ protected:
         {
             // The allocator was unable to extend the reserved area for the same memory pointer.
             // We need to allocate a new block of memory and copy the old data into it.
-            new_data = std::allocator_traits<allocator_type>::allocate(alloc_, no_shrink_capacity);
+            new_data = allocate_and_forward(no_shrink_capacity, data_, size_, alloc_);
             if (nullptr != new_data)
             {
-                fast_forward_construct(new_data, no_shrink_capacity, data_, size_, alloc_);
                 fast_deallocate(data_, size_, capacity_, alloc_);
                 data_     = new_data;
                 capacity_ = no_shrink_capacity;
@@ -683,15 +708,19 @@ protected:
                 }
 #endif
             }
-            for (std::size_t i = size_; i < new_size; ++i)
-            {
-                std::allocator_traits<allocator_type>::construct(alloc_, &data_[i], std::forward<Args>(args)...);
-            }
+            construct_n(data_ == nullptr ? nullptr : data_ + size_,
+                        new_size - size_,
+                        alloc_,
+                        [this, &args...](value_type* address, size_type&) {
+                            std::allocator_traits<allocator_type>::construct(alloc_,
+                                                                             address,
+                                                                             std::forward<Args>(args)...);
+                        });
         }
         else
         {
             // shrink
-            fast_destroy(&data_[new_size], size_ - new_size);
+            fast_destroy(&data_[new_size], size_ - new_size, alloc_);
         }
         size_ = new_size;
     }
@@ -727,7 +756,7 @@ protected:
         }
 
         // Allocate only enough to store what we have.
-        value_type* minimized_data = alloc_.allocate(size_);
+        value_type* minimized_data = allocate_and_forward(size_, data_, size_, alloc_);
 
         if (minimized_data == nullptr)
         {
@@ -737,7 +766,6 @@ protected:
         {
             if (minimized_data != data_)
             {
-                fast_forward_construct(minimized_data, size_, data_, size_, alloc_);
                 fast_deallocate(data_, size_, capacity_, alloc_);
             }  // else the allocator was able to simply shrink the reserved area for the same memory pointer.
             data_     = minimized_data;
@@ -855,8 +883,15 @@ protected:
             // manually.
             if (rhs.size_ > 0)
             {
-                data_ = std::allocator_traits<allocator_type>::allocate(alloc_, rhs.size_);
-                fast_forward_construct(data_, rhs.size_, rhs.data_, rhs.size_, alloc_);
+                data_ = allocate_and_forward(rhs.size_, rhs.data_, rhs.size_, alloc_);
+                if (data_ == nullptr)
+                {
+#if defined(__cpp_exceptions)
+                    throw std::bad_alloc();
+#else
+                    return;
+#endif
+                }
             }
             capacity_ = rhs.size_;
             size_     = rhs.size_;
@@ -867,7 +902,14 @@ protected:
         rhs.data_     = nullptr;
     }
 
-    ~VariableLengthArrayBase() = default;
+    ~VariableLengthArrayBase()
+    {
+        // This also runs when a derived constructor throws after acquiring storage.
+        if (data_ != nullptr)
+        {
+            fast_deallocate(data_, size_, capacity_, alloc_);
+        }
+    }
 
     // +----------------------------------------------------------------------+
     // | DATA MEMBERS
@@ -902,6 +944,16 @@ protected:
 /// std::vector does:
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_no_exceptions
 /// (@ref example_08_variable_length_array_vs_vector "See full example here...")
+///
+/// With exceptions enabled, failed construction destroys every successfully constructed destination element and
+/// releases abandoned storage. Failed `reserve()` or `shrink_to_fit()` preserves the original values when relocation
+/// copies elements. If a throwing move-only element is relocated, source values may already have been moved from;
+/// the container retains ownership and valid size/capacity bookkeeping, but those values are not restored.
+///
+/// Failed construction during `resize()` destroys the new suffix and retains the original size. Capacity acquired
+/// before the failure may remain. Assignment provides valid lifetime and ownership bookkeeping after failure;
+/// previously assigned values need not be restored, and replacement of the old buffer may leave an empty array.
+/// Element destruction and allocator deallocation must not throw. With exceptions disabled, no rollback is provided.
 ///
 /// @tparam  T           The type of elements in the array.
 /// @tparam Allocator    The allocator type to use for all allocations.
@@ -1079,15 +1131,7 @@ public:
         return *this;
     }
 
-    ~VariableLengthArray()
-    {
-        if (nullptr != data_)
-        {
-            // While deallocation is null-safe, we don't know if the allocator
-            // was moved and is now in an invalid state.
-            Base::fast_deallocate(data_, size_, capacity_, alloc_);
-        }
-    }
+    ~VariableLengthArray() = default;
 
     // +----------------------------------------------------------------------+
     // | COMPARATORS
@@ -1402,7 +1446,7 @@ public:
     ///
     constexpr void clear() noexcept(std::is_nothrow_destructible<value_type>::value)
     {
-        Base::fast_destroy(data_, size_);
+        Base::fast_destroy(data_, size_, alloc_);
         size_ = 0;
     }
 
@@ -1468,7 +1512,7 @@ public:
     {
         if (size_ > 0)
         {
-            data_[--size_].~value_type();
+            std::allocator_traits<allocator_type>::destroy(alloc_, std::addressof(data_[--size_]));
         }
     }
     /// Like push_back but constructs the object directly in uninitialized memory.
@@ -1918,7 +1962,21 @@ public:
 
     VariableLengthArray& operator=(const VariableLengthArray& rhs)
     {
-        Base::copy_assign_from(rhs, rhs.max_size());
+#if defined(__cpp_exceptions)
+        try
+        {
+#endif
+            Base::copy_assign_from(rhs, rhs.max_size());
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            if (size_ == 0)
+            {
+                last_byte_bit_fill_ = 0;
+            }
+            throw;
+        }
+#endif
         last_byte_bit_fill_ = rhs.last_byte_bit_fill_;
         return *this;
     }
@@ -1942,20 +2000,14 @@ public:
         std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
     {
-        last_byte_bit_fill_ = rhs.last_byte_bit_fill_;
-        Base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
+        if (this != &rhs)
+        {
+            move_assign_bits(rhs);
+        }
         return *this;
     }
 
-    ~VariableLengthArray()
-    {
-        if (nullptr != data_)
-        {
-            // While deallocation is null-safe, we don't know if the allocator
-            // was move and is now in an invalid state.
-            Base::fast_deallocate(data_, size_, capacity_, alloc_);
-        }
-    }
+    ~VariableLengthArray() = default;
 
     // +----------------------------------------------------------------------+
     // | COMPARATORS
@@ -2407,6 +2459,27 @@ public:
     }
 
 private:
+    void move_assign_bits(VariableLengthArray& rhs)
+    {
+#if defined(__cpp_exceptions)
+        try
+        {
+#endif
+            Base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            if (size_ == 0)
+            {
+                last_byte_bit_fill_ = 0;
+            }
+            throw;
+        }
+#endif
+        last_byte_bit_fill_     = rhs.last_byte_bit_fill_;
+        rhs.last_byte_bit_fill_ = 0;
+    }
+
     constexpr bool ensure_size_plus_one()
     {
         if (capacity_ > 0 && (last_byte_bit_fill_ < 7 || size_ < capacity_))
