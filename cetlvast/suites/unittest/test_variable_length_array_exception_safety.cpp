@@ -35,6 +35,7 @@ struct LifetimeState
     Operation             operation   = Operation::None;
     std::size_t           remaining   = 0;
 
+    // Allow fail_at matching operations to succeed before injecting a failure.
     void arm(Operation op, std::size_t fail_at)
     {
         operation = op;
@@ -297,6 +298,7 @@ TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
             }
             EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
             EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at);
+            // Only the initializer-list elements and the original source should remain alive.
             EXPECT_EQ(lifetimes.live.size(), 6U);
             EXPECT_EQ(allocations.allocations.size(), 1U);
             EXPECT_EQ(allocations.objects.size(), 3U);
@@ -345,11 +347,13 @@ void check_relocation(Operation operation)
             EXPECT_EQ(allocations.objects.size(), 3U);
             EXPECT_TRUE(destination.allocations.empty());
             EXPECT_TRUE(destination.objects.empty());
+            // Copy relocation preserves values; a throwing move may already have changed them.
             if (operation == Operation::Copy)
             {
                 expect_values(source, 3);
             }
             lifetimes.operation = Operation::None;
+            // Reuse the surviving container to expose hidden live objects or stale bookkeeping.
             source.clear();
             populate(source, lifetimes, 3);
             source.reserve(16);
@@ -385,6 +389,7 @@ TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
                 array.reserve(spare ? 8 : 2);
                 populate(array, lifetimes, 2);
                 const Value fill{lifetimes, 42};
+                // Growth copies the two existing elements before constructing the suffix under test.
                 lifetimes.arm(operation == 0 ? Operation::Default : Operation::Copy,
                               fail_at + ((!spare && operation != 0) ? 2 : 0));
                 const auto constructed = lifetimes.constructed;
@@ -453,6 +458,7 @@ void check_assignment()
             const auto destroyed   = lifetimes.destroyed;
             lifetimes.arm(Move ? Operation::Move : Operation::Copy, fail_at);
             EXPECT_THROW(assign_subject(target, source, std::integral_constant<bool, Move>{}), Failure);
+            // Reusing storage retains the overlap; replacing storage discards it before construction.
             const bool retained = spare && !Propagate;
             EXPECT_EQ(target.size(), retained ? 1U : 0U);
             EXPECT_EQ(source.size(), 4U);
@@ -508,6 +514,7 @@ TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
             Array<>         array{Allocator<Value>{allocations}};
             array.reserve(8);
             populate(array, lifetimes, 3);
+            // Inject from the allocator hook before it enters the element constructor.
             const auto constructed                   = lifetimes.constructed;
             const auto destroyed                     = lifetimes.destroyed;
             allocations.fail_construct               = true;
@@ -572,6 +579,7 @@ TEST(VLAExceptionSafety, RangeAccessFailuresRollBackCompletedObjects)
         const ThrowingRange last{values + 3, &lifetimes};
         const auto          constructed = lifetimes.constructed;
         const auto          destroyed   = lifetimes.destroyed;
+        // Source access can throw before the allocator gets a chance to construct the next element.
         lifetimes.arm(Operation::Read, fail_at);
         EXPECT_THROW((Array<>{first, last, Allocator<Value>{allocations}}), Failure);
         EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
@@ -657,6 +665,7 @@ struct ThrowingBool
 
 TEST(VLAExceptionSafety, BoolRangeFailureReleasesStorage)
 {
+    // Fail before the first bit, within a byte, and when crossing into the next byte.
     for (std::size_t fail_at : {0U, 4U, 8U})
     {
         LifetimeState   lifetimes;
@@ -698,6 +707,7 @@ TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyConta
         EXPECT_TRUE(allocations.allocations.empty());
         EXPECT_EQ(source.size(), 17U);
         allocations.fail = false;
+        // The first insertion after failure must start at bit zero, with no stale bit count.
         target.emplace_back(true);
         EXPECT_EQ(target.size(), 1U);
         EXPECT_TRUE(target[0]);
@@ -731,6 +741,7 @@ TEST(VLAExceptionSafety, AllocationFailurePreservesExistingStorage)
     auto* const original = source.data();
     allocations.fail     = true;
     EXPECT_THROW(source.reserve(16), std::bad_alloc);
+    // shrink_to_fit deliberately suppresses allocation failure and keeps the original buffer.
     EXPECT_NO_THROW(source.shrink_to_fit());
     EXPECT_THROW(source.resize(16), std::bad_alloc);
     EXPECT_EQ(source.data(), original);
