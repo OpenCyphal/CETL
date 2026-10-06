@@ -675,6 +675,12 @@ TYPED_TEST(VLATestsGeneralAllocation, TestCopyAssignment)
     typename TestFixture::SubjectType subject0{TestFixture::make_allocator()};
     typename TestFixture::SubjectType subject1{TestFixture::make_allocator()};
 
+    // The fixed-buffer resource can serve only one allocation. Non-trivial elements cannot use its reallocate
+    // extension, so reserve source storage up front; this test exercises copy assignment, not source growth.
+    if (!std::is_trivially_copyable<typename TestFixture::Value>::value)
+    {
+        subject0.reserve(3);
+    }
     subject0.push_back(1);
     subject0.push_back(2);
     subject0.push_back(3);
@@ -777,6 +783,12 @@ TYPED_TEST(VLATestsGeneralAllocation, TestResizeWithCopy)
     ASSERT_GT(clamped_max, 1) << "This test is only valid if max size > 1";
     ASSERT_GT(clamped_max, subject.size());
 
+    // Give non-trivial elements enough capacity before construction: the single-allocation resource cannot
+    // supply replacement storage while the old buffer is live. The assertions below verify the copied suffix.
+    if (!std::is_trivially_copyable<typename TestFixture::Value>::value)
+    {
+        subject.reserve(clamped_max);
+    }
     subject.push_back(1);
 
     const typename TestFixture::SubjectType::value_type copy_from_value{2};
@@ -893,6 +905,37 @@ TYPED_TEST(VLATestsGeneralAllocation, TestAssignValue)
 // | AD-HOC TEST
 // |    Additional tests of allocation without parameterization.
 // +-------------------------------------------------------------------------------------------------------------------+
+
+// A resource that can resize its sole allocation in place still cannot safely advertise byte reallocation for
+// non-trivial elements. Growth must report allocation failure, and shrink must retain the existing allocation.
+// Pre-reserving capacity remains usable, and the original element survives both unsuccessful operations.
+TEST(VLATestsAdHocAllocation, NonTrivialRelocationNeedsReplacementStorage)
+{
+    using Allocator = cetl::pf17::pmr::polymorphic_allocator<NotTriviallyConstructable>;
+    using Factory   = CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>;
+    Factory                                                         factory;
+    NullResourceFactory                                             upstream;
+    cetl::VariableLengthArray<NotTriviallyConstructable, Allocator> subject{
+        Factory::Bind<Allocator, NullResourceFactory>::make_allocator(factory, upstream)};
+    subject.reserve(4);
+    subject.emplace_back(std::size_t{1});
+    const auto original = subject.data();
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(subject.reserve(8), std::bad_alloc);
+#else
+    subject.reserve(8);
+#endif
+    EXPECT_EQ(subject.data(), original);
+    EXPECT_EQ(subject.capacity(), 4U);
+    subject.shrink_to_fit();
+    EXPECT_EQ(subject.data(), original);
+    EXPECT_EQ(subject.capacity(), 4U);
+    ASSERT_EQ(subject.size(), 1U);
+    EXPECT_EQ(subject[0], 1U);
+    subject.emplace_back(std::size_t{2});
+    ASSERT_EQ(subject.size(), 2U);
+    EXPECT_EQ(subject[1], 2U);
+}
 
 TEST(VLATestsAdHocAllocation, UsesPMAForItems)
 {
