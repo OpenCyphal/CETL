@@ -37,7 +37,7 @@ static_assert(ElementCount >= 3, "Relocation needs first, middle, and final fail
 static_assert(ElementCount < std::numeric_limits<std::size_t>::max() / BitsPerByte,
               "Packed capacities and the spare byte must not overflow.");
 static_assert(PackedTailBits > 0 && PackedTailBits < BitsPerByte, "Packed storage needs a partial final byte.");
-constexpr std::size_t PackedElementCount    = (ElementCount - 1) * BitsPerByte + PackedTailBits;
+constexpr std::size_t PackedElementCount    = ((ElementCount - 1) * BitsPerByte) + PackedTailBits;
 constexpr std::size_t PackedShrinkCapacity  = ElementCount * BitsPerByte;
 constexpr std::size_t PackedInitialCapacity = PackedShrinkCapacity + BitsPerByte;
 static_assert(ElementCount < InitialCapacity, "Ordinary elements need spare capacity before shrinking.");
@@ -107,6 +107,7 @@ private:
     void* do_allocate(std::size_t bytes, std::size_t alignment) override
     {
         EXPECT_LE(alignment, alignof(std::max_align_t));
+        // NOLINTNEXTLINE(hicpp-no-malloc, cppcoreguidelines-no-malloc)
         void* const result = fail ? nullptr : std::malloc(bytes);
         if (result == nullptr)
         {
@@ -131,6 +132,7 @@ private:
             EXPECT_EQ(found->second.second, alignment);
             blocks.erase(found);
             ++deallocations;
+            // NOLINTNEXTLINE(hicpp-no-malloc, cppcoreguidelines-no-malloc, cppcoreguidelines-owning-memory)
             std::free(pointer);
         }
     }
@@ -228,6 +230,7 @@ struct Lifetimes
 #if defined(__cpp_exceptions)
         if (remaining == 0)
         {
+            // NOLINTNEXTLINE(hicpp-exception-baseclass)
             throw ConstructionFailure{};
         }
 #endif
@@ -526,7 +529,7 @@ TEST_P(VLAReallocation, FailedCopyRelocationRollsBackReplacement)
         {
             array.emplace_back(state, element_value(i));
         }
-        const auto old_data = array.data();
+        auto *const old_data = array.data();
         state.remaining     = static_cast<int>(fail_at);
         EXPECT_THROW(relocate(array), ConstructionFailure);
         EXPECT_EQ(array.data(), old_data);
@@ -564,7 +567,7 @@ TEST_P(VLAReallocation, FailedMoveRelocationPreservesOwnership)
         {
             array.emplace_back(state, element_value(i));
         }
-        const auto old_data = array.data();
+        auto const* old_data = array.data();
         state.remaining     = static_cast<int>(fail_at);
         EXPECT_THROW(relocate(array), ConstructionFailure);
         EXPECT_EQ(array.data(), old_data);
