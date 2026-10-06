@@ -15,6 +15,7 @@
 namespace
 {
 #if defined(__cpp_exceptions)
+// Selects which element operation or source access will throw; other operations remain usable for setup.
 enum class Operation
 {
     None,
@@ -24,9 +25,13 @@ enum class Operation
     Read,
     Assign
 };
+
+// Distinguishes an injected element/allocator-hook failure from allocation failure (std::bad_alloc).
 struct Failure
 {};
 
+// Shared by the test elements to inject failures and track their actual lifetimes independently of VLA's size.
+// Address tracking catches duplicate construction/destruction; final counts catch objects left alive after cleanup.
 struct LifetimeState
 {
     std::set<const void*> live;
@@ -69,8 +74,12 @@ struct LifetimeState
     }
 };
 
+// Supplies the tracker to Value's default constructor when resize() cannot pass constructor arguments.
 LifetimeState* default_state = nullptr;
 
+// A nontrivial element with separately injectable default/copy/move construction and assignment failures.
+// Copying is available and moving can throw, so VLA should prefer copying when relocating this type.
+// A move changes the source before it can throw, making the weaker guarantee for move-only values observable.
 struct Value
 {
     LifetimeState* state;
@@ -122,6 +131,7 @@ struct Value
     }
 };
 
+// Disables the copy fallback so relocation must exercise the potentially throwing move constructor.
 struct MoveOnly : Value
 {
     using Value::Value;
@@ -138,6 +148,8 @@ struct MoveOnly : Value
     }
 };
 
+// Records each allocator's buffers, their sizes, and objects created through its construction hook.
+// Separate instances distinguish allocation owners; scope exit checks that buffers and hooked objects were released.
 struct AllocationState
 {
     std::map<void*, std::size_t> allocations;
@@ -155,6 +167,9 @@ struct AllocationState
     }
 };
 
+// Allocator fixture that checks ownership, deallocation sizes, and construct/destroy hook pairing.
+// It can fail allocation or fail a construction hook before the element constructor runs.
+// Propagate enables copy-assignment propagation; allocators compare equal only when they share tracking state.
 template <typename T, bool Propagate = false>
 struct Allocator
 {
@@ -243,9 +258,11 @@ struct Allocator
     }
 };
 
+// VLA under test, using the tracking allocator and either the copyable Value or MoveOnly element.
 template <typename T = Value>
 using Array = cetl::VariableLengthArray<T, Allocator<T>>;
 
+// Reserves up front so inserting recognizable values (10, 11, ...) does not trigger relocation.
 template <typename Subject>
 void populate(Subject& array, LifetimeState& state, std::size_t count)
 {
@@ -256,6 +273,7 @@ void populate(Subject& array, LifetimeState& state, std::size_t count)
     }
 }
 
+// Checks both the reported size and the original value sequence after an operation that should preserve them.
 template <typename Subject>
 void expect_values(const Subject& array, std::size_t count)
 {
@@ -266,8 +284,11 @@ void expect_values(const Subject& array, std::size_t count)
     }
 }
 
+// Fail the first, middle, and last copy in list, range, ordinary-copy, and allocator-extended copy construction.
+// Each failed constructor must destroy its completed prefix and free its buffer without changing the source.
 TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
 {
+    // kind: initializer list, iterator range, copy, copy with an explicit allocator.
     for (int kind = 0; kind < 4; ++kind)
     {
         for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
@@ -307,9 +328,12 @@ TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
     }
 }
 
+// Exercises relocation into a larger buffer, a smaller buffer, or a container with an unequal allocator.
+// Fail each destination construction in turn, check ownership and lifetimes, then reuse the surviving source.
 template <typename T>
 void check_relocation(Operation operation)
 {
+    // kind: reserve, shrink_to_fit, move construction with an unequal allocator.
     for (int kind = 0; kind < 3; ++kind)
     {
         for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
@@ -363,17 +387,25 @@ void check_relocation(Operation operation)
     }
 }
 
+// A copyable element with a throwing move must be relocated by copying.
+// Failed relocation must preserve the source buffer, size, capacity, and values.
 TEST(VLAExceptionSafety, CopyRelocationPreservesOriginalValues)
 {
     check_relocation<Value>(Operation::Copy);
 }
+
+// Without a copy fallback, failed relocation may leave source values moved from.
+// The source must still own exactly its original objects and storage and remain usable.
 TEST(VLAExceptionSafety, ThrowingMoveOnlyRelocationPreservesOwnership)
 {
     check_relocation<MoveOnly>(Operation::Move);
 }
 
+// Fail construction of a three-element suffix during default resize, fill resize, and fill assignment.
+// Exercise both spare capacity and allocation growth: the old size survives, but newly acquired capacity may remain.
 TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
 {
+    // operation: default resize, fill resize, fill assignment; spare selects whether relocation is needed.
     for (int operation = 0; operation < 3; ++operation)
     {
         for (bool spare : {false, true})
@@ -426,6 +458,7 @@ TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
     default_state = nullptr;
 }
 
+// Dispatch at compile time so the move-only cases never instantiate the copy-assignment expression.
 template <typename Subject>
 void assign_subject(Subject& target, Subject& source, std::true_type)
 {
@@ -437,6 +470,9 @@ void assign_subject(Subject& target, Subject& source, std::false_type)
     target = source;
 }
 
+// Assign four source elements to a one-element destination, with and without reusable storage.
+// Reuse assigns the existing element and constructs three more; replacement constructs all four from scratch.
+// Inject failures only during construction, then verify ownership and retry the assignment successfully.
 template <typename T, bool Propagate, bool Move>
 void check_assignment()
 {
@@ -489,21 +525,32 @@ void check_assignment()
     }
 }
 
+// Copy-assignment failure must clean up newly constructed elements, whether storage is reused or replaced.
+// The original source remains unchanged, and the destination can be assigned again.
 TEST(VLAExceptionSafety, CopyAssignmentRollsBackUninitializedElements)
 {
     check_assignment<Value, false, false>();
 }
+
+// Propagating an unequal allocator requires replacing the destination buffer even when it has spare capacity.
+// After failure, any retained allocation must belong to the adopted allocator and be released through that allocator.
 TEST(VLAExceptionSafety, PropagatingCopyAssignmentRetainsCorrectAllocator)
 {
     check_assignment<Value, true, false>();
 }
+
+// Unequal, nonpropagating allocators force element-wise move assignment and construction.
+// Failure must preserve valid source/destination lifetimes even though some source values may already be moved from.
 TEST(VLAExceptionSafety, UnequalAllocatorMoveAssignmentRollsBackUninitializedElements)
 {
     check_assignment<MoveOnly, false, true>();
 }
 
+// Fail the allocator's construction hook during reserve, resize, and copy construction.
+// Rollback must also handle failures before the element constructor runs, destroying only the completed prefix.
 TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
 {
+    // kind: reserve into a new buffer, resize within capacity, copy construction.
     for (int kind = 0; kind < 3; ++kind)
     {
         for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
@@ -548,6 +595,8 @@ TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
     }
 }
 
+// Source-range adapter with injectable indexed-access failures and nonthrowing bounds operations.
+// This lets range construction fail while obtaining an element, independently of copying that element.
 struct ThrowingRange
 {
     Value*         data;
@@ -567,6 +616,8 @@ struct ThrowingRange
     }
 };
 
+// Fail each source read during range construction and check that earlier destination objects and storage are freed.
+// Reading the same range again without injection must produce a valid array with unchanged source values.
 TEST(VLAExceptionSafety, RangeAccessFailuresRollBackCompletedObjects)
 {
     for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
@@ -593,6 +644,8 @@ TEST(VLAExceptionSafety, RangeAccessFailuresRollBackCompletedObjects)
     }
 }
 
+// Arm the allocator to fail on any construction, then create/copy empty arrays and reserve empty storage.
+// These zero-element operations must never call construct; the reserved array must remain usable afterward.
 TEST(VLAExceptionSafety, EmptyRangesDoNotInvokeConstruction)
 {
     LifetimeState   lifetimes;
@@ -613,8 +666,11 @@ TEST(VLAExceptionSafety, EmptyRangesDoNotInvokeConstruction)
     expect_values(source, 3);
 }
 
+// Throw while assigning existing elements in copy assignment, fill assignment, and unequal-allocator move assignment.
+// These objects are already alive: their lifetimes and the container sizes must survive, even if values changed.
 TEST(VLAExceptionSafety, AssignmentExceptionsLeaveExistingObjectsAlive)
 {
+    // kind: copy assignment, fill assignment, move assignment with unequal allocators.
     for (int kind = 0; kind < 3; ++kind)
     {
         LifetimeState   lifetimes;
@@ -653,6 +709,7 @@ TEST(VLAExceptionSafety, AssignmentExceptionsLeaveExistingObjectsAlive)
     }
 }
 
+// Injects failure while converting a source element to bool, since packed bits have no throwing constructors.
 struct ThrowingBool
 {
     LifetimeState* state;
@@ -663,9 +720,10 @@ struct ThrowingBool
     }
 };
 
+// A packed-bool range constructor must release its backing bytes if a source conversion throws.
+// The cases cover failure before any bit is stored, within the first byte, and at the next byte boundary.
 TEST(VLAExceptionSafety, BoolRangeFailureReleasesStorage)
 {
-    // Fail before the first bit, within a byte, and when crossing into the next byte.
     for (std::size_t fail_at : {0U, 4U, 8U})
     {
         LifetimeState   lifetimes;
@@ -682,6 +740,8 @@ TEST(VLAExceptionSafety, BoolRangeFailureReleasesStorage)
     }
 }
 
+// Force packed-bool copy/move assignment to replace its buffer, then fail the new allocation.
+// Check that the emptied destination resets its bit count and that both containers support subsequent operations.
 TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyContainer)
 {
     using Subject = cetl::VariableLengthArray<bool, Allocator<bool>>;
@@ -731,6 +791,8 @@ TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyConta
     }
 }
 
+// Fail allocation before reserve, shrink, or resize can relocate any elements or construct a suffix.
+// The original buffer and values must survive; disabling the failure must allow normal use to continue.
 TEST(VLAExceptionSafety, AllocationFailurePreservesExistingStorage)
 {
     LifetimeState   lifetimes;
@@ -756,6 +818,7 @@ TEST(VLAExceptionSafety, AllocationFailurePreservesExistingStorage)
 }
 
 #else
+// Keep the suite visible in embedded profiles while explicitly skipping tests that require exception injection.
 TEST(VLAExceptionSafety, ExceptionsDisabled)
 {
     GTEST_SKIP() << "Exception injection requires exceptions enabled.";
