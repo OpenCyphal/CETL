@@ -90,6 +90,13 @@ public:
     bool                                                 decline       = false;
     bool                                                 fail          = false;
 
+    MovingResource() = default;
+    // Allocators retain this resource's address; its allocation ledger must never be copied or transferred.
+    MovingResource(const MovingResource&)            = delete;
+    MovingResource(MovingResource&&)                 = delete;
+    MovingResource& operator=(const MovingResource&) = delete;
+    MovingResource& operator=(MovingResource&&)      = delete;
+
     ~MovingResource() override
     {
         EXPECT_TRUE(blocks.empty());
@@ -174,6 +181,10 @@ struct SelfReference
         : SelfReference(rhs.value)
     {
     }
+    // These scenarios exercise construction, not assignment. Keep destruction trivial for the trait regression.
+    SelfReference& operator=(const SelfReference&) = delete;
+    SelfReference& operator=(SelfReference&&)      = delete;
+    ~SelfReference()                               = default;
 };
 static_assert(std::is_trivially_destructible<SelfReference>::value, "Exercise trivial destruction.");
 static_assert(!std::is_trivially_copyable<SelfReference>::value, "Require element-wise relocation.");
@@ -204,6 +215,13 @@ struct Lifetimes
     std::size_t           destroyed   = 0;
     std::size_t           moves       = 0;
     int                   remaining   = FailureDisabled;
+
+    Lifetimes() = default;
+    // Elements retain this recorder by reference; its identity and lifetime counts must remain stable.
+    Lifetimes(const Lifetimes&)            = delete;
+    Lifetimes(Lifetimes&&)                 = delete;
+    Lifetimes& operator=(const Lifetimes&) = delete;
+    Lifetimes& operator=(Lifetimes&&)      = delete;
 
     void construct(const void* address)
     {
@@ -243,12 +261,16 @@ struct MoveOnly
     {
         state.construct(this);
     }
+    MoveOnly(const MoveOnly&) = delete;
     MoveOnly(MoveOnly&& rhs)
         : MoveOnly(rhs.state, rhs.value)
     {
         ++state.moves;
         rhs.value = MovedFromValue;
     }
+    // Relocation constructs new objects. Assignment is intentionally unsupported, as it cannot rebind state.
+    MoveOnly& operator=(const MoveOnly&) = delete;
+    MoveOnly& operator=(MoveOnly&&)      = delete;
     ~MoveOnly()
     {
         EXPECT_EQ(state.live.erase(this), 1U);
@@ -265,6 +287,10 @@ struct CopyFallback : MoveOnly
     {
     }
     CopyFallback(CopyFallback&&) = default;
+    // Copy construction enables move_if_noexcept's fallback; assignment remains disabled as in the base.
+    CopyFallback& operator=(const CopyFallback&) = delete;
+    CopyFallback& operator=(CopyFallback&&)      = delete;
+    ~CopyFallback()                              = default;
 };
 static_assert(!std::is_copy_constructible<MoveOnly>::value, "Exercise the move-only fallback.");
 static_assert(!std::is_nothrow_move_constructible<CopyFallback>::value, "Exercise copying during relocation.");
