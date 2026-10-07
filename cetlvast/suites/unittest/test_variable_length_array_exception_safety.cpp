@@ -387,6 +387,58 @@ void check_relocation(Operation operation)
     }
 }
 
+// Successful unequal-allocator construction must destroy each original object through its allocator hook,
+// but retain the source buffer. Check both copy fallback and move-only relocation, then reuse and release it.
+template <typename T>
+void check_successful_move_retains_storage()
+{
+    constexpr std::size_t element_count = 3;
+    constexpr std::size_t capacity      = element_count * 2;
+    static_assert(capacity > element_count, "Source must have spare capacity.");
+    LifetimeState   lifetimes;
+    AllocationState source_allocations;
+    AllocationState destination_allocations;
+    Array<T>        source{Allocator<T>{source_allocations}};
+    source.reserve(capacity);
+    populate(source, lifetimes, element_count);
+    const auto original_data    = source.data();
+    const auto destroyed_before = lifetimes.destroyed;
+
+    Array<T> destination{std::move(source), Allocator<T>{destination_allocations}};
+
+    EXPECT_TRUE(source.empty());
+    EXPECT_EQ(source.data(), original_data);
+    EXPECT_EQ(source.capacity(), capacity);
+    EXPECT_EQ(source_allocations.allocations.size(), 1U);
+    EXPECT_EQ(source_allocations.deallocated, 0U);
+    EXPECT_TRUE(source_allocations.objects.empty());
+    EXPECT_EQ(lifetimes.destroyed - destroyed_before, element_count);
+    EXPECT_EQ(lifetimes.live.size(), element_count);
+    EXPECT_EQ(destination_allocations.objects.size(), element_count);
+    EXPECT_EQ(destination.capacity(), element_count);
+    expect_values(destination, element_count);
+
+    populate(source, lifetimes, element_count);
+    expect_values(source, element_count);
+    EXPECT_EQ(source.data(), original_data);
+    EXPECT_EQ(source_allocations.allocated, 1U);
+    EXPECT_EQ(lifetimes.live.size(), element_count * 2);
+    source.clear();
+    source.shrink_to_fit();
+    EXPECT_TRUE(source_allocations.allocations.empty());
+    EXPECT_TRUE(source_allocations.objects.empty());
+    EXPECT_EQ(lifetimes.live.size(), element_count);
+    expect_values(destination, element_count);
+}
+
+// Keep lifetime checks alongside the existing failure-injection tests so successful and failed relocations
+// both verify ownership and allocator construction/destruction hooks.
+TEST(VLAExceptionSafety, SuccessfulMoveConstructionRetainsSourceStorage)
+{
+    check_successful_move_retains_storage<Value>();
+    check_successful_move_retains_storage<MoveOnly>();
+}
+
 // A copyable element with a throwing move must be relocated by copying.
 // Failed relocation must preserve the source buffer, size, capacity, and values.
 TEST(VLAExceptionSafety, CopyRelocationPreservesOriginalValues)

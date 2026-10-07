@@ -603,9 +603,6 @@ protected:
                 // just move the memory from the rhs allocator since that allocator is neither equal to our own nor are
                 // we adopting it.
 
-                // if POCMA is false then this is a no-op.
-                move_assign_alloc(std::move(rhs.alloc_));
-
                 // Let's go ahead and move-assign what we can.
                 const std::size_t overlap = fast_forward_assign(data_, size_, rhs.data_, rhs.size_);
                 if (rhs.size_ <= size_)
@@ -623,8 +620,8 @@ protected:
                                            alloc_);
                 }
                 size_ = rhs.size_;
+                // Retain the source allocation for reuse; callers can explicitly shrink the empty source.
                 rhs.resize(0, rhs_max_size);
-                // TODO: should we release the rhs capacity too?
             }
             else
             {
@@ -642,9 +639,9 @@ protected:
                 // ...
 
                 const size_type new_size = rhs.size_;
-                move_assign_alloc(std::move(rhs.alloc_));
                 reserve(new_size, rhs_max_size);
                 size_ = fast_forward_construct(data_, capacity_, rhs.data_, new_size, alloc_);
+                // Retain the source allocation for reuse, just as in the fits-in-capacity branch.
                 rhs.resize(0, rhs_max_size);
             }
         }
@@ -879,7 +876,7 @@ protected:
 
     /// Allocator-extended move construction where the allocators may be unequal. If they are equal at runtime the
     /// storage is adopted, otherwise storage is obtained from the given allocator and the elements are moved into
-    /// it. The latter can throw so this overload is not noexcept.
+    /// it, leaving the source empty with its original capacity. The latter can throw so this overload is not noexcept.
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
@@ -896,9 +893,11 @@ protected:
         if (alloc_ == rhs.alloc_)
         {
             // The allocators may not always be equal, but they are this time.
-            data_     = std::move(rhs.data_);
-            capacity_ = rhs.capacity_;
-            size_     = rhs.size_;
+            data_         = std::move(rhs.data_);
+            capacity_     = rhs.capacity_;
+            size_         = rhs.size_;
+            rhs.capacity_ = 0;
+            rhs.data_     = nullptr;
         }
         else
         {
@@ -918,11 +917,10 @@ protected:
             }
             capacity_ = rhs.size_;
             size_     = rhs.size_;
-            fast_deallocate(rhs.data_, rhs.size_, rhs.capacity_, rhs.alloc_);
+            // Destroy the relocated elements only after success, retaining the allocation for source reuse.
+            fast_destroy(rhs.data_, rhs.size_, rhs.alloc_);
         }
-        rhs.size_     = 0;
-        rhs.capacity_ = 0;
-        rhs.data_     = nullptr;
+        rhs.size_ = 0;
     }
 
     ~VariableLengthArrayBase()
@@ -972,6 +970,13 @@ protected:
 /// elements require replacement storage during capacity changes, even if the allocator could resize in place.
 /// With a resource that supports only one outstanding allocation, reserve sufficient capacity before adding elements.
 ///
+/// After successful move construction or move assignment between distinct arrays, the source is empty. If its
+/// storage is transferred, its capacity becomes zero. If unequal allocators require element relocation, the source
+/// retains its original allocation and capacity for reuse. Call `shrink_to_fit()` on the empty source to release
+/// that storage explicitly; this requires no replacement allocation and is a no-op if capacity is already zero.
+/// Retaining source capacity does not copy its spare capacity into the destination of an unequal-allocator move
+/// construction, which obtains only the storage required for the elements (rounded to bytes for packed bool).
+///
 /// With exceptions enabled, failed construction destroys every successfully constructed destination element and
 /// releases abandoned storage. Failed `reserve()` or `shrink_to_fit()` preserves the original values when relocation
 /// copies elements. If a throwing move-only element is relocated, source values may already have been moved from;
@@ -980,7 +985,12 @@ protected:
 /// Failed construction during `resize()` destroys the new suffix and retains the original size. Capacity acquired
 /// before the failure may remain. Assignment provides valid lifetime and ownership bookkeeping after failure;
 /// previously assigned values need not be restored, and replacement of the old buffer may leave an empty array.
-/// Element destruction and allocator deallocation must not throw. With exceptions disabled, no rollback is provided.
+/// Move assignment with non-propagating, unequal allocators releases an insufficient destination buffer before
+/// allocating its replacement, avoiding simultaneous ownership of the old and new destination buffers. If replacement
+/// allocation or element construction throws, the destination is valid but empty. If the existing capacity suffices, a
+/// throwing element assignment may leave destination values partially updated. Throwing element moves may also modify
+/// source values; the successful-move postconditions above do not apply to failed operations. Element destruction and
+/// allocator deallocation must not throw. With exceptions disabled, no rollback is provided.
 ///
 /// @tparam  T           The type of elements in the array.
 /// @tparam Allocator    The allocator type to use for all allocations.
