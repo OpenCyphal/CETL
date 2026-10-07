@@ -140,9 +140,17 @@ TYPED_TEST(VLAMoveConstructorExceptionTests, UnequalAllocatorAllocationFailure)
         EXPECT_EQ(destination[1], 0);
         EXPECT_EQ(destination[2], 1);
         EXPECT_TRUE(source.empty());
-        EXPECT_EQ(source_state.outstanding_allocations, 0U);
+        EXPECT_EQ(source.capacity(), original_capacity);
+        EXPECT_EQ(source_state.outstanding_allocations, 1U);
         EXPECT_EQ(destination_state.allocation_attempts, 2U);
         EXPECT_EQ(destination_state.outstanding_allocations, 1U);
+
+        // The successful retry retains source storage regardless of POCMA. Release it explicitly without allocating.
+        const auto source_allocation_attempts = source_state.allocation_attempts;
+        source.shrink_to_fit();
+        EXPECT_EQ(source.capacity(), 0U);
+        EXPECT_EQ(source_state.outstanding_allocations, 0U);
+        EXPECT_EQ(source_state.allocation_attempts, source_allocation_attempts);
     }
     EXPECT_EQ(source_state.outstanding_allocations, 0U);
     EXPECT_EQ(destination_state.outstanding_allocations, 0U);
