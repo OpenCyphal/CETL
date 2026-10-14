@@ -252,12 +252,18 @@ TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorTransfersUnusedCapacity)
     void* const allocation = state.allocations.begin()->first;
 
     Subject destination{std::move(source), Allocator{state}};
-    source.shrink_to_fit();
     EXPECT_TRUE(source.empty());
     EXPECT_EQ(source.capacity(), 0U);
     ASSERT_EQ(destination.size(), 1U);
     EXPECT_EQ(destination[0], 1);
     EXPECT_EQ(destination.capacity(), capacity);
+    ASSERT_EQ(state.allocations.size(), 1U);
+    EXPECT_EQ(state.allocations.begin()->first, allocation);
+    EXPECT_EQ(state.allocation_count, 1U);
+    EXPECT_EQ(state.deallocation_count, 0U);
+
+    source.shrink_to_fit();
+    EXPECT_EQ(source.capacity(), 0U);
     ASSERT_EQ(state.allocations.size(), 1U);
     EXPECT_EQ(state.allocations.begin()->first, allocation);
     EXPECT_EQ(state.allocation_count, 1U);
@@ -337,7 +343,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentFromEmptyReservedSour
     EXPECT_TRUE(destination_state.allocations.empty());
 }
 
-// Equal-allocator assignment releases the old destination and transfers source ownership without allocating.
+// Equal-allocator assignment releases the old destination and transfers source ownership without allocating;
+// shrinking the empty source cannot release destination storage.
 TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorAssignmentTransfersUnusedCapacity)
 {
     using Subject   = typename TestFixture::Subject;
@@ -352,13 +359,19 @@ TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorAssignmentTransfersUnusedCapacity
     destination.emplace_back(0);
 
     destination = std::move(source);
-    source.shrink_to_fit();
 
     EXPECT_TRUE(source.empty());
     EXPECT_EQ(source.capacity(), 0U);
     ASSERT_EQ(destination.size(), 1U);
     EXPECT_EQ(destination[0], 1);
     EXPECT_EQ(destination.capacity(), SourceCapacity);
+    ASSERT_EQ(state.allocations.size(), 1U);
+    EXPECT_EQ(state.allocations.begin()->first, allocation);
+    EXPECT_EQ(state.allocation_count, 2U);
+    EXPECT_EQ(state.deallocation_count, 1U);
+
+    source.shrink_to_fit();
+    EXPECT_EQ(source.capacity(), 0U);
     ASSERT_EQ(state.allocations.size(), 1U);
     EXPECT_EQ(state.allocations.begin()->first, allocation);
     EXPECT_EQ(state.allocation_count, 2U);
