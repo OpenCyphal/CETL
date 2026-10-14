@@ -9,7 +9,6 @@
 #define CETL_PF17_OPTIONAL_HPP_INCLUDED
 
 #include <cetl/cetl.hpp>
-#include <cetl/_helper_enable_copy_move.hpp>
 #include <cetl/pf17/utility.hpp>
 #include <cetl/pf17/type_traits.hpp>
 
@@ -153,17 +152,19 @@ struct base_destruction<T, false>
 };
 
 /// COPY CONSTRUCTION POLICY
-template <typename T, bool = std::is_trivially_copy_constructible<T>::value>
+template <typename T,
+          bool = std::is_trivially_copy_constructible<T>::value,
+          bool = std::is_copy_constructible<T>::value>
 struct base_copy_construction;
 /// Trivially copy constructible case.
 template <typename T>
-struct base_copy_construction<T, true> : base_destruction<T>
+struct base_copy_construction<T, true, true> : base_destruction<T>
 {
     using base_destruction<T>::base_destruction;
 };
 /// Non-trivially copy constructible case.
 template <typename T>
-struct base_copy_construction<T, false> : base_destruction<T>
+struct base_copy_construction<T, false, true> : base_destruction<T>
 {
     using base_destruction<T>::base_destruction;
     constexpr base_copy_construction() noexcept = default;
@@ -178,18 +179,33 @@ struct base_copy_construction<T, false> : base_destruction<T>
     ~base_copy_construction() noexcept                                                  = default;
 };
 
+/// Disabled copy construction case.
+template <typename T>
+struct base_copy_construction<T, false, false> : base_destruction<T>
+{
+    using base_destruction<T>::base_destruction;
+    constexpr base_copy_construction() noexcept                                         = default;
+    constexpr base_copy_construction(const base_copy_construction&)                     = delete;
+    constexpr base_copy_construction(base_copy_construction&&) noexcept                 = default;
+    constexpr base_copy_construction& operator=(const base_copy_construction&) noexcept = default;
+    constexpr base_copy_construction& operator=(base_copy_construction&&) noexcept      = default;
+    ~base_copy_construction() noexcept                                                  = default;
+};
+
 /// MOVE CONSTRUCTION POLICY
-template <typename T, bool = std::is_trivially_move_constructible<T>::value>
+template <typename T,
+          bool = std::is_trivially_move_constructible<T>::value,
+          bool = std::is_move_constructible<T>::value>
 struct base_move_construction;
 /// Trivially move constructible case.
 template <typename T>
-struct base_move_construction<T, true> : base_copy_construction<T>
+struct base_move_construction<T, true, true> : base_copy_construction<T>
 {
     using base_copy_construction<T>::base_copy_construction;
 };
 /// Non-trivially move constructible case.
 template <typename T>
-struct base_move_construction<T, false> : base_copy_construction<T>
+struct base_move_construction<T, false, true> : base_copy_construction<T>
 {
     using base_copy_construction<T>::base_copy_construction;
     constexpr base_move_construction() noexcept                              = default;
@@ -204,21 +220,35 @@ struct base_move_construction<T, false> : base_copy_construction<T>
     ~base_move_construction() noexcept                                                  = default;
 };
 
+/// Disabled move construction case.
+template <typename T>
+struct base_move_construction<T, false, false> : base_copy_construction<T>
+{
+    using base_copy_construction<T>::base_copy_construction;
+    constexpr base_move_construction() noexcept                                         = default;
+    constexpr base_move_construction(const base_move_construction&) noexcept            = default;
+    constexpr base_move_construction(base_move_construction&&)                          = delete;
+    constexpr base_move_construction& operator=(const base_move_construction&) noexcept = default;
+    constexpr base_move_construction& operator=(base_move_construction&&) noexcept      = default;
+    ~base_move_construction() noexcept                                                  = default;
+};
+
 /// COPY ASSIGNMENT POLICY
 template <typename T,
           bool = std::is_trivially_copy_assignable<T>::value &&     //
                  std::is_trivially_copy_constructible<T>::value &&  //
-                 std::is_trivially_destructible<T>::value>
+                 std::is_trivially_destructible<T>::value,
+          bool = std::is_copy_constructible<T>::value && std::is_copy_assignable<T>::value>
 struct base_copy_assignment;
 /// Trivially copy assignable case.
 template <typename T>
-struct base_copy_assignment<T, true> : base_move_construction<T>
+struct base_copy_assignment<T, true, true> : base_move_construction<T>
 {
     using base_move_construction<T>::base_move_construction;
 };
 /// Non-trivially copy assignable case.
 template <typename T>
-struct base_copy_assignment<T, false> : base_move_construction<T>
+struct base_copy_assignment<T, false, true> : base_move_construction<T>
 {
     using base_move_construction<T>::base_move_construction;
     constexpr base_copy_assignment() noexcept                            = default;
@@ -246,21 +276,36 @@ struct base_copy_assignment<T, false> : base_move_construction<T>
     ~base_copy_assignment() noexcept                                           = default;
 };
 
+/// Disabled copy assignment case.
+template <typename T>
+struct base_copy_assignment<T, false, false> : base_move_construction<T>
+{
+    using base_move_construction<T>::base_move_construction;
+    constexpr base_copy_assignment() noexcept                                  = default;
+    constexpr base_copy_assignment(const base_copy_assignment&) noexcept       = default;
+    constexpr base_copy_assignment(base_copy_assignment&&) noexcept            = default;
+    constexpr base_copy_assignment& operator=(const base_copy_assignment&)     = delete;
+    constexpr base_copy_assignment& operator=(base_copy_assignment&&) noexcept = default;
+    ~base_copy_assignment() noexcept                                           = default;
+};
+
 /// MOVE ASSIGNMENT POLICY
 template <typename T,
           bool = std::is_trivially_move_assignable<T>::value &&     //
                  std::is_trivially_move_constructible<T>::value &&  //
-                 std::is_trivially_destructible<T>::value>
+                 std::is_trivially_destructible<T>::value,
+          bool = std::is_move_constructible<T>::value && std::is_move_assignable<T>::value,
+          bool = std::is_move_constructible<T>::value>
 struct base_move_assignment;
 /// Trivially move assignable case.
 template <typename T>
-struct base_move_assignment<T, true> : base_copy_assignment<T>
+struct base_move_assignment<T, true, true, true> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
 };
 /// Non-trivially move assignable case.
 template <typename T>
-struct base_move_assignment<T, false> : base_copy_assignment<T>
+struct base_move_assignment<T, false, true, true> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
     constexpr base_move_assignment() noexcept                                       = default;
@@ -286,6 +331,33 @@ struct base_move_assignment<T, false> : base_copy_assignment<T>
         return *this;
     }
     ~base_move_assignment() noexcept = default;
+};
+
+/// Disabled move assignment case.
+template <typename T>
+struct base_move_assignment<T, false, false, true> : base_copy_assignment<T>
+{
+    using base_copy_assignment<T>::base_copy_assignment;
+    constexpr base_move_assignment() noexcept                                       = default;
+    constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
+    constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
+    constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
+    constexpr base_move_assignment& operator=(base_move_assignment&&)               = delete;
+    ~base_move_assignment() noexcept                                                = default;
+};
+
+// Keep the move constructor explicitly deleted in the final policy layer when T cannot be moved.
+// Otherwise an intermediate defaulted move may copy its base and make optional's move viable.
+template <typename T>
+struct base_move_assignment<T, false, false, false> : base_copy_assignment<T>
+{
+    using base_copy_assignment<T>::base_copy_assignment;
+    constexpr base_move_assignment() noexcept                                       = default;
+    constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
+    constexpr base_move_assignment(base_move_assignment&&)                          = delete;
+    constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
+    constexpr base_move_assignment& operator=(base_move_assignment&&)               = delete;
+    ~base_move_assignment() noexcept                                                = default;
 };
 
 /// True if T is constructible or convertible from const Fun& or Fun&&.
@@ -344,12 +416,7 @@ using enable_comparison = std::enable_if_t<std::is_convertible<Expression, bool>
 
 /// A strict implementation of C++17 \ref std::optional.
 template <typename T>
-class optional : private detail::opt::base_move_assignment<T>,
-                 private cetl::detail::enable_copy_move_construction<std::is_copy_constructible<T>::value,
-                                                                     std::is_move_constructible<T>::value>,
-                 private cetl::detail::enable_copy_move_assignment<
-                     std::is_copy_constructible<T>::value && std::is_copy_assignable<T>::value,
-                     std::is_move_constructible<T>::value && std::is_move_assignable<T>::value>
+class optional : private detail::opt::base_move_assignment<T>
 {
     template <typename>
     friend class optional;

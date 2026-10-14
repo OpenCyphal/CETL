@@ -90,6 +90,50 @@ static_assert(std::is_trivially_destructible<optional<bar<noncopyable_t>>>::valu
 static_assert(cetl::pf17::detail::opt::enable_ctor8<bar<noncopyable_t>, foo<noncopyable_t>, false>, "");
 static_assert(cetl::pf17::detail::opt::enable_ctor8<foo<noncopyable_t>, bar<noncopyable_t>, true>, "");
 
+// Explicitly deleted moves differ from defaulted moves that become deleted: the former must
+// disable optional's defaulted moves so overload resolution can fall back to its copy operations.
+struct copy_only final
+{
+    copy_only() noexcept = default;
+    copy_only(const copy_only& other) noexcept
+        : copies(other.copies + 1)
+    {
+    }
+    copy_only(copy_only&&) = delete;
+    copy_only& operator=(const copy_only& other) noexcept
+    {
+        copies = other.copies + 1;
+        return *this;
+    }
+    copy_only& operator=(copy_only&&) = delete;
+    ~copy_only()                      = default;
+    int copies                        = 0;
+};
+
+static_assert(!std::is_move_constructible<copy_only>::value, "");
+static_assert(!std::is_move_assignable<copy_only>::value, "");
+static_assert(std::is_nothrow_move_constructible<optional<copy_only>>::value, "");
+static_assert(std::is_nothrow_move_assignable<optional<copy_only>>::value, "");
+
+TEST(test_optional, explicitly_deleted_moves_fall_back_to_copy)
+{
+    optional<copy_only> source{cetl::pf17::in_place};
+    optional<copy_only> destination{std::move(source)};
+    ASSERT_TRUE(source);
+    ASSERT_TRUE(destination);
+    EXPECT_EQ(0, source->copies);
+    EXPECT_EQ(1, destination->copies);
+    destination = std::move(source);
+    EXPECT_EQ(1, destination->copies);
+    destination.reset();
+    destination = std::move(source);
+    ASSERT_TRUE(destination);
+    EXPECT_EQ(1, destination->copies);
+    source.reset();
+    destination = std::move(source);
+    EXPECT_FALSE(destination);
+}
+
 /// This wrapper is used to test the comparison operators. It is made non-copyable and non-movable to ensure that the
 /// comparison operators are not using the copy/move constructors or assignment operators.
 template <typename T>
