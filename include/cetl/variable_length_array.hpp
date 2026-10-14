@@ -977,6 +977,27 @@ protected:
 /// Retaining source capacity does not copy its spare capacity into the destination of an unequal-allocator move
 /// construction, which obtains only the storage required for the elements (rounded to bytes for packed bool).
 ///
+/// TL;DR: Unequal allocators preserve source capacity when the destination keeps its own allocator. Move construction
+/// without an explicit destination allocator takes ownership of the source allocator and storage, leaving source
+/// capacity zero. Move assignment that propagates the source allocator also takes its storage and leaves source
+/// capacity zero.
+///
+/// In the table below, `C` is the source capacity before a successful move between distinct arrays. The source size
+/// becomes zero in every row. The same rules apply to packed `VariableLengthArray<bool>` and empty reserved sources.
+/// Self-move assignment leaves the array unchanged. Allocator propagation affects assignment only.
+///
+// clang-format off
+/// | Move operation | Allocator condition | Destination storage operations | Source capacity afterward |
+/// | --- | --- | --- | --- |
+/// | Construction: `VLA dst(std::move(src))` | Any | Adopt source storage; move-construct allocator | 0 |
+/// | Construction: `VLA dst(std::move(src), alloc)` | Equal, including `is_always_equal` | Adopt source storage | 0 |
+/// | Construction: `VLA dst(std::move(src), alloc)` | Unequal | Allocate storage and relocate elements | `C` (retained) |
+/// | Assignment: `dst = std::move(src)` | `propagate_on_container_move_assignment` is true | Release old storage; adopt source allocator and storage | 0 |
+/// | Assignment: `dst = std::move(src)` | No propagation; equal, including `is_always_equal` | Release old storage; adopt source storage | 0 |
+/// | Assignment: `dst = std::move(src)` | No propagation; unequal; destination capacity sufficient | Move elements into existing storage | `C` (retained) |
+/// | Assignment: `dst = std::move(src)` | No propagation; unequal; destination capacity insufficient | Release old storage; allocate replacement storage and relocate elements | `C` (retained) |
+// clang-format on
+///
 /// With exceptions enabled, failed construction destroys every successfully constructed destination element and
 /// releases abandoned storage. Failed `reserve()` or `shrink_to_fit()` preserves the original values when relocation
 /// copies elements. If a throwing move-only element is relocated, source values may already have been moved from;
