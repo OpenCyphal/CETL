@@ -876,7 +876,8 @@ protected:
 
     /// Allocator-extended move construction where the allocators may be unequal. If they are equal at runtime the
     /// storage is adopted, otherwise storage is obtained from the given allocator and the elements are moved into
-    /// it, leaving the source empty with its original capacity. The latter can throw so this overload is not noexcept.
+    /// it, leaving the source empty with its original capacity still allocated from the source allocator. The latter
+    /// can throw so this overload is not noexcept.
     template <typename UAlloc>
     constexpr VariableLengthArrayBase(
         VariableLengthArrayBase&& rhs,
@@ -969,11 +970,15 @@ protected:
 /// The allocator's optional `reallocate` extension is used only for trivially copyable storage. Non-trivial
 /// elements require replacement storage during capacity changes, even if the allocator could resize in place.
 /// With a resource that supports only one outstanding allocation, reserve sufficient capacity before adding elements.
+/// If such a resource backs the source of an unequal-allocator move, the empty source still holds that allocation
+/// afterward (see the table below); call `shrink_to_fit()` on the source before allocating from the resource again.
 ///
 /// After successful move construction or move assignment between distinct arrays, the source is empty. If its
 /// storage is transferred, its capacity becomes zero. If unequal allocators require element relocation, the source
 /// retains its original allocation and capacity for reuse. Call `shrink_to_fit()` on the empty source to release
 /// that storage explicitly; this requires no replacement allocation and is a no-op if capacity is already zero.
+/// Because the source keeps that storage, its allocator and any memory resource behind it must remain valid until
+/// the source is destroyed or shrunk, as for a moved-from `std::vector`.
 /// Retaining source capacity does not copy its spare capacity into the destination of an unequal-allocator move
 /// construction, which obtains only the storage required for the elements (rounded to bytes for packed bool).
 ///
