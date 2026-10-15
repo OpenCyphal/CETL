@@ -237,6 +237,15 @@ protected:
             std::allocator_traits<allocator_type>::destroy(alloc, std::addressof(src[--dtor_iterator]));
         }
     }
+
+    ///
+    /// Destroys every element but keeps the allocation, leaving this container empty with its capacity intact.
+    ///
+    constexpr void destroy_all() noexcept(std::is_nothrow_destructible<value_type>::value)
+    {
+        fast_destroy(data_, size_, alloc_);
+        size_ = 0;
+    }
     // +----------------------------------------------------------------------+
     // | deallocation support
     // +----------------------------------------------------------------------+
@@ -618,8 +627,6 @@ protected:
                                            alloc_);
                 }
                 size_ = rhs.size_;
-                // Retain the source allocation for reuse; callers can explicitly shrink the empty source.
-                rhs.resize(0, rhs_max_size);
             }
             else
             {
@@ -639,8 +646,13 @@ protected:
                 const size_type new_size = rhs.size_;
                 reserve(new_size, rhs_max_size);
                 size_ = fast_forward_construct(data_, capacity_, rhs.data_, new_size, alloc_);
-                // Retain the source allocation for reuse, just as in the fits-in-capacity branch.
-                rhs.resize(0, rhs_max_size);
+            }
+            // Empty the source but retain its allocation for reuse; callers can explicitly shrink it. The sizes differ
+            // only when exceptions are disabled and the replacement allocation was declined. Nothing was transferred
+            // then, so the source is left unchanged.
+            if (size_ == rhs.size_)
+            {
+                rhs.destroy_all();
             }
         }
     }
@@ -895,6 +907,7 @@ protected:
             data_         = std::move(rhs.data_);
             capacity_     = rhs.capacity_;
             size_         = rhs.size_;
+            rhs.size_     = 0;
             rhs.capacity_ = 0;
             rhs.data_     = nullptr;
         }
@@ -917,9 +930,8 @@ protected:
             capacity_ = rhs.size_;
             size_     = rhs.size_;
             // Destroy the relocated elements only after success, retaining the allocation for source reuse.
-            fast_destroy(rhs.data_, rhs.size_, rhs.alloc_);
+            rhs.destroy_all();
         }
-        rhs.size_ = 0;
     }
 
     ~VariableLengthArrayBase()
@@ -1014,7 +1026,9 @@ protected:
 /// allocation or element construction throws, the destination is valid but empty. If the existing capacity suffices, a
 /// throwing element assignment may leave destination values partially updated. Throwing element moves may also modify
 /// source values; the successful-move postconditions above do not apply to failed operations. Element destruction and
-/// allocator deallocation must not throw. With exceptions disabled, no rollback is provided.
+/// allocator deallocation must not throw. With exceptions disabled, no rollback is provided, except that an
+/// unequal-allocator move construction or move assignment that cannot obtain destination storage leaves the
+/// destination empty and the source unchanged. Such a failure is detected by the source remaining non-empty.
 ///
 /// @tparam  T           The type of elements in the array.
 /// @tparam Allocator    The allocator type to use for all allocations.
@@ -1507,8 +1521,7 @@ public:
     ///
     constexpr void clear() noexcept(std::is_nothrow_destructible<value_type>::value)
     {
-        Base::fast_destroy(data_, size_, alloc_);
-        size_ = 0;
+        Base::destroy_all();
     }
 
     ///
@@ -2052,9 +2065,9 @@ public:
     VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
         std::allocator_traits<allocator_type>::is_always_equal::value)
         : Base(std::move(rhs), alloc)
-        , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
+        , last_byte_bit_fill_{0}
     {
-        rhs.last_byte_bit_fill_ = 0;
+        take_last_byte_bit_fill(rhs);
     }
 
     VariableLengthArray& operator=(VariableLengthArray&& rhs) noexcept(
@@ -2537,8 +2550,22 @@ private:
             throw;
         }
 #endif
-        last_byte_bit_fill_     = rhs.last_byte_bit_fill_;
-        rhs.last_byte_bit_fill_ = 0;
+        take_last_byte_bit_fill(rhs);
+    }
+
+    // Takes the source's partial-byte bookkeeping after a move emptied it. With exceptions disabled a declined
+    // allocation transfers nothing, leaving this array empty and the source unchanged.
+    void take_last_byte_bit_fill(VariableLengthArray& rhs) noexcept
+    {
+        if (rhs.size_ == 0)
+        {
+            last_byte_bit_fill_     = rhs.last_byte_bit_fill_;
+            rhs.last_byte_bit_fill_ = 0;
+        }
+        else
+        {
+            last_byte_bit_fill_ = 0;
+        }
     }
 
     constexpr bool ensure_size_plus_one()

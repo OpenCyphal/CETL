@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <map>
 #include <memory>
+#include <new>
 #include <type_traits>
 #include <utility>
 
@@ -28,8 +29,9 @@ static_assert(ElementCount % BitsPerByte != 0, "Exercise partial-byte bookkeepin
 struct AllocationState
 {
     std::map<void*, std::size_t> allocations;
-    std::size_t                  allocation_count   = 0;
-    std::size_t                  deallocation_count = 0;
+    std::size_t                  allocation_count    = 0;
+    std::size_t                  deallocation_count  = 0;
+    bool                         decline_allocations = false;
 
     AllocationState()                                  = default;
     AllocationState(const AllocationState&)            = delete;
@@ -45,6 +47,7 @@ struct AllocationState
 };
 
 // Unequal state identities prevent buffer transfer; allocation records detect ownership and size mismatches.
+// Declined allocations return nullptr, which the container reports as std::bad_alloc when exceptions are enabled.
 template <typename T>
 struct TrackingAllocator
 {
@@ -71,6 +74,10 @@ struct TrackingAllocator
 
     T* allocate(std::size_t count)
     {
+        if (state_->decline_allocations)
+        {
+            return nullptr;
+        }
         T* const pointer = std::allocator<T>{}.allocate(count);
         EXPECT_TRUE(state_->allocations.emplace(pointer, count * sizeof(T)).second);
         ++state_->allocation_count;
@@ -376,5 +383,145 @@ TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorAssignmentTransfersUnusedCapacity
     EXPECT_EQ(state.allocations.begin()->first, allocation);
     EXPECT_EQ(state.allocation_count, 2U);
     EXPECT_EQ(state.deallocation_count, 1U);
+}
+
+// A declined destination allocation transfers nothing, so the source keeps its elements and storage. Exceptions
+// report the failure; without them the empty destination and non-empty source report it. Either way a retry works.
+TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedConstructionLeavesSourceUnchanged)
+{
+    using Subject   = typename TestFixture::Subject;
+    using Allocator = typename TestFixture::Allocator;
+    AllocationState source_state;
+    AllocationState destination_state;
+    Subject         source{Allocator{source_state}};
+    source.reserve(SourceCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
+    {
+        source.emplace_back(i % 2);
+    }
+    void* const allocation                = source_state.allocations.begin()->first;
+    destination_state.decline_allocations = true;
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW((void) Subject(std::move(source), Allocator{destination_state}), std::bad_alloc);
+#else
+    {
+        const Subject destination{std::move(source), Allocator{destination_state}};
+        EXPECT_TRUE(destination.empty());
+        EXPECT_EQ(destination.capacity(), 0U);
+    }
+#endif
+    TestFixture::check_values(source);
+    EXPECT_EQ(source.capacity(), SourceCapacity);
+    ASSERT_EQ(source_state.allocations.size(), 1U);
+    EXPECT_EQ(source_state.allocations.begin()->first, allocation);
+    EXPECT_EQ(destination_state.allocation_count, 0U);
+
+    destination_state.decline_allocations = false;
+    const Subject destination{std::move(source), Allocator{destination_state}};
+    TestFixture::check_values(destination);
+    TestFixture::check_retained_source(source, source_state, allocation);
+}
+
+// Assignment releases an insufficient destination buffer before a declined replacement allocation (#225).
+TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedAssignmentLeavesSourceUnchanged)
+{
+    using Subject   = typename TestFixture::Subject;
+    using Allocator = typename TestFixture::Allocator;
+    AllocationState source_state;
+    AllocationState destination_state;
+    Subject         source{Allocator{source_state}};
+    Subject         destination{Allocator{destination_state}};
+    source.reserve(SourceCapacity);
+    for (std::size_t i = 0; i < ElementCount; ++i)
+    {
+        source.emplace_back(i % 2);
+    }
+    destination.reserve(SmallCapacity);
+    destination.emplace_back(1);
+    void* const allocation                = source_state.allocations.begin()->first;
+    destination_state.decline_allocations = true;
+
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(destination = std::move(source), std::bad_alloc);
+#else
+    destination = std::move(source);
+#endif
+    EXPECT_TRUE(destination.empty());
+    EXPECT_EQ(destination.capacity(), 0U);
+    EXPECT_TRUE(destination_state.allocations.empty());
+    TestFixture::check_values(source);
+    EXPECT_EQ(source.capacity(), SourceCapacity);
+    ASSERT_EQ(source_state.allocations.size(), 1U);
+    EXPECT_EQ(source_state.allocations.begin()->first, allocation);
+
+    destination_state.decline_allocations = false;
+    destination                           = std::move(source);
+    TestFixture::check_values(destination);
+    TestFixture::check_retained_source(source, source_state, allocation);
+}
+
+// Element type without a default constructor; the live count shows that moved-from source elements are destroyed.
+struct NonDefaultConstructible
+{
+    explicit NonDefaultConstructible(const int v) noexcept
+        : value{v}
+    {
+        ++live;
+    }
+    NonDefaultConstructible(const NonDefaultConstructible& rhs) noexcept
+        : value{rhs.value}
+    {
+        ++live;
+    }
+    NonDefaultConstructible& operator=(const NonDefaultConstructible&) = default;
+    ~NonDefaultConstructible()
+    {
+        --live;
+    }
+
+    int                value;
+    static std::size_t live;
+};
+std::size_t NonDefaultConstructible::live = 0;
+static_assert(!std::is_default_constructible<NonDefaultConstructible>::value, "Exercise #223.");
+
+// Move assignment without allocator propagation must not require default construction, whichever branch runs (#223).
+TEST(VLAMoveCapacityNonDefaultConstructibleTest, Assignment)
+{
+    using Subject   = cetl::VariableLengthArray<NonDefaultConstructible, TrackingAllocator<NonDefaultConstructible>>;
+    using Allocator = Subject::allocator_type;
+    for (const bool equal : {true, false})
+    {
+        for (const std::size_t destination_capacity : {SmallCapacity, SourceCapacity})
+        {
+            SCOPED_TRACE(::testing::Message() << "equal=" << equal << " capacity=" << destination_capacity);
+            AllocationState source_state;
+            AllocationState other_state;
+            {
+                Subject source{Allocator{source_state}};
+                Subject destination{Allocator{equal ? source_state : other_state}};
+                source.reserve(SourceCapacity);
+                for (std::size_t i = 0; i < ElementCount; ++i)
+                {
+                    source.emplace_back(static_cast<int>(i));
+                }
+                destination.reserve(destination_capacity);
+                destination.emplace_back(-1);
+
+                destination = std::move(source);
+
+                EXPECT_TRUE(source.empty());
+                EXPECT_EQ(source.capacity(), equal ? 0U : SourceCapacity);
+                ASSERT_EQ(destination.size(), ElementCount);
+                for (std::size_t i = 0; i < ElementCount; ++i)
+                {
+                    EXPECT_EQ(destination[i].value, static_cast<int>(i));
+                }
+                EXPECT_EQ(NonDefaultConstructible::live, ElementCount);
+            }
+            EXPECT_EQ(NonDefaultConstructible::live, 0U);
+        }
+    }
 }
 }  // namespace
