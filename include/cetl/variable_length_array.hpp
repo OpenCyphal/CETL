@@ -992,11 +992,6 @@ protected:
 /// Retaining source capacity does not copy its spare capacity into the destination of an unequal-allocator move
 /// construction, which obtains only the storage required for the elements (rounded to bytes for packed bool).
 ///
-/// TL;DR: Unequal allocators preserve source capacity when the destination keeps its own allocator. Move construction
-/// without an explicit destination allocator takes ownership of the source allocator and storage, leaving source
-/// capacity zero. Move assignment that propagates the source allocator also takes its storage and leaves source
-/// capacity zero.
-///
 /// In the table below, `C` is the source capacity before a successful move between distinct arrays. The source size
 /// becomes zero in every row. The same rules apply to packed `VariableLengthArray<bool>` and empty reserved sources.
 /// Self-move assignment leaves the array unchanged. Allocator propagation affects assignment only.
