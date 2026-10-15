@@ -9,6 +9,7 @@
 #include "cetlvast/helpers_gtest.hpp"
 
 #include <cstddef>
+#include <limits>
 #include <map>
 #include <memory>
 #include <new>
@@ -18,7 +19,8 @@
 namespace
 {
 // Span multiple packed bytes and leave both a partial byte and spare source capacity.
-constexpr std::size_t BitsPerByte    = 8;
+constexpr std::size_t BitsPerByte = 8;
+static_assert(std::numeric_limits<unsigned char>::digits == BitsPerByte, "VLA bool storage requires octets.");
 constexpr std::size_t ElementCount   = BitsPerByte + 3;
 constexpr std::size_t SourceCapacity = BitsPerByte * 8;
 constexpr std::size_t SmallCapacity  = BitsPerByte;
@@ -59,12 +61,6 @@ struct TrackingAllocator
         : state_(&state)
     {
     }
-
-    TrackingAllocator(const TrackingAllocator&)            = default;
-    TrackingAllocator(TrackingAllocator&&)                 = default;
-    TrackingAllocator& operator=(const TrackingAllocator&) = default;
-    TrackingAllocator& operator=(TrackingAllocator&&)      = default;
-    ~TrackingAllocator()                                   = default;
 
     template <typename U>
     TrackingAllocator(const TrackingAllocator<U>& rhs) noexcept
@@ -123,16 +119,17 @@ protected:
 
     static std::size_t storage_bytes(std::size_t capacity)
     {
-        return std::is_same<T, bool>::value ? (capacity + BitsPerByte - 1) / BitsPerByte : capacity * sizeof(T);
+        return std::is_same<T, bool>::value ? cetlvast::align_size_up(capacity, BitsPerByte) / BitsPerByte
+                                            : capacity * sizeof(T);
     }
 
     // Retention must preserve the original allocation and allocator, permit filling it without allocation,
-    // and allow the caller to release it explicitly. Repeated shrinking must not deallocate twice.
+    // and allow the caller to release it explicitly. Repeated shrinking must not deallocate twice. Releasing the
+    // allocation through any allocator other than the source's fails in TrackingAllocator::deallocate.
     static void check_retained_source(Subject& source, AllocationState& state, void* allocation)
     {
         ASSERT_TRUE(source.empty());
         ASSERT_EQ(source.capacity(), SourceCapacity);
-        EXPECT_EQ(source.get_allocator(), Allocator{state});
         ASSERT_EQ(state.allocations.size(), 1U);
         EXPECT_EQ(state.allocations.begin()->first, allocation);
         EXPECT_EQ(state.allocations.begin()->second, storage_bytes(SourceCapacity));
@@ -156,13 +153,23 @@ protected:
         EXPECT_EQ(state.allocation_count, allocation_count);
     }
 
-    // Preserve payload and packed-bit size across the transfer, including the partial final byte.
-    static void check_values(const Subject& destination)
+    // Write the payload that check_values expects, ending in a partial byte for packed bits.
+    static void fill(Subject& array)
     {
-        ASSERT_EQ(destination.size(), ElementCount);
         for (std::size_t i = 0; i < ElementCount; ++i)
         {
-            EXPECT_EQ(destination[i], i % 2);
+            array.emplace_back(i % 2);
+        }
+    }
+
+    // Preserve payload and packed-bit size across the transfer, including the partial final byte. Elements appended
+    // after the transfer may follow the payload, so the caller states the total size.
+    static void check_values(const Subject& array, const std::size_t size = ElementCount)
+    {
+        ASSERT_EQ(array.size(), size);
+        for (std::size_t i = 0; i < ElementCount; ++i)
+        {
+            EXPECT_EQ(array[i], i % 2);
         }
     }
 };
@@ -180,10 +187,7 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorPreservesSourceCapacity)
     AllocationState destination_state;
     Subject         source{Allocator{source_state}};
     source.reserve(SourceCapacity);
-    for (std::size_t i = 0; i < ElementCount; ++i)
-    {
-        source.emplace_back(i % 2);
-    }
+    TestFixture::fill(source);
     void* const allocation = source_state.allocations.begin()->first;
 
     Subject destination{std::move(source), Allocator{destination_state}};
@@ -191,7 +195,7 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorPreservesSourceCapacity)
     TestFixture::check_values(destination);
     ASSERT_EQ(destination_state.allocations.size(), 1U);
     ASSERT_EQ(destination.capacity(),
-              (std::is_same<TypeParam, bool>::value ? ((ElementCount + BitsPerByte - 1) / BitsPerByte) * BitsPerByte
+              (std::is_same<TypeParam, bool>::value ? cetlvast::align_size_up(ElementCount, BitsPerByte)
                                                     : ElementCount));
     ASSERT_EQ(TestFixture::storage_bytes(destination.capacity()), destination_state.allocations.begin()->second);
 
@@ -203,12 +207,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorPreservesSourceCapacity)
     }
     EXPECT_EQ(destination_state.allocation_count, 1U);
     destination.emplace_back(1);
-    ASSERT_EQ(destination.size(), capacity + 1U);
+    TestFixture::check_values(destination, capacity + 1U);
     EXPECT_EQ(destination.back(), 1);
-    for (std::size_t i = 0; i < ElementCount; ++i)
-    {
-        EXPECT_EQ(destination[i], i % 2);
-    }
     EXPECT_EQ(destination_state.allocation_count, 2U);
     EXPECT_EQ(destination_state.deallocation_count, 1U);
     ASSERT_EQ(destination_state.allocations.size(), 1U);
@@ -288,40 +288,39 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentPreservesSourceCapaci
 {
     using Subject   = typename TestFixture::Subject;
     using Allocator = typename TestFixture::Allocator;
-    for (const std::size_t destination_size : {SmallCapacity, SourceCapacity})
+    struct Shape
     {
-        for (const std::size_t destination_capacity : {SmallCapacity, SourceCapacity})
-        {
-            if (destination_size > destination_capacity)
-            {
-                continue;
-            }
-            SCOPED_TRACE(::testing::Message() << "size=" << destination_size << " capacity=" << destination_capacity);
-            AllocationState source_state;
-            AllocationState destination_state;
-            Subject         source{Allocator{source_state}};
-            Subject         destination{Allocator{destination_state}};
-            source.reserve(SourceCapacity);
-            for (std::size_t i = 0; i < ElementCount; ++i)
-            {
-                source.emplace_back(i % 2);
-            }
-            destination.reserve(destination_capacity);
-            destination.resize(destination_size);
-            void* const allocation = source_state.allocations.begin()->first;
-            const bool  replaces   = destination_capacity < ElementCount;
+        std::size_t size;
+        std::size_t capacity;
+    };
+    // Each destination shape selects a different move_assign_from branch.
+    for (const Shape shape : {
+             Shape{SmallCapacity, SmallCapacity},    // Replace the insufficient buffer.
+             Shape{SmallCapacity, SourceCapacity},   // Assign SmallCapacity elements, construct the rest.
+             Shape{SourceCapacity, SourceCapacity},  // Assign ElementCount elements, destroy the rest.
+         })
+    {
+        SCOPED_TRACE(::testing::Message() << "size=" << shape.size << " capacity=" << shape.capacity);
+        AllocationState source_state;
+        AllocationState destination_state;
+        Subject         source{Allocator{source_state}};
+        Subject         destination{Allocator{destination_state}};
+        source.reserve(SourceCapacity);
+        TestFixture::fill(source);
+        destination.reserve(shape.capacity);
+        destination.resize(shape.size);
+        void* const allocation = source_state.allocations.begin()->first;
+        const bool  replaces   = shape.capacity < ElementCount;
 
-            destination = std::move(source);
+        destination = std::move(source);
 
-            TestFixture::check_retained_source(source, source_state, allocation);
-            TestFixture::check_values(destination);
-            EXPECT_EQ(destination.get_allocator(), Allocator{destination_state});
-            EXPECT_EQ(destination_state.allocation_count, replaces ? 2U : 1U);
-            EXPECT_EQ(destination_state.deallocation_count, replaces ? 1U : 0U);
-            ASSERT_EQ(destination_state.allocations.size(), 1U);
-            EXPECT_EQ(TestFixture::storage_bytes(destination.capacity()),
-                      destination_state.allocations.begin()->second);
-        }
+        TestFixture::check_retained_source(source, source_state, allocation);
+        TestFixture::check_values(destination);
+        EXPECT_EQ(destination.get_allocator(), Allocator{destination_state});
+        EXPECT_EQ(destination_state.allocation_count, replaces ? 2U : 1U);
+        EXPECT_EQ(destination_state.deallocation_count, replaces ? 1U : 0U);
+        ASSERT_EQ(destination_state.allocations.size(), 1U);
+        EXPECT_EQ(TestFixture::storage_bytes(destination.capacity()), destination_state.allocations.begin()->second);
     }
 }
 
@@ -395,10 +394,7 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedConstructionLeavesSourc
     AllocationState destination_state;
     Subject         source{Allocator{source_state}};
     source.reserve(SourceCapacity);
-    for (std::size_t i = 0; i < ElementCount; ++i)
-    {
-        source.emplace_back(i % 2);
-    }
+    TestFixture::fill(source);
     void* const allocation                = source_state.allocations.begin()->first;
     destination_state.decline_allocations = true;
 
@@ -433,10 +429,7 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedAssignmentLeavesSourceU
     Subject         source{Allocator{source_state}};
     Subject         destination{Allocator{destination_state}};
     source.reserve(SourceCapacity);
-    for (std::size_t i = 0; i < ElementCount; ++i)
-    {
-        source.emplace_back(i % 2);
-    }
+    TestFixture::fill(source);
     destination.reserve(SmallCapacity);
     destination.emplace_back(1);
     void* const allocation                = source_state.allocations.begin()->first;
