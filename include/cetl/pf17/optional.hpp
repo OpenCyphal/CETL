@@ -127,10 +127,10 @@ struct base_destruction<T, false>
             new (std::addressof(m_value)) T(std::forward<U>(other).m_value);
         }
     }
-    constexpr base_destruction(const base_destruction&) noexcept            = default;
-    constexpr base_destruction(base_destruction&&) noexcept                 = default;
-    constexpr base_destruction& operator=(const base_destruction&) noexcept = default;
-    constexpr base_destruction& operator=(base_destruction&&) noexcept      = default;
+    constexpr base_destruction(const base_destruction&)            = default;
+    constexpr base_destruction(base_destruction&&)                 = default;
+    constexpr base_destruction& operator=(const base_destruction&) = default;
+    constexpr base_destruction& operator=(base_destruction&&)      = default;
     ~base_destruction() noexcept
     {
         reset();
@@ -173,10 +173,10 @@ struct base_copy_construction<T, false, true> : base_destruction<T>
         : base_destruction<T>(copy_tag{}, other)
     {
     }
-    constexpr base_copy_construction(base_copy_construction&&) noexcept                 = default;
-    constexpr base_copy_construction& operator=(const base_copy_construction&) noexcept = default;
-    constexpr base_copy_construction& operator=(base_copy_construction&&) noexcept      = default;
-    ~base_copy_construction() noexcept                                                  = default;
+    constexpr base_copy_construction(base_copy_construction&&)                 = default;
+    constexpr base_copy_construction& operator=(const base_copy_construction&) = default;
+    constexpr base_copy_construction& operator=(base_copy_construction&&)      = default;
+    ~base_copy_construction() noexcept                                         = default;
 };
 
 /// Disabled copy construction case.
@@ -184,12 +184,12 @@ template <typename T>
 struct base_copy_construction<T, false, false> : base_destruction<T>
 {
     using base_destruction<T>::base_destruction;
-    constexpr base_copy_construction() noexcept                                         = default;
-    constexpr base_copy_construction(const base_copy_construction&)                     = delete;
-    constexpr base_copy_construction(base_copy_construction&&) noexcept                 = default;
-    constexpr base_copy_construction& operator=(const base_copy_construction&) noexcept = default;
-    constexpr base_copy_construction& operator=(base_copy_construction&&) noexcept      = default;
-    ~base_copy_construction() noexcept                                                  = default;
+    constexpr base_copy_construction() noexcept                                = default;
+    constexpr base_copy_construction(const base_copy_construction&)            = delete;
+    constexpr base_copy_construction(base_copy_construction&&)                 = default;
+    constexpr base_copy_construction& operator=(const base_copy_construction&) = default;
+    constexpr base_copy_construction& operator=(base_copy_construction&&)      = default;
+    ~base_copy_construction() noexcept                                         = default;
 };
 
 /// MOVE CONSTRUCTION POLICY
@@ -208,16 +208,16 @@ template <typename T>
 struct base_move_construction<T, false, true> : base_copy_construction<T>
 {
     using base_copy_construction<T>::base_copy_construction;
-    constexpr base_move_construction() noexcept                              = default;
-    constexpr base_move_construction(const base_move_construction&) noexcept = default;
+    constexpr base_move_construction() noexcept                     = default;
+    constexpr base_move_construction(const base_move_construction&) = default;
     constexpr base_move_construction(base_move_construction&& other) noexcept(
         std::is_nothrow_move_constructible<T>::value)
         : base_copy_construction<T>(copy_tag{}, std::move(other))
     {
     }
-    constexpr base_move_construction& operator=(const base_move_construction&) noexcept = default;
-    constexpr base_move_construction& operator=(base_move_construction&&) noexcept      = default;
-    ~base_move_construction() noexcept                                                  = default;
+    constexpr base_move_construction& operator=(const base_move_construction&) = default;
+    constexpr base_move_construction& operator=(base_move_construction&&)      = default;
+    ~base_move_construction() noexcept                                         = default;
 };
 
 /// Disabled move construction case.
@@ -225,12 +225,12 @@ template <typename T>
 struct base_move_construction<T, false, false> : base_copy_construction<T>
 {
     using base_copy_construction<T>::base_copy_construction;
-    constexpr base_move_construction() noexcept                                         = default;
-    constexpr base_move_construction(const base_move_construction&) noexcept            = default;
-    constexpr base_move_construction(base_move_construction&&)                          = delete;
-    constexpr base_move_construction& operator=(const base_move_construction&) noexcept = default;
-    constexpr base_move_construction& operator=(base_move_construction&&) noexcept      = default;
-    ~base_move_construction() noexcept                                                  = default;
+    constexpr base_move_construction() noexcept                                = default;
+    constexpr base_move_construction(const base_move_construction&)            = default;
+    constexpr base_move_construction(base_move_construction&&)                 = delete;
+    constexpr base_move_construction& operator=(const base_move_construction&) = default;
+    constexpr base_move_construction& operator=(base_move_construction&&)      = default;
+    ~base_move_construction() noexcept                                         = default;
 };
 
 /// COPY ASSIGNMENT POLICY
@@ -251,9 +251,9 @@ template <typename T>
 struct base_copy_assignment<T, false, true> : base_move_construction<T>
 {
     using base_move_construction<T>::base_move_construction;
-    constexpr base_copy_assignment() noexcept                            = default;
-    constexpr base_copy_assignment(const base_copy_assignment&) noexcept = default;
-    constexpr base_copy_assignment(base_copy_assignment&&) noexcept      = default;
+    constexpr base_copy_assignment() noexcept                   = default;
+    constexpr base_copy_assignment(const base_copy_assignment&) = default;
+    constexpr base_copy_assignment(base_copy_assignment&&)      = default;
     constexpr base_copy_assignment& operator=(const base_copy_assignment& other) noexcept(
         std::is_nothrow_copy_assignable<T>::value && std::is_nothrow_copy_constructible<T>::value)
     {
@@ -272,8 +272,8 @@ struct base_copy_assignment<T, false, true> : base_move_construction<T>
         }
         return *this;
     }
-    constexpr base_copy_assignment& operator=(base_copy_assignment&&) noexcept = default;
-    ~base_copy_assignment() noexcept                                           = default;
+    constexpr base_copy_assignment& operator=(base_copy_assignment&&) = default;
+    ~base_copy_assignment() noexcept                                  = default;
 };
 
 /// Disabled copy assignment case.
@@ -281,12 +281,12 @@ template <typename T>
 struct base_copy_assignment<T, false, false> : base_move_construction<T>
 {
     using base_move_construction<T>::base_move_construction;
-    constexpr base_copy_assignment() noexcept                                  = default;
-    constexpr base_copy_assignment(const base_copy_assignment&) noexcept       = default;
-    constexpr base_copy_assignment(base_copy_assignment&&) noexcept            = default;
-    constexpr base_copy_assignment& operator=(const base_copy_assignment&)     = delete;
-    constexpr base_copy_assignment& operator=(base_copy_assignment&&) noexcept = default;
-    ~base_copy_assignment() noexcept                                           = default;
+    constexpr base_copy_assignment() noexcept                              = default;
+    constexpr base_copy_assignment(const base_copy_assignment&)            = default;
+    constexpr base_copy_assignment(base_copy_assignment&&)                 = default;
+    constexpr base_copy_assignment& operator=(const base_copy_assignment&) = delete;
+    constexpr base_copy_assignment& operator=(base_copy_assignment&&)      = default;
+    ~base_copy_assignment() noexcept                                       = default;
 };
 
 /// MOVE ASSIGNMENT POLICY
@@ -308,10 +308,10 @@ template <typename T>
 struct base_move_assignment<T, false, true, true> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
-    constexpr base_move_assignment() noexcept                                       = default;
-    constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
-    constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
-    constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
+    constexpr base_move_assignment() noexcept                              = default;
+    constexpr base_move_assignment(const base_move_assignment&)            = default;
+    constexpr base_move_assignment(base_move_assignment&&)                 = default;
+    constexpr base_move_assignment& operator=(const base_move_assignment&) = default;
     constexpr base_move_assignment& operator=(base_move_assignment&& other) noexcept(
         std::is_nothrow_move_assignable<T>::value && std::is_nothrow_move_constructible<T>::value)
     {
@@ -338,12 +338,12 @@ template <typename T>
 struct base_move_assignment<T, false, false, true> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
-    constexpr base_move_assignment() noexcept                                       = default;
-    constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
-    constexpr base_move_assignment(base_move_assignment&&) noexcept                 = default;
-    constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
-    constexpr base_move_assignment& operator=(base_move_assignment&&)               = delete;
-    ~base_move_assignment() noexcept                                                = default;
+    constexpr base_move_assignment() noexcept                              = default;
+    constexpr base_move_assignment(const base_move_assignment&)            = default;
+    constexpr base_move_assignment(base_move_assignment&&)                 = default;
+    constexpr base_move_assignment& operator=(const base_move_assignment&) = default;
+    constexpr base_move_assignment& operator=(base_move_assignment&&)      = delete;
+    ~base_move_assignment() noexcept                                       = default;
 };
 
 // Keep the move constructor explicitly deleted in the final policy layer when T cannot be moved.
@@ -352,12 +352,12 @@ template <typename T>
 struct base_move_assignment<T, false, false, false> : base_copy_assignment<T>
 {
     using base_copy_assignment<T>::base_copy_assignment;
-    constexpr base_move_assignment() noexcept                                       = default;
-    constexpr base_move_assignment(const base_move_assignment&) noexcept            = default;
-    constexpr base_move_assignment(base_move_assignment&&)                          = delete;
-    constexpr base_move_assignment& operator=(const base_move_assignment&) noexcept = default;
-    constexpr base_move_assignment& operator=(base_move_assignment&&)               = delete;
-    ~base_move_assignment() noexcept                                                = default;
+    constexpr base_move_assignment() noexcept                              = default;
+    constexpr base_move_assignment(const base_move_assignment&)            = default;
+    constexpr base_move_assignment(base_move_assignment&&)                 = delete;
+    constexpr base_move_assignment& operator=(const base_move_assignment&) = default;
+    constexpr base_move_assignment& operator=(base_move_assignment&&)      = delete;
+    ~base_move_assignment() noexcept                                       = default;
 };
 
 /// True if T is constructible or convertible from const Fun& or Fun&&.
