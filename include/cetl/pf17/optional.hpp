@@ -220,7 +220,10 @@ struct base_move_construction<T, false, true> : base_copy_construction<T>
     ~base_move_construction() noexcept                                         = default;
 };
 
-/// Disabled move construction case.
+/// Non-move-constructible case. The deleted move constructor here only mirrors the other disabled cases for symmetry;
+/// it is not what disables moving optional<T>. A defaulted move constructor that is defined as deleted is ignored by
+/// overload resolution, so the defaulted moves of the layers above would fall back to copying their base regardless.
+/// The deletion that takes effect is the explicit one in the final layer, base_move_assignment<T, false, false, false>.
 template <typename T>
 struct base_move_construction<T, false, false> : base_copy_construction<T>
 {
@@ -348,6 +351,12 @@ struct base_move_assignment<T, false, false, true> : base_copy_assignment<T>
 
 // Keep the move constructor explicitly deleted in the final policy layer when T cannot be moved.
 // Otherwise an intermediate defaulted move may copy its base and make optional's move viable.
+// This is the deletion that disables moving optional<T>: optional's defaulted move constructor becomes defined as
+// deleted, so rvalues bind to the copy constructor and is_nothrow_move_constructible<optional<T>> reports the copy
+// constructor's exception specification. Without it optional's own move constructor would be selected with its
+// explicit noexcept(std::is_nothrow_move_constructible<T>::value), which is false here, so the trait would flip to
+// false (and become compiler-dependent for trivially copyable copy-only T). The static_assert on
+// is_nothrow_move_constructible<optional<copy_only>> in test_pf17_optional.cpp guards this.
 template <typename T>
 struct base_move_assignment<T, false, false, false> : base_copy_assignment<T>
 {
