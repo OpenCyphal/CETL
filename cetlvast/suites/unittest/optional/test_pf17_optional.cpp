@@ -115,6 +115,26 @@ static_assert(!std::is_move_assignable<copy_only>::value, "");
 static_assert(std::is_nothrow_move_constructible<optional<copy_only>>::value, "");
 static_assert(std::is_nothrow_move_assignable<optional<copy_only>>::value, "");
 
+// The policy layers delete the special members that T lacks instead of declaring non-trivial ones, so optional<T>
+// stays trivially copyable when each of T's special members is trivial or deleted; std::optional reports false for
+// these types. The policy layers are optional's only bases, so nesting optionals adds no empty base subobjects.
+// https://github.com/OpenCyphal/CETL/issues/125
+struct trivial_copy_only final
+{
+    trivial_copy_only()                                    = default;
+    trivial_copy_only(const trivial_copy_only&)            = default;
+    trivial_copy_only(trivial_copy_only&&)                 = delete;
+    trivial_copy_only& operator=(const trivial_copy_only&) = default;
+    trivial_copy_only& operator=(trivial_copy_only&&)      = delete;
+    ~trivial_copy_only()                                   = default;
+};
+
+static_assert(std::is_trivially_copyable<trivial_copy_only>::value, "");
+static_assert(std::is_trivially_copyable<optional<trivial_copy_only>>::value, "");
+static_assert(std::is_trivially_copyable<optional<optional<trivial_copy_only>>>::value, "");
+static_assert(std::is_trivially_copyable<optional<const int>>::value, "");
+static_assert(sizeof(optional<optional<char>>) == 3, "");
+
 TEST(test_optional, explicitly_deleted_moves_fall_back_to_copy)
 {
     optional<copy_only> source{cetl::pf17::in_place};

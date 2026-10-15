@@ -424,6 +424,9 @@ using enable_comparison = std::enable_if_t<std::is_convertible<Expression, bool>
 }  // namespace detail
 
 /// A strict implementation of C++17 \ref std::optional.
+/// Copy and move operations that are unavailable for T are deleted in optional<T> rather than made non-trivial, so
+/// \c std::is_trivially_copyable<optional<T>> can be true where it is false for \c std::optional<T>; for example
+/// for <tt>const int</tt> or for a trivially copyable T with deleted move operations.
 template <typename T>
 class optional : private detail::opt::base_move_assignment<T>
 {
