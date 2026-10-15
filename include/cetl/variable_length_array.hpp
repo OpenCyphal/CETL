@@ -581,11 +581,9 @@ protected:
         // move assign into new memory.
         if (alloc_ == rhs.alloc_)
         {
-            // Even though the two allocators aren't always the same they are this time. We can simply take ownership
-            // of the incoming memory even if we don't adopt the rhs allocator (SFINAE takes care of that in the
-            // move_assign_alloc method).
+            // This overload never propagates the allocator but the two allocators compare equal this time so our
+            // alloc_ can deallocate the incoming memory. We simply take ownership of it and keep alloc_.
             fast_deallocate(data_, size_, capacity_, alloc_);
-            move_assign_alloc(std::move(rhs.alloc_));
 
             max_size_max_ = rhs.max_size_max_;
             capacity_     = rhs.capacity_;
