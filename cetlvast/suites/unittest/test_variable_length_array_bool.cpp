@@ -367,6 +367,33 @@ TYPED_TEST(VLABoolTestsVLAOnly, TestBoolExceedingMaxSizeMax)
 #endif  // __cpp_exceptions
 }
 
+TYPED_TEST(VLABoolTests, TestBoolEqualityComparesEveryStorageByte)
+{
+    // Arrays that differ only in the second-to-last storage byte (issue #221).
+    auto nine_a = TypeParam::make_bool_container(std::initializer_list<bool>{1, 0, 0, 0, 0, 0, 0, 0, 1});
+    auto nine_b = TypeParam::make_bool_container(std::initializer_list<bool>{0, 0, 0, 0, 0, 0, 0, 0, 1});
+    EXPECT_NE(nine_a, nine_b);
+    EXPECT_FALSE(nine_a == nine_b);
+
+    auto seventeen_a = TypeParam::make_bool_container();
+    auto seventeen_b = TypeParam::make_bool_container();
+    seventeen_a.resize(17U, false);
+    seventeen_b.resize(17U, false);
+    EXPECT_EQ(seventeen_a, seventeen_b);
+    seventeen_a[8] = true;
+    EXPECT_NE(seventeen_a, seventeen_b);
+    EXPECT_FALSE(seventeen_a == seventeen_b);
+
+    // Positive control: arrays that differ only in the last storage byte.
+    auto nine_c = TypeParam::make_bool_container(std::initializer_list<bool>{1, 0, 0, 0, 0, 0, 0, 0, 0});
+    EXPECT_NE(nine_a, nine_c);
+    seventeen_b[8]  = true;
+    seventeen_b[16] = true;
+    EXPECT_NE(seventeen_a, seventeen_b);
+    seventeen_a[16] = true;
+    EXPECT_EQ(seventeen_a, seventeen_b);
+}
+
 TYPED_TEST(VLABoolTests, TestBoolFront)
 {
     auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});

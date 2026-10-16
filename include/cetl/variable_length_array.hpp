@@ -2091,7 +2091,7 @@ public:
         {
             return false;
         }
-        if (size_ > 1 && !std::equal(data_, data_ + size_ - 2, rhs.data_, rhs.data_ + rhs.size_ - 2))
+        if (size_ > 1 && !std::equal(data_, data_ + size_ - 1, rhs.data_, rhs.data_ + rhs.size_ - 1))
         {
             return false;
         }
