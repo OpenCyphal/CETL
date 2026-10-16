@@ -367,6 +367,21 @@ TYPED_TEST(VLABoolTestsVLAOnly, TestBoolExceedingMaxSizeMax)
 #endif  // __cpp_exceptions
 }
 
+TYPED_TEST(VLABoolTestsVLAOnly, TestBoolGrowthRespectsMaxSize)
+{
+    // A byte-aligned max_size, so capacity can match it exactly once the storage is full. It is large enough that
+    // unclamped geometric growth (2, 4, 6, 9 bytes) would overshoot it.
+    constexpr std::size_t max_size_max = 64U;
+    auto                  array        = TypeParam::make_bool_container(max_size_max);
+    for (std::size_t i = 0; i < max_size_max; ++i)
+    {
+        array.push_back(true);
+        ASSERT_LE(array.capacity(), array.max_size()) << "after " << (i + 1) << " push_back calls";
+    }
+    ASSERT_EQ(max_size_max, array.size());
+    ASSERT_EQ(max_size_max, array.capacity());
+}
+
 TYPED_TEST(VLABoolTests, TestBoolEqualityComparesEveryStorageByte)
 {
     // Arrays that differ only in the second-to-last storage byte (issue #221).

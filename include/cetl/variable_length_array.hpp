@@ -2573,7 +2573,8 @@ private:
             return size_bits() < max_size();
         }
 
-        return Base::grow(max_size());
+        // Base::grow works in storage bytes, but max_size() is in bits.
+        return Base::grow(bits2bytes(max_size()));
     }
 
     constexpr bool emplace_back_impl(bool value)
