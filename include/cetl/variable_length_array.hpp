@@ -2524,7 +2524,12 @@ public:
     {
         const size_type size_before = size_;
         resize(count, value);
-        (void) memset(data_, (value) ? 0xFF : 0, (size_ > size_before) ? size_before : size_);
+        const size_type bytes_to_overwrite = (size_ > size_before) ? size_before : size_;
+        // With no bytes to overwrite data_ may be null, and memset(nullptr, v, 0) is undefined.
+        if (bytes_to_overwrite > 0)
+        {
+            (void) std::memset(data_, (value) ? 0xFF : 0, bytes_to_overwrite);
+        }
     }
 
 private:

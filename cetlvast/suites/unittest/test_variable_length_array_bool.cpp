@@ -432,6 +432,7 @@ TYPED_TEST(VLABoolTests, TestBoolBack)
 TYPED_TEST(VLABoolTests, TestAssignCountAndValue)
 {
     auto array = TypeParam::make_bool_container();
+    // With no storage yet, assign must not memset through a null pointer (#229). Only UBSan with glibc reports it.
     array.assign(0, true);
     ASSERT_EQ(0, array.size());
     array.assign(1, false);
