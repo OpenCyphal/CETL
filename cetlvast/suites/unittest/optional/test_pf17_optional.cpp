@@ -90,6 +90,191 @@ static_assert(std::is_trivially_destructible<optional<bar<noncopyable_t>>>::valu
 static_assert(cetl::pf17::detail::opt::enable_ctor8<bar<noncopyable_t>, foo<noncopyable_t>, false>, "");
 static_assert(cetl::pf17::detail::opt::enable_ctor8<foo<noncopyable_t>, bar<noncopyable_t>, true>, "");
 
+// Explicitly deleted moves differ from defaulted moves that become deleted: the former must
+// disable optional's defaulted moves so overload resolution can fall back to its copy operations.
+struct copy_only final
+{
+    copy_only() noexcept = default;
+    copy_only(const copy_only& other) noexcept
+        : copies(other.copies + 1)
+    {
+    }
+    copy_only(copy_only&&) = delete;
+    copy_only& operator=(const copy_only& other) noexcept
+    {
+        copies = other.copies + 1;
+        return *this;
+    }
+    copy_only& operator=(copy_only&&) = delete;
+    ~copy_only()                      = default;
+    int copies                        = 0;
+};
+
+static_assert(!std::is_move_constructible<copy_only>::value, "");
+static_assert(!std::is_move_assignable<copy_only>::value, "");
+static_assert(std::is_nothrow_move_constructible<optional<copy_only>>::value, "");
+static_assert(std::is_nothrow_move_assignable<optional<copy_only>>::value, "");
+
+// The policy layers delete the special members that T lacks instead of declaring non-trivial ones, so optional<T>
+// stays trivially copyable when each of T's special members is trivial or deleted; std::optional reports false for
+// these types. The policy layers are optional's only bases, so nesting optionals adds no empty base subobjects.
+// https://github.com/OpenCyphal/CETL/issues/125
+struct trivial_copy_only final
+{
+    trivial_copy_only()                                    = default;
+    trivial_copy_only(const trivial_copy_only&)            = default;
+    trivial_copy_only(trivial_copy_only&&)                 = delete;
+    trivial_copy_only& operator=(const trivial_copy_only&) = default;
+    trivial_copy_only& operator=(trivial_copy_only&&)      = delete;
+    ~trivial_copy_only()                                   = default;
+};
+
+static_assert(std::is_trivially_copyable<trivial_copy_only>::value, "");
+static_assert(std::is_trivially_copyable<optional<trivial_copy_only>>::value, "");
+static_assert(std::is_trivially_copyable<optional<optional<trivial_copy_only>>>::value, "");
+static_assert(std::is_trivially_copyable<optional<const int>>::value, "");
+static_assert(sizeof(optional<optional<char>>) == 3, "");
+
+TEST(test_optional, explicitly_deleted_moves_fall_back_to_copy)
+{
+    optional<copy_only> source{cetl::pf17::in_place};
+    optional<copy_only> destination{std::move(source)};
+    ASSERT_TRUE(source);
+    ASSERT_TRUE(destination);
+    EXPECT_EQ(0, source->copies);
+    EXPECT_EQ(1, destination->copies);
+    destination = std::move(source);
+    EXPECT_EQ(1, destination->copies);
+    destination.reset();
+    destination = std::move(source);
+    ASSERT_TRUE(destination);
+    EXPECT_EQ(1, destination->copies);
+    source.reset();
+    destination = std::move(source);
+    EXPECT_FALSE(destination);
+}
+
+// The policy layers must not give optional a stronger exception specification than T's copy and move operations,
+// or an exception thrown by T would be reported as impossible and then call std::terminate.
+// https://github.com/OpenCyphal/CETL/issues/220
+struct copy_move_failure final
+{
+    static void raise()
+    {
+#if defined(__cpp_exceptions)
+        throw copy_move_failure{};
+#endif
+    }
+};
+
+struct throwing_copy final
+{
+    throwing_copy() noexcept = default;
+    throwing_copy(const throwing_copy&) noexcept(false)
+    {
+        copy_move_failure::raise();
+    }
+    throwing_copy(throwing_copy&&) noexcept = default;
+    throwing_copy& operator=(const throwing_copy&) noexcept(false)
+    {
+        copy_move_failure::raise();
+        return *this;
+    }
+    throwing_copy& operator=(throwing_copy&&) noexcept = default;
+    ~throwing_copy()                                   = default;
+};
+
+/// The explicitly deleted moves make the moves of optional fall back to the throwing copy.
+struct throwing_copy_only final
+{
+    throwing_copy_only() noexcept = default;
+    throwing_copy_only(const throwing_copy_only&) noexcept(false)
+    {
+        copy_move_failure::raise();
+    }
+    throwing_copy_only(throwing_copy_only&&) = delete;
+    throwing_copy_only& operator=(const throwing_copy_only&) noexcept(false)
+    {
+        copy_move_failure::raise();
+        return *this;
+    }
+    throwing_copy_only& operator=(throwing_copy_only&&) = delete;
+    ~throwing_copy_only()                               = default;
+};
+
+struct throwing_move_only final
+{
+    throwing_move_only() noexcept                            = default;
+    throwing_move_only(const throwing_move_only&)            = delete;
+    throwing_move_only& operator=(const throwing_move_only&) = delete;
+    throwing_move_only(throwing_move_only&&) noexcept(false)
+    {
+        copy_move_failure::raise();
+    }
+    throwing_move_only& operator=(throwing_move_only&&) noexcept(false)
+    {
+        copy_move_failure::raise();
+        return *this;
+    }
+    ~throwing_move_only() = default;
+};
+
+static_assert(!std::is_nothrow_copy_constructible<optional<throwing_copy>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<optional<throwing_copy>>::value, "");
+static_assert(std::is_nothrow_move_constructible<optional<throwing_copy>>::value, "");
+static_assert(std::is_nothrow_move_assignable<optional<throwing_copy>>::value, "");
+
+static_assert(!std::is_nothrow_copy_constructible<optional<throwing_copy_only>>::value, "");
+static_assert(!std::is_nothrow_copy_assignable<optional<throwing_copy_only>>::value, "");
+static_assert(!std::is_nothrow_move_constructible<optional<throwing_copy_only>>::value, "");
+static_assert(!std::is_nothrow_move_assignable<optional<throwing_copy_only>>::value, "");
+
+static_assert(!std::is_nothrow_move_constructible<optional<throwing_move_only>>::value, "");
+static_assert(!std::is_nothrow_move_assignable<optional<throwing_move_only>>::value, "");
+
+#if defined(__cpp_exceptions)
+TEST(test_optional, throwing_copy_propagates)
+{
+    const optional<throwing_copy> source{cetl::pf17::in_place};
+    EXPECT_THROW(optional<throwing_copy>{source}, copy_move_failure);
+    optional<throwing_copy> destination;
+    EXPECT_THROW(destination = source, copy_move_failure);
+    EXPECT_FALSE(destination);
+    destination.emplace();
+    EXPECT_THROW(destination = source, copy_move_failure);
+    EXPECT_TRUE(destination);
+}
+
+TEST(test_optional, throwing_copy_only_propagates)
+{
+    optional<throwing_copy_only> source{cetl::pf17::in_place};
+    EXPECT_THROW(optional<throwing_copy_only>{source}, copy_move_failure);
+    EXPECT_THROW(optional<throwing_copy_only>{std::move(source)}, copy_move_failure);
+    optional<throwing_copy_only> destination;
+    EXPECT_THROW(destination = source, copy_move_failure);
+    EXPECT_FALSE(destination);
+    EXPECT_THROW(destination = std::move(source), copy_move_failure);
+    EXPECT_FALSE(destination);
+    destination.emplace();
+    EXPECT_THROW(destination = source, copy_move_failure);
+    EXPECT_TRUE(destination);
+    EXPECT_THROW(destination = std::move(source), copy_move_failure);
+    EXPECT_TRUE(destination);
+}
+
+TEST(test_optional, throwing_move_only_propagates)
+{
+    optional<throwing_move_only> source{cetl::pf17::in_place};
+    EXPECT_THROW(optional<throwing_move_only>{std::move(source)}, copy_move_failure);
+    optional<throwing_move_only> destination;
+    EXPECT_THROW(destination = std::move(source), copy_move_failure);
+    EXPECT_FALSE(destination);
+    destination.emplace();
+    EXPECT_THROW(destination = std::move(source), copy_move_failure);
+    EXPECT_TRUE(destination);
+}
+#endif
+
 /// This wrapper is used to test the comparison operators. It is made non-copyable and non-movable to ensure that the
 /// comparison operators are not using the copy/move constructors or assignment operators.
 template <typename T>
