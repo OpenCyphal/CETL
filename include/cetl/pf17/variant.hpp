@@ -654,10 +654,10 @@ struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<
 
 /// MOVE ASSIGNMENT POLICY
 template <typename Seq,
-          int = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
-                    ? smf_trivial
-                    : (smf_any_deleted<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor> ? smf_deleted
-                                                                                                      : smf_nontrivial),
+          int  = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
+                     ? smf_trivial
+                     : (smf_any_deleted<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor> ? smf_deleted
+                                                                                                       : smf_nontrivial),
           bool = (Seq::avail_move_ctor == smf_deleted)>
 struct base_move_assignment;
 template <typename... Ts>
