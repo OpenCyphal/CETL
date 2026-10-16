@@ -1,0 +1,42 @@
+name: "CETL libFuzzer"
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  variable-length-array:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        standard: [14, 20]
+        profile: [default, embedded]
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure
+        env:
+          CXXFLAGS: ${{ matrix.profile == 'embedded' && '-fno-exceptions -fno-rtti' || '' }}
+        run: >-
+          cmake -S cetlvast/suites/fuzz -B cetlvast/build_fuzz -G Ninja
+          -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug
+          -DCETLVAST_CPP_STANDARD=${{ matrix.standard }}
+      - name: Build
+        run: cmake --build cetlvast/build_fuzz
+      - name: Fuzz smoke test
+        run: ctest --test-dir cetlvast/build_fuzz --output-on-failure -L fuzz
+      - name: Save failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: vla-fuzz-cpp${{ matrix.standard }}-${{ matrix.profile }}
+          path: |
+            cetlvast/build_fuzz/variable_length_array/artifacts/
+            cetlvast/build_fuzz/Testing/Temporary/LastTest.log
+          if-no-files-found: ignore
