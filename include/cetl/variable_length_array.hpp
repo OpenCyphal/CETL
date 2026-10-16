@@ -586,6 +586,10 @@ protected:
             return;
         }
 
+        // Every branch adopts the source's bound, as copy_assign_from does. The unequal-allocator branches then size
+        // the destination against rhs_max_size, which is now also this container's limit.
+        max_size_max_ = rhs.max_size_max_;
+
         // can't move the allocator and they aren't always the same. we have to
         // move assign into new memory.
         if (alloc_ == rhs.alloc_)
@@ -594,7 +598,6 @@ protected:
             // alloc_ can deallocate the incoming memory. We simply take ownership of it and keep alloc_.
             fast_deallocate(data_, size_, capacity_, alloc_);
 
-            max_size_max_ = rhs.max_size_max_;
             capacity_     = rhs.capacity_;
             size_         = rhs.size_;
             data_         = rhs.data_;
@@ -991,6 +994,7 @@ protected:
 /// the source is destroyed or shrunk, as for a moved-from `std::vector`.
 /// Retaining source capacity does not copy its spare capacity into the destination of an unequal-allocator move
 /// construction, which obtains only the storage required for the elements (rounded to bytes for packed bool).
+/// Every copy and move, whatever the allocators, also gives the destination the source's `max_size_max` bound.
 ///
 /// In the table below, `C` is the source capacity before a successful move between distinct arrays. The source size
 /// becomes zero in every row. The same rules apply to packed `VariableLengthArray<bool>` and empty reserved sources.
