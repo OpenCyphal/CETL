@@ -367,6 +367,48 @@ TYPED_TEST(VLABoolTestsVLAOnly, TestBoolExceedingMaxSizeMax)
 #endif  // __cpp_exceptions
 }
 
+TYPED_TEST(VLABoolTestsVLAOnly, TestBoolGrowthRespectsMaxSize)
+{
+    // A byte-aligned max_size, so capacity can match it exactly once the storage is full. It is large enough that
+    // unclamped geometric growth (2, 4, 6, 9 bytes) would overshoot it.
+    constexpr std::size_t max_size_max = 64U;
+    auto                  array        = TypeParam::make_bool_container(max_size_max);
+    for (std::size_t i = 0; i < max_size_max; ++i)
+    {
+        array.push_back(true);
+        ASSERT_LE(array.capacity(), array.max_size()) << "after " << (i + 1) << " push_back calls";
+    }
+    ASSERT_EQ(max_size_max, array.size());
+    ASSERT_EQ(max_size_max, array.capacity());
+}
+
+TYPED_TEST(VLABoolTests, TestBoolEqualityComparesEveryStorageByte)
+{
+    // Arrays that differ only in the second-to-last storage byte (issue #221).
+    auto nine_a = TypeParam::make_bool_container(std::initializer_list<bool>{1, 0, 0, 0, 0, 0, 0, 0, 1});
+    auto nine_b = TypeParam::make_bool_container(std::initializer_list<bool>{0, 0, 0, 0, 0, 0, 0, 0, 1});
+    EXPECT_NE(nine_a, nine_b);
+    EXPECT_FALSE(nine_a == nine_b);
+
+    auto seventeen_a = TypeParam::make_bool_container();
+    auto seventeen_b = TypeParam::make_bool_container();
+    seventeen_a.resize(17U, false);
+    seventeen_b.resize(17U, false);
+    EXPECT_EQ(seventeen_a, seventeen_b);
+    seventeen_a[8] = true;
+    EXPECT_NE(seventeen_a, seventeen_b);
+    EXPECT_FALSE(seventeen_a == seventeen_b);
+
+    // Positive control: arrays that differ only in the last storage byte.
+    auto nine_c = TypeParam::make_bool_container(std::initializer_list<bool>{1, 0, 0, 0, 0, 0, 0, 0, 0});
+    EXPECT_NE(nine_a, nine_c);
+    seventeen_b[8]  = true;
+    seventeen_b[16] = true;
+    EXPECT_NE(seventeen_a, seventeen_b);
+    seventeen_a[16] = true;
+    EXPECT_EQ(seventeen_a, seventeen_b);
+}
+
 TYPED_TEST(VLABoolTests, TestBoolFront)
 {
     auto array = TypeParam::make_bool_container(std::initializer_list<bool>{true, false, true});
@@ -390,6 +432,7 @@ TYPED_TEST(VLABoolTests, TestBoolBack)
 TYPED_TEST(VLABoolTests, TestAssignCountAndValue)
 {
     auto array = TypeParam::make_bool_container();
+    // With no storage yet, assign must not memset through a null pointer (#229). Only UBSan with glibc reports it.
     array.assign(0, true);
     ASSERT_EQ(0, array.size());
     array.assign(1, false);

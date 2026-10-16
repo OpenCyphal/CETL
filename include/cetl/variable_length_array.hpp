@@ -2091,7 +2091,7 @@ public:
         {
             return false;
         }
-        if (size_ > 1 && !std::equal(data_, data_ + size_ - 2, rhs.data_, rhs.data_ + rhs.size_ - 2))
+        if (size_ > 1 && !std::equal(data_, data_ + size_ - 1, rhs.data_, rhs.data_ + rhs.size_ - 1))
         {
             return false;
         }
@@ -2524,7 +2524,12 @@ public:
     {
         const size_type size_before = size_;
         resize(count, value);
-        (void) memset(data_, (value) ? 0xFF : 0, (size_ > size_before) ? size_before : size_);
+        const size_type bytes_to_overwrite = (size_ > size_before) ? size_before : size_;
+        // With no bytes to overwrite data_ may be null, and memset(nullptr, v, 0) is undefined.
+        if (bytes_to_overwrite > 0)
+        {
+            (void) std::memset(data_, (value) ? 0xFF : 0, bytes_to_overwrite);
+        }
     }
 
 private:
@@ -2573,7 +2578,8 @@ private:
             return size_bits() < max_size();
         }
 
-        return Base::grow(max_size());
+        // Base::grow works in storage bytes, but max_size() is in bits.
+        return Base::grow(bits2bytes(max_size()));
     }
 
     constexpr bool emplace_back_impl(bool value)
