@@ -125,7 +125,8 @@ public:
         : data_(first)
     {
         (void) end;  // Last isn't actually used in static spans.
-        CETL_DEBUG_ASSERT(std::distance(first, end) == Extent, "CDE_span_002: Iterator range does not equal Extent.");
+        CETL_DEBUG_ASSERT(static_cast<size_type>(std::distance(first, end)) == Extent,
+                          "CDE_span_002: Iterator range does not equal Extent.");
     }
 
     /// Creates a span starting at the first element of a c-style array through to the end of that array.

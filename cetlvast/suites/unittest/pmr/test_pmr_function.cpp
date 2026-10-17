@@ -140,7 +140,7 @@ TEST_F(TestPmrFunction, ctor_3_copy)
     EXPECT_THAT(static_cast<bool>(fn_copy), true);
     EXPECT_THAT(fn_copy(), "123");
 
-    fn_copy = {};
+    fn_copy = nullptr;
     const str_function fn_empty{fn_copy};
     EXPECT_THAT(!!fn_empty, false);
 }
@@ -156,7 +156,7 @@ TEST_F(TestPmrFunction, ctor_4_move)
     EXPECT_THAT(static_cast<bool>(fn_moved), true);
     EXPECT_THAT(fn_moved(), "123");
 
-    fn_moved = {};
+    fn_moved = nullptr;
     const str_function fn_empty{std::move(fn_moved)};
     EXPECT_THAT(!!fn_empty, false);
 }
@@ -279,7 +279,7 @@ TEST_F(TestPmrFunction, pmr_ctor_3_copy)
     EXPECT_THAT(fn_copy.get_memory_resource(), get_mr());
     EXPECT_THAT(fn_copy(), "123");
 
-    fn_copy = {};
+    fn_copy = nullptr;
     const str_function fn_empty{fn_copy};
     EXPECT_THAT(!!fn_empty, false);
 }
@@ -295,7 +295,7 @@ TEST_F(TestPmrFunction, pmr_ctor_4_move)
     EXPECT_THAT(fn_moved(), "123");
     EXPECT_THAT(fn_moved.get_memory_resource(), get_mr());
 
-    fn_moved = {};
+    fn_moved = nullptr;
     const str_function fn_empty{std::move(fn_moved)};
     EXPECT_THAT(!!fn_empty, false);
 }
@@ -339,7 +339,7 @@ TEST_F(TestPmrFunction, pmr_assign_1_copy_fit)
     EXPECT_THAT(fn2(), "123");
     EXPECT_THAT(fn2.get_memory_resource(), get_mr());
 
-    fn2 = {};
+    fn2 = nullptr;
     EXPECT_THAT(!!fn1, true);
     EXPECT_THAT(fn1.get_memory_resource(), get_mr());
     EXPECT_THAT(!!fn2, false);
@@ -359,7 +359,7 @@ TEST_F(TestPmrFunction, pmr_assign_1_copy_nofit)
     EXPECT_THAT(fn2(), "123");
     EXPECT_THAT(fn2.get_memory_resource(), get_mr());
 
-    fn2 = {};
+    fn2 = nullptr;
     EXPECT_THAT(!!fn1, true);
     EXPECT_THAT(fn1.get_memory_resource(), get_mr());
     EXPECT_THAT(!!fn2, false);
@@ -378,7 +378,7 @@ TEST_F(TestPmrFunction, pmr_assign_2_move_fit)
     EXPECT_THAT(!!fn2, true);
     EXPECT_THAT(fn2(), "123");
 
-    fn2 = {};
+    fn2 = nullptr;
     EXPECT_THAT(!!fn2, false);
     EXPECT_THAT(fn2.get_memory_resource(), get_mr());
 }
@@ -395,7 +395,7 @@ TEST_F(TestPmrFunction, pmr_assign_2_move_nofit)
     EXPECT_THAT(!!fn2, true);
     EXPECT_THAT(fn2(), "123");
 
-    fn2 = {};
+    fn2 = nullptr;
     EXPECT_THAT(!!fn2, false);
     EXPECT_THAT(fn2.get_memory_resource(), get_mr());
 }

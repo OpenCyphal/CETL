@@ -90,6 +90,10 @@ jobs:
       matrix:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
+        include:
+          # GCC 7 is still what much of the Arduino ecosystem ships (#149). It only supports C++14 here.
+          - toolchain: "gcc7-native"
+            standard: "cpp-14"
     steps:
       - uses: actions/checkout@v7
       - name: Cache ext modules

@@ -8,6 +8,7 @@
 #include "cetlvast/helpers_gtest.hpp"
 
 #include <algorithm>
+#include <initializer_list>
 #include <map>
 #include <set>
 #include <memory>
@@ -298,7 +299,10 @@ TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
             SCOPED_TRACE(::testing::Message() << "kind=" << kind << " fail_at=" << fail_at);
             LifetimeState   lifetimes;
             AllocationState allocations;
-            const auto      list = {Value{lifetimes, 10}, Value{lifetimes, 11}, Value{lifetimes, 12}};
+            // Not `const auto`: GCC 7 deduces that as std::initializer_list<const Value> (GCC PR c++/63149).
+            const std::initializer_list<Value> list = {Value{lifetimes, 10},
+                                                       Value{lifetimes, 11},
+                                                       Value{lifetimes, 12}};
             Array<>         source{list, Allocator<Value>{allocations}};
             const auto      constructed = lifetimes.constructed;
             const auto      destroyed   = lifetimes.destroyed;
@@ -569,8 +573,9 @@ TEST(VLAExceptionSafety, InitializerListAssignmentFailurePreservesLifetimes)
 {
     LifetimeState   lifetimes;
     AllocationState allocations;
-    const auto      source = {Value{lifetimes, 10}, Value{lifetimes, 11}, Value{lifetimes, 12}};
-    Array<>         target{Allocator<Value>{allocations}};
+    // Not `const auto`: GCC 7 deduces that as std::initializer_list<const Value> (GCC PR c++/63149).
+    const std::initializer_list<Value> source = {Value{lifetimes, 10}, Value{lifetimes, 11}, Value{lifetimes, 12}};
+    Array<>                            target{Allocator<Value>{allocations}};
     target.reserve(3);
     lifetimes.arm(Operation::Copy, 1);
     EXPECT_THROW(target.assign(source), Failure);
