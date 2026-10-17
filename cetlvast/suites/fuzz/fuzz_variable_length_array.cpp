@@ -13,9 +13,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <forward_list>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -33,6 +35,7 @@ constexpr std::size_t InstructionSize = 3;
 constexpr unsigned UseStdAllocatorBit     = 4U;
 constexpr unsigned ShareAllocatorStateBit = 8U;
 constexpr unsigned ArraySelectorShift     = 4U;
+constexpr unsigned AssignVariantShift     = 5U;
 constexpr unsigned OperationCount         = 16U;
 constexpr unsigned StringLengthModulus    = 64U;
 constexpr unsigned StringAlphabetSize     = 26U;
@@ -214,6 +217,116 @@ public:
 template <typename T>
 using Model = std::vector<T, ModelAllocator<T>>;
 
+// Single-pass view of a model, for the input-iterator assign path.
+template <typename T>
+class SinglePass
+{
+public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type        = T;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = const T*;
+    using reference         = T;
+
+    SinglePass(const Model<T>& source, const std::size_t index) noexcept
+        : source_(&source)
+        , index_(index)
+    {
+    }
+    T operator*() const
+    {
+        return source_->at(index_);
+    }
+    SinglePass& operator++() noexcept
+    {
+        ++index_;
+        return *this;
+    }
+    SinglePass operator++(int) noexcept
+    {
+        const auto old = *this;
+        ++index_;
+        return old;
+    }
+    bool operator==(const SinglePass& rhs) const noexcept
+    {
+        return index_ == rhs.index_;
+    }
+    bool operator!=(const SinglePass& rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+
+private:
+    const Model<T>* source_;
+    std::size_t     index_;
+};
+
+// Assigns one of the range overloads to both the array and its model. The opcode's spare bits pick the overload.
+template <typename T, typename Array, typename Other>
+void assign_variant(const unsigned    variant,
+                    Array&            array,
+                    Model<T>&         model,
+                    Other&            other,
+                    const Model<T>&   other_model,
+                    const std::size_t count,
+                    const T&          value)
+{
+    // A prefix of the other model keeps sources within max_size().
+    const auto prefix =
+        Model<T>(other_model.begin(),
+                 other_model.begin() + static_cast<std::ptrdiff_t>(std::min(count, other_model.size())));
+    switch (variant)
+    {
+    case 1:  // random access
+        array.assign(prefix.begin(), prefix.end());
+        model.assign(prefix.begin(), prefix.end());
+        break;
+    case 2:  // forward only
+    {
+        const std::forward_list<T> list(prefix.begin(), prefix.end());
+        array.assign(list.begin(), list.end());
+        model.assign(prefix.begin(), prefix.end());
+        break;
+    }
+    case 3:  // single pass
+        array.assign(SinglePass<T>(prefix, 0), SinglePass<T>(prefix, prefix.size()));
+        model.assign(prefix.begin(), prefix.end());
+        break;
+    case 4:  // initializer list
+        array.assign({value, T{}, value});
+        model.assign({value, T{}, value});
+        break;
+    case 5:  // another array, including packed-bool proxy iterators
+        array.assign(other.begin(), other.end());
+        model.assign(other_model.begin(), other_model.end());
+        break;
+    case 6:  // longer than max_size(): rejected before any change, or truncated without exceptions
+    {
+        const Model<T> oversized(MaxElements + 1U + count, value);
+#if defined(__cpp_exceptions)
+        bool rejected = false;
+        try
+        {
+            array.assign(oversized.begin(), oversized.end());
+        } catch (const std::length_error&)
+        {
+            rejected = true;
+        }
+        require(rejected, "oversized assign was accepted");
+#else
+        array.assign(oversized.begin(), oversized.end());
+        model.assign(oversized.begin(), oversized.begin() + static_cast<std::ptrdiff_t>(MaxElements));
+#endif
+        break;
+    }
+    default:
+        array.assign(count, value);
+        model.assign(count, value);
+        break;
+    }
+}
+
 template <typename T, typename Allocator>
 void check(cetl::VariableLengthArray<T, Allocator>& actual, const Model<T>& expected)
 {
@@ -309,8 +422,7 @@ void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, co
             model.resize(count, value);
             break;
         case Operation::Assign:
-            array.assign(count, value);
-            model.assign(count, value);
+            assign_variant<T>(opcode >> AssignVariantShift, array, model, other, other_model, count, value);
             break;
         case Operation::Reserve:
             array.reserve(count);

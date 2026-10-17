@@ -7,7 +7,9 @@
 #include "cetl/variable_length_array.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cstdint>
 #include <forward_list>
 #include <iterator>
 #include <memory>
@@ -102,8 +104,14 @@ TYPED_TEST(VLAAssign, BoundedForwardAssignmentHonorsLogicalMaximum)
         actual.reserve(limit);
         const std::array<int, 11> source{{1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1}};
 #if defined(__cpp_exceptions)
+        // Fill to the limit first so a rejected range must leave contents and capacity untouched, not cleared.
+        const std::array<int, 9> before{{0, 1, 1, 0, 1, 0, 0, 1, 1}};
+        actual.assign(before.begin(), before.begin() + static_cast<std::ptrdiff_t>(limit));
+        const auto capacity = actual.capacity();
         EXPECT_THROW(actual.assign(source.begin(), source.end()), std::length_error);
-        EXPECT_TRUE(actual.empty());
+        expect_sequence(actual,
+                        std::vector<TypeParam>(before.begin(), before.begin() + static_cast<std::ptrdiff_t>(limit)));
+        EXPECT_EQ(actual.capacity(), capacity);
 #else
         actual.assign(source.begin(), source.end());
         expect_sequence(actual,
@@ -137,8 +145,11 @@ TYPED_TEST(VLAAssign, InitializerListHonorsLogicalMaximum)
 {
     Array<TypeParam> actual{1, std::allocator<TypeParam>{}};
 #if defined(__cpp_exceptions)
+    actual.assign({0});
+    const auto capacity = actual.capacity();
     EXPECT_THROW(actual.assign({1, 0}), std::length_error);
-    EXPECT_TRUE(actual.empty());
+    expect_sequence(actual, std::vector<TypeParam>{0});
+    EXPECT_EQ(actual.capacity(), capacity);
 #else
     actual.assign({1, 0});
     expect_sequence(actual, std::vector<TypeParam>{1});
@@ -149,6 +160,8 @@ struct AllocationState
 {
     bool        decline = false;
     std::size_t calls   = 0;
+    std::size_t live    = 0;
+    std::size_t peak    = 0;
 };
 
 template <typename T>
@@ -168,10 +181,18 @@ struct Allocator
     T* allocate(std::size_t count)
     {
         ++state->calls;
-        return state->decline ? nullptr : std::allocator<T>{}.allocate(count);
+        if (state->decline)
+        {
+            return nullptr;
+        }
+        state->peak = std::max(state->peak, ++state->live);
+        return std::allocator<T>{}.allocate(count);
     }
     void deallocate(T* pointer, std::size_t count) noexcept
     {
+        // Allocators may require a pointer previously returned by allocate(); arrays without storage must not call.
+        EXPECT_NE(pointer, nullptr);
+        --state->live;
         std::allocator<T>{}.deallocate(pointer, count);
     }
 };
@@ -340,6 +361,183 @@ TEST(VLAAssignObjects, PackedBoolProxySources)
     actual.assign(other.begin(), other.end());
     expect_sequence(actual, other);
 }
+
+TYPED_TEST(VLAAssign, EveryAssignOverloadReleasesBeforeGrowing)
+{
+    // A bounded resource may permit only one outstanding block; no assign overload may hold two.
+    AllocationState state;
+    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    Subject     actual{typename Subject::allocator_type{state}};
+    std::size_t count = 4;
+    for (int overload = 0; overload < 3; ++overload)
+    {
+        SCOPED_TRACE(overload);
+        count *= 4;
+        actual.assign(count / 4, TypeParam{});
+        const std::vector<int> source(count, 1);
+        if (overload == 0)
+        {
+            actual.assign(count, TypeParam{1});
+        }
+        else if (overload == 1)
+        {
+            actual.assign(source.begin(), source.end());
+        }
+        else
+        {
+            const std::forward_list<int> list(source.begin(), source.end());
+            actual.assign(list.begin(), list.end());
+        }
+        expect_sequence(actual, std::vector<TypeParam>(count, TypeParam{1}));
+        EXPECT_EQ(state.peak, 1U);
+    }
+}
+
+TYPED_TEST(VLAAssign, GrowthBeyondInheritedMaximumIsRejected)
+{
+    // Assignment adopts the source's smaller bound while keeping this array's larger capacity.
+    Array<TypeParam> actual{std::allocator<TypeParam>{}};
+    actual.reserve(16);
+    Array<TypeParam> bounded{3, std::allocator<TypeParam>{}};
+    bounded.push_back(TypeParam{1});
+    actual = bounded;
+    ASSERT_EQ(actual.max_size(), 3U);
+    ASSERT_GE(actual.capacity(), 16U);
+    actual.push_back(TypeParam{1});
+    actual.push_back(TypeParam{1});
+    std::istringstream input{"1 1 1 1 1"};
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(actual.push_back(TypeParam{1}), std::length_error);
+    EXPECT_THROW(actual.resize(8), std::length_error);
+    EXPECT_THROW(actual.assign(7, TypeParam{1}), std::length_error);
+    EXPECT_THROW(actual.assign(std::istream_iterator<int>{input}, std::istream_iterator<int>{}), std::length_error);
+#else
+    actual.push_back(TypeParam{1});
+    actual.resize(8);
+    actual.assign(7, TypeParam{1});
+    actual.assign(std::istream_iterator<int>{input}, std::istream_iterator<int>{});
+#endif
+    expect_sequence(actual, std::vector<TypeParam>(3, TypeParam{1}));
+}
+
+TYPED_TEST(VLAAssign, DeclinedFillGrowthStaysWithinStorage)
+{
+    AllocationState state;
+    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    Subject actual{typename Subject::allocator_type{state}};
+    actual.push_back(TypeParam{1});
+    const auto capacity = actual.capacity();
+    state.decline       = true;
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(actual.resize(200, TypeParam{1}), std::bad_alloc);
+    expect_sequence(actual, std::vector<TypeParam>(1, TypeParam{1}));
+    // Fill assignment releases insufficient storage before allocating, as range assignment does.
+    EXPECT_THROW(actual.assign(200, TypeParam{1}), std::bad_alloc);
+#else
+    actual.resize(200, TypeParam{1});
+    expect_sequence(actual, std::vector<TypeParam>(capacity, TypeParam{1}));
+    actual.assign(200, TypeParam{1});
+#endif
+    EXPECT_TRUE(actual.empty());
+    EXPECT_EQ(actual.capacity(), 0U);
+    (void) capacity;
+}
+
+TEST(VLAAssignObjects, ImplicitConversionsCompileCleanly)
+{
+    // The CETL warning set (-Wconversion -Wsign-conversion -Werror) must accept what std::vector::assign accepts.
+    const std::vector<int> source{1, 2, 300};
+    Array<std::uint8_t>    narrow{std::allocator<std::uint8_t>{}};
+    narrow.assign(source.begin(), source.end());
+    expect_sequence(narrow, std::vector<std::uint8_t>(source.begin(), source.end()));
+    const std::forward_list<int> list(source.begin(), source.end());
+    narrow.assign(list.begin(), list.end());
+    expect_sequence(narrow, std::vector<std::uint8_t>(source.begin(), source.end()));
+    std::istringstream input{"1 2 300"};
+    narrow.assign(std::istream_iterator<int>{input}, std::istream_iterator<int>{});
+    expect_sequence(narrow, std::vector<std::uint8_t>(source.begin(), source.end()));
+    const std::array<double, 3> real{{0.0, 0.5, 2.0}};
+    Array<float>                single{std::allocator<float>{}};
+    single.assign(real.begin(), real.end());
+    expect_sequence(single, std::vector<float>(real.begin(), real.end()));
+    Array<bool> bits{std::allocator<bool>{}};
+    bits.assign(real.begin(), real.end());
+    expect_sequence(bits, std::vector<bool>(real.begin(), real.end()));
+}
+
+// An iterator whose namespace deletes the comma operator, as libc++'s operator_hijacker does.
+template <typename Category>
+struct CommaHijacker
+{
+    using iterator_category = Category;
+    using value_type        = int;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = const int*;
+    using reference         = const int&;
+
+    const int* data;
+    reference  operator*() const
+    {
+        return *data;
+    }
+    CommaHijacker& operator++()
+    {
+        ++data;
+        return *this;
+    }
+    CommaHijacker operator++(int)
+    {
+        const auto old = *this;
+        ++data;
+        return old;
+    }
+    bool operator==(const CommaHijacker& rhs) const
+    {
+        return data == rhs.data;
+    }
+    bool operator!=(const CommaHijacker& rhs) const
+    {
+        return !(*this == rhs);
+    }
+    template <typename T>
+    friend void operator,(const CommaHijacker&, T&&) = delete;
+};
+
+template <typename Category>
+void check_comma_hijacker()
+{
+    const std::array<int, 9>      source{{1, 0, 1, 1, 0, 0, 1, 0, 1}};
+    const CommaHijacker<Category> first{source.data()};
+    const CommaHijacker<Category> last{source.data() + source.size()};
+    Array<int>                    numbers{first, last, std::allocator<int>{}};
+    numbers.assign(first, last);
+    expect_sequence(numbers, source);
+    Array<bool> bits{first, last, std::allocator<bool>{}};
+    bits.assign(first, last);
+    expect_sequence(bits, std::vector<bool>(source.begin(), source.end()));
+}
+
+TEST(VLAAssignObjects, OverloadedCommaOperatorIsNotUsed)
+{
+    check_comma_hijacker<std::input_iterator_tag>();
+    check_comma_hijacker<std::forward_iterator_tag>();
+}
+
+TEST(VLAAssignObjects, RangeConstructorsAcceptAssignableRanges)
+{
+    const std::forward_list<int> list{1, 0, 1};
+    const Array<int>             numbers{list.begin(), list.end(), std::allocator<int>{}};
+    expect_sequence(numbers, std::vector<int>(list.begin(), list.end()));
+    const Array<bool> bits{list.begin(), list.end(), std::allocator<bool>{}};
+    expect_sequence(bits, std::vector<bool>(list.begin(), list.end()));
+    std::istringstream input{"4 5 6"};
+    const Array<int>   streamed{std::istream_iterator<int>{input}, std::istream_iterator<int>{}, std::allocator<int>{}};
+    expect_sequence(streamed, std::vector<int>{4, 5, 6});
+}
+static_assert(!std::is_constructible<Array<int>, int, int, std::allocator<int>>::value,
+              "Non-iterators must not select the range constructor.");
+static_assert(!std::is_constructible<Array<bool>, int, int, std::allocator<bool>>::value,
+              "Non-iterators must not select the range constructor.");
 
 template <typename A, typename It, typename = void>
 struct CanAssignRange : std::false_type

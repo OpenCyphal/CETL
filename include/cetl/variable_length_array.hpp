@@ -32,6 +32,11 @@ namespace cetl
 namespace detail
 {
 
+// Selects iterator-range overloads as std::vector does: only for types whose iterator_category is an input category.
+template <typename InputIt>
+using enable_if_input_iterator_t = std::enable_if_t<
+    std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>;
+
 // Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
 // directly.
 template <typename BaseValueType, typename BaseAllocatorType>
@@ -262,7 +267,11 @@ protected:
         typename std::enable_if_t<std::is_trivially_destructible<U>::value>* = nullptr)
     {
         fast_destroy(src, src_size_count, alloc);
-        alloc.deallocate(src, src_capacity_count);
+        // An array that never allocated holds no storage; deallocate(nullptr, 0) violates the allocator contract.
+        if (src != nullptr)
+        {
+            alloc.deallocate(src, src_capacity_count);
+        }
     }
 
     ///
@@ -277,7 +286,11 @@ protected:
         typename std::enable_if_t<!std::is_trivially_destructible<U>::value>* = nullptr)
     {
         fast_destroy(src, src_size_count, alloc);
-        alloc.deallocate(src, src_capacity_count);
+        // An array that never allocated holds no storage; deallocate(nullptr, 0) violates the allocator contract.
+        if (src != nullptr)
+        {
+            alloc.deallocate(src, src_capacity_count);
+        }
     }
 
     // +----------------------------------------------------------------------+
@@ -664,42 +677,52 @@ protected:
     // +----------------------------------------------------------------------+
     // | Common Implementation
     // +----------------------------------------------------------------------+
+    // Range assignment converts elements implicitly, as std::vector does. A conversion the caller requested (int into
+    // std::uint8_t, for example) must not surface as a -Wconversion diagnostic located in this header.
+#if defined(__GNUC__)
+#    pragma GCC diagnostic push
+#    pragma GCC diagnostic ignored "-Wconversion"
+#    pragma GCC diagnostic ignored "-Wsign-conversion"
+#    pragma GCC diagnostic ignored "-Wfloat-conversion"
+#    pragma GCC diagnostic ignored "-Wdouble-promotion"
+#    pragma GCC diagnostic ignored "-Wfloat-equal"
+#endif
+    template <typename Target, typename Source>
+    static void assign_element(Target&& target, Source&& source)
+    {
+        std::forward<Target>(target) = std::forward<Source>(source);
+    }
+
     // Use the public element interface so ordinary elements and packed bool share the same single-pass algorithm.
     // Commit each appended element before advancing the iterator: construction or iterator failures must leave
-    // every live element represented in size(). Reuse the existing prefix, then destroy any unused suffix.
+    // every live element represented in size(). emplace_back enforces max_size(). Returns the number of elements
+    // assigned; the caller destroys any unused suffix.
     template <typename Array, typename InputIt>
-    static void assign_from_input_range(Array& array, InputIt first, InputIt last)
+    static size_type assign_from_input_range(Array& array, InputIt first, InputIt last)
     {
-        size_type assigned = 0;
-        for (; first != last; ++first, ++assigned)
+        const size_type size_before = array.size();
+        size_type       assigned    = 0;
+        for (; first != last; ++assigned, (void) ++first)
         {
-            if (assigned == array.max_size())
+            if (assigned < size_before)
             {
-#if defined(__cpp_exceptions)
-                throw std::length_error("Assigned range exceeds maximum size.");
-#else
-                return;
-#endif
-            }
-            if (assigned < array.size())
-            {
-                array[assigned] = *first;
+                assign_element(array[assigned], *first);
             }
             else
             {
                 array.emplace_back(*first);
                 if (array.size() == assigned)
                 {
-                    // With exceptions disabled, an allocator may decline growth. Retain the assigned prefix.
-                    return;
+                    // With exceptions disabled, emplace_back stops at max_size() or when growth is declined.
+                    break;
                 }
             }
         }
-        while (array.size() > assigned)
-        {
-            array.pop_back();
-        }
+        return assigned;
     }
+#if defined(__GNUC__)
+#    pragma GCC diagnostic pop
+#endif
 
     // Forward ranges can be measured without consuming their elements. Do not subtract equal null pointers.
     template <typename ForwardIt>
@@ -742,28 +765,48 @@ protected:
         }
     }
 
+    /// Destroys the elements from `new_size` onward, as resize() and copy assignment do.
+    void destroy_suffix(const size_type new_size) noexcept(std::is_nothrow_destructible<value_type>::value)
+    {
+        if (size_ > new_size)
+        {
+            fast_destroy(data_ + new_size, size_ - new_size, alloc_);
+            size_ = new_size;
+        }
+    }
+
+    // std::copy_n lets a trivially copyable random-access source become a single memmove.
+    template <typename RandomIt>
+    RandomIt assign_prefix(RandomIt first, const size_type count, std::random_access_iterator_tag)
+    {
+        (void) std::copy_n(first, count, data_);
+        return first + static_cast<typename std::iterator_traits<RandomIt>::difference_type>(count);
+    }
+
+    template <typename ForwardIt>
+    ForwardIt assign_prefix(ForwardIt first, const size_type count, std::forward_iterator_tag)
+    {
+        for (size_type i = 0; i < count; ++i, (void) ++first)
+        {
+            assign_element(data_[i], *first);
+        }
+        return first;
+    }
+
     template <typename ForwardIt>
     void assign_from_forward_range(ForwardIt first, ForwardIt last, const size_type max_size)
     {
         const size_type count = assignment_range_size(first, last, max_size);
         prepare_assign_storage(count);
         const size_type available = std::min(count, capacity_);
-        for (size_type i = 0; i < available; ++first, ++i)
+        const size_type overlap   = std::min(size_, available);
+        first = assign_prefix(first, overlap, typename std::iterator_traits<ForwardIt>::iterator_category{});
+        for (; size_ < available; (void) ++first)
         {
-            if (i < size_)
-            {
-                data_[i] = *first;
-            }
-            else
-            {
-                std::allocator_traits<allocator_type>::construct(alloc_, data_ + i, *first);
-                ++size_;
-            }
+            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, *first);
+            ++size_;
         }
-        while (size_ > available)
-        {
-            std::allocator_traits<allocator_type>::destroy(alloc_, data_ + --size_);
-        }
+        destroy_suffix(available);
     }
 
     ///
@@ -834,6 +877,19 @@ protected:
         if (new_size > size_)
         {
             // grow
+            // Spare capacity can exceed max_size() after assignment adopts a smaller bound, so check it explicitly.
+            if (new_size > max_size)
+            {
+#if defined(__cpp_exceptions)
+                throw std::length_error("Requested size exceeds maximum size.");
+#else
+                new_size = max_size;
+                if (new_size <= size_)
+                {
+                    return;
+                }
+#endif
+            }
             if (new_size > capacity_)
             {
                 reserve(new_size, max_size);
@@ -1241,19 +1297,13 @@ public:
     ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
     ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc    Allocator to use for all allocations.
-    template <class InputIt>
+    template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
     {
-        if (last >= first)
-        {
-            reserve(static_cast<std::size_t>(last - first));
-            if (nullptr != data_)
-            {
-                size_ =
-                    Base::fast_copy_construct(data_, capacity_, first, static_cast<std::size_t>(last - first), alloc_);
-            }
-        }
+        // Accepts the iterators assign(first, last) accepts. Elements constructed before a failure are destroyed by
+        // the base destructor.
+        assign(first, last);
     }
 
     /// Range constructor.
@@ -1261,7 +1311,7 @@ public:
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
     /// @param alloc    Allocator to use for all allocations.
-    template <class InputIt>
+    template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
         : VariableLengthArray(first, last, std::numeric_limits<size_type>::max(), alloc)
     {
@@ -1738,14 +1788,26 @@ public:
 
     /// Set count elements to the given value. Grow the array if needed else
     /// set the size to count without reducing capacity.
+    /// Like assign(first, last), insufficient storage is released before replacement storage is allocated, so
+    /// growth needs no relocation; allocation failure or a throwing copy then leaves the array empty or partial.
     /// @param count    Number of elements, starting from 0, to set.
-    /// @param value    The value to set.
+    /// @param value    The value to set. It must not refer to an element of this array.
     /// @throw std::length_error if the size requested is greater than `max_size()`.
     /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
     constexpr void assign(size_type count, const value_type& value)
     {
+        if (count > max_size())
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("Requested count exceeds maximum size.");
+#else
+            count = max_size();
+#endif
+        }
+        Base::prepare_assign_storage(count);
         const size_type size_before = size_;
-        resize(count, value);
+        // Within capacity, resize() only constructs the new suffix.
+        resize(std::min(count, capacity_), value);
         const size_type back_fill_count = (size_ > size_before) ? size_before : size_;
         Base::fast_copy_assign(data_, back_fill_count, value);
     }
@@ -1754,16 +1816,22 @@ public:
     /// Single-pass input iterators are traversed once; forward ranges are measured before assignment.
     /// Move iterators move from the source elements. Forward ranges require no relocation of existing elements.
     /// The source range must not refer to elements of this array.
-    /// Forward ranges replace insufficient storage before allocating; allocation failure then leaves the array empty.
-    /// If an element operation, iterator operation, or allocation throws, the array remains valid but may be
-    /// partially updated. With exceptions disabled, assignment stops at max_size() or failed growth and retains
-    /// the assigned prefix; compare size() with the expected source length to detect incomplete assignment.
+    ///
+    /// Forward ranges are checked against max_size() before anything changes. They release insufficient storage and
+    /// then allocate storage for the whole range at once; if that allocation fails the array is left empty.
+    /// Single-pass ranges grow one element at a time and detect an excessive length only on reaching max_size(), after
+    /// the first max_size() elements have been assigned. If any element operation, iterator operation, allocation, or
+    /// single-pass length check fails, the array remains valid but may be partially updated.
+    ///
+    /// With exceptions disabled, forward ranges are truncated to max_size() or left empty by failed allocation, which
+    /// the caller can detect by comparing size() with std::distance(first, last). Single-pass ranges stop at max_size()
+    /// or at failed growth and keep the assigned prefix; the element that could not be stored is consumed. That cannot
+    /// be distinguished from a source that ended at the same length, so bound single-pass sources by the remaining
+    /// max_size() and reserve() capacity beforehand when truncation must be detected.
     /// @throw std::length_error if the source range exceeds max_size().
-    /// @throw std::bad_alloc if the array cannot obtain storage for an additional element.
-    template <
-        typename InputIt,
-        typename = std::enable_if_t<
-            std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>>
+    /// @throw std::bad_alloc if storage cannot be obtained: for the whole forward range, or for the next element of a
+    ///                       single-pass range.
+    template <typename InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     void assign(InputIt first, InputIt last)
     {
         assign_range_impl(first, last, typename std::iterator_traits<InputIt>::iterator_category{});
@@ -1781,7 +1849,7 @@ private:
     template <typename InputIt>
     void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
     {
-        Base::assign_from_input_range(*this, first, last);
+        Base::destroy_suffix(Base::assign_from_input_range(*this, first, last));
     }
 
     template <typename ForwardIt>
@@ -1793,7 +1861,8 @@ private:
     /// return true if there was or now is enough capacity to add one more element.
     constexpr bool ensure_size_plus_one()
     {
-        if (size_ < capacity_)
+        // Spare capacity can exceed max_size() after assignment adopts a smaller bound, so check both.
+        if ((size_ < capacity_) && (size_ < max_size()))
         {
             return true;
         }
@@ -2129,20 +2198,12 @@ public:
     ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
     ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc    Allocator to use for all allocations.
-    template <class InputIt>
+    template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
-        if (last >= first)
-        {
-            const size_type length = static_cast<std::size_t>(last - first);
-            reserve_bits(length, max_size());
-            for (; first != last; ++first)
-            {
-                emplace_back(*first);
-            }
-        }
+        assign(first, last);
     }
 
     /// Range constructor.
@@ -2150,7 +2211,7 @@ public:
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
     /// @param alloc    Allocator to use for all allocations.
-    template <class InputIt>
+    template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
         : VariableLengthArray(first, last, numeric_limits_max_bits(), alloc)
     {
@@ -2615,10 +2676,16 @@ public:
         const std::size_t current_count = size_bits();
         if (clamped_count != current_count)
         {
-            const std::size_t byte_sized = bits2bytes(clamped_count);
+            std::size_t byte_sized = bits2bytes(clamped_count);
             if (byte_sized > capacity_)
             {
                 reserve_bits(clamped_count, max_size());
+                if (byte_sized > capacity_)
+                {
+                    // With exceptions disabled the allocator declined growth; fill only the storage we have.
+                    clamped_count = capacity_bits();
+                    byte_sized    = capacity_;
+                }
             }
             if (byte_sized == 0)
             {
@@ -2660,14 +2727,29 @@ public:
 
     /// Set count elements to the given value. Grow the array if needed else
     /// set the size to count without reducing capacity.
+    /// Like assign(first, last), insufficient storage is released before replacement storage is allocated.
     /// @param count    Number of elements, starting from 0, to set.
     /// @param value    The value to set.
     /// @throw std::length_error if the size requested is greater than `max_size()`.
     /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
     constexpr void assign(size_type count, const bool& value)
     {
+        if (count > max_size())
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("Requested count exceeds maximum size.");
+#else
+            count = max_size();
+#endif
+        }
+        if (count > capacity())
+        {
+            // As in assign(first, last), release insufficient storage before allocating its replacement.
+            clear();
+            Base::prepare_assign_storage(bits2bytes(count));
+        }
         const size_type size_before = size_;
-        resize(count, value);
+        resize(std::min(count, capacity()), value);
         const size_type bytes_to_overwrite = (size_ > size_before) ? size_before : size_;
         // With no bytes to overwrite data_ may be null, and memset(nullptr, v, 0) is undefined.
         if (bytes_to_overwrite > 0)
@@ -2679,16 +2761,22 @@ public:
     /// Replace the contents with the bits in [first, last), reusing existing storage where possible.
     /// Single-pass input iterators are traversed once; forward ranges are measured before assignment.
     /// The source range must not refer to elements of this array.
-    /// Forward ranges replace insufficient storage before allocating; allocation failure then leaves the array empty.
-    /// If an iterator operation, value conversion, or allocation throws, the array remains valid but may be
-    /// partially updated. With exceptions disabled, assignment stops at max_size() or failed growth and retains
-    /// the assigned prefix; compare size() with the expected source length to detect incomplete assignment.
+    ///
+    /// Forward ranges are checked against max_size() before anything changes. They release insufficient storage and
+    /// then allocate storage for the whole range at once; if that allocation fails the array is left empty.
+    /// Single-pass ranges grow one bit at a time and detect an excessive length only on reaching max_size(), after
+    /// the first max_size() bits have been assigned. If any iterator operation, value conversion, allocation, or
+    /// single-pass length check fails, the array remains valid but may be partially updated.
+    ///
+    /// With exceptions disabled, forward ranges are truncated to max_size() or left empty by failed allocation, which
+    /// the caller can detect by comparing size() with std::distance(first, last). Single-pass ranges stop at max_size()
+    /// or at failed growth and keep the assigned prefix; the bit that could not be stored is consumed. That cannot be
+    /// distinguished from a source that ended at the same length, so bound single-pass sources by the remaining
+    /// max_size() and reserve() capacity beforehand when truncation must be detected.
     /// @throw std::length_error if the source range exceeds max_size().
-    /// @throw std::bad_alloc if the array cannot obtain storage for an additional bit.
-    template <
-        typename InputIt,
-        typename = std::enable_if_t<
-            std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>>
+    /// @throw std::bad_alloc if storage cannot be obtained: for the whole forward range, or for the next bit of a
+    ///                       single-pass range.
+    template <typename InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
     void assign(InputIt first, InputIt last)
     {
         assign_range_impl(first, last, typename std::iterator_traits<InputIt>::iterator_category{});
@@ -2704,7 +2792,12 @@ private:
     template <typename InputIt>
     void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
     {
-        Base::assign_from_input_range(*this, first, last);
+        const size_type assigned = Base::assign_from_input_range(*this, first, last);
+        if (size() > assigned)
+        {
+            // Only shrinks; it cannot allocate.
+            resize(assigned);
+        }
     }
 
     template <typename ForwardIt>
@@ -2717,19 +2810,24 @@ private:
             Base::prepare_assign_storage(bits2bytes(count));
         }
         const size_type available = std::min(count, capacity());
-        for (size_type i = 0; i < available; ++first, ++i)
+        // Pack eight source values per byte store. size() is committed only at the end; if a source operation throws,
+        // some bytes may already hold new bits while the old size() is kept.
+        size_type index = 0;
+        while (index < available)
         {
-            if (i < size())
+            unsigned       byte = 0U;
+            const unsigned bits = static_cast<unsigned>(std::min<size_type>(8U, available - index));
+            for (unsigned bit = 0U; bit < bits; ++bit, (void) ++first)
             {
-                set(*this, i, *first);
+                bool value = false;
+                Base::assign_element(value, *first);
+                byte |= (value ? 1U : 0U) << bit;
             }
-            else
-            {
-                (void) emplace_back_impl(*first);
-            }
+            data_[index / 8U] = static_cast<Storage>(byte);
+            index += bits;
         }
-        // Only shrinks here; it cannot allocate or discard the successfully assigned bits.
-        resize(available);
+        size_               = bits2bytes(available);
+        last_byte_bit_fill_ = static_cast<Storage>((available == 0U) ? 0U : ((available - 1U) % 8U));
     }
 
     void move_assign_bits(VariableLengthArray& rhs)
