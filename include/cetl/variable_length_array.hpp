@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <cstring>
 #include <initializer_list>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <type_traits>
@@ -663,6 +664,108 @@ protected:
     // +----------------------------------------------------------------------+
     // | Common Implementation
     // +----------------------------------------------------------------------+
+    // Use the public element interface so ordinary elements and packed bool share the same single-pass algorithm.
+    // Commit each appended element before advancing the iterator: construction or iterator failures must leave
+    // every live element represented in size(). Reuse the existing prefix, then destroy any unused suffix.
+    template <typename Array, typename InputIt>
+    static void assign_from_input_range(Array& array, InputIt first, InputIt last)
+    {
+        size_type assigned = 0;
+        for (; first != last; ++first, ++assigned)
+        {
+            if (assigned == array.max_size())
+            {
+#if defined(__cpp_exceptions)
+                throw std::length_error("Assigned range exceeds maximum size.");
+#else
+                return;
+#endif
+            }
+            if (assigned < array.size())
+            {
+                array[assigned] = *first;
+            }
+            else
+            {
+                array.emplace_back(*first);
+                if (array.size() == assigned)
+                {
+                    // With exceptions disabled, an allocator may decline growth. Retain the assigned prefix.
+                    return;
+                }
+            }
+        }
+        while (array.size() > assigned)
+        {
+            array.pop_back();
+        }
+    }
+
+    // Forward ranges can be measured without consuming their elements. Do not subtract equal null pointers.
+    template <typename ForwardIt>
+    static size_type assignment_range_size(ForwardIt first, ForwardIt last, const size_type max_size)
+    {
+        const size_type count = first == last ? 0 : static_cast<size_type>(std::distance(first, last));
+        if (count > max_size)
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("Assigned range exceeds maximum size.");
+#else
+            return max_size;
+#endif
+        }
+        return count;
+    }
+
+    // Replacement assignment does not need to relocate any old elements. In particular, forward-iterator
+    // assignment must support elements constructible/assignable from *first even if they cannot be copied or moved.
+    // Release insufficient storage before allocating, as in copy_assign_from, to support bounded resources.
+    void prepare_assign_storage(const size_type count)
+    {
+        if (count > capacity_)
+        {
+            fast_deallocate(data_, size_, capacity_, alloc_);
+            data_     = nullptr;
+            size_     = 0;
+            capacity_ = 0;
+            data_     = std::allocator_traits<allocator_type>::allocate(alloc_, count);
+            if (data_ != nullptr)
+            {
+                capacity_ = count;
+            }
+#if defined(__cpp_exceptions)
+            else
+            {
+                throw std::bad_alloc();
+            }
+#endif
+        }
+    }
+
+    template <typename ForwardIt>
+    void assign_from_forward_range(ForwardIt first, ForwardIt last, const size_type max_size)
+    {
+        const size_type count = assignment_range_size(first, last, max_size);
+        prepare_assign_storage(count);
+        const size_type available = std::min(count, capacity_);
+        for (size_type i = 0; i < available; ++first, ++i)
+        {
+            if (i < size_)
+            {
+                data_[i] = *first;
+            }
+            else
+            {
+                std::allocator_traits<allocator_type>::construct(alloc_, data_ + i, *first);
+                ++size_;
+            }
+        }
+        while (size_ > available)
+        {
+            std::allocator_traits<allocator_type>::destroy(alloc_, data_ + --size_);
+        }
+    }
+
     ///
     /// Ensure enough memory is allocated to store at least the `desired_capacity` number of elements.
     ///
@@ -1647,8 +1750,45 @@ public:
         Base::fast_copy_assign(data_, back_fill_count, value);
     }
 
+    /// Replace the contents with the elements in [first, last), reusing existing storage where possible.
+    /// Single-pass input iterators are traversed once; forward ranges are measured before assignment.
+    /// Move iterators move from the source elements. Forward ranges require no relocation of existing elements.
+    /// The source range must not refer to elements of this array.
+    /// Forward ranges replace insufficient storage before allocating; allocation failure then leaves the array empty.
+    /// If an element operation, iterator operation, or allocation throws, the array remains valid but may be
+    /// partially updated. With exceptions disabled, assignment stops at max_size() or failed growth and retains
+    /// the assigned prefix; compare size() with the expected source length to detect incomplete assignment.
+    /// @throw std::length_error if the source range exceeds max_size().
+    /// @throw std::bad_alloc if the array cannot obtain storage for an additional element.
+    template <
+        typename InputIt,
+        typename = std::enable_if_t<
+            std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>>
+    void assign(InputIt first, InputIt last)
+    {
+        assign_range_impl(first, last, typename std::iterator_traits<InputIt>::iterator_category{});
+    }
+
+    /// Replace the contents with the initializer list. Has the same guarantees as assign(first, last).
+    void assign(std::initializer_list<value_type> values)
+    {
+        assign(values.begin(), values.end());
+    }
+
 private:
     // +----------------------------------------------------------------------+
+
+    template <typename InputIt>
+    void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
+    {
+        Base::assign_from_input_range(*this, first, last);
+    }
+
+    template <typename ForwardIt>
+    void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
+    {
+        Base::assign_from_forward_range(first, last, max_size());
+    }
 
     /// return true if there was or now is enough capacity to add one more element.
     constexpr bool ensure_size_plus_one()
@@ -2536,7 +2676,62 @@ public:
         }
     }
 
+    /// Replace the contents with the bits in [first, last), reusing existing storage where possible.
+    /// Single-pass input iterators are traversed once; forward ranges are measured before assignment.
+    /// The source range must not refer to elements of this array.
+    /// Forward ranges replace insufficient storage before allocating; allocation failure then leaves the array empty.
+    /// If an iterator operation, value conversion, or allocation throws, the array remains valid but may be
+    /// partially updated. With exceptions disabled, assignment stops at max_size() or failed growth and retains
+    /// the assigned prefix; compare size() with the expected source length to detect incomplete assignment.
+    /// @throw std::length_error if the source range exceeds max_size().
+    /// @throw std::bad_alloc if the array cannot obtain storage for an additional bit.
+    template <
+        typename InputIt,
+        typename = std::enable_if_t<
+            std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>>
+    void assign(InputIt first, InputIt last)
+    {
+        assign_range_impl(first, last, typename std::iterator_traits<InputIt>::iterator_category{});
+    }
+
+    /// Replace the contents with the initializer list. Has the same guarantees as assign(first, last).
+    void assign(std::initializer_list<bool> values)
+    {
+        assign(values.begin(), values.end());
+    }
+
 private:
+    template <typename InputIt>
+    void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
+    {
+        Base::assign_from_input_range(*this, first, last);
+    }
+
+    template <typename ForwardIt>
+    void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
+    {
+        const size_type count = Base::assignment_range_size(first, last, max_size());
+        if (count > capacity())
+        {
+            clear();
+            Base::prepare_assign_storage(bits2bytes(count));
+        }
+        const size_type available = std::min(count, capacity());
+        for (size_type i = 0; i < available; ++first, ++i)
+        {
+            if (i < size())
+            {
+                set(*this, i, *first);
+            }
+            else
+            {
+                (void) emplace_back_impl(*first);
+            }
+        }
+        // Only shrinks here; it cannot allocate or discard the successfully assigned bits.
+        resize(available);
+    }
+
     void move_assign_bits(VariableLengthArray& rhs)
     {
 #if defined(__cpp_exceptions)
