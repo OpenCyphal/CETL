@@ -534,6 +534,39 @@ TEST(VLAAssignObjects, RangeConstructorsAcceptAssignableRanges)
     const Array<int>   streamed{std::istream_iterator<int>{input}, std::istream_iterator<int>{}, std::allocator<int>{}};
     expect_sequence(streamed, std::vector<int>{4, 5, 6});
 }
+// Copy-constructible but not assignable, like a type with a const member. std::vector's range constructor accepts it.
+struct NoAssign
+{
+    const std::string text;
+    explicit NoAssign(const int value)
+        : text(std::to_string(value))
+    {
+    }
+    NoAssign(const NoAssign&)            = default;
+    NoAssign& operator=(const NoAssign&) = delete;
+};
+
+TEST(VLAAssignObjects, RangeConstructorsDoNotRequireAssignableElements)
+{
+    const NoAssign           objects[] = {NoAssign{1}, NoAssign{2}, NoAssign{3}};
+    const Array<NoAssign>    copied{std::begin(objects), std::end(objects), std::allocator<NoAssign>{}};
+    const std::array<int, 3> values{{1, 2, 3}};
+    const CommaHijacker<std::forward_iterator_tag> forward_first{values.data()};
+    const CommaHijacker<std::forward_iterator_tag> forward_last{values.data() + values.size()};
+    const Array<NoAssign>                          forward{forward_first, forward_last, std::allocator<NoAssign>{}};
+    const CommaHijacker<std::input_iterator_tag>   input_first{values.data()};
+    const CommaHijacker<std::input_iterator_tag>   input_last{values.data() + values.size()};
+    const Array<NoAssign>                          single_pass{input_first, input_last, std::allocator<NoAssign>{}};
+    for (const Array<NoAssign>* actual : {&copied, &forward, &single_pass})
+    {
+        ASSERT_EQ(actual->size(), 3U);
+        for (std::size_t i = 0; i < 3; ++i)
+        {
+            EXPECT_EQ((*actual)[i].text, std::to_string(i + 1));
+        }
+    }
+}
+
 static_assert(!std::is_constructible<Array<int>, int, int, std::allocator<int>>::value,
               "Non-iterators must not select the range constructor.");
 static_assert(!std::is_constructible<Array<bool>, int, int, std::allocator<bool>>::value,

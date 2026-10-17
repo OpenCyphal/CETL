@@ -801,12 +801,28 @@ protected:
         const size_type available = std::min(count, capacity_);
         const size_type overlap   = std::min(size_, available);
         first = assign_prefix(first, overlap, typename std::iterator_traits<ForwardIt>::iterator_category{});
+        construct_suffix(first, available);
+        destroy_suffix(available);
+    }
+
+    // Constructs elements from first, committing each one, until size() reaches `available`.
+    template <typename ForwardIt>
+    void construct_suffix(ForwardIt first, const size_type available)
+    {
         for (; size_ < available; (void) ++first)
         {
             std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, *first);
             ++size_;
         }
-        destroy_suffix(available);
+    }
+
+    // Range construction of an empty array, like std::vector's, only constructs elements: it must not require them
+    // to be assignable, as assign_from_forward_range does even when nothing overlaps.
+    template <typename ForwardIt>
+    void construct_from_forward_range(ForwardIt first, ForwardIt last, const size_type max_size)
+    {
+        prepare_assign_storage(assignment_range_size(first, last, max_size));
+        construct_suffix(first, capacity_);
     }
 
     ///
@@ -1301,9 +1317,9 @@ public:
     VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
         : Base(alloc, nullptr, 0, 0, max_size_max)
     {
-        // Accepts the iterators assign(first, last) accepts. Elements constructed before a failure are destroyed by
-        // the base destructor.
-        assign(first, last);
+        // Accepts the iterators assign(first, last) accepts, but only constructs elements. Elements constructed before
+        // a failure are destroyed by the base destructor.
+        construct_range(first, last, typename std::iterator_traits<InputIt>::iterator_category{});
     }
 
     /// Range constructor.
@@ -1856,6 +1872,28 @@ private:
     void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
         Base::assign_from_forward_range(first, last, max_size());
+    }
+
+    // Range construction requires elements to be constructible from *first, as std::vector's does, not assignable.
+    template <typename InputIt>
+    void construct_range(InputIt first, InputIt last, std::input_iterator_tag)
+    {
+        for (; first != last; (void) ++first)
+        {
+            const size_type size_before = size_;
+            emplace_back(*first);
+            if (size_ == size_before)
+            {
+                // With exceptions disabled, emplace_back stops at max_size() or when growth is declined.
+                break;
+            }
+        }
+    }
+
+    template <typename ForwardIt>
+    void construct_range(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
+    {
+        Base::construct_from_forward_range(first, last, max_size());
     }
 
     /// return true if there was or now is enough capacity to add one more element.
