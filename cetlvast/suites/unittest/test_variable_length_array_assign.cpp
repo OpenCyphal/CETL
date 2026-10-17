@@ -156,6 +156,47 @@ TYPED_TEST(VLAAssign, InitializerListHonorsLogicalMaximum)
 #endif
 }
 
+TYPED_TEST(VLAAssign, InitializerListOperatorMatchesVector)
+{
+    Array<TypeParam>       actual{std::allocator<TypeParam>{}};
+    std::vector<TypeParam> expected;
+    // operator= returns *this so assignments can be chained.
+    EXPECT_EQ(&(actual = {1, 0, 1, 1, 0, 0, 1, 0, 1}), &actual);
+    expected = {1, 0, 1, 1, 0, 0, 1, 0, 1};
+    expect_sequence(actual, expected);
+    const auto capacity = actual.capacity();
+    actual              = {0, 1};
+    expected            = {0, 1};
+    expect_sequence(actual, expected);
+    EXPECT_EQ(actual.capacity(), capacity);
+    // An empty braced list must select the initializer-list overload and clear the array.
+    actual = {};
+    EXPECT_TRUE(actual.empty());
+    EXPECT_EQ(actual.capacity(), capacity);
+    actual   = {1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1};
+    expected = {1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 1};
+    expect_sequence(actual, expected);
+    actual.push_back(TypeParam{});
+    expected.push_back(TypeParam{});
+    expect_sequence(actual, expected);
+}
+
+TYPED_TEST(VLAAssign, InitializerListOperatorHonorsLogicalMaximum)
+{
+    Array<TypeParam> actual{1, std::allocator<TypeParam>{}};
+#if defined(__cpp_exceptions)
+    actual              = {0};
+    const auto capacity = actual.capacity();
+    EXPECT_THROW((actual = {1, 0}), std::length_error);
+    expect_sequence(actual, std::vector<TypeParam>{0});
+    EXPECT_EQ(actual.capacity(), capacity);
+#else
+    actual = {1, 0};
+    expect_sequence(actual, std::vector<TypeParam>{1});
+#endif
+    EXPECT_EQ(actual.max_size(), 1U);
+}
+
 struct AllocationState
 {
     bool        decline = false;
@@ -212,6 +253,10 @@ TYPED_TEST(VLAAssign, ReusesStorageAndRetainsAllocatorAndMaximum)
     actual.assign({0, 1});
     expect_sequence(actual, std::vector<TypeParam>{0, 1});
     actual.assign({});
+    EXPECT_TRUE(actual.empty());
+    actual = {1, 1, 0};
+    expect_sequence(actual, std::vector<TypeParam>{1, 1, 0});
+    actual = {};
     EXPECT_TRUE(actual.empty());
     EXPECT_EQ(actual.capacity(), capacity);
     EXPECT_EQ(state.calls, calls);
