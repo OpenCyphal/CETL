@@ -213,6 +213,19 @@ static_assert(std::is_nothrow_move_constructible<variant<monostate, throw_move_a
 static_assert(!std::is_nothrow_copy_assignable<variant<monostate, throw_move_assignment>>::value, "");
 static_assert(!std::is_nothrow_move_assignable<variant<monostate, throw_move_assignment>>::value, "");
 
+// Explicitly deleted moves make the variant move by its trivial copy, as std::variant does (#226).
+struct copy_only_trivial
+{
+    copy_only_trivial(const copy_only_trivial&)            = default;
+    copy_only_trivial(copy_only_trivial&&)                 = delete;
+    copy_only_trivial& operator=(const copy_only_trivial&) = default;
+    copy_only_trivial& operator=(copy_only_trivial&&)      = delete;
+    int                value;
+};
+static_assert(std::is_move_constructible<variant<copy_only_trivial>>::value, "");
+static_assert(std::is_nothrow_move_constructible<variant<copy_only_trivial>>::value, "");
+static_assert(std::is_trivially_move_constructible<variant<copy_only_trivial>>::value, "");
+
 }  // namespace test_noexcept_propagation
 
 // --------------------------------------------------------------------------------------------

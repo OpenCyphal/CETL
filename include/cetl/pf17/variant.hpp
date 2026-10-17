@@ -654,18 +654,19 @@ struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<
 
 /// MOVE ASSIGNMENT POLICY
 template <typename Seq,
-          int = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
-                    ? smf_trivial
-                    : (smf_any_deleted<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor> ? smf_deleted
-                                                                                                      : smf_nontrivial)>
+          int  = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
+                     ? smf_trivial
+                     : (smf_any_deleted<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor> ? smf_deleted
+                                                                                                       : smf_nontrivial),
+          bool = (Seq::avail_move_ctor == smf_deleted)>
 struct base_move_assignment;
 template <typename... Ts>
-struct base_move_assignment<types<Ts...>, smf_trivial> : base_copy_assignment<types<Ts...>>
+struct base_move_assignment<types<Ts...>, smf_trivial, false> : base_copy_assignment<types<Ts...>>
 {
     using base_copy_assignment<types<Ts...>>::base_copy_assignment;
 };
 template <typename... Ts>
-struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment<types<Ts...>>
+struct base_move_assignment<types<Ts...>, smf_nontrivial, false> : base_copy_assignment<types<Ts...>>
 {
     using base_copy_assignment<types<Ts...>>::base_copy_assignment;
     using tys                                                    = types<Ts...>;
@@ -710,11 +711,27 @@ struct base_move_assignment<types<Ts...>, smf_nontrivial> : base_copy_assignment
     ~base_move_assignment() noexcept = default;
 };
 template <typename... Ts>
-struct base_move_assignment<types<Ts...>, smf_deleted> : base_copy_assignment<types<Ts...>>
+struct base_move_assignment<types<Ts...>, smf_deleted, false> : base_copy_assignment<types<Ts...>>
 {
     using base_copy_assignment<types<Ts...>>::base_copy_assignment;
     base_move_assignment(const base_move_assignment&)            = default;
     base_move_assignment(base_move_assignment&&)                 = default;
+    base_move_assignment& operator=(const base_move_assignment&) = default;
+    base_move_assignment& operator=(base_move_assignment&&)      = delete;
+    ~base_move_assignment() noexcept                             = default;
+};
+// Keep the move constructor explicitly deleted in the final policy layer when the alternatives cannot be moved.
+// The defaulted move constructors of the layers in between are defined as deleted and therefore ignored by overload
+// resolution, so a defaulted move here would copy its base and stay viable. variant's own move constructor would then
+// be selected with noexcept(false) from the deleted alternative moves, even though a (possibly trivial, nothrow) copy
+// is what runs (#226). Deleting it here makes variant's defaulted move defined as deleted, so rvalues bind to the copy
+// constructor and the traits report its exception specification, as for std::variant.
+template <typename... Ts>
+struct base_move_assignment<types<Ts...>, smf_deleted, true> : base_copy_assignment<types<Ts...>>
+{
+    using base_copy_assignment<types<Ts...>>::base_copy_assignment;
+    base_move_assignment(const base_move_assignment&)            = default;
+    base_move_assignment(base_move_assignment&&)                 = delete;
     base_move_assignment& operator=(const base_move_assignment&) = default;
     base_move_assignment& operator=(base_move_assignment&&)      = delete;
     ~base_move_assignment() noexcept                             = default;
