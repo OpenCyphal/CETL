@@ -10,7 +10,6 @@
 #define CETL_TYPE_TRAITS_EXTENSIONS_HPP_INCLUDED
 
 #include <algorithm>
-#include <array>
 #include <utility>
 #include <limits>
 #include <tuple>
@@ -100,38 +99,51 @@ struct partial
 
 // --------------------------------------------------------------------------------------------
 
+namespace detail
+{
+/// Copy-list-initializes a parameter of type To. Only ever used unevaluated, inside decltype.
+template <typename To>
+void copy_list_initialize(To);
+}  // namespace detail
+
 /// The `value` is true if the following expression is well-formed:
 /// @code
-/// To x[] = { std::forward<From>(from) };
+/// To x = { std::forward<From>(from) };
 /// @endcode
+/// That is, copy-list-initialization of To from From, which excludes narrowing conversions and explicit constructors.
+///
+/// This is deliberately a little different from the rule the standard uses for the converting constructor of
+/// `std::variant` (`T_i x[] = { std::forward<T>(t) };`, i.e., copy-initialization of an array element):
+///  - In C++14, a non-copyable To with a converting constructor is accepted here, whereas copy-initialization
+///    of an array element would require a copy/move constructor until the guaranteed copy elision of C++17.
+///  - Narrowing is also rejected inside the arguments of a converting constructor of a class type To;
+///    e.g., `struct foo { foo(bool); };` is not constructible from a `long` here, while `std::variant<foo>` is.
+///
+/// @note GCC 7 does not diagnose narrowing conversions of constructor arguments during list-initialization of a
+/// class type, so with GCC 7 the second difference above does not exist and this trait behaves like
+/// `std::variant` does for class types with converting constructors (i.e., `foo` above is accepted from a `long`).
+/// For scalar types it is exact on all supported compilers.
 template <typename From, typename To, typename = void>
 struct is_convertible_without_narrowing : std::false_type
 {};
 
-#if defined(__GNUG__) && !defined(__clang__)
+#if defined(__GNUG__) && !defined(__clang__) && (__GNUC__ <= 7)
+// GCC 7 emits -Wfloat-equal from inside its own narrowing check when instantiated with floating point types.
 #    pragma GCC diagnostic push
-#    if __GNUC__ <= 7
-#        pragma GCC diagnostic ignored "-Wfloat-equal"
-#    endif
+#    pragma GCC diagnostic ignored "-Wfloat-equal"
 #endif
 
 template <typename From, typename To>
 struct is_convertible_without_narrowing<
     From,
     To,
-    // The number of braces is of an essential importance here: {{ }} attempts to initialize the first element
-    // of the array with the value, while {{{ }}} performs direct-list-initialization of To.
-    // Incorrect usage of the braces will cause incorrect detection of the applicable conversion.
-    // Notice that there is a subtle difference between C++14 and the newer standards with the guaranteed copy
-    // elision: a double-brace conversion is invalid in C++14 for noncopyable types while in C++17+ it is valid.
-    //
-    // An alternative way to test the conversion is to define a function that accepts an array rvalue:
-    //  static void test_conversion(To (&&)[1]);
-    // And check if it is invocable with the argument of type From.
-    void_t<decltype(std::array<To, 1>{{{std::declval<From>()}}})>> : std::true_type
+    // Copy-list-initialization of a by-value function parameter is the most portable way to spell this test.
+    // The seemingly equivalent `std::array<To, 1>{{{std::declval<From>()}}}` is rejected by GCC 7 for scalar To
+    // ("braces around scalar initializer"), and `To x[] = {std::declval<From>()}` has the differences noted above.
+    void_t<decltype(detail::copy_list_initialize<To>({std::declval<From>()}))>> : std::true_type
 {};
 
-#if defined(__GNUG__) && !defined(__clang__)
+#if defined(__GNUG__) && !defined(__clang__) && (__GNUC__ <= 7)
 #    pragma GCC diagnostic pop
 #endif
 

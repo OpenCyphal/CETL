@@ -10,6 +10,15 @@
 #include <cetl/type_traits_ext.hpp>  // The tested header always goes first.
 #include <cstdint>
 
+// GCC 7 does not diagnose narrowing conversions of constructor arguments during list-initialization of a class type,
+// so it accepts e.g. `struct foo { foo(bool); };` from a `long` (which is also what std::variant does).
+// See the note on cetl::type_traits_ext::is_convertible_without_narrowing.
+#if defined(__GNUC__) && !defined(__clang__) && (__GNUC__ <= 7)
+#    define CETLVAST_GCC7_CTOR_ARG_NARROWING_UNDETECTED 1
+#else
+#    define CETLVAST_GCC7_CTOR_ARG_NARROWING_UNDETECTED 0
+#endif
+
 // NOLINTBEGIN(*-explicit-constructor)
 
 namespace test_find
@@ -68,10 +77,35 @@ struct foo_val
 static_assert(is_convertible_without_narrowing<bool, foo_val>::value, "");
 static_assert(is_convertible_without_narrowing<bool, foo_ref>::value, "");
 
+#if CETLVAST_GCC7_CTOR_ARG_NARROWING_UNDETECTED
+static_assert(is_convertible_without_narrowing<long, foo_val>::value, "GCC 7 limitation; see the trait docs");
+static_assert(is_convertible_without_narrowing<long, foo_ref>::value, "GCC 7 limitation; see the trait docs");
+#else
 static_assert(!is_convertible_without_narrowing<long, foo_val>::value, "");
-#if defined(__GNUC__) && !defined(__clang__)  // https://twitter.com/PavelKirienko/status/1766446559971914238
+#    if defined(__GNUC__) && !defined(__clang__)  // https://twitter.com/PavelKirienko/status/1766446559971914238
 static_assert(!is_convertible_without_narrowing<long, foo_ref>::value, "");
+#    endif
 #endif
+
+// Scalars are exact on all supported compilers, including cv-qualified ones.
+static_assert(is_convertible_without_narrowing<int, const long>::value, "");
+static_assert(is_convertible_without_narrowing<int, volatile int>::value, "");
+static_assert(!is_convertible_without_narrowing<long long, const int>::value, "");
+static_assert(!is_convertible_without_narrowing<int, volatile float>::value, "");
+
+// Explicit constructors and non-copyable types.
+struct explicit_ctor
+{
+    explicit explicit_ctor(int);
+};
+struct non_copyable
+{
+    non_copyable(int);
+    non_copyable(const non_copyable&) = delete;
+};
+static_assert(!is_convertible_without_narrowing<int, explicit_ctor>::value, "");
+static_assert(is_convertible_without_narrowing<int, non_copyable>::value, "");
+static_assert(!is_convertible_without_narrowing<long long, non_copyable>::value, "");
 
 }  // namespace test_convertible_without_narrowing
 
@@ -115,8 +149,15 @@ static_assert(best_conversion_index_v<universal_predicate, char, foo> == 0, "");
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo, int> ==
                   1,
               "");
+#if CETLVAST_GCC7_CTOR_ARG_NARROWING_UNDETECTED
+static_assert(
+    best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo> ==
+        0,
+    "GCC 7 limitation; see the trait docs");
+#else
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, signed char>::template type, signed char, foo> == bad,
               "");
+#endif
 static_assert(best_conversion_index_v<partial<is_convertible_without_narrowing, bool>::template type, bool, foo> == 0,
               "");
 
