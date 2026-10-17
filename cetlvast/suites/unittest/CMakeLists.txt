@@ -110,6 +110,7 @@ set(NATIVE_TESTS
     test_type_traits_ext.cpp
     test_typelist.cpp
     test_unbounded_variant.cpp
+    test_variable_length_array_assign.cpp
     test_variable_length_array_bool.cpp
     test_variable_length_array_compat.cpp
     test_variable_length_array_compiles.cpp

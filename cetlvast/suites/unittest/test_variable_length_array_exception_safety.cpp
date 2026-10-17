@@ -7,6 +7,7 @@
 #include "cetl/variable_length_array.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <memory>
@@ -23,7 +24,8 @@ enum class Operation
     Move,
     Default,
     Read,
-    Assign
+    Assign,
+    Advance
 };
 
 // Distinguishes an injected element/allocator-hook failure from allocation failure (std::bad_alloc).
@@ -454,6 +456,7 @@ TEST(VLAExceptionSafety, ThrowingMoveOnlyRelocationPreservesOwnership)
 
 // Fail construction of a three-element suffix during default resize, fill resize, and fill assignment.
 // Exercise both spare capacity and allocation growth: the old size survives, but newly acquired capacity may remain.
+// Fill assignment without spare capacity instead releases the old elements first, like range assignment.
 TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
 {
     // operation: default resize, fill resize, fill assignment; spare selects whether relocation is needed.
@@ -472,9 +475,11 @@ TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
                 array.reserve(spare ? 8 : 2);
                 populate(array, lifetimes, 2);
                 const Value fill{lifetimes, 42};
+                // assign() replaces insufficient storage, releasing the two existing elements instead of relocating.
+                const bool replaced = (operation == 2) && !spare;
                 // Growth copies the two existing elements before constructing the suffix under test.
                 lifetimes.arm(operation == 0 ? Operation::Default : Operation::Copy,
-                              fail_at + ((!spare && operation != 0) ? 2 : 0));
+                              fail_at + ((!spare && operation == 1) ? 2 : 0));
                 const auto constructed = lifetimes.constructed;
                 const auto destroyed   = lifetimes.destroyed;
                 if (operation == 0)
@@ -489,12 +494,12 @@ TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
                 {
                     EXPECT_THROW(array.assign(5, fill), Failure);
                 }
-                EXPECT_EQ(lifetimes.constructed - constructed, fail_at + (spare ? 0 : 2));
+                EXPECT_EQ(lifetimes.constructed - constructed, fail_at + ((spare || replaced) ? 0 : 2));
                 EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at + (spare ? 0 : 2));
-                EXPECT_EQ(lifetimes.live.size(), 3U);
-                expect_values(array, 2);
+                EXPECT_EQ(lifetimes.live.size(), replaced ? 1U : 3U);
+                expect_values(array, replaced ? 0 : 2);
                 EXPECT_EQ(array.capacity(), spare ? 8U : 5U);
-                EXPECT_EQ(allocations.objects.size(), 2U);
+                EXPECT_EQ(allocations.objects.size(), replaced ? 0U : 2U);
                 EXPECT_EQ(allocations.allocations.size(), 1U);
                 lifetimes.operation = Operation::None;
                 array.resize(5, fill);
@@ -507,6 +512,162 @@ TEST(VLAExceptionSafety, ResizeAndAssignRollBackTheNewSuffix)
         }
     }
     default_state = nullptr;
+}
+
+// Fail assignment, element construction, or the allocator construction hook with and without spare capacity.
+// Range assignment provides the basic guarantee: committed elements remain live, and the array can be reused.
+TEST(VLAExceptionSafety, RangeAssignmentFailuresPreserveLifetimes)
+{
+    for (const bool spare : {false, true})
+    {
+        for (int kind = 0; kind < 3; ++kind)
+        {
+            if (kind == 0 && !spare)
+            {
+                // Replacing insufficient storage constructs every element, without assigning old ones.
+                continue;
+            }
+            for (std::size_t fail_at = 0; fail_at < 2; ++fail_at)
+            {
+                SCOPED_TRACE(::testing::Message() << "spare=" << spare << " kind=" << kind << " fail_at=" << fail_at);
+                LifetimeState   lifetimes;
+                AllocationState allocations;
+                Value           source[] = {{lifetimes, 10}, {lifetimes, 11}, {lifetimes, 12}, {lifetimes, 13}};
+                Array<>         target{Allocator<Value>{allocations}};
+                target.reserve(spare ? 8 : 2);
+                populate(target, lifetimes, 2);
+                if (kind == 2)
+                {
+                    allocations.fail_construct               = true;
+                    allocations.constructions_before_failure = fail_at;
+                }
+                else
+                {
+                    lifetimes.arm(kind == 0 ? Operation::Assign : Operation::Copy, fail_at);
+                }
+                EXPECT_THROW(target.assign(std::begin(source), std::end(source)), Failure);
+                EXPECT_EQ(lifetimes.live.size(), 4U + target.size());
+                EXPECT_EQ(allocations.objects.size(), target.size());
+                EXPECT_EQ(allocations.allocations.size(), 1U);
+                for (std::size_t i = 0; i < 4; ++i)
+                {
+                    EXPECT_EQ(source[i].value, static_cast<int>(10 + i));
+                }
+                lifetimes.operation        = Operation::None;
+                allocations.fail_construct = false;
+                target.assign(std::begin(source), std::end(source));
+                expect_values(target, 4);
+                target.assign({});
+                EXPECT_TRUE(allocations.objects.empty());
+                EXPECT_EQ(lifetimes.live.size(), 4U);
+            }
+        }
+    }
+}
+
+TEST(VLAExceptionSafety, InitializerListAssignmentFailurePreservesLifetimes)
+{
+    LifetimeState   lifetimes;
+    AllocationState allocations;
+    const auto      source = {Value{lifetimes, 10}, Value{lifetimes, 11}, Value{lifetimes, 12}};
+    Array<>         target{Allocator<Value>{allocations}};
+    target.reserve(3);
+    lifetimes.arm(Operation::Copy, 1);
+    EXPECT_THROW(target.assign(source), Failure);
+    EXPECT_EQ(target.size(), 1U);
+    EXPECT_EQ(lifetimes.live.size(), 4U);
+    EXPECT_EQ(allocations.objects.size(), 1U);
+    lifetimes.operation = Operation::None;
+    target.assign(source);
+    expect_values(target, 3);
+}
+
+// A single-pass iterator whose dereference and increment can fail independently.
+struct ThrowingAssignIterator
+{
+    using iterator_category = std::input_iterator_tag;
+    using value_type        = Value;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = Value*;
+    using reference         = Value&;
+
+    Value*         data;
+    LifetimeState* state;
+    reference      operator*() const
+    {
+        state->attempt(Operation::Read);
+        return *data;
+    }
+    ThrowingAssignIterator& operator++()
+    {
+        state->attempt(Operation::Advance);
+        ++data;
+        return *this;
+    }
+    ThrowingAssignIterator operator++(int)
+    {
+        const auto old = *this;
+        ++*this;
+        return old;
+    }
+    bool operator==(const ThrowingAssignIterator& rhs) const
+    {
+        return data == rhs.data;
+    }
+    bool operator!=(const ThrowingAssignIterator& rhs) const
+    {
+        return !(*this == rhs);
+    }
+};
+
+TEST(VLAExceptionSafety, RangeAssignmentIteratorFailuresPreserveLifetimes)
+{
+    // existing: start empty (append branch only) or with two old elements (overwrite branch first).
+    for (const std::size_t existing : {0U, 2U})
+    {
+        for (const auto operation : {Operation::Read, Operation::Advance})
+        {
+            for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
+            {
+                SCOPED_TRACE(::testing::Message() << "existing=" << existing << " advance="
+                                                  << (operation == Operation::Advance) << " fail_at=" << fail_at);
+                LifetimeState   lifetimes;
+                AllocationState allocations;
+                Value           source[] = {{lifetimes, 10}, {lifetimes, 11}, {lifetimes, 12}};
+                Array<>         target{Allocator<Value>{allocations}};
+                target.reserve(3);
+                for (std::size_t i = 0; i < existing; ++i)
+                {
+                    target.emplace_back(lifetimes, static_cast<int>(90 + i));
+                }
+                const ThrowingAssignIterator first{source, &lifetimes};
+                const ThrowingAssignIterator last{source + 3, &lifetimes};
+                lifetimes.arm(operation, fail_at);
+                EXPECT_THROW(target.assign(first, last), Failure);
+                // Elements before the failure hold new values; any remaining old elements are kept.
+                const std::size_t assigned = fail_at + (operation == Operation::Advance ? 1U : 0U);
+                ASSERT_EQ(target.size(), std::max(existing, assigned));
+                for (std::size_t i = 0; i < target.size(); ++i)
+                {
+                    EXPECT_EQ(target[i].value, static_cast<int>((i < assigned ? 10 : 90) + i));
+                }
+                EXPECT_EQ(lifetimes.live.size(), 3U + target.size());
+                EXPECT_EQ(allocations.objects.size(), target.size());
+                // Lvalue sources are copied from, never moved from.
+                for (std::size_t i = 0; i < 3; ++i)
+                {
+                    EXPECT_EQ(source[i].value, static_cast<int>(10 + i));
+                }
+                lifetimes.operation = Operation::None;
+                target.assign(first, last);
+                expect_values(target, 3);
+                for (std::size_t i = 0; i < 3; ++i)
+                {
+                    EXPECT_EQ(source[i].value, static_cast<int>(10 + i));
+                }
+            }
+        }
+    }
 }
 
 // Dispatch at compile time so the move-only cases never instantiate the copy-assignment expression.
@@ -646,24 +807,41 @@ TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
     }
 }
 
-// Source-range adapter with injectable indexed-access failures and nonthrowing bounds operations.
+// Forward iterator with injectable dereference failures and nonthrowing traversal.
 // This lets range construction fail while obtaining an element, independently of copying that element.
 struct ThrowingRange
 {
+    using iterator_category = std::forward_iterator_tag;
+    using value_type        = Value;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = Value*;
+    using reference         = Value&;
+
     Value*         data;
     LifetimeState* state;
-    Value&         operator[](std::ptrdiff_t index) const
+    reference      operator*() const
     {
         state->attempt(Operation::Read);
-        return data[index];
+        return *data;
     }
-    bool operator>=(const ThrowingRange& rhs) const
+    ThrowingRange& operator++()
     {
-        return data >= rhs.data;
+        ++data;
+        return *this;
     }
-    std::ptrdiff_t operator-(const ThrowingRange& rhs) const
+    ThrowingRange operator++(int)
     {
-        return data - rhs.data;
+        const auto old = *this;
+        ++data;
+        return old;
+    }
+    bool operator==(const ThrowingRange& rhs) const
+    {
+        return data == rhs.data;
+    }
+    bool operator!=(const ThrowingRange& rhs) const
+    {
+        return !(*this == rhs);
     }
 };
 
