@@ -454,6 +454,38 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedAssignmentLeavesSourceU
     TestFixture::check_retained_source(source, source_state, allocation);
 }
 
+// Unequal-allocator assignment adopts the source's max_size bound, as copy assignment and the other move paths do, so
+// the destination never holds more elements than its own max_size() (#224).
+TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentAdoptsSourceMaxSize)
+{
+    using Subject   = typename TestFixture::Subject;
+    using Allocator = typename TestFixture::Allocator;
+    {
+        // Replacement: the destination's bound and capacity are both smaller than the source's elements.
+        AllocationState source_state;
+        AllocationState destination_state;
+        Subject         source(SourceCapacity, Allocator{source_state});
+        Subject         destination(SmallCapacity, Allocator{destination_state});
+        TestFixture::fill(source);
+        destination = std::move(source);
+        TestFixture::check_values(destination);
+        EXPECT_EQ(destination.max_size(), SourceCapacity);
+        EXPECT_LE(destination.capacity(), destination.max_size());
+    }
+    {
+        // Reuse: the destination's capacity suffices, but its own bound differs from the source's.
+        AllocationState source_state;
+        AllocationState destination_state;
+        Subject         source(SourceCapacity, Allocator{source_state});
+        Subject         destination(SourceCapacity * 2, Allocator{destination_state});
+        TestFixture::fill(source);
+        destination.reserve(SourceCapacity);
+        destination = std::move(source);
+        TestFixture::check_values(destination);
+        EXPECT_EQ(destination.max_size(), SourceCapacity);
+    }
+}
+
 // Element type without a default constructor; the live count shows that moved-from source elements are destroyed.
 struct NonDefaultConstructible
 {
