@@ -610,6 +610,24 @@ TYPED_TEST(VLATestsCompatAnyType, TestAssignCountItems)
     }
 }
 
+TYPED_TEST(VLATestsCompatAnyType, TestCountValueConstructor)
+{
+    std::allocator<std::string>                                                              allocator{};
+    typename TestFixture::template TestSubjectType<std::string, std::allocator<std::string>> subject(25,
+                                                                                                     "Hi müm",
+                                                                                                     allocator);
+    ASSERT_EQ(25, subject.size());
+    ASSERT_EQ(25, subject.capacity());
+    for (auto i = subject.begin(), e = subject.end(); i != e; ++i)
+    {
+        ASSERT_EQ(*i, "Hi müm");
+    }
+    typename TestFixture::template TestSubjectType<std::string, std::allocator<std::string>> empty(0,
+                                                                                                   "ciao",
+                                                                                                   allocator);
+    ASSERT_TRUE(empty.empty());
+}
+
 TYPED_TEST(VLATestsCompatAnyType, TestInitFromString)
 {
     std::string                 data = "stuff.";

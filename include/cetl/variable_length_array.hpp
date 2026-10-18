@@ -37,6 +37,13 @@ template <typename InputIt>
 using enable_if_input_iterator_t = std::enable_if_t<
     std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>;
 
+// Selects the count-value constructors for counts that convert to SizeType, as std::vector's size_type parameter
+// accepts. The count's type is deduced so a braced first argument cannot match it: VLA({x}, max_size_max, alloc)
+// would otherwise be ambiguous with the initializer-list constructor whenever max_size_max converts better to
+// value_type than to size_type, as an int literal does for VLA<int>.
+template <typename Count, typename SizeType>
+using enable_if_count_t = std::enable_if_t<std::is_convertible<Count, SizeType>::value>;
+
 // Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
 // directly.
 template <typename BaseValueType, typename BaseAllocatorType>
@@ -1305,6 +1312,44 @@ public:
     {
     }
 
+    /// Count-value constructor with maximum max size. Constructs `count` copies of `value`, as
+    /// `std::vector(count, value, alloc)` does, allocating storage for exactly `count` elements.
+    /// The count may be any type that converts to size_type, but not a braced list:
+    /// `VariableLengthArray({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
+    /// overload, because `VariableLengthArray(n, alloc)` sets max_size_max.
+    /// With exceptions disabled, the array is truncated to max_size() or to the storage the allocator provides, which
+    /// the caller can detect by comparing size() with `count`.
+    /// @tparam Count       The type of `count`.
+    /// @param count        The number of elements to construct.
+    /// @param value        The value to copy into each element.
+    /// @param max_size_max Clamping value for the maximum size of this array. That is,
+    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc        Allocator to use for all allocations.
+    /// @throw std::length_error if `count` is greater than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` elements.
+    template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
+    VariableLengthArray(Count count, const value_type& value, size_type max_size_max, const allocator_type& alloc)
+        : Base(alloc, nullptr, 0, 0, max_size_max)
+    {
+        // Elements constructed before a failure are destroyed by resize(); the base destructor releases the storage.
+        Base::resize(static_cast<size_type>(count), max_size(), value);
+    }
+
+    /// Count-value constructor. Constructs `count` copies of `value`, as `std::vector(count, value, alloc)` does.
+    /// Has the same guarantees as the constructor that also takes max_size_max.
+    /// @tparam Count The type of `count`.
+    /// @param count  The number of elements to construct.
+    /// @param value  The value to copy into each element.
+    /// @param alloc  Allocator to use for all allocations.
+    /// @throw std::length_error if `count` is greater than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` elements.
+    template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
+    VariableLengthArray(Count count, const value_type& value, const allocator_type& alloc)
+        : VariableLengthArray(count, value, std::numeric_limits<size_type>::max(), alloc)
+    {
+    }
+
     /// Range constructor with maximum max size.
     /// @tparam InputIt The type of the range's iterators.
     /// @param first    The beginning of the range.
@@ -2237,6 +2282,44 @@ public:
     /// @param alloc Allocator to use for all allocations.
     VariableLengthArray(std::initializer_list<bool> l, const allocator_type& alloc)
         : VariableLengthArray(l, numeric_limits_max_bits(), alloc)
+    {
+    }
+
+    /// Count-value constructor with maximum max size. Constructs `count` copies of `value`, as
+    /// `std::vector<bool>(count, value, alloc)` does, allocating the bytes needed for exactly `count` bits.
+    /// The count may be any type that converts to size_type, but not a braced list:
+    /// `VariableLengthArray({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
+    /// overload, because `VariableLengthArray(n, alloc)` sets max_size_max.
+    /// With exceptions disabled, the array is truncated to max_size() or to the storage the allocator provides, which
+    /// the caller can detect by comparing size() with `count`.
+    /// @tparam Count       The type of `count`.
+    /// @param count        The number of bits to construct.
+    /// @param value        The value of each bit.
+    /// @param max_size_max Clamping value for the maximum size of this array. That is,
+    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
+    /// @param alloc        Allocator to use for all allocations.
+    /// @throw std::length_error if `count` is greater than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` bits.
+    template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
+    VariableLengthArray(Count count, const bool value, size_type max_size_max, const allocator_type& alloc)
+        : Base(alloc, nullptr, 0, 0, max_size_max)
+        , last_byte_bit_fill_{0}
+    {
+        resize(static_cast<size_type>(count), value);
+    }
+
+    /// Count-value constructor. Constructs `count` copies of `value`, as `std::vector<bool>(count, value, alloc)`
+    /// does. Has the same guarantees as the constructor that also takes max_size_max.
+    /// @tparam Count The type of `count`.
+    /// @param count  The number of bits to construct.
+    /// @param value  The value of each bit.
+    /// @param alloc  Allocator to use for all allocations.
+    /// @throw std::length_error if `count` is greater than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` bits.
+    template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
+    VariableLengthArray(Count count, const bool value, const allocator_type& alloc)
+        : VariableLengthArray(count, value, numeric_limits_max_bits(), alloc)
     {
     }
 

@@ -612,9 +612,11 @@ TEST(VLAAssignObjects, RangeConstructorsDoNotRequireAssignableElements)
     }
 }
 
-static_assert(!std::is_constructible<Array<int>, int, int, std::allocator<int>>::value,
+// Integers select the count-value constructor instead, as for std::vector (see
+// test_variable_length_array_construct.cpp), so use arguments that are neither iterators nor counts.
+static_assert(!std::is_constructible<Array<int>, std::nullptr_t, std::nullptr_t, std::allocator<int>>::value,
               "Non-iterators must not select the range constructor.");
-static_assert(!std::is_constructible<Array<bool>, int, int, std::allocator<bool>>::value,
+static_assert(!std::is_constructible<Array<bool>, std::nullptr_t, std::nullptr_t, std::allocator<bool>>::value,
               "Non-iterators must not select the range constructor.");
 
 template <typename A, typename It, typename = void>
