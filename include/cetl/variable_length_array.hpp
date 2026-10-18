@@ -1374,6 +1374,18 @@ public:
         return *this;
     }
 
+    /// Replace the contents with the initializer list, keeping the allocator and max_size().
+    /// Equivalent to assign(values), with the same guarantees.
+    /// @param values The elements to copy into the array.
+    /// @return `*this`
+    /// @throw std::length_error if `values` has more elements than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `values`.
+    VariableLengthArray& operator=(std::initializer_list<value_type> values)
+    {
+        assign(values);
+        return *this;
+    }
+
     ~VariableLengthArray() = default;
 
     // +----------------------------------------------------------------------+
@@ -2316,6 +2328,18 @@ public:
         {
             move_assign_bits(rhs);
         }
+        return *this;
+    }
+
+    /// Replace the contents with the initializer list, keeping the allocator and max_size().
+    /// Equivalent to assign(values), with the same guarantees.
+    /// @param values The bits to copy into the array.
+    /// @return `*this`
+    /// @throw std::length_error if `values` has more elements than max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `values`.
+    VariableLengthArray& operator=(std::initializer_list<bool> values)
+    {
+        assign(values);
         return *this;
     }
 
