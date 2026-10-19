@@ -374,14 +374,16 @@ void emplace_or_insert(const unsigned    variant,
     {
     case 1:  // one copy
     {
-        result = array.insert(array.cbegin() + offset, value) - array.begin();
+        const auto position = array.insert(array.cbegin() + offset, value);
+        result              = position - array.begin();
         const Model<T> one(1U, value);
         model_insert(model, at, one.begin(), one.end());
         break;
     }
     case 2:  // several copies, including none
     {
-        result = array.insert(array.cbegin() + offset, inserted, value) - array.begin();
+        const auto position = array.insert(array.cbegin() + offset, inserted, value);
+        result              = position - array.begin();
         const Model<T> copies(inserted, value);
         model_insert(model, at, copies.begin(), copies.end());
         break;
@@ -389,21 +391,25 @@ void emplace_or_insert(const unsigned    variant,
     case 3:  // forward range from the other model
     {
         const std::forward_list<T> list(other_model.begin(), other_model.begin() + take);
-        result = array.insert(array.cbegin() + offset, list.begin(), list.end()) - array.begin();
+        const auto                 position = array.insert(array.cbegin() + offset, list.begin(), list.end());
+        result                              = position - array.begin();
         model_insert(model, at, other_model.begin(), other_model.begin() + take);
         break;
     }
     case 4:  // single-pass range from the other model
-        result = array.insert(array.cbegin() + offset,
-                              SinglePass<T>(other_model, 0),
-                              SinglePass<T>(other_model, static_cast<std::size_t>(take))) -
-                 array.begin();
+    {
+        const auto position = array.insert(array.cbegin() + offset,
+                                           SinglePass<T>(other_model, 0),
+                                           SinglePass<T>(other_model, static_cast<std::size_t>(take)));
+        result              = position - array.begin();
         model_insert(model, at, other_model.begin(), other_model.begin() + take);
         break;
+    }
     case 5:  // initializer list
         if (room >= 2U)
         {
-            result = array.insert(array.cbegin() + offset, {value, T{}}) - array.begin();
+            const auto position = array.insert(array.cbegin() + offset, {value, T{}});
+            result              = position - array.begin();
             const Model<T> list{value, T{}};
             model_insert(model, at, list.begin(), list.end());
         }

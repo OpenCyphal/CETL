@@ -81,28 +81,28 @@ TYPED_TEST(VLAInsert, AllOverloadsMatchVector)
                 {
                     SCOPED_TRACE(::testing::Message()
                                  << "size=" << size << " at=" << at << " count=" << count << " overload=" << overload);
-                    auto           subjects = make_pair_of<TypeParam>(size);
-                    auto&          actual   = subjects.first;
-                    auto&          expected = subjects.second;
-                    std::ptrdiff_t result   = 0;
-                    std::ptrdiff_t oracle   = 0;
+                    auto  subjects = make_pair_of<TypeParam>(size);
+                    auto& actual   = subjects.first;
+                    auto& expected = subjects.second;
+                    // Each insert's result is stored before it is compared with begin(): the order in which an
+                    // expression's operands are evaluated is unspecified, and insert() may reallocate.
+                    typename Array<TypeParam>::iterator       result{};
+                    typename std::vector<TypeParam>::iterator oracle{};
                     switch (overload)
                     {
                     case 0:  // count copies
-                        result = actual.insert(actual.cbegin() + offset, count, TypeParam{1}) - actual.begin();
-                        oracle = expected.insert(expected.cbegin() + offset, count, TypeParam{1}) - expected.begin();
+                        result = actual.insert(actual.cbegin() + offset, count, TypeParam{1});
+                        oracle = expected.insert(expected.cbegin() + offset, count, TypeParam{1});
                         break;
                     case 1:  // random-access range
-                        result = actual.insert(actual.cbegin() + offset, source.begin(), source.end()) - actual.begin();
-                        oracle = expected.insert(expected.cbegin() + offset, source.begin(), source.end()) -
-                                 expected.begin();
+                        result = actual.insert(actual.cbegin() + offset, source.begin(), source.end());
+                        oracle = expected.insert(expected.cbegin() + offset, source.begin(), source.end());
                         break;
                     case 2:  // forward range
                     {
                         const std::forward_list<TypeParam> list(source.begin(), source.end());
-                        result = actual.insert(actual.cbegin() + offset, list.begin(), list.end()) - actual.begin();
-                        oracle =
-                            expected.insert(expected.cbegin() + offset, list.begin(), list.end()) - expected.begin();
+                        result = actual.insert(actual.cbegin() + offset, list.begin(), list.end());
+                        oracle = expected.insert(expected.cbegin() + offset, list.begin(), list.end());
                         break;
                     }
                     case 3:  // single-pass range
@@ -116,30 +116,26 @@ TYPED_TEST(VLAInsert, AllOverloadsMatchVector)
                         std::istringstream expected_input(text.str());
                         result = actual.insert(actual.cbegin() + offset,
                                                std::istream_iterator<int>(actual_input),
-                                               std::istream_iterator<int>()) -
-                                 actual.begin();
+                                               std::istream_iterator<int>());
                         oracle = expected.insert(expected.cbegin() + offset,
                                                  std::istream_iterator<int>(expected_input),
-                                                 std::istream_iterator<int>()) -
-                                 expected.begin();
+                                                 std::istream_iterator<int>());
                         break;
                     }
                     case 4:  // one copy
                     {
                         const TypeParam value{0};
-                        result = actual.insert(actual.cbegin() + offset, value) - actual.begin();
-                        oracle = expected.insert(expected.cbegin() + offset, value) - expected.begin();
+                        result = actual.insert(actual.cbegin() + offset, value);
+                        oracle = expected.insert(expected.cbegin() + offset, value);
                         break;
                     }
                     default:  // initializer list
-                        result = actual.insert(actual.cbegin() + offset, {TypeParam{1}, TypeParam{0}, TypeParam{1}}) -
-                                 actual.begin();
+                        result = actual.insert(actual.cbegin() + offset, {TypeParam{1}, TypeParam{0}, TypeParam{1}});
                         oracle =
-                            expected.insert(expected.cbegin() + offset, {TypeParam{1}, TypeParam{0}, TypeParam{1}}) -
-                            expected.begin();
+                            expected.insert(expected.cbegin() + offset, {TypeParam{1}, TypeParam{0}, TypeParam{1}});
                         break;
                     }
-                    EXPECT_EQ(result, oracle);
+                    EXPECT_EQ(result - actual.begin(), oracle - expected.begin());
                     expect_sequence(actual, expected);
                     EXPECT_GE(actual.capacity(), actual.size());
 
@@ -170,15 +166,19 @@ TYPED_TEST(VLAInsert, EmptyInsertionsHaveNoEffect)
 {
     Array<TypeParam>             empty{std::allocator<TypeParam>{}};
     const std::vector<TypeParam> none;
-    EXPECT_TRUE(empty.insert(empty.cbegin(), 0U, TypeParam{1}) == empty.end());
-    EXPECT_TRUE(empty.insert(empty.cbegin(), none.begin(), none.end()) == empty.end());
-    EXPECT_TRUE(empty.insert(empty.cbegin(), {}) == empty.end());
+    const auto                   position = empty.insert(empty.cbegin(), 0U, TypeParam{1});
+    EXPECT_TRUE(position == empty.end());
+    const auto position2 = empty.insert(empty.cbegin(), none.begin(), none.end());
+    EXPECT_TRUE(position2 == empty.end());
+    const auto position3 = empty.insert(empty.cbegin(), {});
+    EXPECT_TRUE(position3 == empty.end());
     EXPECT_TRUE(empty.empty());
     EXPECT_EQ(empty.capacity(), 0U);
 
-    auto  subjects = make_pair_of<TypeParam>(6U);
-    auto& actual   = subjects.first;
-    EXPECT_TRUE(actual.insert(actual.cbegin() + 3, 0U, TypeParam{1}) == actual.begin() + 3);
+    auto       subjects  = make_pair_of<TypeParam>(6U);
+    auto&      actual    = subjects.first;
+    const auto position4 = actual.insert(actual.cbegin() + 3, 0U, TypeParam{1});
+    EXPECT_TRUE(position4 == actual.begin() + 3);
     expect_sequence(actual, subjects.second);
 }
 
@@ -217,8 +217,10 @@ TYPED_TEST(VLAInsert, MaxSizeIsEnforced)
     expect_sequence(actual, std::vector<TypeParam>(5U, TypeParam{1}));
 #else
     // Without exceptions a sized insertion that does not fit has no effect...
-    EXPECT_TRUE(actual.insert(actual.cbegin() + 1, 4U, TypeParam{0}) == actual.begin() + 1);
-    EXPECT_TRUE(actual.insert(actual.cbegin() + 1, four.begin(), four.end()) == actual.begin() + 1);
+    const auto position5 = actual.insert(actual.cbegin() + 1, 4U, TypeParam{0});
+    EXPECT_TRUE(position5 == actual.begin() + 1);
+    const auto position6 = actual.insert(actual.cbegin() + 1, four.begin(), four.end());
+    EXPECT_TRUE(position6 == actual.begin() + 1);
     expect_sequence(actual, std::vector<TypeParam>(5U, TypeParam{1}));
 
     // ...while a single-pass range keeps the prefix that fits, as assign(first, last) does.
@@ -303,8 +305,10 @@ TYPED_TEST(VLAInsert, DeclinedGrowthHasNoEffect)
     EXPECT_THROW((void) actual.insert(actual.cbegin(), 64U, TypeParam{0}), std::bad_alloc);
     EXPECT_THROW((void) actual.insert(actual.cbegin(), source.begin(), source.end()), std::bad_alloc);
 #else
-    EXPECT_TRUE(actual.insert(actual.cbegin(), 64U, TypeParam{0}) == actual.begin());
-    EXPECT_TRUE(actual.insert(actual.cbegin(), source.begin(), source.end()) == actual.begin());
+    const auto position7 = actual.insert(actual.cbegin(), 64U, TypeParam{0});
+    EXPECT_TRUE(position7 == actual.begin());
+    const auto position8 = actual.insert(actual.cbegin(), source.begin(), source.end());
+    EXPECT_TRUE(position8 == actual.begin());
 #endif
     expect_sequence(actual, std::vector<TypeParam>{TypeParam{1}});
     EXPECT_EQ(actual.capacity(), capacity);
