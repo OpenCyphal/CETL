@@ -45,7 +45,7 @@ enum class Operation : std::uint8_t
     PushBackCopy,
     PushBackMove,
     EmplaceBack,
-    PopBack,
+    PopBackOrErase,
     Resize,
     ResizeValue,
     Assign,
@@ -405,14 +405,39 @@ void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, co
                 model.push_back(value);
             }
             break;
-        case Operation::PopBack:
-            array.pop_back();  // CETL explicitly permits popping an empty array.
-            if (!model.empty())
+        case Operation::PopBackOrErase: {
+            // The opcode's spare bits choose pop_back, erase(pos), or erase(first, last).
+            const unsigned variant = opcode >> AssignVariantShift;
+            const auto     size    = model.size();
+            if (variant == 0U)
             {
-                model.pop_back();
+                array.pop_back();  // CETL explicitly permits popping an empty array.
+                if (!model.empty())
+                {
+                    model.pop_back();
+                }
             }
-            require(array.capacity() == capacity, "pop_back changed capacity");
+            else if (((variant & 1U) != 0U) && (size > 0U))
+            {
+                const auto at     = static_cast<std::ptrdiff_t>(count % size);
+                const auto result = array.erase(array.cbegin() + at);
+                (void) model.erase(model.begin() + at);
+                require((result - array.begin()) == at, "erase(pos) returned the wrong position");
+            }
+            else
+            {
+                // Includes empty ranges, at any position including end().
+                const std::size_t first  = count % (size + 1U);
+                const std::size_t last   = first + (value_byte % (size + 1U - first));
+                const auto        from   = static_cast<std::ptrdiff_t>(first);
+                const auto        to     = static_cast<std::ptrdiff_t>(last);
+                const auto        result = array.erase(array.cbegin() + from, array.cbegin() + to);
+                (void) model.erase(model.begin() + from, model.begin() + to);
+                require((result - array.begin()) == from, "erase(first, last) returned the wrong position");
+            }
+            require(array.capacity() == capacity, "pop_back or erase changed capacity");
             break;
+        }
         case Operation::Resize:
             array.resize(count);
             model.resize(count);

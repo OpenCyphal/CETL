@@ -216,5 +216,76 @@ TEST(DeathTestVLAAssertions, TestConstBackOnEmptyBool)
     EXPECT_DEATH(TestConstBackOnEmptyBool(), "CDE_vla_007");
 }
 
+
+// +----------------------------------------------------------------------+
+
+
+static void TestEraseEnd()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    vla.push_back(1);
+    (void)vla.erase(vla.cend());
+}
+
+TEST(DeathTestVLAAssertions, TestEraseEnd)
+{
+    EXPECT_DEATH(TestEraseEnd(), "CDE_vla_009");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestEraseReversedRange()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    vla.push_back(1);
+    vla.push_back(2);
+    (void)vla.erase(vla.cbegin() + 1, vla.cbegin());
+}
+
+TEST(DeathTestVLAAssertions, TestEraseReversedRange)
+{
+    EXPECT_DEATH(TestEraseReversedRange(), "CDE_vla_010");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestEraseEndBool()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    vla.push_back(true);
+    (void)vla.erase(vla.cend());
+}
+
+TEST(DeathTestVLAAssertions, TestEraseEndBool)
+{
+    EXPECT_DEATH(TestEraseEndBool(), "CDE_vla_011");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestEraseOtherArrayRangeBool()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::VariableLengthArray<bool, std::allocator<bool> > other{std::allocator<bool>()};
+    vla.push_back(true);
+    other.push_back(true);
+    (void)vla.erase(other.cbegin(), other.cend());
+}
+
+TEST(DeathTestVLAAssertions, TestEraseOtherArrayRangeBool)
+{
+    EXPECT_DEATH(TestEraseOtherArrayRangeBool(), "CDE_vla_012");
+}
+
 #endif // CETL_ENABLE_DEBUG_ASSERT
 } // namespace
