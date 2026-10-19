@@ -10,6 +10,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -168,6 +169,93 @@ TEST(VLAConstruct, SizeTypeElements)
     const Array<std::size_t> list({3}, 4, alloc);
     expect_sequence(list, std::vector<std::size_t>{3});
     EXPECT_EQ(list.max_size(), 4U);
+}
+
+// An input iterator that also converts to size_type, over a sequence of Reference values produced from its position.
+// Without excluding input iterators from the count, VLA<SelfIterator>(first, last, alloc) is ambiguous between the
+// range and count-value constructors.
+template <typename Reference>
+struct ConvertibleIterator
+{
+    using iterator_category = std::input_iterator_tag;
+    using value_type        = Reference;
+    using difference_type   = std::ptrdiff_t;
+    using pointer           = const Reference*;
+    using reference         = Reference;
+
+    std::size_t position;
+
+    Reference operator*() const
+    {
+        return Reference(position);
+    }
+    ConvertibleIterator& operator++()
+    {
+        ++position;
+        return *this;
+    }
+    ConvertibleIterator operator++(int)
+    {
+        const ConvertibleIterator old = *this;
+        ++position;
+        return old;
+    }
+    bool operator==(const ConvertibleIterator& rhs) const
+    {
+        return position == rhs.position;
+    }
+    bool operator!=(const ConvertibleIterator& rhs) const
+    {
+        return position != rhs.position;
+    }
+    operator std::size_t() const
+    {
+        return position;
+    }
+};
+
+// An element type that is itself such an iterator, as the review of #63 described.
+struct SelfIterator : ConvertibleIterator<SelfIterator>
+{
+    explicit SelfIterator(const std::size_t at)
+        : ConvertibleIterator<SelfIterator>{at}
+    {
+    }
+};
+
+// Odd positions yield true.
+struct Bit
+{
+    explicit Bit(const std::size_t at)
+        : value((at % 2U) != 0U)
+    {
+    }
+    operator bool() const
+    {
+        return value;
+    }
+    bool value;
+};
+
+// As for std::vector, (first, last) always selects the range constructor, even when the iterator converts to a count.
+TEST(VLAConstruct, IteratorsConvertibleToSizeTypeSelectRange)
+{
+    const std::allocator<SelfIterator> alloc{};
+    const SelfIterator                 first{1};
+    const SelfIterator                 last{4};
+    const std::vector<SelfIterator>    expected(first, last, alloc);
+    ASSERT_EQ(expected.size(), 3U);
+    expect_sequence(Array<SelfIterator>(first, last, alloc), expected);
+    const Array<SelfIterator> bounded(first, last, 10, alloc);
+    expect_sequence(bounded, expected);
+    EXPECT_EQ(bounded.max_size(), 10U);
+
+    const std::allocator<bool>     bool_alloc{};
+    const ConvertibleIterator<Bit> bit_first{1};
+    const ConvertibleIterator<Bit> bit_last{4};
+    const std::vector<bool>        bits(bit_first, bit_last, bool_alloc);
+    expect_sequence(Array<bool>(bit_first, bit_last, bool_alloc), bits);
+    expect_sequence(Array<bool>(bit_first, bit_last, 10, bool_alloc), bits);
 }
 
 TEST(VLAConstruct, PointerElements)

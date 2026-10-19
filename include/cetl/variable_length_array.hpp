@@ -32,17 +32,29 @@ namespace cetl
 namespace detail
 {
 
-// Selects iterator-range overloads as std::vector does: only for types whose iterator_category is an input category.
+// True for types whose iterator_category is an input category, as std::vector requires of its range overloads.
+template <typename T, typename = void>
+struct is_input_iterator : std::false_type
+{};
+template <typename T>
+struct is_input_iterator<T,
+                         std::enable_if_t<std::is_base_of<std::input_iterator_tag,
+                                                          typename std::iterator_traits<T>::iterator_category>::value>>
+    : std::true_type
+{};
+
+// Selects iterator-range overloads as std::vector does: only for input iterators.
 template <typename InputIt>
-using enable_if_input_iterator_t = std::enable_if_t<
-    std::is_base_of<std::input_iterator_tag, typename std::iterator_traits<InputIt>::iterator_category>::value>;
+using enable_if_input_iterator_t = std::enable_if_t<is_input_iterator<InputIt>::value>;
 
 // Selects the count-value constructors for counts that convert to SizeType, as std::vector's size_type parameter
 // accepts. The count's type is deduced so a braced first argument cannot match it: VLA({x}, max_size_max, alloc)
 // would otherwise be ambiguous with the initializer-list constructor whenever max_size_max converts better to
-// value_type than to size_type, as an int literal does for VLA<int>.
+// value_type than to size_type, as an int literal does for VLA<int>. Input iterators are excluded so (first, last)
+// always selects the range constructor, as it does for std::vector, even when the iterator converts to SizeType.
 template <typename Count, typename SizeType>
-using enable_if_count_t = std::enable_if_t<std::is_convertible<Count, SizeType>::value>;
+using enable_if_count_t =
+    std::enable_if_t<std::is_convertible<Count, SizeType>::value && !is_input_iterator<Count>::value>;
 
 // Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
 // directly.
