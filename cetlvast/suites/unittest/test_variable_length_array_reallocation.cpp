@@ -14,6 +14,7 @@
 #include <map>
 #include <set>
 #include <type_traits>
+#include <vector>
 
 namespace
 {
@@ -641,4 +642,162 @@ TEST(VLAReallocationGrowth, AppendAndResizePreserveExistingElements)
         EXPECT_EQ(array[i].self, &array[i].value);
     }
 }
+
+int value_of(const int element) noexcept
+{
+    return element;
+}
+
+int value_of(const SelfReference& element) noexcept
+{
+    EXPECT_EQ(element.self, &element.value);
+    return element.value;
+}
+
+// Appending an element of a full array must read it before the old storage is released (issue #245). Trivially
+// copyable elements grow through reallocate, or allocate when it is declined; other elements always allocate.
+template <typename T>
+void expect_appended_elements_survive_growth(const bool decline)
+{
+    MovingResource resource;
+    resource.decline = decline;
+    Array<T> array{typename Array<T>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.emplace_back(element_value(i));
+    }
+    std::vector<int> expected;
+    for (const auto& element : array)
+    {
+        expected.push_back(value_of(element));
+    }
+    // Each round fills the spare capacity, then appends the first element, then the last, each time from full storage.
+    for (std::size_t round = 0; round < 3; ++round)
+    {
+        for (const bool emplace : {false, true})
+        {
+            while (array.size() < array.capacity())
+            {
+                array.emplace_back(element_value(array.size()));
+                expected.push_back(element_value(expected.size()));
+            }
+            const T* const data_before   = array.data();
+            const auto     reallocations = resource.reallocations;
+            if (emplace)
+            {
+                array.emplace_back(array.back());
+                expected.push_back(expected.back());
+            }
+            else
+            {
+                array.push_back(static_cast<const T&>(array.front()));
+                expected.push_back(expected.front());
+            }
+            EXPECT_NE(array.data(), data_before);
+            EXPECT_EQ(resource.reallocations, reallocations + (std::is_trivially_copyable<T>::value ? 1U : 0U));
+        }
+    }
+    ASSERT_EQ(array.size(), expected.size());
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(value_of(array[i]), expected[i]) << "index=" << i;
+    }
+    EXPECT_EQ(resource.blocks.size(), 1U);
+}
+
+TEST(VLAReallocationGrowth, AppendedElementsSurviveGrowth)
+{
+    for (const bool decline : {false, true})
+    {
+        SCOPED_TRACE(decline);
+        expect_appended_elements_survive_growth<int>(decline);
+        expect_appended_elements_survive_growth<SelfReference>(decline);
+    }
+}
+
+// An allocator out of memory makes appending to a full array throw bad_alloc or, with exceptions disabled, return
+// without effect. Either way the original storage and elements remain.
+template <typename T>
+void expect_failed_append_preserves_storage()
+{
+    MovingResource resource;
+    Array<T>       array{typename Array<T>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.emplace_back(element_value(i));
+    }
+    const T* const data_before = array.data();
+    resource.fail              = true;
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(array.push_back(static_cast<const T&>(array.front())), std::bad_alloc);
+    EXPECT_THROW(array.emplace_back(array.back()), std::bad_alloc);
+#else
+    array.push_back(static_cast<const T&>(array.front()));
+    array.emplace_back(array.back());
+#endif
+    EXPECT_EQ(array.data(), data_before);
+    EXPECT_EQ(array.capacity(), AppendInitialCapacity);
+    ASSERT_EQ(array.size(), AppendInitialCapacity);
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(value_of(array[i]), element_value(i));
+    }
+    resource.fail = false;
+    array.emplace_back(array.front());
+    ASSERT_EQ(array.size(), AppendInitialCapacity + 1U);
+    EXPECT_EQ(value_of(array.back()), element_value(0));
+}
+
+TEST(VLAReallocationGrowth, FailedAllocationOnAppendPreservesStorage)
+{
+    expect_failed_append_preserves_storage<int>();
+    expect_failed_append_preserves_storage<SelfReference>();
+}
+
+#if defined(__cpp_exceptions)
+// The appended element is constructed first and the old elements are then copied around it. A failure at any of
+// those constructions must destroy what was built, release the replacement storage, and keep the original elements.
+TEST(VLAReallocationGrowth, FailedAppendRollsBackReplacement)
+{
+    for (std::size_t fail_at = 0; fail_at <= ElementCount; ++fail_at)
+    {
+        SCOPED_TRACE(fail_at);
+        MovingResource      resource;
+        Lifetimes           state;
+        Array<CopyFallback> array{typename Array<CopyFallback>::allocator_type{&resource}};
+        array.reserve(ElementCount);
+        for (std::size_t i = 0; i < ElementCount; ++i)
+        {
+            array.emplace_back(state, element_value(i));
+        }
+        const auto* const old_data = array.data();
+        state.remaining            = static_cast<int>(fail_at);
+        EXPECT_THROW(array.push_back(static_cast<const CopyFallback&>(array.front())), ConstructionFailure);
+        EXPECT_EQ(array.data(), old_data);
+        EXPECT_EQ(array.capacity(), ElementCount);
+        ASSERT_EQ(array.size(), ElementCount);
+        EXPECT_EQ(resource.blocks.size(), 1U);
+        EXPECT_EQ(state.constructed, ElementCount + fail_at);
+        EXPECT_EQ(state.destroyed, fail_at);
+        EXPECT_EQ(state.live.size(), ElementCount);
+        EXPECT_EQ(state.moves, 0U);
+        for (std::size_t i = 0; i < array.size(); ++i)
+        {
+            EXPECT_EQ(array[i].value, element_value(i));
+            EXPECT_EQ(array[i].self, &array[i].value);
+        }
+        state.remaining = FailureDisabled;
+        array.emplace_back(array.front());
+        ASSERT_EQ(array.size(), ElementCount + 1U);
+        for (std::size_t i = 0; i < array.size(); ++i)
+        {
+            EXPECT_EQ(array[i].value, element_value(i < ElementCount ? i : 0U));
+            EXPECT_EQ(array[i].self, &array[i].value);
+        }
+        EXPECT_EQ(resource.blocks.size(), 1U);
+    }
+}
+#endif
 }  // namespace

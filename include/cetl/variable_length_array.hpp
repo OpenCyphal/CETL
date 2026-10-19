@@ -1047,21 +1047,121 @@ protected:
         }
     }
 
-    /// Grows the capacity of the array ensures amortized, constant-time expansion.
-    constexpr bool grow(const size_type max_size)
+    /// The capacity that grow() requests. It is not greater than capacity() when max_size prevents growth.
+    constexpr size_type grown_capacity(const size_type max_size) const noexcept
     {
         // Simple geometric progression of capacity growth.
-        const size_type capacity_before = capacity_;
-
-        const size_type half_capacity = capacity_before / 2U;
+        const size_type half_capacity = capacity_ / 2U;
 
         // That is, instead of a capacity sequence of 1, 2, 3, 4, 6, 9 we start from zero as 2, 4, 6, 9. The first
         // opportunity for reusing previously freed memory comes when increasing to 19 from 13 since E(n-1) == 21.
-        const size_type new_capacity = std::min(max_size, capacity_before + ((half_capacity <= 1) ? 2 : half_capacity));
+        return std::min(max_size, capacity_ + ((half_capacity <= 1) ? 2 : half_capacity));
+    }
 
-        reserve(new_capacity, max_size);
+    /// Grows the capacity of the array ensures amortized, constant-time expansion.
+    constexpr bool grow(const size_type max_size)
+    {
+        const size_type capacity_before = capacity_;
+
+        reserve(grown_capacity(max_size), max_size);
 
         return capacity_ > capacity_before;
+    }
+
+    /// Grows the capacity as grow() does and constructs one more element from `args` at the end of the array.
+    /// The arguments may refer to elements of this array, as in `a.emplace_back(a[0])`, so they are consumed before
+    /// the old storage is released.
+    /// @return false, with the array unchanged, if max_size prevents growth or, with exceptions disabled, the
+    ///         allocator returned no memory.
+    /// @throw * Any exception thrown by the allocator or by constructing an element. The array is then unchanged.
+    template <typename... Args>
+    bool grow_and_emplace_back(const size_type max_size, Args&&... args)
+    {
+        if (grown_capacity(max_size) <= capacity_)
+        {
+            return false;
+        }
+        return grow_and_emplace_back_impl(reallocates_elements{}, max_size, std::forward<Args>(args)...);
+    }
+
+    /// Whether reserve() may relocate elements through the allocator's reallocate extension (see reallocate()).
+    using reallocates_elements = std::integral_constant<bool,
+                                                        std::is_trivially_copyable<value_type>::value &&
+                                                            is_detected<reallocate_operation, allocator_type>::value>;
+
+    /// Allocator reallocation can release the old block before an element is constructed in the new one, so the new
+    /// element is built in a temporary first. It is trivially copyable, so moving it into place is a plain copy.
+    template <typename... Args>
+    bool grow_and_emplace_back_impl(std::true_type, const size_type max_size, Args&&... args)
+    {
+        // The union defers construction to the allocator, which might observe it, as it would any element.
+        union Temporary
+        {
+            Temporary() noexcept {}
+            ~Temporary() {}
+            value_type value;
+        } temporary;
+        value_type* const pending = std::addressof(temporary.value);
+        std::allocator_traits<allocator_type>::construct(alloc_, pending, std::forward<Args>(args)...);
+        // Trivially copyable types are trivially destructible, so an exception from grow() leaks nothing.
+        const bool grown = grow(max_size);
+        if (grown)
+        {
+            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::move(*pending));
+            ++size_;
+        }
+        std::allocator_traits<allocator_type>::destroy(alloc_, pending);
+        return grown;
+    }
+
+    /// Constructs the new element in replacement storage while the old storage is intact, then relocates the old
+    /// elements in front of it, as libstdc++'s `vector::_M_realloc_insert` does.
+    template <typename... Args>
+    bool grow_and_emplace_back_impl(std::false_type, const size_type max_size, Args&&... args)
+    {
+        const size_type   new_capacity = grown_capacity(max_size);
+        value_type* const new_data     = std::allocator_traits<allocator_type>::allocate(alloc_, new_capacity);
+        if (new_data == nullptr)
+        {
+#if defined(__cpp_exceptions)
+            // GCOVR_EXCL_START
+            // protect against invalid standard libraries that do not throw as required.
+            throw std::bad_alloc();
+            // GCOVR_EXCL_STOP
+#else
+            return false;
+#endif
+        }
+        value_type* const element = new_data + size_;
+#if defined(__cpp_exceptions)
+        try
+        {
+#endif
+            std::allocator_traits<allocator_type>::construct(alloc_, element, std::forward<Args>(args)...);
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            std::allocator_traits<allocator_type>::deallocate(alloc_, new_data, new_capacity);
+            throw;
+        }
+        try
+        {
+#endif
+            // On failure this destroys the elements it relocated, leaving the old ones valid.
+            (void) fast_forward_construct(new_data, new_capacity, data_, size_, alloc_);
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            std::allocator_traits<allocator_type>::destroy(alloc_, element);
+            std::allocator_traits<allocator_type>::deallocate(alloc_, new_data, new_capacity);
+            throw;
+        }
+#endif
+        fast_deallocate(data_, size_, capacity_, alloc_);
+        data_     = new_data;
+        capacity_ = new_capacity;
+        ++size_;
+        return true;
     }
 
     // +----------------------------------------------------------------------+
@@ -1922,12 +2022,7 @@ public:
     ///
     constexpr void push_back(const value_type& value)
     {
-        if (!ensure_size_plus_one())
-        {
-            return;
-        }
-
-        push_back_impl(value);
+        emplace_back(value);
     }
 
     ///
@@ -1941,12 +2036,7 @@ public:
     ///
     constexpr void push_back(value_type&& value)
     {
-        if (!ensure_size_plus_one())
-        {
-            return;
-        }
-
-        push_back_impl(std::forward<value_type>(value));
+        emplace_back(std::move(value));
     }
 
     ///
@@ -2075,20 +2165,26 @@ public:
         return insert(pos, values.begin(), values.end());
     }
 
-    /// Like push_back but constructs the object directly in uninitialized memory.
+    /// Like push_back but constructs the object directly in uninitialized memory. As with std::vector, the arguments
+    /// may refer to elements of this array, even when the call grows the storage.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
     ///        If exceptions are disabled then the caller must check the array size before and
     ///        after calling the method to determine if it succeeded.
     template <class... Args>
     void emplace_back(Args&&... args)
     {
-        if (!ensure_size_plus_one())
+        // Spare capacity can exceed max_size() after assignment adopts a smaller bound, so check both.
+        if ((size_ < capacity_) && (size_ < max_size()))
         {
-            return;
+            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Args>(args)...);
+            ++size_;
         }
-
-        std::allocator_traits<allocator_type>::construct(alloc_, &data_[size_], std::forward<Args>(args)...);
-        size_++;
+        else if (!Base::grow_and_emplace_back(max_size(), std::forward<Args>(args)...))
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("size is at capacity and we cannot grow the capacity.");
+#endif
+        }
     }
 
     /// Resizes internal storage to count elements default initializing any added elements over the
@@ -2339,50 +2435,6 @@ private:
     void construct_range(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
         Base::construct_from_forward_range(first, last, max_size());
-    }
-
-    /// return true if there was or now is enough capacity to add one more element.
-    constexpr bool ensure_size_plus_one()
-    {
-        // Spare capacity can exceed max_size() after assignment adopts a smaller bound, so check both.
-        if ((size_ < capacity_) && (size_ < max_size()))
-        {
-            return true;
-        }
-
-        if (!Base::grow(max_size()))
-        {
-#if defined(__cpp_exceptions)
-            throw std::length_error("size is at capacity and we cannot grow the capacity.");
-#endif
-            return false;
-        }
-
-        return true;
-    }
-
-    constexpr void push_back_impl(value_type&& value) noexcept(std::is_nothrow_move_constructible<value_type>::value)
-    {
-        CETL_DEBUG_ASSERT(size_ < capacity_, "CDE_vla_008: No capacity to push element.");
-        if (size_ < capacity_)
-        {
-            std::allocator_traits<allocator_type>::construct(alloc_, &data_[size_], std::move(value));
-            size_++;
-        }
-    }
-
-    constexpr pointer push_back_impl(const value_type& value) noexcept(
-        std::is_nothrow_copy_constructible<value_type>::value)
-    {
-        if (size_ < capacity_)
-        {
-            std::allocator_traits<allocator_type>::construct(alloc_, &data_[size_], value);
-            return &data_[size_++];
-        }
-        else
-        {
-            return nullptr;
-        }
     }
 };
 
