@@ -140,14 +140,18 @@ TYPED_TEST(VLAErase, AcceptsMutableAndConstIterators)
 TYPED_TEST(VLAErase, EmptyRangeHasNoEffect)
 {
     Array<TypeParam> empty{std::allocator<TypeParam>{}};
-    EXPECT_EQ(empty.erase(empty.cbegin(), empty.cend()), empty.end());
+    // Each result is stored first: EXPECT_EQ does not order the evaluation of its arguments.
+    const auto empty_result = empty.erase(empty.cbegin(), empty.cend());
+    EXPECT_EQ(empty_result, empty.end());
     EXPECT_TRUE(empty.empty());
     EXPECT_EQ(empty.capacity(), 0U);
 
-    auto  subjects = make_pair_of<TypeParam>(10U, 10U);
-    auto& actual   = subjects.first;
-    EXPECT_EQ(actual.erase(actual.cbegin() + 4, actual.cbegin() + 4), actual.begin() + 4);
-    EXPECT_EQ(actual.erase(actual.cend(), actual.cend()), actual.end());
+    auto       subjects = make_pair_of<TypeParam>(10U, 10U);
+    auto&      actual   = subjects.first;
+    const auto middle   = actual.erase(actual.cbegin() + 4, actual.cbegin() + 4);
+    EXPECT_EQ(middle, actual.begin() + 4);
+    const auto end = actual.erase(actual.cend(), actual.cend());
+    EXPECT_EQ(end, actual.end());
     expect_sequence(actual, subjects.second);
 }
 
@@ -155,7 +159,9 @@ TYPED_TEST(VLAErase, EraseEverythingKeepsCapacityAndMaxSize)
 {
     Array<TypeParam> actual(13U, TypeParam{1}, 20U, std::allocator<TypeParam>{});
     const auto       capacity = actual.capacity();
-    EXPECT_EQ(actual.erase(actual.cbegin(), actual.cend()), actual.end());
+    // Store the result first: EXPECT_EQ could otherwise evaluate end() before the erase.
+    const auto result = actual.erase(actual.cbegin(), actual.cend());
+    EXPECT_EQ(result, actual.end());
     EXPECT_TRUE(actual.empty());
     EXPECT_EQ(actual.capacity(), capacity);
     EXPECT_EQ(actual.max_size(), 20U);

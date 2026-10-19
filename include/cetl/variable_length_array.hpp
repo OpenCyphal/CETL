@@ -1851,7 +1851,11 @@ public:
     {
         CETL_DEBUG_ASSERT((cbegin() <= first) && (first <= last) && (last <= cend()),
                           "CDE_vla_010: erase() range is not within the array.");
-        // A null data_ is only possible for an empty array, where the range is empty and position stays null.
+        if (data_ == nullptr)
+        {
+            // Without storage the array is empty and the range must be too; skip arithmetic on null pointers.
+            return end();
+        }
         const iterator  position = data_ + (first - cbegin());
         const size_type count    = static_cast<size_type>(last - first);
         if (count > 0)

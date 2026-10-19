@@ -1043,7 +1043,8 @@ TEST(VLAExceptionSafety, EraseDestroysOnlyTheVacatedTail)
     Array<>         array{Allocator<Value>{allocations}};
     populate(array, lifetimes, 6);
     const auto destroyed = lifetimes.destroyed;
-    EXPECT_EQ(array.erase(array.cbegin() + 1, array.cbegin() + 3), array.begin() + 1);
+    const auto result    = array.erase(array.cbegin() + 1, array.cbegin() + 3);
+    EXPECT_EQ(result, array.begin() + 1);
     EXPECT_EQ(lifetimes.destroyed - destroyed, 2U);
     EXPECT_EQ(lifetimes.live.size(), 4U);
     EXPECT_EQ(allocations.objects.size(), 4U);
