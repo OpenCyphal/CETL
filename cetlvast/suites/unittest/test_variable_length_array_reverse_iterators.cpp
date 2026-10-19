@@ -160,6 +160,47 @@ TYPED_TEST(VLAReverseIterators, FindLastMatch)
     }
 }
 
+// Algorithms that swap elements reach the bit proxies through std::iter_swap, so the proxies must be swappable as
+// std::vector<bool>'s are.
+TEST(VLAReverseIterators, SwappingAlgorithmsOnBits)
+{
+    auto       subjects = make_pair_of<bool>(19U);
+    auto&      actual   = subjects.first;
+    auto&      expected = subjects.second;
+    const auto same     = [&actual, &expected]() {
+        return std::equal(actual.begin(), actual.end(), expected.begin(), expected.end());
+    };
+
+    std::reverse(actual.rbegin(), actual.rend());
+    std::reverse(expected.rbegin(), expected.rend());
+    EXPECT_TRUE(same());
+    std::reverse(actual.begin() + 3, actual.end());
+    std::reverse(expected.begin() + 3, expected.end());
+    EXPECT_TRUE(same());
+    (void) std::rotate(actual.rbegin(), actual.rbegin() + 5, actual.rend());
+    (void) std::rotate(expected.rbegin(), expected.rbegin() + 5, expected.rend());
+    EXPECT_TRUE(same());
+    std::iter_swap(actual.begin(), actual.rbegin());
+    std::iter_swap(expected.begin(), expected.rbegin());
+    EXPECT_TRUE(same());
+    std::sort(actual.begin(), actual.end());
+    std::sort(expected.begin(), expected.end());
+    EXPECT_TRUE(same());
+
+    // Swapping two proxies directly: through ADL, and through the static member std::vector<bool> also provides.
+    actual[0] = false;
+    actual[1] = true;
+    using std::swap;
+    swap(actual[0], actual[1]);
+    EXPECT_TRUE(actual[0]);
+    EXPECT_FALSE(actual[1]);
+    Array<bool>::swap(actual[0], actual[1]);
+    EXPECT_FALSE(actual[0]);
+    EXPECT_TRUE(actual[1]);
+    static_assert(noexcept(swap(actual[0], actual[1])), "swapping bits cannot fail");
+    static_assert(noexcept(Array<bool>::swap(actual[0], actual[1])), "swapping bits cannot fail");
+}
+
 TEST(VLAReverseIterators, NonTrivialElements)
 {
     const std::vector<std::string> source{"one", "two", "a string long enough to need its own heap allocation"};

@@ -2281,6 +2281,16 @@ public:
             set(array_, index_, !test(array_, index_));
         }
 
+        /// Exchanges the bits two proxies refer to, as std::vector<bool>'s reference swap does. Dereferencing an
+        /// iterator gives a temporary proxy, which std::swap cannot take, so without this, algorithms that swap
+        /// elements through std::iter_swap (std::reverse, std::rotate, std::sort and others) would not compile on bits.
+        friend void swap(reference lhs, reference rhs) noexcept
+        {
+            const bool lhs_value = lhs;
+            lhs                  = static_cast<bool>(rhs);
+            rhs                  = lhs_value;
+        }
+
     private:
         friend class VariableLengthArray;
 
@@ -2295,6 +2305,14 @@ public:
         const size_type      index_;
     };
     using const_reference = bool;
+
+    /// Exchanges two bits through their proxies, as std::vector<bool>::swap(reference, reference) does.
+    static void swap(reference lhs, reference rhs) noexcept
+    {
+        const bool lhs_value = lhs;
+        lhs                  = static_cast<bool>(rhs);
+        rhs                  = lhs_value;
+    }
 
 private:
     template <typename A>
