@@ -1071,6 +1071,125 @@ TEST(VLAExceptionSafety, EraseDestroysOnlyTheVacatedTail)
     EXPECT_EQ(lifetimes.live.size(), 3U);
 }
 
+// Inserting constructs the new elements at the end of the array and rotates them into place. If constructing one, or
+// reading or advancing a single-pass source, throws, the new elements are destroyed and the array is unchanged.
+TEST(VLAExceptionSafety, InsertConstructionFailuresLeaveTheArrayUnchanged)
+{
+    // kind: count copies, forward range, single-pass range (failing to copy, read or advance).
+    for (int kind = 0; kind < 5; ++kind)
+    {
+        for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
+        {
+            SCOPED_TRACE(::testing::Message() << "kind=" << kind << " fail_at=" << fail_at);
+            LifetimeState   lifetimes;
+            AllocationState allocations;
+            Value           source[] = {Value{lifetimes, 20}, Value{lifetimes, 21}, Value{lifetimes, 22}};
+            Array<>         array{Allocator<Value>{allocations}};
+            // Reserve enough that inserting does not relocate, which reserve()'s own tests cover.
+            array.reserve(16);
+            populate(array, lifetimes, 4);
+            const auto live = lifetimes.live.size();
+            if (kind == 0)
+            {
+                lifetimes.arm(Operation::Copy, fail_at);
+                EXPECT_THROW((void) array.insert(array.cbegin() + 1, 3U, source[0]), Failure);
+            }
+            if (kind == 1)
+            {
+                lifetimes.arm(Operation::Copy, fail_at);
+                EXPECT_THROW((void) array.insert(array.cbegin() + 1, std::begin(source), std::end(source)), Failure);
+            }
+            if (kind >= 2)
+            {
+                const Operation operations[] = {Operation::Copy, Operation::Read, Operation::Advance};
+                lifetimes.arm(operations[kind - 2], fail_at);
+                EXPECT_THROW((void) array.insert(array.cbegin() + 1,
+                                                 ThrowingAssignIterator{std::begin(source), &lifetimes},
+                                                 ThrowingAssignIterator{std::end(source), &lifetimes}),
+                             Failure);
+            }
+            lifetimes.arm(Operation::None, 0);
+            expect_values(array, 4);
+            EXPECT_EQ(lifetimes.live.size(), live);
+            EXPECT_EQ(allocations.objects.size(), 4U);
+            EXPECT_EQ(allocations.allocations.size(), 1U);
+            // The array remains usable.
+            (void) array.insert(array.cbegin(), std::begin(source), std::end(source));
+            EXPECT_EQ(array.size(), 7U);
+            EXPECT_EQ(array[0].value, 20);
+            EXPECT_EQ(array[3].value, 10);
+        }
+    }
+}
+
+// If moving the existing elements throws while the new ones are rotated into place, every element is still alive and
+// counted in size(), although their order is unspecified.
+TEST(VLAExceptionSafety, InsertRotationFailuresKeepEveryElementAlive)
+{
+    for (std::size_t fail_at = 0; fail_at < 4; ++fail_at)
+    {
+        SCOPED_TRACE(fail_at);
+        LifetimeState   lifetimes;
+        AllocationState allocations;
+        Value           source[] = {Value{lifetimes, 20}, Value{lifetimes, 21}};
+        Array<>         array{Allocator<Value>{allocations}};
+        array.reserve(16);
+        populate(array, lifetimes, 4);
+        lifetimes.arm(Operation::Assign, fail_at);
+        EXPECT_THROW((void) array.insert(array.cbegin(), std::begin(source), std::end(source)), Failure);
+        lifetimes.arm(Operation::None, 0);
+        EXPECT_EQ(array.size(), 6U);
+        EXPECT_EQ(allocations.objects.size(), 6U);
+        EXPECT_EQ(lifetimes.live.size(), 8U);
+        array.clear();
+        EXPECT_EQ(lifetimes.live.size(), 2U);
+    }
+}
+
+// If storage for the insertion cannot be obtained, nothing changes.
+TEST(VLAExceptionSafety, InsertAllocationFailureLeavesTheArrayUnchanged)
+{
+    LifetimeState   lifetimes;
+    AllocationState allocations;
+    const Value     value{lifetimes, 20};
+    Array<>         array{Allocator<Value>{allocations}};
+    populate(array, lifetimes, 3);
+    auto* const original = array.data();
+    allocations.fail     = true;
+    EXPECT_THROW((void) array.insert(array.cbegin(), 2U, value), std::bad_alloc);
+    EXPECT_EQ(array.data(), original);
+    EXPECT_EQ(array.capacity(), 3U);
+    expect_values(array, 3);
+    EXPECT_EQ(lifetimes.live.size(), 4U);
+}
+
+// Inserting bits from a range whose conversion to bool throws removes the appended bits and keeps the originals.
+TEST(VLAExceptionSafety, BoolInsertFailureRestoresTheBits)
+{
+    for (std::size_t fail_at : {0U, 4U, 8U})
+    {
+        SCOPED_TRACE(fail_at);
+        LifetimeState   lifetimes;
+        AllocationState allocations;
+        ThrowingBool    values[9];
+        for (auto& value : values)
+        {
+            value.state = &lifetimes;
+        }
+        using Subject = cetl::VariableLengthArray<bool, Allocator<bool>>;
+        Subject bits{{true, false, true, true, false}, Allocator<bool>{allocations}};
+        lifetimes.arm(Operation::Copy, fail_at);
+        EXPECT_THROW((void) bits.insert(bits.cbegin() + 2, std::begin(values), std::end(values)), Failure);
+        lifetimes.arm(Operation::None, 0);
+        const bool expected[] = {true, false, true, true, false};
+        ASSERT_EQ(bits.size(), 5U);
+        EXPECT_TRUE(std::equal(bits.begin(), bits.end(), std::begin(expected), std::end(expected)));
+        bits.push_back(true);
+        EXPECT_EQ(bits.size(), 6U);
+        EXPECT_TRUE(bits.back());
+    }
+}
+
 // Count-value construction checks max_size() before allocating, and constructs nothing if allocation fails.
 TEST(VLAExceptionSafety, CountValueConstructionFailuresConstructNothing)
 {

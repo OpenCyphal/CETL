@@ -287,5 +287,41 @@ TEST(DeathTestVLAAssertions, TestEraseOtherArrayRangeBool)
     EXPECT_DEATH(TestEraseOtherArrayRangeBool(), "CDE_vla_012");
 }
 
+
+// +----------------------------------------------------------------------+
+
+
+static void TestInsertPastEnd()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    vla.reserve(4);
+    vla.push_back(1);
+    (void)vla.insert(vla.cend() + 1, 2);
+}
+
+TEST(DeathTestVLAAssertions, TestInsertPastEnd)
+{
+    EXPECT_DEATH(TestInsertPastEnd(), "CDE_vla_013");
+}
+
+
+// +----------------------------------------------------------------------+
+
+
+static void TestInsertOtherArrayBool()
+{
+    flush_coverage_on_death();
+    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::VariableLengthArray<bool, std::allocator<bool> > other{std::allocator<bool>()};
+    other.push_back(true);
+    (void)vla.insert(other.cbegin(), true);
+}
+
+TEST(DeathTestVLAAssertions, TestInsertOtherArrayBool)
+{
+    EXPECT_DEATH(TestInsertOtherArrayBool(), "CDE_vla_014");
+}
+
 #endif // CETL_ENABLE_DEBUG_ASSERT
 } // namespace
