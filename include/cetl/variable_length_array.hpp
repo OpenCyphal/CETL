@@ -2000,6 +2000,81 @@ public:
         return position;
     }
 
+    /// Inserts a copy of `value` before `pos`, as std::vector::insert does. Has the same guarantees as
+    /// insert(pos, count, value); `value` may be an element of this array.
+    /// @return An iterator to the inserted element.
+    iterator insert(const_iterator pos, const value_type& value)
+    {
+        return insert(pos, 1U, value);
+    }
+
+    /// Inserts `value` before `pos` by moving it, as std::vector::insert does. Has the same guarantees as
+    /// insert(pos, count, value). As for any rvalue argument, `value` must not refer to an element of this array.
+    /// @return An iterator to the inserted element.
+    iterator insert(const_iterator pos, value_type&& value)
+    {
+        const size_type offset = insert_offset(pos);
+        if (!reserve_for_insert(1U))
+        {
+            return iterator_at(offset);
+        }
+        return insert_appended(offset, [this, &value]() { append_reserved(std::move(value)); });
+    }
+
+    /// Inserts `count` copies of `value` before `pos`, as std::vector::insert does. `value` may be an element of this
+    /// array. Iterators at or after `pos` are invalidated, and all iterators are if capacity grows; capacity grows
+    /// geometrically, as for push_back(), so repeated insertion takes amortized constant time per element moved.
+    ///
+    /// The new elements are constructed at the end and rotated into place, so value_type must be move-assignable and
+    /// swappable, as std::vector requires. If constructing a new element throws, the elements constructed so far are
+    /// destroyed and the array is unchanged, although capacity acquired for the insertion may remain. If moving the
+    /// existing elements throws, every element remains valid but their order is unspecified.
+    ///
+    /// With exceptions disabled, an insertion that would exceed max_size(), or for which the allocator does not provide
+    /// storage, has no effect; detect it by comparing size() before and after.
+    /// @param pos   The element before which to insert; may be end().
+    /// @param count The number of copies to insert.
+    /// @param value The value to copy.
+    /// @return An iterator to the first inserted element, or `pos` if nothing was inserted.
+    /// @throw std::length_error if size() + `count` would exceed max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory.
+    iterator insert(const_iterator pos, const size_type count, const value_type& value)
+    {
+        const size_type offset = insert_offset(pos);
+        if (refers_to_element(value))
+        {
+            // Growing may relocate the element value refers to before it is copied, so copy it first.
+            const value_type copy(value);
+            return insert_copies(offset, count, copy);
+        }
+        return insert_copies(offset, count, value);
+    }
+
+    /// Inserts the elements of [first, last) before `pos`, in order, as std::vector::insert does. The range must not
+    /// refer to elements of this array. Forward ranges are measured first and have the same guarantees as
+    /// insert(pos, count, value). Single-pass ranges are appended one element at a time and then rotated into place; if
+    /// that fails with exceptions enabled, the appended elements are destroyed and the array is otherwise unchanged.
+    /// With exceptions disabled, a single-pass range stops at max_size() or at failed growth and keeps the inserted
+    /// prefix, as assign(first, last) does.
+    /// @return An iterator to the first inserted element, or `pos` if the range is empty.
+    /// @throw std::length_error if the inserted elements would exceed max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory.
+    template <typename InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
+    iterator insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        return insert_range(insert_offset(pos),
+                            first,
+                            last,
+                            typename std::iterator_traits<InputIt>::iterator_category{});
+    }
+
+    /// Inserts the elements of `values` before `pos`. Has the same guarantees as insert(pos, first, last).
+    /// @return An iterator to the first inserted element, or `pos` if `values` is empty.
+    iterator insert(const_iterator pos, std::initializer_list<value_type> values)
+    {
+        return insert(pos, values.begin(), values.end());
+    }
+
     /// Like push_back but constructs the object directly in uninitialized memory.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
     ///        If exceptions are disabled then the caller must check the array size before and
@@ -2115,6 +2190,133 @@ private:
     void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
         Base::assign_from_forward_range(first, last, max_size());
+    }
+
+    size_type insert_offset(const const_iterator pos) const noexcept
+    {
+        CETL_DEBUG_ASSERT((cbegin() <= pos) && (pos <= cend()),
+                          "CDE_vla_013: insert() position is not within the array.");
+        // An array without storage is empty, so the only position is its beginning; avoid subtracting null pointers.
+        return (data_ == nullptr) ? 0U : static_cast<size_type>(pos - cbegin());
+    }
+
+    iterator iterator_at(const size_type offset) noexcept
+    {
+        return (data_ == nullptr) ? data_ : (data_ + offset);
+    }
+
+    bool refers_to_element(const value_type& value) const noexcept
+    {
+        // std::less orders pointers that are not into the same array, which the built-in operators do not.
+        const std::less<const value_type*> less;
+        const value_type*                  address = std::addressof(value);
+        return (data_ != nullptr) && !less(address, data_) && less(address, data_ + size_);
+    }
+
+    // Makes room for `count` more elements, growing geometrically as push_back() does so that repeated insertion stays
+    // amortized. Returns false, with exceptions disabled, when they would exceed max_size() or the allocator declines;
+    // the array is then unchanged.
+    bool reserve_for_insert(const size_type count)
+    {
+        const size_type limit = max_size();
+        if (count > (limit - std::min(size_, limit)))
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("insert() would exceed max_size().");
+#else
+            return false;
+#endif
+        }
+        const size_type required = size_ + count;
+        if (required > capacity_)
+        {
+            const size_type geometric = capacity_ + std::max<size_type>(capacity_ / 2U, 2U);
+            Base::reserve(std::min(limit, std::max(required, geometric)), limit);
+        }
+        return capacity_ >= required;
+    }
+
+    // Constructs one element at the end of storage that reserve_for_insert() provided, committing it to size().
+    template <typename... Args>
+    void append_reserved(Args&&... args)
+    {
+        std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Args>(args)...);
+        ++size_;
+    }
+
+    // Runs `append`, which commits each element it adds to size(), then rotates the added elements to `offset`. If
+    // appending throws, the added elements are destroyed and the array is unchanged except, possibly, its capacity.
+    template <typename Append>
+    iterator insert_appended(const size_type offset, Append append)
+    {
+        const size_type old_size = size_;
+#if defined(__cpp_exceptions)
+        try
+        {
+#endif
+            append();
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            Base::destroy_suffix(old_size);
+            throw;
+        }
+#endif
+        if (data_ == nullptr)
+        {
+            // Nothing was added to an array that never allocated.
+            return data_;
+        }
+        (void) std::rotate(data_ + offset, data_ + old_size, data_ + size_);
+        return data_ + offset;
+    }
+
+    iterator insert_copies(const size_type offset, const size_type count, const value_type& value)
+    {
+        if ((count == 0U) || !reserve_for_insert(count))
+        {
+            return iterator_at(offset);
+        }
+        return insert_appended(offset, [this, count, &value]() {
+            for (size_type i = 0; i < count; ++i)
+            {
+                append_reserved(value);
+            }
+        });
+    }
+
+    template <typename ForwardIt>
+    iterator insert_range(const size_type offset, ForwardIt first, ForwardIt last, std::forward_iterator_tag)
+    {
+        // Do not subtract equal null pointers.
+        const size_type count = (first == last) ? 0U : static_cast<size_type>(std::distance(first, last));
+        if ((count == 0U) || !reserve_for_insert(count))
+        {
+            return iterator_at(offset);
+        }
+        return insert_appended(offset, [this, &first, &last]() {
+            for (; first != last; (void) ++first)
+            {
+                append_reserved(*first);
+            }
+        });
+    }
+
+    template <typename InputIt>
+    iterator insert_range(const size_type offset, InputIt first, InputIt last, std::input_iterator_tag)
+    {
+        return insert_appended(offset, [this, &first, &last]() {
+            for (; first != last; (void) ++first)
+            {
+                const size_type size_before = size_;
+                emplace_back(*first);
+                if (size_ == size_before)
+                {
+                    // With exceptions disabled, emplace_back stops at max_size() or when growth is declined.
+                    break;
+                }
+            }
+        });
     }
 
     // Range construction requires elements to be constructible from *first, as std::vector's does, not assignable.
@@ -3080,6 +3282,82 @@ public:
         return iterator(*this, first.index_);
     }
 
+    /// Inserts a bit with `value` before `pos`, as std::vector<bool>::insert does. Has the same guarantees as
+    /// insert(pos, count, value).
+    /// @return An iterator to the inserted bit.
+    iterator insert(const_iterator pos, const bool value)
+    {
+        return insert(pos, 1U, value);
+    }
+
+    /// Inserts `count` bits with `value` before `pos`, as std::vector<bool>::insert does. Iterators at or after `pos`
+    /// are invalidated, and all iterators are if capacity grows; capacity grows geometrically, as for push_back().
+    /// With exceptions disabled, an insertion that would exceed max_size(), or for which the allocator does not provide
+    /// storage, has no effect; detect it by comparing size() before and after.
+    /// @return An iterator to the first inserted bit, or `pos` if nothing was inserted.
+    /// @throw std::length_error if size() + `count` would exceed max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory.
+    iterator insert(const_iterator pos, const size_type count, const bool value)
+    {
+        const size_type offset = insert_offset(pos);
+        if ((count == 0U) || !reserve_for_insert(count))
+        {
+            return iterator(*this, offset);
+        }
+        const size_type old_size = size();
+        resize(old_size + count, value);
+        return rotate_into_place(offset, old_size);
+    }
+
+    /// Inserts the bits of [first, last) before `pos`, in order, as std::vector<bool>::insert does. The range must not
+    /// refer to this array. Forward ranges are measured and storage is obtained first; single-pass ranges grow one
+    /// bit at a time. If reading or converting a source element throws, or a single-pass range exceeds max_size(), the
+    /// appended bits are removed and the array is unchanged except, possibly, its capacity. With exceptions disabled,
+    /// a forward range that does not fit has no effect, while a single-pass range stops at max_size() or at failed
+    /// growth and keeps the inserted prefix, as assign(first, last) does.
+    /// @return An iterator to the first inserted bit, or `pos` if the range is empty.
+    /// @throw std::length_error if the inserted bits would exceed max_size().
+    /// @throw std::bad_alloc if the container cannot obtain enough memory.
+    template <typename InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
+    iterator insert(const_iterator pos, InputIt first, InputIt last)
+    {
+        const size_type offset = insert_offset(pos);
+        if (!reserve_range_for_insert(first, last, typename std::iterator_traits<InputIt>::iterator_category{}))
+        {
+            return iterator(*this, offset);
+        }
+        const size_type old_size = size();
+#if defined(__cpp_exceptions)
+        try
+        {
+#endif
+            for (; first != last; (void) ++first)
+            {
+                const size_type size_before = size();
+                emplace_back(*first);
+                if (size() == size_before)
+                {
+                    // With exceptions disabled, emplace_back stops at max_size() or when growth is declined.
+                    break;
+                }
+            }
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            set_size_bits(old_size);
+            throw;
+        }
+#endif
+        return rotate_into_place(offset, old_size);
+    }
+
+    /// Inserts the bits of `values` before `pos`. Has the same guarantees as insert(pos, first, last).
+    /// @return An iterator to the first inserted bit, or `pos` if `values` is empty.
+    iterator insert(const_iterator pos, std::initializer_list<bool> values)
+    {
+        return insert(pos, values.begin(), values.end());
+    }
+
     ///
     /// Like push_back but constructs the object directly in uninitialized memory.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
@@ -3393,6 +3671,60 @@ private:
     {
         size_               = bits2bytes(bits);
         last_byte_bit_fill_ = static_cast<Storage>((bits == 0U) ? 0U : ((bits - 1U) % 8U));
+    }
+
+    size_type insert_offset(const const_iterator pos) const noexcept
+    {
+        CETL_DEBUG_ASSERT((pos.array_ == this) && (pos.index_ <= size()),
+                          "CDE_vla_014: insert() position is not within the array.");
+        return pos.index_;
+    }
+
+    // Makes room for `count` more bits, growing geometrically as push_back() does. Returns false, with exceptions
+    // disabled, when they would exceed max_size() or the allocator declines; the array is then unchanged.
+    bool reserve_for_insert(const size_type count)
+    {
+        const size_type limit = max_size();
+        if (count > (limit - std::min(size(), limit)))
+        {
+#if defined(__cpp_exceptions)
+            throw std::length_error("insert() would exceed max_size().");
+#else
+            return false;
+#endif
+        }
+        const size_type required = size() + count;
+        if (required > capacity())
+        {
+            const size_type limit_bytes = bits2bytes(limit);
+            const size_type geometric   = capacity_ + std::max<size_type>(capacity_ / 2U, 2U);
+            Base::reserve(std::min(limit_bytes, std::max(bits2bytes(required), geometric)), limit_bytes);
+        }
+        return capacity() >= required;
+    }
+
+    // A forward range is measured so its storage is obtained once, before any bit is added.
+    template <typename ForwardIt>
+    bool reserve_range_for_insert(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
+    {
+        const size_type count = (first == last) ? 0U : static_cast<size_type>(std::distance(first, last));
+        return (count == 0U) || reserve_for_insert(count);
+    }
+
+    // A single-pass range cannot be measured; it grows as it is appended.
+    template <typename InputIt>
+    bool reserve_range_for_insert(InputIt, InputIt, std::input_iterator_tag) noexcept
+    {
+        return true;
+    }
+
+    // Rotates the bits appended since `old_size` to `offset`, the second half of every insert.
+    iterator rotate_into_place(const size_type offset, const size_type old_size)
+    {
+        (void) std::rotate(begin() + static_cast<difference_type>(offset),
+                           begin() + static_cast<difference_type>(old_size),
+                           end());
+        return iterator(*this, offset);
     }
 
     /// The index of the first bit at which this array and rhs differ, or the length of the shorter array if they do

@@ -44,7 +44,7 @@ enum class Operation : std::uint8_t
 {
     PushBackCopy,
     PushBackMove,
-    EmplaceBack,
+    EmplaceBackOrInsert,
     PopBackOrErase,
     Resize,
     ResizeValue,
@@ -327,6 +327,101 @@ void assign_variant(const unsigned    variant,
     }
 }
 
+// Inserts [first, last) into the model at `at` by rebuilding it. libc++ 23's std::vector<bool>::insert shifts a word by
+// its full width in __copy_backward_unaligned, which UBSan reports, so the model does not call insert().
+template <typename T, typename It>
+void model_insert(Model<T>& model, const std::size_t at, It first, It last)
+{
+    Model<T> updated;
+    updated.reserve(model.size() + static_cast<std::size_t>(std::distance(first, last)));
+    for (std::size_t i = 0; i < at; ++i)
+    {
+        updated.push_back(model.at(i));
+    }
+    for (; first != last; ++first)
+    {
+        updated.push_back(*first);
+    }
+    for (std::size_t i = at; i < model.size(); ++i)
+    {
+        updated.push_back(model.at(i));
+    }
+    model.swap(updated);
+}
+
+// Appends or inserts into both the array and its model. The opcode's spare bits pick the operation, and every insertion
+// is bounded so the array stays within max_size(). Each insert must return the position of its first new element.
+template <typename T, typename Array>
+void emplace_or_insert(const unsigned    variant,
+                       Array&            array,
+                       Model<T>&         model,
+                       const Model<T>&   other_model,
+                       const std::size_t count,
+                       const T&          value)
+{
+    const std::size_t room = MaxElements - model.size();
+    if (room == 0U)
+    {
+        return;
+    }
+    // Inserting before end() is included.
+    const std::size_t at       = count % (model.size() + 1U);
+    const auto        offset   = static_cast<std::ptrdiff_t>(at);
+    const std::size_t inserted = std::min(room, count % 8U);
+    const auto        take     = static_cast<std::ptrdiff_t>(std::min(inserted, other_model.size()));
+    std::ptrdiff_t    result   = offset;
+    switch (variant)
+    {
+    case 1:  // one copy
+    {
+        const auto position = array.insert(array.cbegin() + offset, value);
+        result              = position - array.begin();
+        const Model<T> one(1U, value);
+        model_insert(model, at, one.begin(), one.end());
+        break;
+    }
+    case 2:  // several copies, including none
+    {
+        const auto position = array.insert(array.cbegin() + offset, inserted, value);
+        result              = position - array.begin();
+        const Model<T> copies(inserted, value);
+        model_insert(model, at, copies.begin(), copies.end());
+        break;
+    }
+    case 3:  // forward range from the other model
+    {
+        const std::forward_list<T> list(other_model.begin(), other_model.begin() + take);
+        const auto                 position = array.insert(array.cbegin() + offset, list.begin(), list.end());
+        result                              = position - array.begin();
+        model_insert(model, at, other_model.begin(), other_model.begin() + take);
+        break;
+    }
+    case 4:  // single-pass range from the other model
+    {
+        const auto position = array.insert(array.cbegin() + offset,
+                                           SinglePass<T>(other_model, 0),
+                                           SinglePass<T>(other_model, static_cast<std::size_t>(take)));
+        result              = position - array.begin();
+        model_insert(model, at, other_model.begin(), other_model.begin() + take);
+        break;
+    }
+    case 5:  // initializer list
+        if (room >= 2U)
+        {
+            const auto position = array.insert(array.cbegin() + offset, {value, T{}});
+            result              = position - array.begin();
+            const Model<T> list{value, T{}};
+            model_insert(model, at, list.begin(), list.end());
+        }
+        break;
+    default:
+        array.emplace_back(value);
+        model.push_back(value);
+        return;
+    }
+    require(result == offset, "insert returned the wrong position");
+}
+
 template <typename T, typename Allocator>
 void check(cetl::VariableLengthArray<T, Allocator>& actual, const Model<T>& expected)
 {
@@ -398,12 +493,8 @@ void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, co
                 model.push_back(value);
             }
             break;
-        case Operation::EmplaceBack:
-            if (model.size() < MaxElements)
-            {
-                array.emplace_back(value);
-                model.push_back(value);
-            }
+        case Operation::EmplaceBackOrInsert:
+            emplace_or_insert<T>(opcode >> AssignVariantShift, array, model, other_model, count, value);
             break;
         case Operation::PopBackOrErase: {
             // The opcode's spare bits choose pop_back, erase(pos), or erase(first, last).
