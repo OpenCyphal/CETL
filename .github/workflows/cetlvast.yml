@@ -21,7 +21,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
+    container: ghcr.io/opencyphal/toolshed:ts26.4.5
     steps:
       - uses: actions/checkout@v7
       - name: Cache ext modules
@@ -44,7 +44,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
+    container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
       - cache-warmup
     strategy:
@@ -83,17 +83,55 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-24.04-arm
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
+    container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
       - cache-warmup
     strategy:
       matrix:
         toolchain: ["gcc-native", "clang-native"]
         standard: ["cpp-14", "cpp-17", "cpp-20"]
-        include:
-          # GCC 7 is still what much of the Arduino ecosystem ships (#149). It only supports C++14 here.
-          - toolchain: "gcc7-native"
-            standard: "cpp-14"
+    steps:
+      - uses: actions/checkout@v7
+      - name: Cache ext modules
+        uses: actions/cache@v6
+        with:
+          path: cetlvast/build_external
+          key: build-external-${{ hashFiles('**/cetlvast/cmake/modules/ExternalDependencies*.cmake.in') }}-${{ hashFiles('**/cetlvast/cmake/modules/patches/*.patch') }}
+          fail-on-cache-miss: true
+      - name: run tests
+        working-directory: cetlvast
+        env:
+          GTEST_COLOR: yes
+        run: >
+          cmake --workflow --preset workflow-${{ matrix.toolchain }}-${{ matrix.standard }}-offline
+      - name: upload-artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.toolchain }}-${{ matrix.standard }}-arm64
+          path: |
+            cetlvast/build/compile_commands.json
+            cetlvast/build/*/**/gcovr_html/*.*
+          if-no-files-found: error
+
+  # Compilers the current toolshed image no longer ships run here, in the last image that has them.
+  verification-legacy-arm64:
+    if: >
+      github.event_name == 'release' ||
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '#verification') ||
+      contains(github.ref, '/main') ||
+      contains(github.ref, '/issue/') ||
+      (github.event_name == 'pull_request')
+    runs-on: ubuntu-24.04-arm
+    # ts26.4.x dropped g++-7. Keep this pinned to ts24.4.3 rather than following the other jobs.
+    container: ghcr.io/opencyphal/toolshed:ts24.4.3
+    needs:
+      - cache-warmup
+    strategy:
+      matrix:
+        # GCC 7 is still what much of the Arduino ecosystem ships (#149). It only supports C++14 here.
+        toolchain: ["gcc7-native"]
+        standard: ["cpp-14"]
     steps:
       - uses: actions/checkout@v7
       - name: Cache ext modules
@@ -126,7 +164,7 @@ jobs:
       contains(github.ref, '/issue/') ||
       (github.event_name == 'pull_request')
     runs-on: ubuntu-latest
-    container: ghcr.io/opencyphal/toolshed:ts24.4.3
+    container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
       - cache-warmup
     steps:
