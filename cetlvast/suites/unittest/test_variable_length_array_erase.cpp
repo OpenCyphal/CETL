@@ -136,6 +136,41 @@ TYPED_TEST(VLAErase, AcceptsMutableAndConstIterators)
                   "const_iterator must not convert to iterator");
 }
 
+// Since iterator converts to const_iterator, mixed comparisons and differences work with either operand first, as for
+// std::vector.
+TYPED_TEST(VLAErase, MixedIteratorsCompareInEitherOrder)
+{
+    auto        subjects = make_pair_of<TypeParam>(10U, 10U);
+    auto&       actual   = subjects.first;
+    const auto  first    = actual.begin() + 2;
+    const auto  cfirst   = actual.cbegin() + 2;
+    const auto  last     = actual.begin() + 7;
+    const auto  clast    = actual.cbegin() + 7;
+    std::size_t visited  = 0;
+    for (auto it = actual.begin(); it != actual.cend(); ++it)
+    {
+        ++visited;
+    }
+    EXPECT_EQ(visited, 10U);
+
+    EXPECT_TRUE(first == cfirst);
+    EXPECT_TRUE(cfirst == first);
+    EXPECT_TRUE(first != clast);
+    EXPECT_TRUE(clast != first);
+    EXPECT_TRUE(first < clast);
+    EXPECT_TRUE(cfirst < last);
+    EXPECT_TRUE(last > cfirst);
+    EXPECT_TRUE(clast > first);
+    EXPECT_TRUE(first <= cfirst);
+    EXPECT_TRUE(cfirst <= first);
+    EXPECT_TRUE(last >= clast);
+    EXPECT_TRUE(clast >= last);
+    EXPECT_EQ(last - cfirst, 5);
+    EXPECT_EQ(clast - first, 5);
+    EXPECT_EQ(actual.cend() - actual.begin(), 10);
+    EXPECT_EQ(actual.end() - actual.cbegin(), 10);
+}
+
 // An empty range has no effect, including on an array that has never allocated.
 TYPED_TEST(VLAErase, EmptyRangeHasNoEffect)
 {

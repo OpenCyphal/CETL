@@ -2226,9 +2226,11 @@ private:
         {
             return IteratorImpl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) - n));
         }
-        difference_type operator-(const IteratorImpl& other) const noexcept
+        // The iterator-to-iterator operators are hidden friends rather than members, so an iterator can convert to a
+        // const_iterator on either side: bits.begin() != bits.cend() and bits.cend() - bits.begin() both compile.
+        friend difference_type operator-(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_);
+            return static_cast<difference_type>(lhs.index_) - static_cast<difference_type>(rhs.index_);
         }
 
         ///
@@ -2257,29 +2259,29 @@ private:
             return array_->operator[](static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
 
-        bool operator==(const IteratorImpl& other) const noexcept
+        friend bool operator==(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return array_ == other.array_ && index_ == other.index_;
+            return lhs.array_ == rhs.array_ && lhs.index_ == rhs.index_;
         }
-        bool operator!=(const IteratorImpl& other) const noexcept
+        friend bool operator!=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return !((*this) == other);
+            return !(lhs == rhs);
         }
-        bool operator<(const IteratorImpl& other) const noexcept
+        friend bool operator<(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ < other.index_;
+            return lhs.index_ < rhs.index_;
         }
-        bool operator>(const IteratorImpl& other) const noexcept
+        friend bool operator>(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ > other.index_;
+            return lhs.index_ > rhs.index_;
         }
-        bool operator<=(const IteratorImpl& other) const noexcept
+        friend bool operator<=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ <= other.index_;
+            return lhs.index_ <= rhs.index_;
         }
-        bool operator>=(const IteratorImpl& other) const noexcept
+        friend bool operator>=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ >= other.index_;
+            return lhs.index_ >= rhs.index_;
         }
 
     private:

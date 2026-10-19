@@ -424,6 +424,12 @@ void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, co
                 (void) model.erase(model.begin() + at);
                 require((result - array.begin()) == at, "erase(pos) returned the wrong position");
             }
+            else if (size == 0U)
+            {
+                // The only range of an empty array; it may have no storage, so avoid arithmetic on null pointers.
+                const auto result = array.erase(array.cbegin(), array.cend());
+                require(result == array.end(), "erasing an empty array did not return end()");
+            }
             else
             {
                 // Includes empty ranges, at any position including end().
