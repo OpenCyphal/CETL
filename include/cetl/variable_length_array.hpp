@@ -18,6 +18,9 @@
 #include <limits>
 #include <memory>
 #include <type_traits>
+#if __cplusplus >= 202002L
+#    include <compare>
+#endif
 
 #ifndef CETL_H_ERASE
 #    include "cetl/cetl.hpp"
@@ -55,6 +58,39 @@ using enable_if_input_iterator_t = std::enable_if_t<is_input_iterator<InputIt>::
 template <typename Count, typename SizeType>
 using enable_if_count_t =
     std::enable_if_t<std::is_convertible<Count, SizeType>::value && !is_input_iterator<Count>::value>;
+
+#if defined(__cpp_lib_three_way_comparison) && (__cpp_lib_three_way_comparison >= 201907L)
+// The standard's exposition-only synth-three-way, which std::vector's operator<=> uses: an element's own operator<=>
+// if it has one, otherwise a weak ordering derived from operator<. Elements with neither do not satisfy the
+// constraint, so the array's operator<=> drops out of overload resolution instead of failing to compile.
+struct SynthThreeWay
+{
+    template <typename T>
+        requires requires(const T& lhs, const T& rhs) {
+            lhs < rhs;
+            rhs < lhs;
+        }
+    constexpr auto operator()(const T& lhs, const T& rhs) const
+    {
+        if constexpr (std::three_way_comparable<T>)
+        {
+            return lhs <=> rhs;
+        }
+        else
+        {
+            if (lhs < rhs)
+            {
+                return std::weak_ordering::less;
+            }
+            if (rhs < lhs)
+            {
+                return std::weak_ordering::greater;
+            }
+            return std::weak_ordering::equivalent;
+        }
+    }
+};
+#endif
 
 // Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
 // directly.
@@ -1466,6 +1502,50 @@ public:
         return !(operator==(rhs));
     }
 
+#if defined(__cpp_lib_three_way_comparison) && (__cpp_lib_three_way_comparison >= 201907L)
+    /// Compares the elements lexicographically, as std::vector's operator<=> does: the first pair that is not
+    /// equivalent decides, and otherwise the shorter array is less. Elements are compared with their own operator<=>,
+    /// or through operator< when they have none, and the result has the matching ordering category. <, <=, > and >=
+    /// are rewritten in terms of this operator, as for std::vector, so partially ordered elements such as a NaN give
+    /// the same answers as std::vector does in C++20.
+    template <typename U = value_type>
+    constexpr auto operator<=>(const VariableLengthArray& rhs) const
+        -> decltype(detail::SynthThreeWay{}(std::declval<const U&>(), std::declval<const U&>()))
+    {
+        return std::lexicographical_compare_three_way(cbegin(),
+                                                      cend(),
+                                                      rhs.cbegin(),
+                                                      rhs.cend(),
+                                                      detail::SynthThreeWay{});
+    }
+#else
+    /// Compares the elements lexicographically, as std::vector's operator< does before C++20: the first unequal pair
+    /// decides, and otherwise the shorter array is less. Requires value_type to be comparable with operator<. In C++20
+    /// these four operators are replaced by operator<=>, as they are for std::vector.
+    constexpr bool operator<(const VariableLengthArray& rhs) const
+    {
+        return std::lexicographical_compare(cbegin(), cend(), rhs.cbegin(), rhs.cend());
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator>(const VariableLengthArray& rhs) const
+    {
+        return rhs < *this;
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator<=(const VariableLengthArray& rhs) const
+    {
+        return !(rhs < *this);
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator>=(const VariableLengthArray& rhs) const
+    {
+        return !(*this < rhs);
+    }
+#endif
+
     // +----------------------------------------------------------------------+
     // | ELEMENT ACCESS
     // +----------------------------------------------------------------------+
@@ -2523,6 +2603,43 @@ public:
         return !(operator==(rhs));
     }
 
+#if defined(__cpp_lib_three_way_comparison) && (__cpp_lib_three_way_comparison >= 201907L)
+    /// Compares the bits lexicographically, as std::vector<bool>'s operator<=> does: at the first differing bit, false
+    /// is less than true, and otherwise the shorter array is less. <, <=, > and >= are rewritten in terms of this.
+    constexpr std::strong_ordering operator<=>(const VariableLengthArray& rhs) const noexcept
+    {
+        const size_type index = first_difference(rhs);
+        return (index < std::min(size(), rhs.size())) ? (test(*this, index) <=> test(rhs, index))
+                                                      : (size() <=> rhs.size());
+    }
+#else
+    /// Compares the bits lexicographically, as std::vector<bool>'s operator< does: at the first differing bit, false is
+    /// less than true, and otherwise the shorter array is less.
+    constexpr bool operator<(const VariableLengthArray& rhs) const noexcept
+    {
+        const size_type index = first_difference(rhs);
+        return (index < std::min(size(), rhs.size())) ? test(rhs, index) : (size() < rhs.size());
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator>(const VariableLengthArray& rhs) const noexcept
+    {
+        return rhs < *this;
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator<=(const VariableLengthArray& rhs) const noexcept
+    {
+        return !(rhs < *this);
+    }
+
+    /// Lexicographic comparison; see operator<.
+    constexpr bool operator>=(const VariableLengthArray& rhs) const noexcept
+    {
+        return !(*this < rhs);
+    }
+#endif
+
     // +----------------------------------------------------------------------+
     // | ELEMENT ACCESS
     // +----------------------------------------------------------------------+
@@ -3173,6 +3290,19 @@ private:
     {
         size_               = bits2bytes(bits);
         last_byte_bit_fill_ = static_cast<Storage>((bits == 0U) ? 0U : ((bits - 1U) % 8U));
+    }
+
+    /// The index of the first bit at which this array and rhs differ, or the length of the shorter array if they do
+    /// not differ before it.
+    constexpr size_type first_difference(const VariableLengthArray& rhs) const noexcept
+    {
+        const size_type common = std::min(size(), rhs.size());
+        size_type       index  = 0;
+        while ((index < common) && (test(*this, index) == test(rhs, index)))
+        {
+            ++index;
+        }
+        return index;
     }
 
     constexpr size_type size_bits() const noexcept
