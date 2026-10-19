@@ -227,6 +227,36 @@ static_assert(std::is_same<decltype(std::declval<const Array<OnlyLess>&>() <=> s
               "elements with only operator< order weakly, as through synth-three-way");
 static_assert(std::three_way_comparable<Array<int>>, "arrays of ordered elements are three-way comparable");
 static_assert(!std::three_way_comparable<Array<Unordered>>, "arrays of unordered elements are not");
+
+// operator< must give a boolean-testable result, as synth-three-way requires. These element types have an operator<
+// that compiles but does not, so the array has no operator<=>, the same as std::vector, and asking does not fail to
+// compile.
+struct VoidLess
+{
+    void operator<(const VoidLess&) const {}
+};
+struct ExplicitBool
+{
+    explicit operator bool() const
+    {
+        return false;
+    }
+};
+struct ExplicitBoolLess
+{
+    ExplicitBool operator<(const ExplicitBoolLess&) const
+    {
+        return {};
+    }
+};
+template <typename A>
+concept HasThreeWay = requires(const A& lhs, const A& rhs) { lhs <=> rhs; };
+static_assert(!HasThreeWay<Array<VoidLess>>, "a void operator< does not order the array");
+static_assert(!HasThreeWay<Array<ExplicitBoolLess>>, "an explicit-bool operator< does not order the array");
+static_assert(HasThreeWay<Array<VoidLess>> == HasThreeWay<std::vector<VoidLess>>, "matches std::vector");
+static_assert(HasThreeWay<Array<ExplicitBoolLess>> == HasThreeWay<std::vector<ExplicitBoolLess>>,
+              "matches std::vector");
+static_assert(HasThreeWay<Array<OnlyLess>> == HasThreeWay<std::vector<OnlyLess>>, "matches std::vector");
 #endif
 
 static_assert(noexcept(std::declval<const Array<bool>&>() < std::declval<const Array<bool>&>()),

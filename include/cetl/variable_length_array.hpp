@@ -20,6 +20,7 @@
 #include <type_traits>
 #if __cplusplus >= 202002L
 #    include <compare>
+#    include <concepts>
 #endif
 
 #ifndef CETL_H_ERASE
@@ -60,15 +61,25 @@ using enable_if_count_t =
     std::enable_if_t<std::is_convertible<Count, SizeType>::value && !is_input_iterator<Count>::value>;
 
 #if defined(__cpp_lib_three_way_comparison) && (__cpp_lib_three_way_comparison >= 201907L)
+// The standard's exposition-only boolean-testable: a result that converts implicitly to bool, and whose negation does
+// too, so it can be used in a condition the way bool can.
+template <typename T>
+concept BooleanTestableImpl = std::convertible_to<T, bool>;
+template <typename T>
+concept BooleanTestable = BooleanTestableImpl<T> && requires(T&& t) {
+    { !std::forward<T>(t) } -> BooleanTestableImpl;
+};
+
 // The standard's exposition-only synth-three-way, which std::vector's operator<=> uses: an element's own operator<=>
-// if it has one, otherwise a weak ordering derived from operator<. Elements with neither do not satisfy the
-// constraint, so the array's operator<=> drops out of overload resolution instead of failing to compile.
+// if it has one, otherwise a weak ordering derived from operator<. Elements without a boolean-testable operator< do
+// not satisfy the constraint, so the array's operator<=> drops out of overload resolution instead of failing to
+// compile, and is available exactly when std::vector's is.
 struct SynthThreeWay
 {
     template <typename T>
         requires requires(const T& lhs, const T& rhs) {
-            lhs < rhs;
-            rhs < lhs;
+            { lhs < rhs } -> BooleanTestable;
+            { rhs < lhs } -> BooleanTestable;
         }
     constexpr auto operator()(const T& lhs, const T& rhs) const
     {
