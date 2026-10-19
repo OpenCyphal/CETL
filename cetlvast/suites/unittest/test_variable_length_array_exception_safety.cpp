@@ -1034,6 +1034,43 @@ TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyConta
     }
 }
 
+// Erase move-assigns the later elements forward and destroys only the vacated tail, keeping its storage. If a move
+// assignment throws, the size and every object's lifetime are unchanged, although values may have been moved from.
+TEST(VLAExceptionSafety, EraseDestroysOnlyTheVacatedTail)
+{
+    LifetimeState   lifetimes;
+    AllocationState allocations;
+    Array<>         array{Allocator<Value>{allocations}};
+    populate(array, lifetimes, 6);
+    const auto destroyed = lifetimes.destroyed;
+    const auto result    = array.erase(array.cbegin() + 1, array.cbegin() + 3);
+    EXPECT_EQ(result, array.begin() + 1);
+    EXPECT_EQ(lifetimes.destroyed - destroyed, 2U);
+    EXPECT_EQ(lifetimes.live.size(), 4U);
+    EXPECT_EQ(allocations.objects.size(), 4U);
+    EXPECT_EQ(allocations.allocations.size(), 1U);
+    EXPECT_EQ(array.capacity(), 6U);
+    ASSERT_EQ(array.size(), 4U);
+    EXPECT_EQ(array[0].value, 10);
+    EXPECT_EQ(array[1].value, 13);
+    EXPECT_EQ(array[3].value, 15);
+
+    for (std::size_t fail_at = 0; fail_at < 2; ++fail_at)
+    {
+        SCOPED_TRACE(::testing::Message() << "fail_at=" << fail_at);
+        lifetimes.arm(Operation::Assign, fail_at);
+        EXPECT_THROW(array.erase(array.cbegin()), Failure);
+        lifetimes.arm(Operation::None, 0);
+        EXPECT_EQ(array.size(), 4U);
+        EXPECT_EQ(lifetimes.live.size(), 4U);
+        EXPECT_EQ(allocations.objects.size(), 4U);
+    }
+    // The array remains usable after a failed erase.
+    (void) array.erase(array.cbegin());
+    EXPECT_EQ(array.size(), 3U);
+    EXPECT_EQ(lifetimes.live.size(), 3U);
+}
+
 // Count-value construction checks max_size() before allocating, and constructs nothing if allocation fails.
 TEST(VLAExceptionSafety, CountValueConstructionFailuresConstructNothing)
 {

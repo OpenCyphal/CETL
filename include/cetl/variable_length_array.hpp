@@ -1826,6 +1826,46 @@ public:
             std::allocator_traits<allocator_type>::destroy(alloc_, std::addressof(data_[--size_]));
         }
     }
+
+    /// Removes the element at `pos`, as std::vector::erase does. Has the same guarantees as erase(first, last).
+    /// @param pos  The element to remove. It must be dereferenceable, so it cannot be end().
+    /// @return An iterator to the element that followed the removed one, which is end() if it was the last.
+    iterator erase(const_iterator pos) noexcept(std::is_nothrow_move_assignable<value_type>::value &&
+                                                std::is_nothrow_destructible<value_type>::value)
+    {
+        CETL_DEBUG_ASSERT((cbegin() <= pos) && (pos < cend()), "CDE_vla_009: erase() position is not dereferenceable.");
+        return erase(pos, pos + 1);
+    }
+
+    /// Removes the elements in [first, last), as std::vector::erase does. Later elements are move-assigned toward the
+    /// front and the vacated elements at the end are destroyed. Capacity and max_size() are unchanged, and iterators
+    /// before `first` remain valid. An empty range has no effect.
+    /// @param first The first element to remove.
+    /// @param last  One past the last element to remove. [first, last) must be a valid range of this array.
+    /// @return An iterator to the element that followed the removed range, which is end() if the range reached it.
+    /// @throw * Any exception thrown by value_type's move assignment. The array then keeps its size and every element
+    ///        is valid, but elements from `first` onward may have been assigned or moved from.
+    iterator erase(const_iterator first,
+                   const_iterator last) noexcept(std::is_nothrow_move_assignable<value_type>::value &&
+                                                 std::is_nothrow_destructible<value_type>::value)
+    {
+        CETL_DEBUG_ASSERT((cbegin() <= first) && (first <= last) && (last <= cend()),
+                          "CDE_vla_010: erase() range is not within the array.");
+        if (data_ == nullptr)
+        {
+            // Without storage the array is empty and the range must be too; skip arithmetic on null pointers.
+            return end();
+        }
+        const iterator  position = data_ + (first - cbegin());
+        const size_type count    = static_cast<size_type>(last - first);
+        if (count > 0)
+        {
+            (void) std::move(position + count, end(), position);
+            Base::destroy_suffix(size_ - count);
+        }
+        return position;
+    }
+
     /// Like push_back but constructs the object directly in uninitialized memory.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
     ///        If exceptions are disabled then the caller must check the array size before and
@@ -2136,6 +2176,15 @@ private:
 
         IteratorImpl() noexcept = default;
 
+        /// A mutable iterator converts to a const_iterator, as a standard container's iterator does.
+        template <typename B,
+                  typename = std::enable_if_t<std::is_same<const B, A>::value && !std::is_same<B, A>::value>>
+        IteratorImpl(const IteratorImpl<B>& other) noexcept  // NOLINT(*-explicit-constructor)
+            : array_(other.array_)
+            , index_(other.index_)
+        {
+        }
+
         IteratorImpl& operator++() noexcept
         {
             ++index_;
@@ -2177,9 +2226,11 @@ private:
         {
             return IteratorImpl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) - n));
         }
-        difference_type operator-(const IteratorImpl& other) const noexcept
+        // The iterator-to-iterator operators are hidden friends rather than members, so an iterator can convert to a
+        // const_iterator on either side: bits.begin() != bits.cend() and bits.cend() - bits.begin() both compile.
+        friend difference_type operator-(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return static_cast<difference_type>(index_) - static_cast<difference_type>(other.index_);
+            return static_cast<difference_type>(lhs.index_) - static_cast<difference_type>(rhs.index_);
         }
 
         ///
@@ -2208,33 +2259,35 @@ private:
             return array_->operator[](static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
 
-        bool operator==(const IteratorImpl& other) const noexcept
+        friend bool operator==(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return array_ == other.array_ && index_ == other.index_;
+            return lhs.array_ == rhs.array_ && lhs.index_ == rhs.index_;
         }
-        bool operator!=(const IteratorImpl& other) const noexcept
+        friend bool operator!=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return !((*this) == other);
+            return !(lhs == rhs);
         }
-        bool operator<(const IteratorImpl& other) const noexcept
+        friend bool operator<(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ < other.index_;
+            return lhs.index_ < rhs.index_;
         }
-        bool operator>(const IteratorImpl& other) const noexcept
+        friend bool operator>(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ > other.index_;
+            return lhs.index_ > rhs.index_;
         }
-        bool operator<=(const IteratorImpl& other) const noexcept
+        friend bool operator<=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ <= other.index_;
+            return lhs.index_ <= rhs.index_;
         }
-        bool operator>=(const IteratorImpl& other) const noexcept
+        friend bool operator>=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
         {
-            return index_ >= other.index_;
+            return lhs.index_ >= rhs.index_;
         }
 
     private:
         friend class VariableLengthArray;
+        template <typename>
+        friend class IteratorImpl;
 
         IteratorImpl(A& array, const size_type index) noexcept
             : array_(&array)
@@ -2774,6 +2827,39 @@ public:
         }
     }
 
+    /// Removes the bit at `pos`, as std::vector<bool>::erase does. Has the same guarantees as erase(first, last).
+    /// @param pos  The bit to remove. It must be dereferenceable, so it cannot be end().
+    /// @return An iterator to the bit that followed the removed one, which is end() if it was the last.
+    iterator erase(const_iterator pos) noexcept
+    {
+        CETL_DEBUG_ASSERT((pos.array_ == this) && (pos.index_ < size()),
+                          "CDE_vla_011: erase() position is not dereferenceable.");
+        return erase(pos, pos + 1);
+    }
+
+    /// Removes the bits in [first, last), as std::vector<bool>::erase does. Later bits move toward the front.
+    /// Capacity and max_size() are unchanged, and iterators before `first` remain valid. An empty range has no effect.
+    /// @param first The first bit to remove.
+    /// @param last  One past the last bit to remove. [first, last) must be a valid range of this array.
+    /// @return An iterator to the bit that followed the removed range, which is end() if the range reached it.
+    iterator erase(const_iterator first, const_iterator last) noexcept
+    {
+        CETL_DEBUG_ASSERT((first.array_ == this) && (last.array_ == this) && (first.index_ <= last.index_) &&
+                              (last.index_ <= size()),
+                          "CDE_vla_012: erase() range is not within the array.");
+        const size_type count = last.index_ - first.index_;
+        if (count > 0)
+        {
+            const size_type new_size = size() - count;
+            for (size_type index = first.index_; index < new_size; ++index)
+            {
+                set(*this, index, test(*this, index + count));
+            }
+            set_size_bits(new_size);
+        }
+        return iterator(*this, first.index_);
+    }
+
     ///
     /// Like push_back but constructs the object directly in uninitialized memory.
     /// @throw throw std::length_error if there was not enough storage for an additional element.
@@ -2983,8 +3069,7 @@ private:
             data_[index / 8U] = static_cast<Storage>(byte);
             index += bits;
         }
-        size_               = bits2bytes(available);
-        last_byte_bit_fill_ = static_cast<Storage>((available == 0U) ? 0U : ((available - 1U) % 8U));
+        set_size_bits(available);
     }
 
     void move_assign_bits(VariableLengthArray& rhs)
@@ -3081,6 +3166,13 @@ private:
     constexpr static size_type bits2bytes(const size_type value) noexcept
     {
         return round8(value) / 8U;
+    }
+
+    /// Records a size of `bits` bits, which must fit in the current capacity. Storage contents are unchanged.
+    constexpr void set_size_bits(const size_type bits) noexcept
+    {
+        size_               = bits2bytes(bits);
+        last_byte_bit_fill_ = static_cast<Storage>((bits == 0U) ? 0U : ((bits - 1U) % 8U));
     }
 
     constexpr size_type size_bits() const noexcept
