@@ -205,6 +205,15 @@ TEST(VLACompare, ThreeWayComparisonMatchesVector)
             EXPECT_EQ(to_array(left) <=> to_array(right), left <=> right);
         }
     }
+    // Ordinary doubles give less, greater and equivalent partial orderings, and -0.0 is equivalent to 0.0.
+    const std::vector<std::vector<double>> doubles{{}, {1.0}, {2.0}, {1.0, 2.0}, {2.0, 1.0}, {-0.0}, {0.0}, {0.0, 1.0}};
+    for (const auto& left : doubles)
+    {
+        for (const auto& right : doubles)
+        {
+            EXPECT_EQ(to_array(left) <=> to_array(right), left <=> right);
+        }
+    }
     const double nan = std::numeric_limits<double>::quiet_NaN();
     EXPECT_EQ(to_array(std::vector<double>{nan, 1.0}) <=> to_array(std::vector<double>{nan, 2.0}),
               std::partial_ordering::unordered);
@@ -249,12 +258,32 @@ struct ExplicitBoolLess
         return {};
     }
 };
+// Boolean-testable also requires the negation of the result to convert to bool. This result converts implicitly but
+// cannot be negated usefully.
+struct VoidNegation
+{
+    operator bool() const
+    {
+        return false;
+    }
+    void operator!() const {}
+};
+struct VoidNegationLess
+{
+    VoidNegation operator<(const VoidNegationLess&) const
+    {
+        return {};
+    }
+};
 template <typename A>
 concept HasThreeWay = requires(const A& lhs, const A& rhs) { lhs <=> rhs; };
 static_assert(!HasThreeWay<Array<VoidLess>>, "a void operator< does not order the array");
 static_assert(!HasThreeWay<Array<ExplicitBoolLess>>, "an explicit-bool operator< does not order the array");
 static_assert(HasThreeWay<Array<VoidLess>> == HasThreeWay<std::vector<VoidLess>>, "matches std::vector");
 static_assert(HasThreeWay<Array<ExplicitBoolLess>> == HasThreeWay<std::vector<ExplicitBoolLess>>,
+              "matches std::vector");
+static_assert(!HasThreeWay<Array<VoidNegationLess>>, "a result whose negation is not boolean does not order the array");
+static_assert(HasThreeWay<Array<VoidNegationLess>> == HasThreeWay<std::vector<VoidNegationLess>>,
               "matches std::vector");
 static_assert(HasThreeWay<Array<OnlyLess>> == HasThreeWay<std::vector<OnlyLess>>, "matches std::vector");
 #endif
