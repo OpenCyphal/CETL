@@ -460,6 +460,9 @@ void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, co
             // Use vector iterators so an empty range never subtracts null raw pointers in the harness.
             Array range(other_model.begin(), other_model.end(), MaxElements, array.get_allocator());
             check(range, other_model);
+            // count never exceeds MaxElements.
+            Array fill(count, value, MaxElements, array.get_allocator());
+            check(fill, Model<T>(count, value));
             array = copy;
             model = other_model;
             break;

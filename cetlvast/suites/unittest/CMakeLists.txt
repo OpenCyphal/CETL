@@ -114,6 +114,7 @@ set(NATIVE_TESTS
     test_variable_length_array_bool.cpp
     test_variable_length_array_compat.cpp
     test_variable_length_array_compiles.cpp
+    test_variable_length_array_construct.cpp
     test_variable_length_array_copy_and_move.cpp
     test_variable_length_array_debug_asserts.cpp
     test_variable_length_array_detailed_allocation.cpp

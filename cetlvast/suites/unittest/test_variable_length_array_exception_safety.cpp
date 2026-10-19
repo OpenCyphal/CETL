@@ -287,12 +287,13 @@ void expect_values(const Subject& array, std::size_t count)
     }
 }
 
-// Fail the first, middle, and last copy in list, range, ordinary-copy, and allocator-extended copy construction.
-// Each failed constructor must destroy its completed prefix and free its buffer without changing the source.
+// Fail the first, middle, and last copy in list, range, count-value, ordinary-copy, and allocator-extended copy
+// construction. Each failed constructor must destroy its completed prefix and free its buffer without changing the
+// source.
 TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
 {
-    // kind: initializer list, iterator range, copy, copy with an explicit allocator.
-    for (int kind = 0; kind < 4; ++kind)
+    // kind: initializer list, iterator range, copy, copy with an explicit allocator, count copies of a value.
+    for (int kind = 0; kind < 5; ++kind)
     {
         for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
         {
@@ -322,6 +323,10 @@ TEST(VLAExceptionSafety, FailedListRangeAndCopyConstructorsReleaseStorage)
             if (kind == 3)
             {
                 EXPECT_THROW((Array<>{source, Allocator<Value>{allocations}}), Failure);
+            }
+            if (kind == 4)
+            {
+                EXPECT_THROW((Array<>(3, source[0], Allocator<Value>{allocations})), Failure);
             }
             EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
             EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at);
@@ -763,12 +768,12 @@ TEST(VLAExceptionSafety, UnequalAllocatorMoveAssignmentRollsBackUninitializedEle
     check_assignment<MoveOnly, false, true>();
 }
 
-// Fail the allocator's construction hook during reserve, resize, and copy construction.
+// Fail the allocator's construction hook during reserve, resize, copy construction, and count-value construction.
 // Rollback must also handle failures before the element constructor runs, destroying only the completed prefix.
 TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
 {
-    // kind: reserve into a new buffer, resize within capacity, copy construction.
-    for (int kind = 0; kind < 3; ++kind)
+    // kind: reserve into a new buffer, resize within capacity, copy construction, count-value construction.
+    for (int kind = 0; kind < 4; ++kind)
     {
         for (std::size_t fail_at = 0; fail_at < 3; ++fail_at)
         {
@@ -794,6 +799,10 @@ TEST(VLAExceptionSafety, AllocatorConstructionFailuresRollBackCompletedObjects)
             if (kind == 2)
             {
                 EXPECT_THROW((Array<>{array}), Failure);
+            }
+            if (kind == 3)
+            {
+                EXPECT_THROW((Array<>(3, array[0], Allocator<Value>{allocations})), Failure);
             }
             EXPECT_EQ(lifetimes.constructed - constructed, fail_at);
             EXPECT_EQ(lifetimes.destroyed - destroyed, fail_at);
@@ -1023,6 +1032,24 @@ TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyConta
             EXPECT_TRUE(value);
         }
     }
+}
+
+// Count-value construction checks max_size() before allocating, and constructs nothing if allocation fails.
+TEST(VLAExceptionSafety, CountValueConstructionFailuresConstructNothing)
+{
+    LifetimeState   lifetimes;
+    AllocationState allocations;
+    const Value     value{lifetimes, 10};
+    EXPECT_THROW((Array<>(5, value, 4, Allocator<Value>{allocations})), std::length_error);
+    allocations.fail = true;
+    EXPECT_THROW((Array<>(5, value, Allocator<Value>{allocations})), std::bad_alloc);
+    EXPECT_EQ(allocations.allocated, 0U);
+    EXPECT_EQ(lifetimes.live.size(), 1U);
+
+    using Bits = cetl::VariableLengthArray<bool, Allocator<bool>>;
+    EXPECT_THROW((Bits(17, true, 16, Allocator<bool>{allocations})), std::length_error);
+    EXPECT_THROW((Bits(17, true, Allocator<bool>{allocations})), std::bad_alloc);
+    EXPECT_EQ(allocations.allocated, 0U);
 }
 
 // Fail allocation before reserve, shrink, or resize can relocate any elements or construct a suffix.
