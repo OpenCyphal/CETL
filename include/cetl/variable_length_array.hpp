@@ -1089,41 +1089,68 @@ protected:
                                                         std::is_trivially_copyable<value_type>::value &&
                                                             is_detected<reallocate_operation, allocator_type>::value>;
 
-    /// Allocator reallocation can release the old block before an element is constructed in the new one, so the new
-    /// element is constructed in a temporary first. Like the elements that reallocate() moves, it is then relocated by
-    /// copying its bytes, which constructs it through the allocator only once and needs no move constructor.
+    /// Whether `value` is one of the elements in [data(), data() + size()).
+    bool refers_to_element(const value_type& value) const noexcept
+    {
+        // std::less orders pointers that are not into the same array, which the built-in operators do not.
+        const std::less<const value_type*> less;
+        const value_type*                  address = std::addressof(value);
+        return (data_ != nullptr) && !less(address, data_) && less(address, data_ + size_);
+    }
+
+    /// Allocator reallocation can release the old block before the new element is constructed, and arbitrary
+    /// constructor arguments may refer into it. Construct the element in new storage before relocating the old ones
+    /// instead, forgoing reallocation for this append.
     template <typename... Args>
     bool grow_and_emplace_back_impl(std::true_type, const size_type max_size, Args&&... args)
     {
-        // The union defers construction to the allocator, which might observe it, as it would any element.
-        union Temporary
+        return grow_and_emplace_back_impl(std::false_type{}, max_size, std::forward<Args>(args)...);
+    }
+
+    /// Without arguments nothing can refer into the old block, so grow as usual and construct the element in place.
+    bool grow_and_emplace_back_impl(std::true_type, const size_type max_size)
+    {
+        if (!grow(max_size))
         {
-            Temporary() noexcept {}
-            ~Temporary() {}
-            value_type value;
-        } temporary;
-        value_type* const pending = std::addressof(temporary.value);
-        std::allocator_traits<allocator_type>::construct(alloc_, pending, std::forward<Args>(args)...);
-        bool grown = false;
-#if defined(__cpp_exceptions)
-        try
-        {
-#endif
-            grown = grow(max_size);
-#if defined(__cpp_exceptions)
-        } catch (...)
-        {
-            std::allocator_traits<allocator_type>::destroy(alloc_, pending);
-            throw;
-        }
-#endif
-        if (!grown)
-        {
-            std::allocator_traits<allocator_type>::destroy(alloc_, pending);
             return false;
         }
-        // The relocated bytes are now the element, so the temporary is not destroyed.
-        (void) std::memcpy(static_cast<void*>(data_ + size_), static_cast<const void*>(pending), sizeof(value_type));
+        std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_);
+        ++size_;
+        return true;
+    }
+
+    /// A single element-typed argument, as from push_back(), can be checked for aliasing. Either way the element is
+    /// constructed once, through the allocator, in its final storage.
+    template <typename Arg, std::enable_if_t<std::is_same<std::decay_t<Arg>, value_type>::value, int> = 0>
+    bool grow_and_emplace_back_impl(std::true_type, const size_type max_size, Arg&& arg)
+    {
+        if (!refers_to_element(arg))
+        {
+            if (!grow(max_size))
+            {
+                return false;
+            }
+            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Arg>(arg));
+            ++size_;
+            return true;
+        }
+        // The argument is an element that reallocation may release. Copying the bytes of a trivially copyable object
+        // copies its value without running a constructor, so the copy stands in for the argument.
+        union Snapshot
+        {
+            Snapshot() noexcept {}
+            ~Snapshot() {}
+            value_type value;
+        } snapshot;
+        (void) std::memcpy(static_cast<void*>(std::addressof(snapshot.value)),
+                           static_cast<const void*>(std::addressof(arg)),
+                           sizeof(value_type));
+        if (!grow(max_size))
+        {
+            return false;
+        }
+        // Pass the copy with the argument's value category so that the same constructor is selected.
+        std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, static_cast<Arg&&>(snapshot.value));
         ++size_;
         return true;
     }
@@ -2145,7 +2172,7 @@ public:
     iterator insert(const_iterator pos, const size_type count, const value_type& value)
     {
         const size_type offset = insert_offset(pos);
-        if (refers_to_element(value))
+        if (Base::refers_to_element(value))
         {
             // Growing may relocate the element value refers to before it is copied, so copy it first.
             const value_type copy(value);
@@ -2313,14 +2340,6 @@ private:
     iterator iterator_at(const size_type offset) noexcept
     {
         return (data_ == nullptr) ? data_ : (data_ + offset);
-    }
-
-    bool refers_to_element(const value_type& value) const noexcept
-    {
-        // std::less orders pointers that are not into the same array, which the built-in operators do not.
-        const std::less<const value_type*> less;
-        const value_type*                  address = std::addressof(value);
-        return (data_ != nullptr) && !less(address, data_) && less(address, data_ + size_);
     }
 
     // Makes room for `count` more elements, growing geometrically as push_back() does so that repeated insertion stays
