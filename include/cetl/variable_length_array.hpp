@@ -1090,7 +1090,8 @@ protected:
                                                             is_detected<reallocate_operation, allocator_type>::value>;
 
     /// Allocator reallocation can release the old block before an element is constructed in the new one, so the new
-    /// element is built in a temporary first. It is trivially copyable, so moving it into place is a plain copy.
+    /// element is constructed in a temporary first. Like the elements that reallocate() moves, it is then relocated by
+    /// copying its bytes, which constructs it through the allocator only once and needs no move constructor.
     template <typename... Args>
     bool grow_and_emplace_back_impl(std::true_type, const size_type max_size, Args&&... args)
     {
@@ -1103,15 +1104,28 @@ protected:
         } temporary;
         value_type* const pending = std::addressof(temporary.value);
         std::allocator_traits<allocator_type>::construct(alloc_, pending, std::forward<Args>(args)...);
-        // Trivially copyable types are trivially destructible, so an exception from grow() leaks nothing.
-        const bool grown = grow(max_size);
-        if (grown)
+        bool grown = false;
+#if defined(__cpp_exceptions)
+        try
         {
-            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::move(*pending));
-            ++size_;
+#endif
+            grown = grow(max_size);
+#if defined(__cpp_exceptions)
+        } catch (...)
+        {
+            std::allocator_traits<allocator_type>::destroy(alloc_, pending);
+            throw;
         }
-        std::allocator_traits<allocator_type>::destroy(alloc_, pending);
-        return grown;
+#endif
+        if (!grown)
+        {
+            std::allocator_traits<allocator_type>::destroy(alloc_, pending);
+            return false;
+        }
+        // The relocated bytes are now the element, so the temporary is not destroyed.
+        (void) std::memcpy(static_cast<void*>(data_ + size_), static_cast<const void*>(pending), sizeof(value_type));
+        ++size_;
+        return true;
     }
 
     /// Constructs the new element in replacement storage while the old storage is intact, then relocates the old

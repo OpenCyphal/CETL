@@ -654,6 +654,28 @@ int value_of(const SelfReference& element) noexcept
     return element.value;
 }
 
+// Trivially copyable but not movable, so relocating an appended element must not need a move constructor.
+struct CopyOnly
+{
+    int value;
+
+    explicit CopyOnly(int v) noexcept
+        : value(v)
+    {
+    }
+    CopyOnly(const CopyOnly&)            = default;
+    CopyOnly(CopyOnly&&)                 = delete;
+    CopyOnly& operator=(const CopyOnly&) = default;
+    CopyOnly& operator=(CopyOnly&&)      = delete;
+    ~CopyOnly()                          = default;
+};
+static_assert(!std::is_move_constructible<CopyOnly>::value, "Exercise growth without a move constructor.");
+
+int value_of(const CopyOnly& element) noexcept
+{
+    return element.value;
+}
+
 // Appending an element of a full array must read it before the old storage is released (issue #245). Trivially
 // copyable elements grow through reallocate, or allocate when it is declined; other elements always allocate.
 template <typename T>
@@ -712,6 +734,7 @@ TEST(VLAReallocationGrowth, AppendedElementsSurviveGrowth)
     {
         SCOPED_TRACE(decline);
         expect_appended_elements_survive_growth<int>(decline);
+        expect_appended_elements_survive_growth<CopyOnly>(decline);
         expect_appended_elements_survive_growth<SelfReference>(decline);
     }
 }
@@ -753,7 +776,102 @@ void expect_failed_append_preserves_storage()
 TEST(VLAReallocationGrowth, FailedAllocationOnAppendPreservesStorage)
 {
     expect_failed_append_preserves_storage<int>();
+    expect_failed_append_preserves_storage<CopyOnly>();
     expect_failed_append_preserves_storage<SelfReference>();
+}
+
+struct HookCounts
+{
+    std::size_t constructs = 0;
+    std::size_t destroys   = 0;
+};
+
+// A reallocate-capable allocator that counts its construct and destroy hooks.
+template <typename T>
+class HookCountingAllocator : public cetl::pf17::pmr::polymorphic_allocator<T>
+{
+public:
+    using Base = cetl::pf17::pmr::polymorphic_allocator<T>;
+
+    HookCountingAllocator(cetl::pf17::pmr::memory_resource* resource, HookCounts* counts) noexcept
+        : Base(resource)
+        , counts_(counts)
+    {
+    }
+
+    template <typename U>
+    HookCountingAllocator(const HookCountingAllocator<U>& other) noexcept  // NOLINT(*-explicit-constructor)
+        : Base(other.resource())
+        , counts_(other.counts())
+    {
+    }
+
+    template <typename U, typename... Args>
+    void construct(U* pointer, Args&&... args)
+    {
+        ++counts_->constructs;
+        Base::construct(pointer, std::forward<Args>(args)...);
+    }
+
+    template <typename U>
+    void destroy(U* pointer)
+    {
+        ++counts_->destroys;
+        pointer->~U();
+    }
+
+    HookCounts* counts() const noexcept
+    {
+        return counts_;
+    }
+
+private:
+    HookCounts* counts_;
+};
+
+// The temporary that keeps an aliased argument alive through reallocate is the element itself: the allocator constructs
+// it once, and destroys it only when the append fails.
+TEST(VLAReallocationGrowth, AppendConstructsOnceThroughAllocator)
+{
+    for (const bool decline : {false, true})
+    {
+        SCOPED_TRACE(decline);
+        MovingResource resource;
+        resource.decline = decline;
+        HookCounts                                                 counts;
+        cetl::VariableLengthArray<int, HookCountingAllocator<int>> array{
+            HookCountingAllocator<int>{&resource, &counts}};
+        array.reserve(AppendInitialCapacity);
+        for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+        {
+            array.push_back(element_value(i));
+        }
+        ASSERT_EQ(counts.constructs, AppendInitialCapacity);
+        const auto reallocations = resource.reallocations;
+        array.push_back(static_cast<const int&>(array.front()));
+        EXPECT_EQ(resource.reallocations, reallocations + 1U);
+        // When reallocate is declined, the fallback also relocates each old element through the allocator.
+        EXPECT_EQ(counts.constructs, AppendInitialCapacity + 1U + (decline ? AppendInitialCapacity : 0U));
+        EXPECT_EQ(counts.destroys, 0U);
+        EXPECT_EQ(array.back(), element_value(0));
+
+        while (array.size() < array.capacity())
+        {
+            array.push_back(element_value(array.size()));
+        }
+        const auto constructs = counts.constructs;
+        const auto size       = array.size();
+        resource.fail         = true;
+#if defined(__cpp_exceptions)
+        EXPECT_THROW(array.emplace_back(array.back()), std::bad_alloc);
+#else
+        array.emplace_back(array.back());
+#endif
+        resource.fail = false;
+        EXPECT_EQ(array.size(), size);
+        EXPECT_EQ(counts.constructs, constructs + 1U);
+        EXPECT_EQ(counts.destroys, 1U);
+    }
 }
 
 #if defined(__cpp_exceptions)
