@@ -6,7 +6,7 @@
 /// Copyright Amazon.com Inc. or its affiliates.
 /// SPDX-License-Identifier: MIT
 ///
-/// cSpell:ignore cend cbegin rnext rend lnext lbegin pocca pocma urvo
+/// cSpell:ignore cend cbegin crbegin crend rbegin rnext rend lnext lbegin pocca pocma urvo
 
 #ifndef CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
 #define CETL_VARIABLE_LENGTH_ARRAY_HPP_INCLUDED
@@ -1306,6 +1306,16 @@ public:
     using const_iterator = typename std::add_pointer_t<typename std::add_const_t<value_type>>;
 
     ///
+    /// STL-like declaration of the reverse iterator type.
+    ///
+    using reverse_iterator = std::reverse_iterator<iterator>;
+
+    ///
+    /// STL-like declaration of the const reverse iterator type.
+    ///
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    ///
     /// STL-like declaration of the container's difference type.
     ///
     using difference_type = typename Base::difference_type;
@@ -1617,6 +1627,39 @@ public:
     constexpr const_iterator end() const noexcept
     {
         return cend();
+    }
+
+    ///
+    /// A reverse iterator to the last element, or rend() if the array is empty. Like the forward iterators, reverse
+    /// iterators are invalidated by calls to `shrink_to_fit` and `reserve`.
+    ///
+    constexpr reverse_iterator rbegin() noexcept
+    {
+        return reverse_iterator(end());
+    }
+    constexpr const_reverse_iterator rbegin() const noexcept
+    {
+        return crbegin();
+    }
+    constexpr const_reverse_iterator crbegin() const noexcept
+    {
+        return const_reverse_iterator(cend());
+    }
+
+    ///
+    /// A reverse iterator to the position before the first element.
+    ///
+    constexpr reverse_iterator rend() noexcept
+    {
+        return reverse_iterator(begin());
+    }
+    constexpr const_reverse_iterator rend() const noexcept
+    {
+        return crend();
+    }
+    constexpr const_reverse_iterator crend() const noexcept
+    {
+        return const_reverse_iterator(cbegin());
     }
 
     ///
@@ -2391,8 +2434,10 @@ private:
     };
 
 public:
-    using iterator       = IteratorImpl<VariableLengthArray>;
-    using const_iterator = IteratorImpl<const VariableLengthArray>;
+    using iterator               = IteratorImpl<VariableLengthArray>;
+    using const_iterator         = IteratorImpl<const VariableLengthArray>;
+    using reverse_iterator       = std::reverse_iterator<iterator>;
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     // +----------------------------------------------------------------------+
     // | CONSTRUCTORS
@@ -2681,6 +2726,35 @@ public:
     constexpr const_iterator end() const noexcept
     {
         return cend();
+    }
+
+    ///
+    /// Reverse iterators over the bits, from the last bit back to the first. Like the forward iterators, they are
+    /// invalidated by calls to `shrink_to_fit` and `reserve`.
+    ///
+    constexpr reverse_iterator rbegin() noexcept
+    {
+        return reverse_iterator(end());
+    }
+    constexpr const_reverse_iterator rbegin() const noexcept
+    {
+        return crbegin();
+    }
+    constexpr const_reverse_iterator crbegin() const noexcept
+    {
+        return const_reverse_iterator(cend());
+    }
+    constexpr reverse_iterator rend() noexcept
+    {
+        return reverse_iterator(begin());
+    }
+    constexpr const_reverse_iterator rend() const noexcept
+    {
+        return crend();
+    }
+    constexpr const_reverse_iterator crend() const noexcept
+    {
+        return const_reverse_iterator(cbegin());
     }
 
     ///
