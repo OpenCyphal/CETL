@@ -319,23 +319,28 @@ private:
 /// \c T shall be a pointer and \c std::remove_pointer_t<T> shall satisfy \ref cetl::has_type_id.
 /// Returns \c nullptr if a safe dynamic type conversion to \c T is not possible.
 /// @{
+// clang-format 19 and 22 lay this declaration out differently, and CI runs both; keep it as written.
+// clang-format off
 template <typename T, typename _from>
 CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
                                     std::is_pointer<T>::value &&  //
                                     has_type_id<std::remove_pointer_t<T>>,
                                 T>
                rtti_cast(_from* const obj) noexcept
+// clang-format on
 {
     return (obj == nullptr)  //
                ? nullptr
                : static_cast<T>(obj->_cast_(type_id_value<std::remove_pointer_t<T>>));
 }
+// clang-format off
 template <typename T, typename _from>
 CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
                                     std::is_pointer<T>::value &&  //
                                     has_type_id<std::remove_pointer_t<T>>,
                                 const std::remove_pointer_t<T>*>
                rtti_cast(const _from* const obj) noexcept
+// clang-format on
 {
     return (obj == nullptr)  //
                ? nullptr

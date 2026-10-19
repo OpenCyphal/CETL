@@ -301,8 +301,8 @@ public:
     }
 
 private:
-    MyConcreteType()          = default;
-    virtual ~MyConcreteType() = default;
+    MyConcreteType()  = default;
+    ~MyConcreteType() = default;
 };
 
 //![example_usage_3]

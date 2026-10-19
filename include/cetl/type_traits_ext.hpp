@@ -102,8 +102,10 @@ struct partial
 namespace detail
 {
 /// Copy-list-initializes a parameter of type To. Only ever used unevaluated, inside decltype.
+/// Top-level cv-qualifiers are dropped: they do not change how a by-value parameter is initialized, and C++20
+/// deprecates a volatile-qualified parameter, which Clang reports even here (-Wdeprecated-volatile).
 template <typename To>
-void copy_list_initialize(To);
+void copy_list_initialize(std::remove_cv_t<To>);
 }  // namespace detail
 
 /// The `value` is true if the following expression is well-formed:
