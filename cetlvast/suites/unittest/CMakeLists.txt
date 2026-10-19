@@ -124,6 +124,7 @@ set(NATIVE_TESTS
     test_variable_length_array_move_capacity.cpp
     test_variable_length_array_exception_safety.cpp
     test_variable_length_array_reallocation.cpp
+    test_variable_length_array_reverse_iterators.cpp
     pmr/test_pmr_function.cpp
     pmr/test_pmr_interface_ptr.cpp
 )

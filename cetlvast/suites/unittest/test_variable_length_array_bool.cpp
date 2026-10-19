@@ -65,12 +65,14 @@ protected:
     }
 };
 
+// VLA<bool> packs bits into bytes, so its allocator allocates unsigned char. std::vector<bool> requires an allocator
+// whose value_type is bool (libstdc++ enforces this from GCC 15 in C++20 and later).
 // clang-format off
 namespace cetlvast
 {
 using VLAAndVectorTypes = ::testing::Types<
       TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>
-    , TypeParamDef<cetlvast::DefaultAllocatorFactory, std::vector, unsigned char>
+    , TypeParamDef<cetlvast::DefaultAllocatorFactory, std::vector, bool>
 >;
 using VLATypes = ::testing::Types<
       TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>

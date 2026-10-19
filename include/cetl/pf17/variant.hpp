@@ -80,12 +80,15 @@ struct chronomorphize_impl<std::index_sequence<Is...>>
         return std::forward<Fun>(fn)(std::integral_constant<std::size_t, i>{}, std::forward<Args>(arr)...);
     }
 
+    // clang-format 19 and 22 lay this declaration out differently, and CI runs both; keep it as written.
+    // clang-format off
     template <typename Fun, typename... Args>
 #if __cplusplus >= 201703L
     constexpr
 #endif
         static decltype(auto)
         lookup(Fun&& fun, const std::size_t index, Args&&... ar)
+    // clang-format on
     {
         using R = std::common_type_t<decltype(std::forward<Fun>(fun)(std::integral_constant<std::size_t, Is>{},
                                                                      std::forward<Args>(ar)...))...>;
@@ -653,6 +656,8 @@ struct base_copy_assignment<types<Ts...>, smf_deleted> : base_move_construction<
 // --------------------------------------------------------------------------------------------------------------------
 
 /// MOVE ASSIGNMENT POLICY
+// clang-format 19 and 22 lay this declaration out differently, and CI runs both; keep it as written.
+// clang-format off
 template <typename Seq,
           int  = smf_all_trivial<Seq::avail_move_ctor, Seq::avail_move_assign, Seq::avail_dtor>
                      ? smf_trivial
@@ -660,6 +665,7 @@ template <typename Seq,
                                                                                                        : smf_nontrivial),
           bool = (Seq::avail_move_ctor == smf_deleted)>
 struct base_move_assignment;
+// clang-format on
 template <typename... Ts>
 struct base_move_assignment<types<Ts...>, smf_trivial, false> : base_copy_assignment<types<Ts...>>
 {

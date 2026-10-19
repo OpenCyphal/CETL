@@ -971,6 +971,8 @@ constexpr detail::opt::enable_comparison<decltype(std::declval<const T&>() >= st
 
 /// An implementation of C++17 \ref std::make_optional.
 /// @{
+// clang-format 19 and 22 lay this declaration out differently, and CI runs both; keep it as written.
+// clang-format off
 template <typename T>
 #if defined(__clang__) || !(defined(__GNUC__) && (__GNUC__ <= 7))
 // workaround for GCC7 bug (https://github.com/OpenCyphal/CETL/issues/154)
@@ -1000,6 +1002,7 @@ constexpr
 {
     return optional<T>{in_place, il, std::forward<Args>(args)...};
 }
+// clang-format on
 /// @}
 
 }  // namespace pf17
