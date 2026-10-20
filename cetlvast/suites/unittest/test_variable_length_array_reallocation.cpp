@@ -8,12 +8,14 @@
 #include "cetl/pf17/memory_resource.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <map>
 #include <set>
 #include <type_traits>
+#include <vector>
 
 namespace
 {
@@ -641,4 +643,375 @@ TEST(VLAReallocationGrowth, AppendAndResizePreserveExistingElements)
         EXPECT_EQ(array[i].self, &array[i].value);
     }
 }
+
+int value_of(const int element) noexcept
+{
+    return element;
+}
+
+int value_of(const SelfReference& element) noexcept
+{
+    EXPECT_EQ(element.self, &element.value);
+    return element.value;
+}
+
+// Trivially copyable but not movable, so relocating an appended element must not need a move constructor.
+struct CopyOnly
+{
+    int value;
+
+    explicit CopyOnly(int v) noexcept
+        : value(v)
+    {
+    }
+    CopyOnly(const CopyOnly&)            = default;
+    CopyOnly(CopyOnly&&)                 = delete;
+    CopyOnly& operator=(const CopyOnly&) = default;
+    CopyOnly& operator=(CopyOnly&&)      = delete;
+    ~CopyOnly()                          = default;
+};
+static_assert(!std::is_move_constructible<CopyOnly>::value, "Exercise growth without a move constructor.");
+
+int value_of(const CopyOnly& element) noexcept
+{
+    return element.value;
+}
+
+// Appending an element of a full array must read it before the old storage is released (issue #245). Trivially
+// copyable elements grow through reallocate, or allocate when it is declined; other elements always allocate.
+template <typename T>
+void expect_appended_elements_survive_growth(const bool decline)
+{
+    MovingResource resource;
+    resource.decline = decline;
+    Array<T> array{typename Array<T>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.emplace_back(element_value(i));
+    }
+    std::vector<int> expected;
+    for (const auto& element : array)
+    {
+        expected.push_back(value_of(element));
+    }
+    // Each round fills the spare capacity, then appends the first element, then the last, each time from full storage.
+    for (std::size_t round = 0; round < 3; ++round)
+    {
+        for (const bool emplace : {false, true})
+        {
+            while (array.size() < array.capacity())
+            {
+                array.emplace_back(element_value(array.size()));
+                expected.push_back(element_value(expected.size()));
+            }
+            const T* const data_before   = array.data();
+            const auto     reallocations = resource.reallocations;
+            if (emplace)
+            {
+                array.emplace_back(array.back());
+                expected.push_back(expected.back());
+            }
+            else
+            {
+                array.push_back(static_cast<const T&>(array.front()));
+                expected.push_back(expected.front());
+            }
+            EXPECT_NE(array.data(), data_before);
+            // An argument that is an element is constructed from in new storage, never through reallocate.
+            EXPECT_EQ(resource.reallocations, reallocations);
+        }
+    }
+    ASSERT_EQ(array.size(), expected.size());
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(value_of(array[i]), expected[i]) << "index=" << i;
+    }
+    EXPECT_EQ(resource.blocks.size(), 1U);
+}
+
+TEST(VLAReallocationGrowth, AppendedElementsSurviveGrowth)
+{
+    for (const bool decline : {false, true})
+    {
+        SCOPED_TRACE(decline);
+        expect_appended_elements_survive_growth<int>(decline);
+        expect_appended_elements_survive_growth<CopyOnly>(decline);
+        expect_appended_elements_survive_growth<SelfReference>(decline);
+    }
+}
+
+// An allocator out of memory makes appending to a full array throw bad_alloc or, with exceptions disabled, return
+// without effect. Either way the original storage and elements remain.
+template <typename T>
+void expect_failed_append_preserves_storage()
+{
+    MovingResource resource;
+    Array<T>       array{typename Array<T>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.emplace_back(element_value(i));
+    }
+    const T* const data_before = array.data();
+    resource.fail              = true;
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(array.push_back(static_cast<const T&>(array.front())), std::bad_alloc);
+    EXPECT_THROW(array.emplace_back(array.back()), std::bad_alloc);
+#else
+    array.push_back(static_cast<const T&>(array.front()));
+    array.emplace_back(array.back());
+#endif
+    EXPECT_EQ(array.data(), data_before);
+    EXPECT_EQ(array.capacity(), AppendInitialCapacity);
+    ASSERT_EQ(array.size(), AppendInitialCapacity);
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(value_of(array[i]), element_value(i));
+    }
+    resource.fail = false;
+    array.emplace_back(array.front());
+    ASSERT_EQ(array.size(), AppendInitialCapacity + 1U);
+    EXPECT_EQ(value_of(array.back()), element_value(0));
+}
+
+TEST(VLAReallocationGrowth, FailedAllocationOnAppendPreservesStorage)
+{
+    expect_failed_append_preserves_storage<int>();
+    expect_failed_append_preserves_storage<CopyOnly>();
+    expect_failed_append_preserves_storage<SelfReference>();
+}
+
+struct HookCounts
+{
+    std::size_t              constructs = 0;
+    std::size_t              destroys   = 0;
+    std::vector<const void*> addresses;
+};
+
+// A reallocate-capable allocator that counts its construct and destroy hooks.
+template <typename T>
+class HookCountingAllocator : public cetl::pf17::pmr::polymorphic_allocator<T>
+{
+public:
+    using Base = cetl::pf17::pmr::polymorphic_allocator<T>;
+
+    HookCountingAllocator(cetl::pf17::pmr::memory_resource* resource, HookCounts* counts) noexcept
+        : Base(resource)
+        , counts_(counts)
+    {
+    }
+
+    template <typename U>
+    HookCountingAllocator(const HookCountingAllocator<U>& other) noexcept  // NOLINT(*-explicit-constructor)
+        : Base(other.resource())
+        , counts_(other.counts())
+    {
+    }
+
+    template <typename U, typename... Args>
+    void construct(U* pointer, Args&&... args)
+    {
+        ++counts_->constructs;
+        counts_->addresses.push_back(pointer);
+        Base::construct(pointer, std::forward<Args>(args)...);
+    }
+
+    template <typename U>
+    void destroy(U* pointer)
+    {
+        ++counts_->destroys;
+        pointer->~U();
+    }
+
+    HookCounts* counts() const noexcept
+    {
+        return counts_;
+    }
+
+private:
+    HookCounts* counts_;
+};
+
+// Each append constructs its element once, through the allocator, at its final address, whether or not the argument
+// is an element that reallocate releases. A failed append constructs nothing.
+TEST(VLAReallocationGrowth, AppendConstructsOnceInPlaceThroughAllocator)
+{
+    for (const bool decline : {false, true})
+    {
+        for (const bool aliased : {false, true})
+        {
+            SCOPED_TRACE(::testing::Message() << "decline=" << decline << " aliased=" << aliased);
+            MovingResource resource;
+            resource.decline = decline;
+            HookCounts                                                 counts;
+            cetl::VariableLengthArray<int, HookCountingAllocator<int>> array{
+                HookCountingAllocator<int>{&resource, &counts}};
+            array.reserve(AppendInitialCapacity);
+            for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+            {
+                array.push_back(element_value(i));
+            }
+            ASSERT_EQ(counts.constructs, AppendInitialCapacity);
+            const int  value         = aliased ? array.front() : element_value(AppendInitialCapacity);
+            const auto reallocations = resource.reallocations;
+            counts.addresses.clear();
+            if (aliased)
+            {
+                array.push_back(static_cast<const int&>(array.front()));
+            }
+            else
+            {
+                array.push_back(value);
+            }
+            // An aliased argument is constructed from in new storage, never through reallocate. Without reallocate,
+            // each old element is also relocated through the allocator.
+            const bool relocates = aliased || decline;
+            EXPECT_EQ(resource.reallocations, reallocations + (aliased ? 0U : 1U));
+            EXPECT_EQ(counts.constructs, AppendInitialCapacity + 1U + (relocates ? AppendInitialCapacity : 0U));
+            const void* const appended = &array.back();
+            EXPECT_EQ(std::count(counts.addresses.begin(), counts.addresses.end(), appended), 1);
+            EXPECT_EQ(counts.destroys, 0U);
+            EXPECT_EQ(array.back(), value);
+
+            while (array.size() < array.capacity())
+            {
+                array.push_back(element_value(array.size()));
+            }
+            const auto constructs = counts.constructs;
+            const auto size       = array.size();
+            resource.fail         = true;
+#if defined(__cpp_exceptions)
+            if (aliased)
+            {
+                EXPECT_THROW(array.emplace_back(array.back()), std::bad_alloc);
+            }
+            else
+            {
+                EXPECT_THROW(array.emplace_back(value), std::bad_alloc);
+            }
+#else
+            if (aliased)
+            {
+                array.emplace_back(array.back());
+            }
+            else
+            {
+                array.emplace_back(value);
+            }
+#endif
+            resource.fail = false;
+            EXPECT_EQ(array.size(), size);
+            EXPECT_EQ(counts.constructs, constructs);
+            EXPECT_EQ(counts.destroys, 0U);
+        }
+    }
+}
+
+// std::decay drops volatile, but a volatile argument cannot be checked for aliasing through a const reference. It
+// takes the general path, which constructs from it in new storage.
+TEST(VLAReallocationGrowth, VolatileArgumentAppends)
+{
+    MovingResource resource;
+    Array<int>     array{typename Array<int>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.push_back(element_value(i));
+    }
+    volatile int value = FillValue;
+    array.emplace_back(value);
+    ASSERT_EQ(array.size(), AppendInitialCapacity + 1U);
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(array[i], i < AppendInitialCapacity ? element_value(i) : FillValue);
+    }
+}
+
+// Trivially copyable, but its converting constructor records where it ran, as a constructor that stores `this` does.
+struct Located
+{
+    const void* where;
+    int         value;
+
+    explicit Located(int v) noexcept
+        : where(this)
+        , value(v)
+    {
+    }
+};
+static_assert(std::is_trivially_copyable<Located>::value, "Exercise the reallocate path.");
+
+// Constructor arguments other than an element may refer anywhere, so the element is constructed in its new storage
+// rather than in a temporary that is then moved there. An append without arguments needs no such care.
+TEST(VLAReallocationGrowth, EmplaceConstructsInFinalStorage)
+{
+    MovingResource resource;
+    Array<Located> array{typename Array<Located>::allocator_type{&resource}};
+    for (std::size_t i = 0; i < AppendedElementCount * 4U; ++i)
+    {
+        const bool full = array.size() == array.capacity();
+        array.emplace_back(element_value(i));
+        ASSERT_EQ(array.size(), i + 1U);
+        EXPECT_EQ(array.back().where, &array.back()) << "full=" << full;
+        EXPECT_EQ(array.back().value, element_value(i));
+    }
+
+    Array<TrivialCopy> defaults{typename Array<TrivialCopy>::allocator_type{&resource}};
+    defaults.reserve(AppendInitialCapacity);
+    defaults.resize(AppendInitialCapacity);
+    const auto reallocations = resource.reallocations;
+    defaults.emplace_back();
+    EXPECT_EQ(resource.reallocations, reallocations + 1U);
+    ASSERT_EQ(defaults.size(), AppendInitialCapacity + 1U);
+    for (const auto& element : defaults)
+    {
+        EXPECT_EQ(element.value, FillValue);
+    }
+}
+
+#if defined(__cpp_exceptions)
+// The appended element is constructed first and the old elements are then copied around it. A failure at any of
+// those constructions must destroy what was built, release the replacement storage, and keep the original elements.
+TEST(VLAReallocationGrowth, FailedAppendRollsBackReplacement)
+{
+    for (std::size_t fail_at = 0; fail_at <= ElementCount; ++fail_at)
+    {
+        SCOPED_TRACE(fail_at);
+        MovingResource      resource;
+        Lifetimes           state;
+        Array<CopyFallback> array{typename Array<CopyFallback>::allocator_type{&resource}};
+        array.reserve(ElementCount);
+        for (std::size_t i = 0; i < ElementCount; ++i)
+        {
+            array.emplace_back(state, element_value(i));
+        }
+        const auto* const old_data = array.data();
+        state.remaining            = static_cast<int>(fail_at);
+        EXPECT_THROW(array.push_back(static_cast<const CopyFallback&>(array.front())), ConstructionFailure);
+        EXPECT_EQ(array.data(), old_data);
+        EXPECT_EQ(array.capacity(), ElementCount);
+        ASSERT_EQ(array.size(), ElementCount);
+        EXPECT_EQ(resource.blocks.size(), 1U);
+        EXPECT_EQ(state.constructed, ElementCount + fail_at);
+        EXPECT_EQ(state.destroyed, fail_at);
+        EXPECT_EQ(state.live.size(), ElementCount);
+        EXPECT_EQ(state.moves, 0U);
+        for (std::size_t i = 0; i < array.size(); ++i)
+        {
+            EXPECT_EQ(array[i].value, element_value(i));
+            EXPECT_EQ(array[i].self, &array[i].value);
+        }
+        state.remaining = FailureDisabled;
+        array.emplace_back(array.front());
+        ASSERT_EQ(array.size(), ElementCount + 1U);
+        for (std::size_t i = 0; i < array.size(); ++i)
+        {
+            EXPECT_EQ(array[i].value, element_value(i < ElementCount ? i : 0U));
+            EXPECT_EQ(array[i].self, &array[i].value);
+        }
+        EXPECT_EQ(resource.blocks.size(), 1U);
+    }
+}
+#endif
 }  // namespace
