@@ -1,6 +1,6 @@
 /// @file
 /// Unit tests for classes that use
-/// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate
+/// cetl::pmr::unsynchronized_buffer_memory_resource_delegate
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -27,7 +27,7 @@ namespace cetlvast
 // +-------------------------------------------------------------------------------------------------------------------+
 
 // Buffer Specification is used to define test subjects for users of
-// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate and to provide helpers for consistent construction and test
+// cetl::pmr::unsynchronized_buffer_memory_resource_delegate and to provide helpers for consistent construction and test
 // specializations.
 template <typename T, typename TSize, typename TUpstream, typename TUpstreamSizeMax, typename ShallBeMoveConstructable>
 struct BufferSpec
@@ -132,8 +132,8 @@ private:
 using MyTypes = ::testing::Types<
 
 //                  | Test Subject Type                                       | Test Subject Max Size                     | Test Subject Upstream Type        | Test Subject Upstream Size Max        | Move Constructable |
-/* 00 */  BufferSpec< cetl::pf17::pmr::UnsynchronizedBufferMemoryResource,      std::integral_constant<std::size_t, 10>,    cetl::pf17::pmr::memory_resource,   std::integral_constant<std::size_t, 0>, std::true_type      >
-/* 01 */, BufferSpec< cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<10>,   std::integral_constant<std::size_t, 10>,    cetl::pf17::pmr::memory_resource,   std::integral_constant<std::size_t, 0>, std::false_type     >
+/* 00 */  BufferSpec< cetl::pf17::pmr::unsynchronized_buffer_memory_resource,      std::integral_constant<std::size_t, 10>,    cetl::pf17::pmr::memory_resource,   std::integral_constant<std::size_t, 0>, std::true_type      >
+/* 01 */, BufferSpec< cetl::pf17::pmr::unsynchronized_array_memory_resource<10>,   std::integral_constant<std::size_t, 10>,    cetl::pf17::pmr::memory_resource,   std::integral_constant<std::size_t, 0>, std::false_type     >
 >;
 
 // clang-format on

@@ -23,7 +23,7 @@
 namespace
 {
 template <typename T>
-using Array = cetl::VariableLengthArray<T, std::allocator<T>>;
+using Array = cetl::variable_length_array<T, std::allocator<T>>;
 
 template <typename T>
 class VLAInsert : public ::testing::Test
@@ -277,7 +277,7 @@ struct DecliningAllocator
 TYPED_TEST(VLAInsert, InsertingWithinCapacityDoesNotAllocate)
 {
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, DecliningAllocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, DecliningAllocator<TypeParam>>;
     Subject actual{typename Subject::allocator_type{state}};
     actual.reserve(40U);
     const auto                   calls = state.calls;
@@ -294,7 +294,7 @@ TYPED_TEST(VLAInsert, InsertingWithinCapacityDoesNotAllocate)
 TYPED_TEST(VLAInsert, DeclinedGrowthHasNoEffect)
 {
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, DecliningAllocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, DecliningAllocator<TypeParam>>;
     Subject actual{typename Subject::allocator_type{state}};
     actual.push_back(TypeParam{1});
     actual.shrink_to_fit();

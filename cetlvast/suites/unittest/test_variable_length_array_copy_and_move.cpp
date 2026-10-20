@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for the copy and move operations of cetl::VariableLengthArray
+/// Unit tests for the copy and move operations of cetl::variable_length_array
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -100,7 +100,7 @@ class VLAMoveConstructorExceptionTests : public ::testing::Test
 {
 protected:
     using T         = typename Params::value_type;
-    using Subject   = cetl::VariableLengthArray<T, MoveConstructorAllocator<T, typename Params::pocma>>;
+    using Subject   = cetl::variable_length_array<T, MoveConstructorAllocator<T, typename Params::pocma>>;
     using Allocator = typename Subject::allocator_type;
 };
 
@@ -302,8 +302,8 @@ struct TypeParamDef
     using subject = cetlvast::AllocatorTypeParamDef<SubjectAllocatorFactoryType, SubjectAllocatorValueType>;
     using source  = cetlvast::AllocatorTypeParamDef<SubjectAllocatorFactoryType, SourceAllocatorValueType>;
 
-    using subject_vla_type = cetl::VariableLengthArray<SubjectValueType, typename subject::allocator_type>;
-    using source_vla_type  = cetl::VariableLengthArray<SourceValueType, typename source::allocator_type>;
+    using subject_vla_type = cetl::variable_length_array<SubjectValueType, typename subject::allocator_type>;
+    using source_vla_type  = cetl::variable_length_array<SourceValueType, typename source::allocator_type>;
 
     static constexpr typename subject::allocator_type make_subject_allocator()
     {

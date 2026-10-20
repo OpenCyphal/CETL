@@ -28,12 +28,12 @@ namespace pmr
 {
 
 /// Implementation of cetl::pf17::pmr::memory_resource that uses
-/// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate as the internal implementation backed by an std::array
+/// cetl::pmr::unsynchronized_buffer_memory_resource_delegate as the internal implementation backed by an std::array
 /// data member using `array_size * sizeof(cetl::pf17::byte)`s of memory.
 ///
 /// @note
 /// This object cannot be moved since there may be outstanding pointers to the internal memory store. If you need a
-/// movable memory resource with similar semantics see cetl::pf17::pmr::UnsynchronizedBufferMemoryResource.
+/// movable memory resource with similar semantics see cetl::pf17::pmr::unsynchronized_buffer_memory_resource.
 ///
 /// @par Example Usage
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_0
@@ -41,49 +41,49 @@ namespace pmr
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_1
 /// (@ref example_05_array_memory_resource "See full example here...")
 template <std::size_t array_size>
-class UnsynchronizedArrayMemoryResource final : public cetl::pf17::pmr::memory_resource
+class unsynchronized_array_memory_resource final : public cetl::pf17::pmr::memory_resource
 {
 public:
-    /// See cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate for details.
+    /// See cetl::pmr::unsynchronized_buffer_memory_resource_delegate for details.
     /// @param upstream The upstream memory resource to provide to
-    /// cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate. This cannot be null.
+    /// cetl::pmr::unsynchronized_buffer_memory_resource_delegate. This cannot be null.
     /// @param upstream_max_size_bytes The maximum size of the upstream memory resource.
-    UnsynchronizedArrayMemoryResource(cetl::pf17::pmr::memory_resource* upstream,
-                                      std::size_t                       upstream_max_size_bytes) noexcept
+    unsynchronized_array_memory_resource(cetl::pf17::pmr::memory_resource* upstream,
+                                         std::size_t                       upstream_max_size_bytes) noexcept
         : array_{}
         , delegate_{array_.data(), sizeof(cetl::pf17::byte) * array_size, upstream, upstream_max_size_bytes}
     {
     }
 
     /// Constructor version that uses cetl::pf17::pmr::null_memory_resource as the upstream resource.
-    UnsynchronizedArrayMemoryResource() noexcept
+    unsynchronized_array_memory_resource() noexcept
         : array_{}
         , delegate_{array_.data(), sizeof(cetl::pf17::byte) * array_size, cetl::pf17::pmr::null_memory_resource(), 0}
     {
     }
 
-    ~UnsynchronizedArrayMemoryResource() override                                          = default;
-    UnsynchronizedArrayMemoryResource(const UnsynchronizedArrayMemoryResource&)            = delete;
-    UnsynchronizedArrayMemoryResource& operator=(const UnsynchronizedArrayMemoryResource&) = delete;
-    UnsynchronizedArrayMemoryResource(UnsynchronizedArrayMemoryResource&&) noexcept        = delete;
-    UnsynchronizedArrayMemoryResource& operator=(UnsynchronizedArrayMemoryResource&&)      = delete;
+    ~unsynchronized_array_memory_resource() override                                             = default;
+    unsynchronized_array_memory_resource(const unsynchronized_array_memory_resource&)            = delete;
+    unsynchronized_array_memory_resource& operator=(const unsynchronized_array_memory_resource&) = delete;
+    unsynchronized_array_memory_resource(unsynchronized_array_memory_resource&&) noexcept        = delete;
+    unsynchronized_array_memory_resource& operator=(unsynchronized_array_memory_resource&&)      = delete;
 
     // +-----------------------------------------------------------------------+
-    // | cetl::UnsynchronizedBufferMemoryResourceDelegate
+    // | cetl::unsynchronized_buffer_memory_resource_delegate
     // +-----------------------------------------------------------------------+
-    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    /// @copydoc cetl::pmr::unsynchronized_buffer_memory_resource_delegate::data()
     void* data() noexcept
     {
         return delegate_.data();
     }
 
-    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::data()
+    /// @copydoc cetl::pmr::unsynchronized_buffer_memory_resource_delegate::data()
     const void* data() const noexcept
     {
         return delegate_.data();
     }
 
-    /// @copydoc cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate::size()
+    /// @copydoc cetl::pmr::unsynchronized_buffer_memory_resource_delegate::size()
     std::size_t size() const noexcept
     {
         return delegate_.size();
@@ -119,9 +119,17 @@ private:
         return delegate_.reallocate(p, old_size_bytes, new_size_bytes, alignment);
     }
 
-    std::array<cetl::pf17::byte, array_size>                                                array_;
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
+    std::array<cetl::pf17::byte, array_size>                                                    array_;
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource> delegate_;
 };
+
+/// @deprecated Renamed to cetl::pf17::pmr::unsynchronized_array_memory_resource; this alias will be removed in a
+/// future major version.
+template <std::size_t array_size>
+using UnsynchronizedArrayMemoryResource
+    [[deprecated("renamed to cetl::pf17::pmr::unsynchronized_array_memory_resource")]] =
+        unsynchronized_array_memory_resource<array_size>;
+
 }  // namespace pmr
 }  // namespace pf17
 }  // namespace cetl

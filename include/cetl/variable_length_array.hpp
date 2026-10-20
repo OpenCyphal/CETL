@@ -1,5 +1,5 @@
 /// @file
-/// Includes cetl::VariableLengthArray type and non-member functions.
+/// Includes cetl::variable_length_array type and non-member functions.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -74,7 +74,7 @@ concept BooleanTestable = BooleanTestableImpl<T> && requires(T&& t) {
 // if it has one, otherwise a weak ordering derived from operator<. Elements without a boolean-testable operator< do
 // not satisfy the constraint, so the array's operator<=> drops out of overload resolution instead of failing to
 // compile, and is available exactly when std::vector's is.
-struct SynthThreeWay
+struct synth_three_way
 {
     template <typename T>
         requires requires(const T& lhs, const T& rhs) {
@@ -103,10 +103,10 @@ struct SynthThreeWay
 };
 #endif
 
-// Common template implementation for VariableLengthArray and its specializations. This is not intended to be used
+// Common template implementation for variable_length_array and its specializations. This is not intended to be used
 // directly.
 template <typename BaseValueType, typename BaseAllocatorType>
-class VariableLengthArrayBase
+class variable_length_array_base
 {
 public:
     ///
@@ -130,10 +130,10 @@ public:
     using size_type = std::size_t;
 
     // Assignment is implemented by copy_assign_from/move_assign_from because it needs the derived class's max_size().
-    // Copy construction is implemented by the derived classes via Base(const Base&, const allocator_type&).
-    VariableLengthArrayBase(const VariableLengthArrayBase&)            = delete;
-    VariableLengthArrayBase& operator=(const VariableLengthArrayBase&) = delete;
-    VariableLengthArrayBase& operator=(VariableLengthArrayBase&&)      = delete;
+    // Copy construction is implemented by the derived classes via base(const base&, const allocator_type&).
+    variable_length_array_base(const variable_length_array_base&)            = delete;
+    variable_length_array_base& operator=(const variable_length_array_base&) = delete;
+    variable_length_array_base& operator=(variable_length_array_base&&)      = delete;
 
 private:
     // +----------------------------------------------------------------------+
@@ -562,7 +562,7 @@ protected:
     // +----------------------------------------------------------------------+
     // | COPY ASSIGN IMPLEMENTATION
     // +----------------------------------------------------------------------+
-    constexpr void copy_assign_from(const VariableLengthArrayBase& rhs, const size_type rhs_max_size)
+    constexpr void copy_assign_from(const variable_length_array_base& rhs, const size_type rhs_max_size)
     {
         if (this == &rhs)
         {
@@ -633,8 +633,8 @@ protected:
     /// move.
     template <typename UAlloc>
     constexpr void move_assign_from(
-        VariableLengthArrayBase&& rhs,
-        const size_type           rhs_max_size,
+        variable_length_array_base&& rhs,
+        const size_type              rhs_max_size,
         typename std::enable_if_t<is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr) noexcept
     {
         (void) rhs_max_size;
@@ -657,8 +657,8 @@ protected:
     }
 
     template <typename UAlloc>
-    constexpr void move_assign_from(VariableLengthArrayBase&& rhs,
-                                    const size_type           rhs_max_size,
+    constexpr void move_assign_from(variable_length_array_base&& rhs,
+                                    const size_type              rhs_max_size,
                                     typename std::enable_if_t<!is_pocma_or_is_always_equal<UAlloc>::value>* = nullptr)
     {
         if (this == &rhs)
@@ -1196,7 +1196,7 @@ protected:
     // | CONSTRUCTORS
     // +----------------------------------------------------------------------+
 
-    constexpr VariableLengthArrayBase(
+    constexpr variable_length_array_base(
         const allocator_type& alloc,
         value_type*           data,
         size_type             initial_capacity,
@@ -1212,7 +1212,7 @@ protected:
 
     /// The allocator is used as given. select_on_container_copy_construction is the business of the non-extended
     /// copy constructor only (see the derived classes).
-    constexpr VariableLengthArrayBase(const VariableLengthArrayBase& rhs, const allocator_type& alloc) noexcept(
+    constexpr variable_length_array_base(const variable_length_array_base& rhs, const allocator_type& alloc) noexcept(
         std::is_nothrow_copy_constructible<allocator_type>::value)
         : alloc_(alloc)
         , data_(nullptr)
@@ -1222,7 +1222,7 @@ protected:
     {
     }
 
-    constexpr VariableLengthArrayBase(VariableLengthArrayBase&& rhs) noexcept
+    constexpr variable_length_array_base(variable_length_array_base&& rhs) noexcept
         : alloc_(std::move(rhs.alloc_))
         , data_(std::move(rhs.data_))
         , capacity_(rhs.capacity_)
@@ -1239,9 +1239,9 @@ protected:
     /// Allocator-extended move construction where the allocators are always equal: the storage is simply adopted.
     /// Note that propagate_on_container_move_assignment has no bearing on construction.
     template <typename UAlloc>
-    constexpr VariableLengthArrayBase(
-        VariableLengthArrayBase&& rhs,
-        const UAlloc&             alloc,
+    constexpr variable_length_array_base(
+        variable_length_array_base&& rhs,
+        const UAlloc&                alloc,
         typename std::enable_if_t<std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr) noexcept
         : alloc_(alloc)
         , data_(std::move(rhs.data_))
@@ -1261,9 +1261,9 @@ protected:
     /// it, leaving the source empty with its original capacity still allocated from the source allocator. The latter
     /// can throw so this overload is not noexcept.
     template <typename UAlloc>
-    constexpr VariableLengthArrayBase(
-        VariableLengthArrayBase&& rhs,
-        const UAlloc&             alloc,
+    constexpr variable_length_array_base(
+        variable_length_array_base&& rhs,
+        const UAlloc&                alloc,
         typename std::enable_if_t<!std::allocator_traits<UAlloc>::is_always_equal::value>* = nullptr)
         : alloc_(alloc)
         , data_{nullptr}
@@ -1306,7 +1306,7 @@ protected:
         }
     }
 
-    ~VariableLengthArrayBase()
+    ~variable_length_array_base()
     {
         // This also runs when a derived constructor throws after acquiring storage.
         if (data_ != nullptr)
@@ -1328,7 +1328,7 @@ protected:
 }  // namespace detail
 
 // +-------------------------------------------------------------------------------------------------------------------+
-// | VariableLengthArray
+// | variable_length_array
 // +-------------------------------------------------------------------------------------------------------------------+
 
 ///
@@ -1339,12 +1339,12 @@ protected:
 /// This allows use of an allocator that is backed by statically allocated memory:
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_exact_fit
 ///
-/// Even if cetl::VariableLengthArray::reserve() is not used the implementation will still use less memory then its
+/// Even if cetl::variable_length_array::reserve() is not used the implementation will still use less memory then its
 /// STL counterpart:
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_tight_fit_0
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_tight_fit_1
 ///
-/// Finally, when exceptions are disabled the cetl::VariableLengthArray will not exhibit undefined behaviour like
+/// Finally, when exceptions are disabled the cetl::variable_length_array will not exhibit undefined behaviour like
 /// std::vector does:
 /// @snippet{trimleft} example_08_variable_length_array_vs_vector.cpp example_no_exceptions
 /// (@ref example_08_variable_length_array_vs_vector "See full example here...")
@@ -1366,7 +1366,7 @@ protected:
 /// Every copy and move, whatever the allocators, also gives the destination the source's `max_size_max` bound.
 ///
 /// In the table below, `C` is the source capacity before a successful move between distinct arrays. The source size
-/// becomes zero in every row. The same rules apply to packed `VariableLengthArray<bool>` and empty reserved sources.
+/// becomes zero in every row. The same rules apply to packed `variable_length_array<bool>` and empty reserved sources.
 /// Self-move assignment leaves the array unchanged. Allocator propagation affects assignment only.
 ///
 // clang-format off
@@ -1402,21 +1402,21 @@ protected:
 /// @tparam Allocator    The allocator type to use for all allocations.
 ///
 template <typename T, typename Allocator>
-class VariableLengthArray : protected detail::VariableLengthArrayBase<T, Allocator>
+class variable_length_array : protected detail::variable_length_array_base<T, Allocator>
 {
 protected:
-    using Base = detail::VariableLengthArrayBase<T, Allocator>;
-    using Base::data_;
-    using Base::size_;
-    using Base::capacity_;
-    using Base::max_size_max_;
-    using Base::alloc_;
+    using base = detail::variable_length_array_base<T, Allocator>;
+    using base::data_;
+    using base::size_;
+    using base::capacity_;
+    using base::max_size_max_;
+    using base::alloc_;
 
 public:
     ///
     /// STL-like declaration of the container's storage type.
     ///
-    using value_type = typename Base::value_type;
+    using value_type = typename base::value_type;
 
     ///
     /// STL-like declaration of pointer type.
@@ -1446,17 +1446,17 @@ public:
     ///
     /// STL-like declaration of the container's difference type.
     ///
-    using difference_type = typename Base::difference_type;
+    using difference_type = typename base::difference_type;
 
     ///
     /// STL-like declaration of the container's size type.
     ///
-    using size_type = typename Base::size_type;
+    using size_type = typename base::size_type;
 
     ///
     /// Per the std::uses_allocator protocol.
     ///
-    using allocator_type = typename Base::allocator_type;
+    using allocator_type = typename base::allocator_type;
 
     ///
     /// STL-like declaration of reference type.
@@ -1473,64 +1473,64 @@ public:
     // +----------------------------------------------------------------------+
     /// Required constructor for std::uses_allocator protocol.
     /// @param alloc Allocator to use for all allocations.
-    explicit VariableLengthArray(const allocator_type& alloc) noexcept
-        : Base(alloc, nullptr, 0, 0, std::numeric_limits<size_type>::max())
+    explicit variable_length_array(const allocator_type& alloc) noexcept
+        : base(alloc, nullptr, 0, 0, std::numeric_limits<size_type>::max())
     {
     }
 
     /// Required constructor for std::uses_allocator protocol.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc Allocator to use for all allocations.
-    explicit VariableLengthArray(size_type max_size_max, const allocator_type& alloc) noexcept
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    explicit variable_length_array(size_type max_size_max, const allocator_type& alloc) noexcept
+        : base(alloc, nullptr, 0, 0, max_size_max)
     {
     }
 
     /// Initializer syntax constructor with maximum max size.
     /// @param l Initializer list of elements to copy into the array.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc Allocator to use for all allocations.
-    VariableLengthArray(std::initializer_list<value_type> l, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(std::initializer_list<value_type> l, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
     {
         reserve(l.size());
-        size_ = Base::fast_copy_construct(data_, capacity_, l.begin(), l.size(), alloc_);
+        size_ = base::fast_copy_construct(data_, capacity_, l.begin(), l.size(), alloc_);
     }
 
     /// Initializer syntax constructor.
     /// @param l Initializer list of elements to copy into the array.
     /// @param alloc Allocator to use for all allocations.
-    VariableLengthArray(std::initializer_list<value_type> l, const allocator_type& alloc)
-        : VariableLengthArray(l, std::numeric_limits<size_type>::max(), alloc)
+    variable_length_array(std::initializer_list<value_type> l, const allocator_type& alloc)
+        : variable_length_array(l, std::numeric_limits<size_type>::max(), alloc)
     {
     }
 
     /// Count-value constructor with maximum max size. Constructs `count` copies of `value`, as
     /// `std::vector(count, value, alloc)` does, allocating storage for exactly `count` elements.
     /// The count may be any type that converts to size_type, but not a braced list:
-    /// `VariableLengthArray({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
-    /// overload, because `VariableLengthArray(n, alloc)` sets max_size_max.
+    /// `variable_length_array({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
+    /// overload, because `variable_length_array(n, alloc)` sets max_size_max.
     /// With exceptions disabled, the array is truncated to max_size() or to the storage the allocator provides, which
     /// the caller can detect by comparing size() with `count`.
     /// @tparam Count       The type of `count`.
     /// @param count        The number of elements to construct.
     /// @param value        The value to copy into each element.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc        Allocator to use for all allocations.
     /// @throw std::length_error if `count` is greater than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` elements.
     template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
-    VariableLengthArray(Count count, const value_type& value, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(Count count, const value_type& value, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
     {
         // Elements constructed before a failure are destroyed by resize(); the base destructor releases the storage.
-        Base::resize(static_cast<size_type>(count), max_size(), value);
+        base::resize(static_cast<size_type>(count), max_size(), value);
     }
 
     /// Count-value constructor. Constructs `count` copies of `value`, as `std::vector(count, value, alloc)` does.
@@ -1542,8 +1542,8 @@ public:
     /// @throw std::length_error if `count` is greater than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` elements.
     template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
-    VariableLengthArray(Count count, const value_type& value, const allocator_type& alloc)
-        : VariableLengthArray(count, value, std::numeric_limits<size_type>::max(), alloc)
+    variable_length_array(Count count, const value_type& value, const allocator_type& alloc)
+        : variable_length_array(count, value, std::numeric_limits<size_type>::max(), alloc)
     {
     }
 
@@ -1552,12 +1552,12 @@ public:
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
+    ///                     cetl::variable_length_array::max_size() will return `std::min(max_size_max,
     ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
-    VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
     {
         // Accepts the iterators assign(first, last) accepts, but only constructs elements. Elements constructed before
         // a failure are destroyed by the base destructor.
@@ -1570,49 +1570,50 @@ public:
     /// @param last     The end of the range.
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
-    VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
-        : VariableLengthArray(first, last, std::numeric_limits<size_type>::max(), alloc)
+    variable_length_array(InputIt first, InputIt last, const allocator_type& alloc)
+        : variable_length_array(first, last, std::numeric_limits<size_type>::max(), alloc)
     {
     }
 
     // +----------------------------------------------------------------------+
     // | RULE OF FIVE
     // +----------------------------------------------------------------------+
-    VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
-        : Base(rhs, alloc)
+    variable_length_array(const variable_length_array& rhs, const allocator_type& alloc)
+        : base(rhs, alloc)
     {
-        Base::reserve(rhs.size(), rhs.max_size());
-        size_ = Base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
+        base::reserve(rhs.size(), rhs.max_size());
+        size_ = base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
     }
 
-    VariableLengthArray(const VariableLengthArray& rhs)
-        : VariableLengthArray(rhs,
-                              std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.alloc_))
+    variable_length_array(const variable_length_array& rhs)
+        : variable_length_array(rhs,
+                                std::allocator_traits<allocator_type>::select_on_container_copy_construction(
+                                    rhs.alloc_))
     {
     }
 
-    VariableLengthArray& operator=(const VariableLengthArray& rhs)
+    variable_length_array& operator=(const variable_length_array& rhs)
     {
-        Base::copy_assign_from(rhs, rhs.max_size());
+        base::copy_assign_from(rhs, rhs.max_size());
         return *this;
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
+    variable_length_array(variable_length_array&& rhs, const allocator_type& alloc) noexcept(
         std::allocator_traits<allocator_type>::is_always_equal::value)
-        : Base(std::move(rhs), alloc)
+        : base(std::move(rhs), alloc)
     {
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs) noexcept
-        : Base(std::move(rhs))
+    variable_length_array(variable_length_array&& rhs) noexcept
+        : base(std::move(rhs))
     {
     }
 
-    VariableLengthArray& operator=(VariableLengthArray&& rhs) noexcept(
+    variable_length_array& operator=(variable_length_array&& rhs) noexcept(
         std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
     {
-        Base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
+        base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
         return *this;
     }
 
@@ -1622,18 +1623,18 @@ public:
     /// @return `*this`
     /// @throw std::length_error if `values` has more elements than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `values`.
-    VariableLengthArray& operator=(std::initializer_list<value_type> values)
+    variable_length_array& operator=(std::initializer_list<value_type> values)
     {
         assign(values);
         return *this;
     }
 
-    ~VariableLengthArray() = default;
+    ~variable_length_array() = default;
 
     // +----------------------------------------------------------------------+
     // | COMPARATORS
     // +----------------------------------------------------------------------+
-    constexpr bool operator==(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator==(const variable_length_array& rhs) const noexcept
     {
         if (data_ == rhs.data_)
         {
@@ -1646,7 +1647,7 @@ public:
         return std::equal(data_, data_ + size_, rhs.data_, rhs.data_ + rhs.size_);
     }
 
-    constexpr bool operator!=(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator!=(const variable_length_array& rhs) const noexcept
     {
         return !(operator==(rhs));
     }
@@ -1658,38 +1659,38 @@ public:
     /// are rewritten in terms of this operator, as for std::vector, so partially ordered elements such as a NaN give
     /// the same answers as std::vector does in C++20.
     template <typename U = value_type>
-    constexpr auto operator<=>(const VariableLengthArray& rhs) const
-        -> decltype(detail::SynthThreeWay{}(std::declval<const U&>(), std::declval<const U&>()))
+    constexpr auto operator<=>(const variable_length_array& rhs) const
+        -> decltype(detail::synth_three_way{}(std::declval<const U&>(), std::declval<const U&>()))
     {
         return std::lexicographical_compare_three_way(cbegin(),
                                                       cend(),
                                                       rhs.cbegin(),
                                                       rhs.cend(),
-                                                      detail::SynthThreeWay{});
+                                                      detail::synth_three_way{});
     }
 #else
     /// Compares the elements lexicographically, as std::vector's operator< does before C++20: the first unequal pair
     /// decides, and otherwise the shorter array is less. Requires value_type to be comparable with operator<. In C++20
     /// these four operators are replaced by operator<=>, as they are for std::vector.
-    constexpr bool operator<(const VariableLengthArray& rhs) const
+    constexpr bool operator<(const variable_length_array& rhs) const
     {
         return std::lexicographical_compare(cbegin(), cend(), rhs.cbegin(), rhs.cend());
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator>(const VariableLengthArray& rhs) const
+    constexpr bool operator>(const variable_length_array& rhs) const
     {
         return rhs < *this;
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator<=(const VariableLengthArray& rhs) const
+    constexpr bool operator<=(const variable_length_array& rhs) const
     {
         return !(rhs < *this);
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator>=(const VariableLengthArray& rhs) const
+    constexpr bool operator>=(const variable_length_array& rhs) const
     {
         return !(*this < rhs);
     }
@@ -1957,7 +1958,7 @@ public:
         try
         {
 #endif
-            Base::shrink_to_fit();
+            base::shrink_to_fit();
 #if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
@@ -1996,7 +1997,7 @@ public:
     ///
     void reserve(const size_type desired_capacity)
     {
-        Base::reserve(desired_capacity, max_size());
+        base::reserve(desired_capacity, max_size());
     }
 
     /// Returns the, theoretical, maximum number of elements that can be stored in this container.
@@ -2020,7 +2021,7 @@ public:
     ///
     constexpr void clear() noexcept(std::is_nothrow_destructible<value_type>::value)
     {
-        Base::destroy_all();
+        base::destroy_all();
     }
 
     ///
@@ -2057,7 +2058,7 @@ public:
     /// Allocate a new element on to the back of the array and move value into it. Grows size by 1 and
     /// may grow capacity.
     ///
-    /// See VariableLengthArray::push_back(value_type&) for full documentation.
+    /// See variable_length_array::push_back(value_type&) for full documentation.
     ///
     /// @throw std::length_error if the size of this collection is at capacity.
     /// @throw std::bad_alloc if memory was needed and none could be allocated.
@@ -2113,7 +2114,7 @@ public:
         if (count > 0)
         {
             (void) std::move(position + count, end(), position);
-            Base::destroy_suffix(size_ - count);
+            base::destroy_suffix(size_ - count);
         }
         return position;
     }
@@ -2159,7 +2160,7 @@ public:
     iterator insert(const_iterator pos, const size_type count, const value_type& value)
     {
         const size_type offset = insert_offset(pos);
-        if (Base::refers_to_element(value))
+        if (base::refers_to_element(value))
         {
             // Growing may relocate the element value refers to before it is copied, so copy it first.
             const value_type copy(value);
@@ -2207,7 +2208,7 @@ public:
             std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Args>(args)...);
             ++size_;
         }
-        else if (!Base::grow_and_emplace_back(max_size(), std::forward<Args>(args)...))
+        else if (!base::grow_and_emplace_back(max_size(), std::forward<Args>(args)...))
         {
 #if defined(__cpp_exceptions)
             throw std::length_error("size is at capacity and we cannot grow the capacity.");
@@ -2226,7 +2227,7 @@ public:
     /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
     constexpr void resize(size_type count)
     {
-        Base::resize(count, max_size());
+        base::resize(count, max_size());
     }
 
     /// Resizes internal storage to count elements copy-initializing any added elements over the
@@ -2241,7 +2242,7 @@ public:
     /// @throw std::bad_alloc if the container cannot obtain enough memory to size up to `count`.
     constexpr void resize(size_type count, const value_type& value)
     {
-        Base::resize(count, max_size(), value);
+        base::resize(count, max_size(), value);
     }
 
     /// Set count elements to the given value. Grow the array if needed else
@@ -2262,12 +2263,12 @@ public:
             count = max_size();
 #endif
         }
-        Base::prepare_assign_storage(count);
+        base::prepare_assign_storage(count);
         const size_type size_before = size_;
         // Within capacity, resize() only constructs the new suffix.
         resize(std::min(count, capacity_), value);
         const size_type back_fill_count = (size_ > size_before) ? size_before : size_;
-        Base::fast_copy_assign(data_, back_fill_count, value);
+        base::fast_copy_assign(data_, back_fill_count, value);
     }
 
     /// Replace the contents with the elements in [first, last), reusing existing storage where possible.
@@ -2307,13 +2308,13 @@ private:
     template <typename InputIt>
     void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
     {
-        Base::destroy_suffix(Base::assign_from_input_range(*this, first, last));
+        base::destroy_suffix(base::assign_from_input_range(*this, first, last));
     }
 
     template <typename ForwardIt>
     void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
-        Base::assign_from_forward_range(first, last, max_size());
+        base::assign_from_forward_range(first, last, max_size());
     }
 
     size_type insert_offset(const const_iterator pos) const noexcept
@@ -2347,7 +2348,7 @@ private:
         if (required > capacity_)
         {
             const size_type geometric = capacity_ + std::max<size_type>(capacity_ / 2U, 2U);
-            Base::reserve(std::min(limit, std::max(required, geometric)), limit);
+            base::reserve(std::min(limit, std::max(required, geometric)), limit);
         }
         return capacity_ >= required;
     }
@@ -2374,7 +2375,7 @@ private:
 #if defined(__cpp_exceptions)
         } catch (...)
         {
-            Base::destroy_suffix(old_size);
+            base::destroy_suffix(old_size);
             throw;
         }
 #endif
@@ -2454,7 +2455,7 @@ private:
     template <typename ForwardIt>
     void construct_range(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
-        Base::construct_from_forward_range(first, last, max_size());
+        base::construct_from_forward_range(first, last, max_size());
     }
 };
 
@@ -2466,28 +2467,28 @@ private:
 /// The internal bit ordering is little-endian.
 /// @tparam Allocator The allocator type to use.
 template <typename Allocator>
-class VariableLengthArray<bool, Allocator> : protected detail::VariableLengthArrayBase<unsigned char, Allocator>
+class variable_length_array<bool, Allocator> : protected detail::variable_length_array_base<unsigned char, Allocator>
 {
 protected:
-    using Storage = unsigned char;
-    static_assert(sizeof(Storage) == 1, "Unsigned char != 1 byte is not implemented (contributions welcome).");
-    using Base = detail::VariableLengthArrayBase<Storage, Allocator>;
-    using Base::data_;
-    using Base::size_;
-    using Base::capacity_;
-    using Base::max_size_max_;
-    using Base::alloc_;
+    using storage = unsigned char;
+    static_assert(sizeof(storage) == 1, "Unsigned char != 1 byte is not implemented (contributions welcome).");
+    using base = detail::variable_length_array_base<storage, Allocator>;
+    using base::data_;
+    using base::size_;
+    using base::capacity_;
+    using base::max_size_max_;
+    using base::alloc_;
 
 public:
     using value_type      = bool;
-    using difference_type = typename Base::difference_type;
-    using size_type       = typename Base::size_type;
-    using allocator_type  = typename Base::allocator_type;
+    using difference_type = typename base::difference_type;
+    using size_type       = typename base::size_type;
+    using allocator_type  = typename base::allocator_type;
 
     ///
     /// Returns true iff the bit at the specified position is set and the argument is within the range.
     ///
-    static constexpr bool test(const VariableLengthArray& container, const size_type pos) noexcept
+    static constexpr bool test(const variable_length_array& container, const size_type pos) noexcept
     {
         const auto idx = std::make_pair(pos / 8U, pos % 8U);
         return (pos < container.size()) && ((container.data_[idx.first] & (1U << idx.second)) != 0);
@@ -2496,18 +2497,18 @@ public:
     ///
     /// Sets the bit at the specified position to the specified value. Does nothing if position is out of range.
     ///
-    static constexpr void set(VariableLengthArray& container, const size_type pos, const bool value = true) noexcept
+    static constexpr void set(variable_length_array& container, const size_type pos, const bool value = true) noexcept
     {
         if (pos < container.size())
         {
             const auto idx = std::make_pair(pos / 8U, pos % 8U);
             if (value)
             {
-                container.data_[idx.first] = static_cast<Storage>(container.data_[idx.first] | (1U << idx.second));
+                container.data_[idx.first] = static_cast<storage>(container.data_[idx.first] | (1U << idx.second));
             }
             else
             {
-                container.data_[idx.first] = static_cast<Storage>(container.data_[idx.first] & (~(1U << idx.second)));
+                container.data_[idx.first] = static_cast<storage>(container.data_[idx.first] & (~(1U << idx.second)));
             }
         }
     }
@@ -2566,17 +2567,17 @@ public:
         }
 
     private:
-        friend class VariableLengthArray;
+        friend class variable_length_array;
 
-        reference(VariableLengthArray& array, const size_type index) noexcept
+        reference(variable_length_array& array, const size_type index) noexcept
             : array_(array)
             , index_(index)
         {
         }
 
         // The reference does not need to be copyable because URVO will elide the copy.
-        VariableLengthArray& array_;
-        const size_type      index_;
+        variable_length_array& array_;
+        const size_type        index_;
     };
     using const_reference = bool;
 
@@ -2590,7 +2591,7 @@ public:
 
 private:
     template <typename A>
-    class IteratorImpl final
+    class iterator_impl final
     {
     public:
         using iterator_category = std::random_access_iterator_tag;
@@ -2600,61 +2601,61 @@ private:
             std::conditional_t<std::is_const<A>::value, typename A::const_reference, typename A::reference>;
         using pointer = void;
 
-        IteratorImpl() noexcept = default;
+        iterator_impl() noexcept = default;
 
         /// A mutable iterator converts to a const_iterator, as a standard container's iterator does.
         template <typename B,
                   typename = std::enable_if_t<std::is_same<const B, A>::value && !std::is_same<B, A>::value>>
-        IteratorImpl(const IteratorImpl<B>& other) noexcept  // NOLINT(*-explicit-constructor)
+        iterator_impl(const iterator_impl<B>& other) noexcept  // NOLINT(*-explicit-constructor)
             : array_(other.array_)
             , index_(other.index_)
         {
         }
 
-        IteratorImpl& operator++() noexcept
+        iterator_impl& operator++() noexcept
         {
             ++index_;
             return *this;
         }
-        IteratorImpl operator++(int) noexcept
+        iterator_impl operator++(int) noexcept
         {
-            const IteratorImpl tmp(*this);
+            const iterator_impl tmp(*this);
             ++index_;
             return tmp;
         }
-        IteratorImpl& operator--() noexcept
+        iterator_impl& operator--() noexcept
         {
             --index_;
             return *this;
         }
-        IteratorImpl operator--(int) noexcept
+        iterator_impl operator--(int) noexcept
         {
-            IteratorImpl tmp(*this);
+            iterator_impl tmp(*this);
             --index_;
             return tmp;
         }
 
-        IteratorImpl& operator+=(const difference_type n) noexcept
+        iterator_impl& operator+=(const difference_type n) noexcept
         {
             index_ = static_cast<size_type>(static_cast<difference_type>(index_) + n);
             return *this;
         }
-        IteratorImpl& operator-=(const difference_type n) noexcept
+        iterator_impl& operator-=(const difference_type n) noexcept
         {
             index_ = static_cast<size_type>(static_cast<difference_type>(index_) - n);
             return *this;
         }
-        IteratorImpl operator+(const difference_type n) const noexcept
+        iterator_impl operator+(const difference_type n) const noexcept
         {
-            return IteratorImpl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) + n));
+            return iterator_impl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
-        IteratorImpl operator-(const difference_type n) const noexcept
+        iterator_impl operator-(const difference_type n) const noexcept
         {
-            return IteratorImpl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) - n));
+            return iterator_impl(*array_, static_cast<size_type>(static_cast<difference_type>(index_) - n));
         }
         // The iterator-to-iterator operators are hidden friends rather than members, so an iterator can convert to a
         // const_iterator on either side: bits.begin() != bits.cend() and bits.cend() - bits.begin() both compile.
-        friend difference_type operator-(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend difference_type operator-(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return static_cast<difference_type>(lhs.index_) - static_cast<difference_type>(rhs.index_);
         }
@@ -2685,37 +2686,37 @@ private:
             return array_->operator[](static_cast<size_type>(static_cast<difference_type>(index_) + n));
         }
 
-        friend bool operator==(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator==(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return lhs.array_ == rhs.array_ && lhs.index_ == rhs.index_;
         }
-        friend bool operator!=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator!=(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return !(lhs == rhs);
         }
-        friend bool operator<(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator<(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return lhs.index_ < rhs.index_;
         }
-        friend bool operator>(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator>(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return lhs.index_ > rhs.index_;
         }
-        friend bool operator<=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator<=(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return lhs.index_ <= rhs.index_;
         }
-        friend bool operator>=(const IteratorImpl& lhs, const IteratorImpl& rhs) noexcept
+        friend bool operator>=(const iterator_impl& lhs, const iterator_impl& rhs) noexcept
         {
             return lhs.index_ >= rhs.index_;
         }
 
     private:
-        friend class VariableLengthArray;
+        friend class variable_length_array;
         template <typename>
-        friend class IteratorImpl;
+        friend class iterator_impl;
 
-        IteratorImpl(A& array, const size_type index) noexcept
+        iterator_impl(A& array, const size_type index) noexcept
             : array_(&array)
             , index_(index)
         {
@@ -2726,8 +2727,8 @@ private:
     };
 
 public:
-    using iterator               = IteratorImpl<VariableLengthArray>;
-    using const_iterator         = IteratorImpl<const VariableLengthArray>;
+    using iterator               = iterator_impl<variable_length_array>;
+    using const_iterator         = iterator_impl<const variable_length_array>;
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -2738,29 +2739,29 @@ public:
     /// Required constructor for std::uses_allocator protocol with maximum max size.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     /// @param alloc Allocator to use for all allocations.
-    explicit constexpr VariableLengthArray(size_type max_size_max, const allocator_type& alloc) noexcept
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    explicit constexpr variable_length_array(size_type max_size_max, const allocator_type& alloc) noexcept
+        : base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
     }
 
     /// Required constructor for std::uses_allocator protocol.
     /// @param alloc Allocator to use for all allocations.
-    explicit constexpr VariableLengthArray(const allocator_type& alloc) noexcept
-        : VariableLengthArray(numeric_limits_max_bits(), alloc)
+    explicit constexpr variable_length_array(const allocator_type& alloc) noexcept
+        : variable_length_array(numeric_limits_max_bits(), alloc)
     {
     }
 
     /// Initializer syntax constructor with maximum max size.
     /// @param l Initializer list of elements to copy into the array.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc Allocator to use for all allocations.
-    VariableLengthArray(std::initializer_list<bool> l, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(std::initializer_list<bool> l, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
         reserve_bits(l.size(), max_size());
@@ -2773,30 +2774,30 @@ public:
     /// Initializer syntax constructor.
     /// @param l Initializer list of elements to copy into the array.
     /// @param alloc Allocator to use for all allocations.
-    VariableLengthArray(std::initializer_list<bool> l, const allocator_type& alloc)
-        : VariableLengthArray(l, numeric_limits_max_bits(), alloc)
+    variable_length_array(std::initializer_list<bool> l, const allocator_type& alloc)
+        : variable_length_array(l, numeric_limits_max_bits(), alloc)
     {
     }
 
     /// Count-value constructor with maximum max size. Constructs `count` copies of `value`, as
     /// `std::vector<bool>(count, value, alloc)` does, allocating the bytes needed for exactly `count` bits.
     /// The count may be any type that converts to size_type, but not a braced list:
-    /// `VariableLengthArray({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
-    /// overload, because `VariableLengthArray(n, alloc)` sets max_size_max.
+    /// `variable_length_array({x}, n, alloc)` selects the initializer-list constructor. There is no `(count, alloc)`
+    /// overload, because `variable_length_array(n, alloc)` sets max_size_max.
     /// With exceptions disabled, the array is truncated to max_size() or to the storage the allocator provides, which
     /// the caller can detect by comparing size() with `count`.
     /// @tparam Count       The type of `count`.
     /// @param count        The number of bits to construct.
     /// @param value        The value of each bit.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return
+    ///                     cetl::variable_length_array::max_size() will return
     ///                     `std::min(max_size_max, std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc        Allocator to use for all allocations.
     /// @throw std::length_error if `count` is greater than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` bits.
     template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
-    VariableLengthArray(Count count, const bool value, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(Count count, const bool value, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
         resize(static_cast<size_type>(count), value);
@@ -2811,8 +2812,8 @@ public:
     /// @throw std::length_error if `count` is greater than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `count` bits.
     template <typename Count, typename = detail::enable_if_count_t<Count, size_type>>
-    VariableLengthArray(Count count, const bool value, const allocator_type& alloc)
-        : VariableLengthArray(count, value, numeric_limits_max_bits(), alloc)
+    variable_length_array(Count count, const bool value, const allocator_type& alloc)
+        : variable_length_array(count, value, numeric_limits_max_bits(), alloc)
     {
     }
 
@@ -2821,12 +2822,12 @@ public:
     /// @param first    The beginning of the range.
     /// @param last     The end of the range.
     /// @param max_size_max Clamping value for the maximum size of this array. That is,
-    ///                     cetl::VariableLengthArray::max_size() will return `std::min(max_size_max,
+    ///                     cetl::variable_length_array::max_size() will return `std::min(max_size_max,
     ///                     std::allocator_traits<allocator_type>::max_size(alloc))`
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
-    VariableLengthArray(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
-        : Base(alloc, nullptr, 0, 0, max_size_max)
+    variable_length_array(InputIt first, InputIt last, size_type max_size_max, const allocator_type& alloc)
+        : base(alloc, nullptr, 0, 0, max_size_max)
         , last_byte_bit_fill_{0}
     {
         assign(first, last);
@@ -2838,35 +2839,36 @@ public:
     /// @param last     The end of the range.
     /// @param alloc    Allocator to use for all allocations.
     template <class InputIt, typename = detail::enable_if_input_iterator_t<InputIt>>
-    VariableLengthArray(InputIt first, InputIt last, const allocator_type& alloc)
-        : VariableLengthArray(first, last, numeric_limits_max_bits(), alloc)
+    variable_length_array(InputIt first, InputIt last, const allocator_type& alloc)
+        : variable_length_array(first, last, numeric_limits_max_bits(), alloc)
     {
     }
 
     // +----------------------------------------------------------------------+
     // | RULE OF FIVE
     // +----------------------------------------------------------------------+
-    VariableLengthArray(const VariableLengthArray& rhs, const allocator_type& alloc)
-        : Base(rhs, alloc)
+    variable_length_array(const variable_length_array& rhs, const allocator_type& alloc)
+        : base(rhs, alloc)
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {
         reserve_bits(rhs.size(), rhs.max_size());
-        size_ = Base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
+        size_ = base::fast_copy_construct(data_, capacity_, rhs.data_, rhs.size_, alloc_);
     }
 
-    VariableLengthArray(const VariableLengthArray& rhs)
-        : VariableLengthArray(rhs,
-                              std::allocator_traits<allocator_type>::select_on_container_copy_construction(rhs.alloc_))
+    variable_length_array(const variable_length_array& rhs)
+        : variable_length_array(rhs,
+                                std::allocator_traits<allocator_type>::select_on_container_copy_construction(
+                                    rhs.alloc_))
     {
     }
 
-    VariableLengthArray& operator=(const VariableLengthArray& rhs)
+    variable_length_array& operator=(const variable_length_array& rhs)
     {
 #if defined(__cpp_exceptions)
         try
         {
 #endif
-            Base::copy_assign_from(rhs, rhs.max_size());
+            base::copy_assign_from(rhs, rhs.max_size());
 #if defined(__cpp_exceptions)
         } catch (...)
         {
@@ -2881,22 +2883,22 @@ public:
         return *this;
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs) noexcept
-        : Base(std::move(rhs))
+    variable_length_array(variable_length_array&& rhs) noexcept
+        : base(std::move(rhs))
         , last_byte_bit_fill_{rhs.last_byte_bit_fill_}
     {
         rhs.last_byte_bit_fill_ = 0;
     }
 
-    VariableLengthArray(VariableLengthArray&& rhs, const allocator_type& alloc) noexcept(
+    variable_length_array(variable_length_array&& rhs, const allocator_type& alloc) noexcept(
         std::allocator_traits<allocator_type>::is_always_equal::value)
-        : Base(std::move(rhs), alloc)
+        : base(std::move(rhs), alloc)
         , last_byte_bit_fill_{0}
     {
         take_last_byte_bit_fill(rhs);
     }
 
-    VariableLengthArray& operator=(VariableLengthArray&& rhs) noexcept(
+    variable_length_array& operator=(variable_length_array&& rhs) noexcept(
         std::allocator_traits<allocator_type>::propagate_on_container_move_assignment::value ||
         std::allocator_traits<allocator_type>::is_always_equal::value)
     {
@@ -2913,18 +2915,18 @@ public:
     /// @return `*this`
     /// @throw std::length_error if `values` has more elements than max_size().
     /// @throw std::bad_alloc if the container cannot obtain enough memory to hold `values`.
-    VariableLengthArray& operator=(std::initializer_list<bool> values)
+    variable_length_array& operator=(std::initializer_list<bool> values)
     {
         assign(values);
         return *this;
     }
 
-    ~VariableLengthArray() = default;
+    ~variable_length_array() = default;
 
     // +----------------------------------------------------------------------+
     // | COMPARATORS
     // +----------------------------------------------------------------------+
-    constexpr bool operator==(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator==(const variable_length_array& rhs) const noexcept
     {
         if (data_ == rhs.data_)
         {
@@ -2942,11 +2944,11 @@ public:
         {
             return true;
         }
-        const Storage last_byte_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
+        const storage last_byte_mask = static_cast<storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
         return (data_[size_ - 1] & last_byte_mask) == (rhs.data_[size_ - 1] & last_byte_mask);
     }
 
-    constexpr bool operator!=(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator!=(const variable_length_array& rhs) const noexcept
     {
         return !(operator==(rhs));
     }
@@ -2954,7 +2956,7 @@ public:
 #if defined(__cpp_lib_three_way_comparison) && (__cpp_lib_three_way_comparison >= 201907L)
     /// Compares the bits lexicographically, as std::vector<bool>'s operator<=> does: at the first differing bit, false
     /// is less than true, and otherwise the shorter array is less. <, <=, > and >= are rewritten in terms of this.
-    constexpr std::strong_ordering operator<=>(const VariableLengthArray& rhs) const noexcept
+    constexpr std::strong_ordering operator<=>(const variable_length_array& rhs) const noexcept
     {
         const size_type index = first_difference(rhs);
         return (index < std::min(size(), rhs.size())) ? (test(*this, index) <=> test(rhs, index))
@@ -2963,26 +2965,26 @@ public:
 #else
     /// Compares the bits lexicographically, as std::vector<bool>'s operator< does: at the first differing bit, false is
     /// less than true, and otherwise the shorter array is less.
-    constexpr bool operator<(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator<(const variable_length_array& rhs) const noexcept
     {
         const size_type index = first_difference(rhs);
         return (index < std::min(size(), rhs.size())) ? test(rhs, index) : (size() < rhs.size());
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator>(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator>(const variable_length_array& rhs) const noexcept
     {
         return rhs < *this;
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator<=(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator<=(const variable_length_array& rhs) const noexcept
     {
         return !(rhs < *this);
     }
 
     /// Lexicographic comparison; see operator<.
-    constexpr bool operator>=(const VariableLengthArray& rhs) const noexcept
+    constexpr bool operator>=(const variable_length_array& rhs) const noexcept
     {
         return !(*this < rhs);
     }
@@ -3184,7 +3186,7 @@ public:
         // it could overflow size_type.  Instead we calculate the lesser of the maximum bytes that
         // could be allocated and the maximum bytes that can be represented and convert that into
         // bits.
-        const size_type max_diff_bytes = std::numeric_limits<ptrdiff_t>::max() / sizeof(Storage);
+        const size_type max_diff_bytes = std::numeric_limits<ptrdiff_t>::max() / sizeof(storage);
         const size_type max_alloc_bytes =
             std::min(max_diff_bytes, std::allocator_traits<allocator_type>::max_size(alloc_));
         const size_type max_bytes = std::min(max_alloc_bytes, numeric_limits_max_bits() / 8U);
@@ -3202,7 +3204,7 @@ public:
         try
         {
 #endif
-            Base::shrink_to_fit();
+            base::shrink_to_fit();
 #if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
@@ -3507,7 +3509,7 @@ public:
             }
             else
             {
-                Storage bit_sized = (clamped_count - 1) % 8U;
+                storage bit_sized = (clamped_count - 1) % 8U;
                 if (byte_sized > size_)
                 {
                     // Go ahead and just set all bits in the last bytes since we use masks
@@ -3516,13 +3518,13 @@ public:
                 }
                 if (size_ > 0)
                 {
-                    const Storage     existing_byte  = data_[size_ - 1];
+                    const storage     existing_byte  = data_[size_ - 1];
                     const std::size_t bit_size_delta = 8U - (last_byte_bit_fill_ + 1U);
-                    const Storage existing_bits_mask = static_cast<Storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
+                    const storage existing_bits_mask = static_cast<storage>((1U << (last_byte_bit_fill_ + 1U)) - 1U);
                     if (value)
                     {
-                        const Storage new_bits =
-                            static_cast<Storage>(((1U << bit_size_delta) - 1U) << (last_byte_bit_fill_ + 1U));
+                        const storage new_bits =
+                            static_cast<storage>(((1U << bit_size_delta) - 1U) << (last_byte_bit_fill_ + 1U));
                         data_[size_ - 1] = (existing_byte & existing_bits_mask) | new_bits;
                     }
                     else
@@ -3559,7 +3561,7 @@ public:
         {
             // As in assign(first, last), release insufficient storage before allocating its replacement.
             clear();
-            Base::prepare_assign_storage(bits2bytes(count));
+            base::prepare_assign_storage(bits2bytes(count));
         }
         const size_type size_before = size_;
         resize(std::min(count, capacity()), value);
@@ -3605,7 +3607,7 @@ private:
     template <typename InputIt>
     void assign_range_impl(InputIt first, InputIt last, std::input_iterator_tag)
     {
-        const size_type assigned = Base::assign_from_input_range(*this, first, last);
+        const size_type assigned = base::assign_from_input_range(*this, first, last);
         if (size() > assigned)
         {
             // Only shrinks; it cannot allocate.
@@ -3616,11 +3618,11 @@ private:
     template <typename ForwardIt>
     void assign_range_impl(ForwardIt first, ForwardIt last, std::forward_iterator_tag)
     {
-        const size_type count = Base::assignment_range_size(first, last, max_size());
+        const size_type count = base::assignment_range_size(first, last, max_size());
         if (count > capacity())
         {
             clear();
-            Base::prepare_assign_storage(bits2bytes(count));
+            base::prepare_assign_storage(bits2bytes(count));
         }
         const size_type available = std::min(count, capacity());
         // Pack eight source values per byte store. size() is committed only at the end; if a source operation throws,
@@ -3633,22 +3635,22 @@ private:
             for (unsigned bit = 0U; bit < bits; ++bit, (void) ++first)
             {
                 bool value = false;
-                Base::assign_element(value, *first);
+                base::assign_element(value, *first);
                 byte |= (value ? 1U : 0U) << bit;
             }
-            data_[index / 8U] = static_cast<Storage>(byte);
+            data_[index / 8U] = static_cast<storage>(byte);
             index += bits;
         }
         set_size_bits(available);
     }
 
-    void move_assign_bits(VariableLengthArray& rhs)
+    void move_assign_bits(variable_length_array& rhs)
     {
 #if defined(__cpp_exceptions)
         try
         {
 #endif
-            Base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
+            base::template move_assign_from<allocator_type>(std::move(rhs), rhs.max_size());
 #if defined(__cpp_exceptions)
         } catch (...)
         {
@@ -3664,7 +3666,7 @@ private:
 
     // Takes the source's partial-byte bookkeeping after a move emptied it. With exceptions disabled a declined
     // allocation transfers nothing, leaving this array empty and the source unchanged.
-    void take_last_byte_bit_fill(VariableLengthArray& rhs) noexcept
+    void take_last_byte_bit_fill(variable_length_array& rhs) noexcept
     {
         if (rhs.size_ == 0)
         {
@@ -3687,8 +3689,8 @@ private:
             return size_bits() < max_size();
         }
 
-        // Base::grow works in storage bytes, but max_size() is in bits.
-        return Base::grow(bits2bytes(max_size()));
+        // base::grow works in storage bytes, but max_size() is in bits.
+        return base::grow(bits2bytes(max_size()));
     }
 
     constexpr bool emplace_back_impl(bool value)
@@ -3726,7 +3728,7 @@ private:
             clamped_capacity = max_size;
 #endif
         }
-        Base::reserve(bits2bytes(clamped_capacity), bits2bytes(max_size));
+        base::reserve(bits2bytes(clamped_capacity), bits2bytes(max_size));
     }
 
     constexpr static size_type round8(const size_type value) noexcept
@@ -3738,11 +3740,11 @@ private:
         return round8(value) / 8U;
     }
 
-    /// Records a size of `bits` bits, which must fit in the current capacity. Storage contents are unchanged.
+    /// Records a size of `bits` bits, which must fit in the current capacity. storage contents are unchanged.
     constexpr void set_size_bits(const size_type bits) noexcept
     {
         size_               = bits2bytes(bits);
-        last_byte_bit_fill_ = static_cast<Storage>((bits == 0U) ? 0U : ((bits - 1U) % 8U));
+        last_byte_bit_fill_ = static_cast<storage>((bits == 0U) ? 0U : ((bits - 1U) % 8U));
     }
 
     size_type insert_offset(const const_iterator pos) const noexcept
@@ -3770,7 +3772,7 @@ private:
         {
             const size_type limit_bytes = bits2bytes(limit);
             const size_type geometric   = capacity_ + std::max<size_type>(capacity_ / 2U, 2U);
-            Base::reserve(std::min(limit_bytes, std::max(bits2bytes(required), geometric)), limit_bytes);
+            base::reserve(std::min(limit_bytes, std::max(bits2bytes(required), geometric)), limit_bytes);
         }
         return capacity() >= required;
     }
@@ -3801,7 +3803,7 @@ private:
 
     /// The index of the first bit at which this array and rhs differ, or the length of the shorter array if they do
     /// not differ before it.
-    constexpr size_type first_difference(const VariableLengthArray& rhs) const noexcept
+    constexpr size_type first_difference(const variable_length_array& rhs) const noexcept
     {
         const size_type common = std::min(size(), rhs.size());
         size_type       index  = 0;
@@ -3821,7 +3823,7 @@ private:
         return (size_ == 0) ? 0 : ((size_ - 1) * 8U) + (last_byte_bit_fill_ + 1U);
     }
 
-    /// Note that the underlying size_ and capacity_ of detail::VariableLengthArrayBase are in terms
+    /// Note that the underlying size_ and capacity_ of detail::variable_length_array_base are in terms
     /// of bytes and then converted to bits in size_bits() and capacity_bits().  However
     /// bool VLA (unlike type T VLA) treats max_size_max_ in terms of bits and thus no conversion
     /// is needed.
@@ -3851,8 +3853,13 @@ private:
     /// has no meaning, however, it should always be 0 if size_ == 0 such that, when size_ == 0, size_++
     /// will immediately be valid as 1-bit in the first byte. See size_bits() implementation for more
     /// details.
-    Storage last_byte_bit_fill_;
+    storage last_byte_bit_fill_;
 };
+
+/// @deprecated Renamed to cetl::variable_length_array; this alias will be removed in a future major version.
+template <typename T, typename Allocator>
+using VariableLengthArray [[deprecated("renamed to cetl::variable_length_array")]] =
+    variable_length_array<T, Allocator>;
 
 }  // namespace cetl
 

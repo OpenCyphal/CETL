@@ -49,14 +49,14 @@ void print_container(const T& container)
 TEST(example_08_variable_length_array_vs_vector, example_tight_fit_0)
 {
     //! [example_tight_fit_0]
-    /// while a VariableLengthArray will attempt to grow its capacity using a geometric sequence it will also fit
+    /// while a variable_length_array will attempt to grow its capacity using a geometric sequence it will also fit
     /// tightly inside an array. For example, where std::vector, given an allocator with a maximum_size of
     /// 56 bytes, and pushing back 8-byte elements one at at time, some vector implementations will allocate
-    /// 8, 16, 32, then 64 bytes. This last allocation, obviously, will fail. A VariableLengthArray allocation
+    /// 8, 16, 32, then 64 bytes. This last allocation, obviously, will fail. A variable_length_array allocation
     /// may start with a similar sequence but would never attempt to allocate more than max_size; 8, 16, 32, 56.
 
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>          array_storage_1{};
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>          array_storage_0{&array_storage_1,
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<56>          array_storage_1{};
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<56>          array_storage_0{&array_storage_1,
                                                                            array_storage_1.max_size()};
     std::vector<char, cetl::pf17::pmr::polymorphic_allocator<char>> space_waster{{&array_storage_0}};
 
@@ -78,12 +78,12 @@ TEST(example_08_variable_length_array_vs_vector, example_tight_fit_1)
 {
     //! [example_tight_fit_1]
     // The problem with the C++17 standard is the lack of support for max_size in pmr types.
-    // VariableLengthArray provides the "max_size_max" argument that lets the user limit the amount of memory
+    // variable_length_array provides the "max_size_max" argument that lets the user limit the amount of memory
     // the container will use.
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_1{};
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{&array_storage_1,
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<56>                        array_storage_1{};
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<56>                        array_storage_0{&array_storage_1,
                                                                            array_storage_1.max_size()};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> tight_fit{
+    cetl::variable_length_array<char, cetl::pf17::pmr::polymorphic_allocator<char>> tight_fit{
         array_storage_0.size(),
         {&array_storage_0},
     };
@@ -100,11 +100,11 @@ TEST(example_08_variable_length_array_vs_vector, example_tight_fit_1)
 TEST(example_08_variable_length_array_vs_vector, example_exact_fit)
 {
     //! [example_exact_fit]
-    /// Using the reserve function a VariableLengthArray can be made to fit exactly inside of a given memory
+    /// Using the reserve function a variable_length_array can be made to fit exactly inside of a given memory
     /// resource.
 
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<56>                        array_storage_0{};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> exact_fit{
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<56>                        array_storage_0{};
+    cetl::variable_length_array<char, cetl::pf17::pmr::polymorphic_allocator<char>> exact_fit{
         array_storage_0.size(),
         {&array_storage_0},
     };
@@ -137,7 +137,7 @@ TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
 
     // This allows us to demonstrate that the cetl::variable_length_array behaves like a std::vector...
     std::vector<char, cetl::pf17::pmr::polymorphic_allocator<char>>               a{alloc};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> b{alloc};
+    cetl::variable_length_array<char, cetl::pf17::pmr::polymorphic_allocator<char>> b{alloc};
 
     add_hello_world(a);
     add_hello_world(b);
@@ -147,15 +147,15 @@ TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
 
     // So why not just use vector?
     // The primary reason is std::vector has some edge cases where it cannot be used when exceptions are disabled.
-    // Here we are giving a vector and a VariableLengthArray the same allocator CETL pf17 allocator. This allocator
+    // Here we are giving a vector and a variable_length_array the same allocator CETL pf17 allocator. This allocator
     // returns nullptr when out of memory and exceptions are disabled.
 
     cetl::pf17::pmr::polymorphic_allocator<char> bad_alloc{cetl::pf17::pmr::null_memory_resource()};
 
     std::vector<char, cetl::pf17::pmr::polymorphic_allocator<char>>               bad_a{bad_alloc};
-    cetl::VariableLengthArray<char, cetl::pf17::pmr::polymorphic_allocator<char>> bad_b{bad_alloc};
+    cetl::variable_length_array<char, cetl::pf17::pmr::polymorphic_allocator<char>> bad_b{bad_alloc};
 
-    //  In this case, the VariableLengthArray will fail gracefully when it failed to allocate.
+    //  In this case, the variable_length_array will fail gracefully when it failed to allocate.
     bad_b.push_back('H');
 
     // But this would cause undefined behavior in the vector. Some implementations might cause an abort() whereas
@@ -164,7 +164,7 @@ TEST(example_08_variable_length_array_vs_vector, example_no_exceptions)
     // of course, we commented out the following line but feel free to uncomment and try yourself.
     // bad_a.push_back('H');
 
-    // You can detect that VariableLengthArray was not able to allocate memory for push_back using the following
+    // You can detect that variable_length_array was not able to allocate memory for push_back using the following
     // technique:
     const std::size_t size_before = bad_b.size();
     bad_b.push_back('H');

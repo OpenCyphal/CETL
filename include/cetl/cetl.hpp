@@ -45,25 +45,25 @@
 /// Full example for cetl::pf17::pmr::memory_resource
 /// @include example_03_memory_resource.cpp
 ///
-/// @page example_04_buffer_memory_resource Example 4: Using the UnsynchronizedBufferMemoryResource class
-/// Full example for cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate
+/// @page example_04_buffer_memory_resource Example 4: Using the unsynchronized_buffer_memory_resource class
+/// Full example for cetl::pmr::unsynchronized_buffer_memory_resource_delegate
 /// @include example_04_buffer_memory_resource.cpp
 /// Also see @ref example_05_array_memory_resource
 ///
-/// @page example_05_array_memory_resource Example 5: Using the UnsynchronizedBArrayMemoryResource class
+/// @page example_05_array_memory_resource Example 5: Using the unsynchronized_array_memory_resource class
 /// Also see @ref example_04_buffer_memory_resource
 /// @include example_05_array_memory_resource.cpp
 ///
-/// @page example_06_memory_resource_deleter Example 6: Using the MemoryResourceDeleter class
-/// Full example for cetl::pmr::MemoryResourceDeleter
+/// @page example_06_memory_resource_deleter Example 6: Using the memory_resource_deleter class
+/// Full example for cetl::pmr::memory_resource_deleter
 /// @include example_06_memory_resource_deleter.cpp
 ///
-/// @page example_07_polymorphic_alloc_deleter Example 7: Using the PolymorphicAllocatorDeleter class
-/// Full example for cetl::pmr::Factory
+/// @page example_07_polymorphic_alloc_deleter Example 7: Using the polymorphic_deleter class
+/// Full example for cetl::pmr::factory
 /// @include example_07_polymorphic_alloc_deleter.cpp
 ///
-/// @page example_08_variable_length_array_vs_vector Example 8: Comparing std::vector to CETL's VariableLengthArray
-/// Full example for cetl::VariableLengthArray
+/// @page example_08_variable_length_array_vs_vector Example 8: Comparing std::vector to CETL's variable_length_array
+/// Full example for cetl::variable_length_array
 /// @include example_08_variable_length_array_vs_vector.cpp
 ///
 /// @page example_09_variant Example 9: Using CETL's variant
@@ -75,7 +75,7 @@
 /// @include example_10_unbounded_variant.cpp
 ///
 /// @page example_11_memory_resource_o1heap Example 11: Using the 01heap memory_resource
-/// Full example for cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate
+/// Full example for cetl::pmr::unsynchronized_o1heap_memory_resource_delegate
 /// @include example_11_memory_resource_o1heap.cpp
 ///
 

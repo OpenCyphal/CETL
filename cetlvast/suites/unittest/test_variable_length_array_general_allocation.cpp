@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests that confirm cetl::VariableLengthArray behaviour versus std::vector.
+/// Unit tests that confirm cetl::variable_length_array behaviour versus std::vector.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -244,7 +244,7 @@ private:
 
 // +-------------------------------------------------------------------------------------------------------------------+
 
-/// Creates a polymorphic allocator that uses an UnsynchronizedBufferMemoryResourceDelegate-based memory resource.
+/// Creates a polymorphic allocator that uses an unsynchronized_buffer_memory_resource_delegate-based memory resource.
 template <std::size_t ArraySizeBytes = 24>
 class CetlUnsynchronizedArrayMemoryResourceFactory
 {
@@ -293,7 +293,7 @@ private:
         }
 
         std::array<cetl::pf17::byte, ImplArraySizeBytes>                                        memory_;
-        cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> delegate_;
+        cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource> delegate_;
     };
 
 public:
@@ -474,7 +474,7 @@ public:
     using Allocator                             = typename T::allocator_type;
     using Value                                 = typename T::value_type;
     using SubjectType = typename std::conditional<std::is_same<typename T::container_type, cetlvast::CETLTag>::value,
-                                                  cetl::VariableLengthArray<Value, Allocator>,
+                                                  cetl::variable_length_array<Value, Allocator>,
                                                   std::vector<Value, Allocator>>::type;
 
     static void SetUpTestSuite()
@@ -915,7 +915,7 @@ TEST(VLATestsAdHocAllocation, NonTrivialRelocationNeedsReplacementStorage)
     using Factory   = CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(NotTriviallyConstructable) * 8>;
     Factory                                                         factory;
     NullResourceFactory                                             upstream;
-    cetl::VariableLengthArray<NotTriviallyConstructable, Allocator> subject{
+    cetl::variable_length_array<NotTriviallyConstructable, Allocator> subject{
         Factory::Bind<Allocator, NullResourceFactory>::make_allocator(factory, upstream)};
     subject.reserve(4);
     subject.emplace_back(std::size_t{1});
@@ -941,7 +941,7 @@ TEST(VLATestsAdHocAllocation, UsesPMAForItems)
 {
     std::string::value_type                    buffer[100];
     cetl::pf17::pmr::monotonic_buffer_resource resource{buffer, sizeof(buffer)};
-    cetl::VariableLengthArray<std::string, cetl::pf17::pmr::polymorphic_allocator<std::string::value_type>> vla{
+    cetl::variable_length_array<std::string, cetl::pf17::pmr::polymorphic_allocator<std::string::value_type>> vla{
         &resource};
     vla.reserve(3);
     vla.emplace_back("Hello");

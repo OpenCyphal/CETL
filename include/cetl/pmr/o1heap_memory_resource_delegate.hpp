@@ -30,7 +30,7 @@ namespace pmr
 {
 
 template <std::size_t StorageSizeBytes>
-struct O1HeapAlignedStorage
+struct o1heap_aligned_storage
 {
     static constexpr std::size_t size_bytes = StorageSizeBytes;
     static constexpr std::size_t alignment  = O1HEAP_ALIGNMENT;
@@ -44,10 +44,10 @@ struct O1HeapAlignedStorage
     } storage[1];
 };
 
-class UnsynchronizedO1HeapMemoryResourceDelegate
+class unsynchronized_o1heap_memory_resource_delegate
 {
 public:
-    UnsynchronizedO1HeapMemoryResourceDelegate(void* buffer, std::size_t buffer_size_bytes)
+    unsynchronized_o1heap_memory_resource_delegate(void* buffer, std::size_t buffer_size_bytes)
         : o1heap_{o1heapInit(buffer, buffer_size_bytes)}
     {
         CETL_DEBUG_ASSERT(o1heapMinArenaSize <= buffer_size_bytes, "CDE_o1h_002: buffer_size_bytes is too small.");
@@ -55,16 +55,18 @@ public:
     }
 
     template <typename AlignedStorageType>
-    explicit UnsynchronizedO1HeapMemoryResourceDelegate(AlignedStorageType& aligned_storage)
-        : UnsynchronizedO1HeapMemoryResourceDelegate(aligned_storage.storage, AlignedStorageType::size_bytes)
+    explicit unsynchronized_o1heap_memory_resource_delegate(AlignedStorageType& aligned_storage)
+        : unsynchronized_o1heap_memory_resource_delegate(aligned_storage.storage, AlignedStorageType::size_bytes)
     {
     }
 
-    ~UnsynchronizedO1HeapMemoryResourceDelegate()                                                            = default;
-    UnsynchronizedO1HeapMemoryResourceDelegate(const UnsynchronizedO1HeapMemoryResourceDelegate&)            = delete;
-    UnsynchronizedO1HeapMemoryResourceDelegate& operator=(const UnsynchronizedO1HeapMemoryResourceDelegate&) = delete;
-    UnsynchronizedO1HeapMemoryResourceDelegate(UnsynchronizedO1HeapMemoryResourceDelegate&&)                 = delete;
-    UnsynchronizedO1HeapMemoryResourceDelegate& operator=(UnsynchronizedO1HeapMemoryResourceDelegate&&)      = delete;
+    ~unsynchronized_o1heap_memory_resource_delegate()                                                     = default;
+    unsynchronized_o1heap_memory_resource_delegate(const unsynchronized_o1heap_memory_resource_delegate&) = delete;
+    unsynchronized_o1heap_memory_resource_delegate& operator=(const unsynchronized_o1heap_memory_resource_delegate&) =
+        delete;
+    unsynchronized_o1heap_memory_resource_delegate(unsynchronized_o1heap_memory_resource_delegate&&) = delete;
+    unsynchronized_o1heap_memory_resource_delegate& operator=(unsynchronized_o1heap_memory_resource_delegate&&) =
+        delete;
 
     void* allocate(std::size_t size_bytes, std::size_t alignment = alignof(std::max_align_t))
     {
@@ -97,6 +99,17 @@ public:
 private:
     O1HeapInstance* o1heap_;
 };
+
+/// @deprecated Renamed to cetl::pmr::o1heap_aligned_storage; this alias will be removed in a future major version.
+template <std::size_t StorageSizeBytes>
+using O1HeapAlignedStorage [[deprecated("renamed to cetl::pmr::o1heap_aligned_storage")]] =
+    o1heap_aligned_storage<StorageSizeBytes>;
+
+/// @deprecated Renamed to cetl::pmr::unsynchronized_o1heap_memory_resource_delegate; this alias will be removed in a
+/// future major version.
+using UnsynchronizedO1HeapMemoryResourceDelegate
+    [[deprecated("renamed to cetl::pmr::unsynchronized_o1heap_memory_resource_delegate")]] =
+        unsynchronized_o1heap_memory_resource_delegate;
 
 }  // namespace pmr
 }  // namespace cetl

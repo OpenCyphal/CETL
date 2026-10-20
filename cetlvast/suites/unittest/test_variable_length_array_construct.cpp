@@ -20,7 +20,7 @@
 namespace
 {
 template <typename T>
-using Array = cetl::VariableLengthArray<T, std::allocator<T>>;
+using Array = cetl::variable_length_array<T, std::allocator<T>>;
 
 template <typename T>
 class VLAConstruct : public ::testing::Test

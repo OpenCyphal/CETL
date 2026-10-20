@@ -1,5 +1,5 @@
 /// @file
-/// Example of using the cetl::pf17::pmr::UnsynchronizedArrayMemoryResource in cetl/pf17/array_memory_resource.hpp.
+/// Example of using the cetl::pf17::pmr::unsynchronized_array_memory_resource in cetl/pf17/array_memory_resource.hpp.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -26,7 +26,7 @@ struct Message
 };
 
 // Let's say we have a data structure that contains a Message with variable-length data in it.
-// We can use UnsynchronizedArrayMemoryResource to allocate a buffer large enough to hold all of this data at once
+// We can use unsynchronized_array_memory_resource to allocate a buffer large enough to hold all of this data at once
 // but if there is less data the std::vector in the message will return the size() of that data (i.e. where an
 // std::array would not).
 static constexpr std::size_t SmallMessageSizeBytes = 64 * 8;
@@ -38,12 +38,12 @@ static struct alignas(std::max_align_t)
 TEST(example_04_buffer_memory_resource, example_a)
 {
     //![example_a]
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   aResource{small_message_buffer_.data, SmallMessageSizeBytes};
+    cetl::pf17::pmr::unsynchronized_buffer_memory_resource   aResource{small_message_buffer_.data, SmallMessageSizeBytes};
     cetl::pf17::pmr::polymorphic_allocator<std::uint64_t> aAlloc{&aResource};
     Message                                               a{aAlloc};
 
-    // The big "gotcha" when using UnsynchronizedArrayMemoryResource with STL containers is that you must reserve
-    // the size needed before you insert data into them. This is because UnsynchronizedArrayMemoryResource only
+    // The big "gotcha" when using unsynchronized_array_memory_resource with STL containers is that you must reserve
+    // the size needed before you insert data into them. This is because unsynchronized_array_memory_resource only
     // allows one allocation at a time and vector, for example, will have two allocations outstanding as it
     // geometrically grows its capacity as new items are added.
     const std::size_t item_cout = SmallMessageSizeBytes / sizeof(decltype(aAlloc)::value_type);
@@ -63,11 +63,11 @@ TEST(example_04_buffer_memory_resource, example_a)
 TEST(example_04_buffer_memory_resource, example_b)
 {
     //![example_b]
-    // BUT WAIT! THERE'S MORE! The UnsynchronizedArrayMemoryResource both slices and dices! That is, you can provide
+    // BUT WAIT! THERE'S MORE! The unsynchronized_array_memory_resource both slices and dices! That is, you can provide
     // an upstream allocator to turn this into a "small buffer optimization" resource where the internal allocation
     // is the small buffer and the upstream allocator becomes the larger allocator.
 
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource bResource{small_message_buffer_.data,
+    cetl::pf17::pmr::unsynchronized_buffer_memory_resource bResource{small_message_buffer_.data,
                                                                   SmallMessageSizeBytes,
                                                                   cetl::pf17::pmr::new_delete_resource(),
                                                                   std::numeric_limits<std::size_t>::max()};
@@ -92,12 +92,12 @@ TEST(example_04_buffer_memory_resource, example_b)
 TEST(example_04_buffer_memory_resource, example_c)
 {
     //![example_c]
-    // One more example: by using another UnsynchronizedArrayMemoryResource as an upstream for another
-    // UnsynchronizedArrayMemoryResource with the same-sized buffer you can use vector push_back without reserve up
+    // One more example: by using another unsynchronized_array_memory_resource as an upstream for another
+    // unsynchronized_array_memory_resource with the same-sized buffer you can use vector push_back without reserve up
     // to the size of these buffers.
     static cetl::pf17::byte                               upstream_buffer[SmallMessageSizeBytes];
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cUpstreamResource{&upstream_buffer, SmallMessageSizeBytes};
-    cetl::pf17::pmr::UnsynchronizedBufferMemoryResource   cResource{small_message_buffer_.data,
+    cetl::pf17::pmr::unsynchronized_buffer_memory_resource   cUpstreamResource{&upstream_buffer, SmallMessageSizeBytes};
+    cetl::pf17::pmr::unsynchronized_buffer_memory_resource   cResource{small_message_buffer_.data,
                                                                   SmallMessageSizeBytes,
                                                                   &cUpstreamResource,
                                                                   std::numeric_limits<std::size_t>::max()};
@@ -122,7 +122,7 @@ TEST(example_04_buffer_memory_resource, example_c)
     // Essentially, this technique is a double-buffering strategy where the "front" buffer is the
     // vector data and the "back" buffer is used to move memory ahead of a reallocation (e.g. push_back or
     // shrink_to_fit) and finally a swap. Of course, this is probably a lot of wasted memory movement but std::vector
-    // doesn't have any other way to do this. CETL's VariableLengthArray, however, is more aware of CETL PMR and can do
+    // doesn't have any other way to do this. CETL's variable_length_array, however, is more aware of CETL PMR and can do
     // much smarter things with array memory resources.
 
     //![example_c]

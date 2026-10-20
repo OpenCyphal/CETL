@@ -134,7 +134,7 @@ class example_07_polymorphic_alloc_deleter : public testing::Test
 {
 protected:
     template <typename Interface>
-    using InterfacePtr = cetl::pmr::InterfacePtr<Interface>;
+    using interface_ptr = cetl::pmr::interface_ptr<Interface>;
 
     void SetUp() override
     {
@@ -146,10 +146,10 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_0)
 {
     //![example_usage_0]
     // Let's say you wanted to store a bunch of objects in a container of some sort. You can use the
-    // cetl::pmr::PolymorphicDeleter to help you build unique_ptr's like this:
+    // cetl::pmr::polymorphic_deleter to help you build unique_ptr's like this:
 
     using MyAllocator = cetl::pmr::polymorphic_allocator<MyObject>;
-    using MyDeleter   = cetl::pmr::PolymorphicDeleter<MyAllocator>;
+    using MyDeleter   = cetl::pmr::polymorphic_deleter<MyAllocator>;
     MyAllocator alloc{cetl::pmr::get_default_resource()};
 
     std::unordered_map<std::string, std::unique_ptr<MyObject, MyDeleter>> objects;
@@ -184,7 +184,7 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_0)
     {
         std::cout << "Object name: " << pair.first << std::endl;
     }
-    // But this is a lot of boilerplate code. You can use the cetl::pmr::Factory to help you do this more easily
+    // But this is a lot of boilerplate code. You can use the cetl::pmr::factory to help you do this more easily
     // (see next example).
 
     //![example_usage_0]
@@ -193,25 +193,25 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_0)
 TEST_F(example_07_polymorphic_alloc_deleter, example_usage_1)
 {
     //![example_usage_1]
-    // By using the cetl::pmr::Factory, you can simplify the code from the previous example:
+    // By using the cetl::pmr::factory, you can simplify the code from the previous example:
 
     cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
-    std::unordered_map<std::string, cetl::pmr::Factory::unique_ptr_t<decltype(alloc)>> objects;
+    std::unordered_map<std::string, cetl::pmr::factory::unique_ptr_t<decltype(alloc)>> objects;
     objects.reserve(6);
 
-    auto object_0 = cetl::pmr::Factory::make_unique(alloc, "object_0", 8U);
+    auto object_0 = cetl::pmr::factory::make_unique(alloc, "object_0", 8U);
     objects.emplace(object_0->name(), std::move(object_0));
 
-    auto object_1 = cetl::pmr::Factory::make_unique(alloc, "object_1", 8U);
+    auto object_1 = cetl::pmr::factory::make_unique(alloc, "object_1", 8U);
     objects.emplace(object_1->name(), std::move(object_1));
 
-    auto object_2 = cetl::pmr::Factory::make_unique(alloc, "object_2", 8U);
+    auto object_2 = cetl::pmr::factory::make_unique(alloc, "object_2", 8U);
     objects.emplace(object_2->name(), std::move(object_2));
 
     // or even simpler:
     auto emplacer = [&objects, &alloc](const char* name, std::size_t name_length) {
-        auto object = cetl::pmr::Factory::make_unique(alloc, name, name_length);
+        auto object = cetl::pmr::factory::make_unique(alloc, name, name_length);
         objects.emplace(object->name(), std::move(object));
     };
 
@@ -235,31 +235,31 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 
     cetl::pmr::polymorphic_allocator<MyObject> alloc{cetl::pmr::get_default_resource()};
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0", 4U);
+    auto obj0 = cetl::pmr::interface_factory::make_unique<MyObject>(alloc, "obj0", 4U);
     std::cout << "Obj0 id  : " << obj0->id() << std::endl;
 
     // Commented b/c of current limitation of our `cetl::pmr::function`.
     // Probably PMR support is needed at `cetl::unbounded_variant` (which we use inside the `function`),
     // so that it will be possible to nest one deleter inside another one.
-    auto obj1 = cetl::pmr::InterfaceFactory::make_unique<IIdentifiable>(alloc, "obj1", 4U);
+    auto obj1 = cetl::pmr::interface_factory::make_unique<IIdentifiable>(alloc, "obj1", 4U);
     {
         std::cout << "Obj1 id  : " << obj1->id() << std::endl;
         obj1.reset();
         std::cout << std::endl;
     }
 
-    auto obj2 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj2", 4U);
+    auto obj2 = cetl::pmr::interface_factory::make_unique<IDescribable>(alloc, "obj2", 4U);
     {
         std::cout << "Obj2 desc  : " << obj2->describe() << std::endl;
         std::cout << "Obj2 name_a  : " << obj2->name() << std::endl;
 
         // Such interface ptr upcasting currently is not supported.
         //
-        //    auto obj2_named = InterfacePtr<INamed>{std::move(obj2)};
+        //    auto obj2_named = interface_ptr<INamed>{std::move(obj2)};
         //    std::cout << "Obj2 name_b  : " << obj2_named->name() << std::endl;
     }
 
-    auto obj3 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj3", 4U);
+    auto obj3 = cetl::pmr::interface_factory::make_unique<INamed>(alloc, "obj3", 4U);
     {
         std::cout << "Obj3 name  : " << obj3->name() << std::endl;
         std::cout << std::endl;
@@ -271,8 +271,8 @@ TEST_F(example_07_polymorphic_alloc_deleter, example_usage_2)
 //![example_usage_3]
 
 // Note that this concrete type is final because it extends `cetl::rtti` non-virtually which is not reccommended
-// for any non-final type. Inversely, the InterfaceFactory only works with non-virtual inheritance of the interface
-// used in the InterfacePtr type since a static downcast must be performed by the deleter.
+// for any non-final type. Inversely, the interface_factory only works with non-virtual inheritance of the interface
+// used in the interface_ptr type since a static downcast must be performed by the deleter.
 // Finally, this encapsulation technique of befriending the polymorphic allocator will always work with CETL PMR
 // but may not work with other standard libraries.
 class MyConcreteType final : public cetl::rtti
@@ -286,9 +286,9 @@ public:
     // method bundles that constraint up with the proper RAII semantics making it easy to properly construct
     // MyConcreteType classes and hard to construct them improperly.
     template <typename... Args>
-    static cetl::pmr::InterfacePtr<cetl::rtti> make(std::allocator_arg_t, ConcreteAllocator alloc, Args&&... args)
+    static cetl::pmr::interface_ptr<cetl::rtti> make(std::allocator_arg_t, ConcreteAllocator alloc, Args&&... args)
     {
-        return cetl::pmr::InterfaceFactory::make_unique<cetl::rtti>(alloc, std::forward<Args>(args)...);
+        return cetl::pmr::interface_factory::make_unique<cetl::rtti>(alloc, std::forward<Args>(args)...);
     }
 
     CETL_NODISCARD void* _cast_(const cetl::type_id&) & noexcept override

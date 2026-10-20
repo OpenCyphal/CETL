@@ -17,34 +17,34 @@ namespace pmr
 {
 
 /// RAII helper for cetl::pf17::pmr::polymorphic_allocator and std::pmr::polymorphic_allocator.
-/// Use with cetl::pmr::InterfaceFactory for the best and safest
-/// experience. Remember, be safe, use the cetl::pmr::InterfaceFactory.
+/// Use with cetl::pmr::interface_factory for the best and safest
+/// experience. Remember, be safe, use the cetl::pmr::interface_factory.
 ///
 /// @note
-/// See cetl::pmr::InterfaceFactory for an example of how to use this type.
+/// See cetl::pmr::interface_factory for an example of how to use this type.
 ///
 /// @tparam Interface The interface type of the polymorphic allocator to use for deallocation.
 ///
 template <typename Interface>
-class PmrInterfaceDeleter final
+class pmr_interface_deleter final
 {
 public:
     /// Constructs empty no-operation deleter.
     ///
-    /// Useful for initially empty `InterfacePtr` instance without deleter attached.
+    /// Useful for initially empty `interface_ptr` instance without deleter attached.
     ///
-    PmrInterfaceDeleter() = default;
+    pmr_interface_deleter() = default;
 
-    /// Constructs a Concrete type-erased deleter for the given interface type.
+    /// Constructs a concrete type-erased deleter for the given interface type.
     ///
     /// @tparam PmrAllocator The type of the polymorphic allocator to use for deallocation.
     ///
     template <typename PmrAllocator>
-    PmrInterfaceDeleter(PmrAllocator alloc, std::size_t obj_count)
+    pmr_interface_deleter(PmrAllocator alloc, std::size_t obj_count)
         : deleter_{[alloc, obj_count](Interface* ptr) mutable {
-            using Concrete = typename PmrAllocator::value_type;
+            using concrete = typename PmrAllocator::value_type;
 
-            auto* concrete_ptr = static_cast<Concrete*>(ptr);
+            auto* concrete_ptr = static_cast<concrete*>(ptr);
 #if defined(__GNUG__)
 #    pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -76,9 +76,9 @@ public:
     }
 
     // Below convertor constructor is only possible with enabled PMR at `function`.
-    // For now, we decided to comment it out, so that `InterfacePtr` always stays
+    // For now, we decided to comment it out, so that `interface_ptr` always stays
     // within 24-bytes small object optimization, namely without extra memory allocation
-    // just for the sake of "advanced" deleter (actually chain of casters down to original `Concrete` pointer).
+    // just for the sake of "advanced" deleter (actually chain of casters down to original `concrete` pointer).
     //
     // NOTE: It is possible to avoid PMR if we define a certain static limit on the maximum number of
     // down-conversions performed on an interface ptr. One issue is that exceeding that limit is a
@@ -93,7 +93,7 @@ public:
     //          { return [](void* const ptr) -> void* { return static_cast<To*>(static_cast<From*>(ptr)); }; }
     //
     //    template <typename Down, typename = std::enable_if_t<std::is_base_of<Interface, Down>::value>>
-    //    PmrInterfaceDeleter(const PmrInterfaceDeleter<Down, Pmr>& other)
+    //    pmr_interface_deleter(const pmr_interface_deleter<Down, Pmr>& other)
     //        : deleter_{other.get_memory_resource(), [other](Interface* ptr) {
     //                       // Delegate to the down class deleter.
     //                       // The down-casting is assumed to be safe because the caller
@@ -112,70 +112,70 @@ public:
     //
     // private:
     //    template <typename Down, typename PmrT>
-    //    friend class PmrInterfaceDeleter;
+    //    friend class pmr_interface_deleter;
 
 private:
     cetl::pmr::function<void(Interface*), 24> deleter_;
 
-};  // PmrInterfaceDeleter
+};  // pmr_interface_deleter
 
 template <typename Interface>
-using InterfacePtr = std::unique_ptr<Interface, PmrInterfaceDeleter<Interface>>;
+using interface_ptr = std::unique_ptr<Interface, pmr_interface_deleter<Interface>>;
 
-/// Interface Factory helper for creating objects with polymorphic allocators using proper RAII semantics.
-/// Uses the cetl::pmr::PmrInterfaceDeleter type to ensure proper type-erased deallocation.
+/// Interface factory helper for creating objects with polymorphic allocators using proper RAII semantics.
+/// Uses the cetl::pmr::pmr_interface_deleter type to ensure proper type-erased deallocation.
 ///
 /// Example usage:
 ///
 /// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_2
 ///
 /// As shown in the next example, objects can maintain tight control of their lifecycle by befriending the allocators
-/// used to create cetl::pmr::InterfacePtr objects.
+/// used to create cetl::pmr::interface_ptr objects.
 ///
 /// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_3
 /// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
 ///
-class InterfaceFactory final
+class interface_factory final
 {
 public:
-    ~InterfaceFactory() = delete;
-    InterfaceFactory()  = delete;
+    ~interface_factory() = delete;
+    interface_factory()  = delete;
 
     template <typename Interface, typename PmrAllocator, typename... Args>
-    CETL_NODISCARD static InterfacePtr<Interface> make_unique(PmrAllocator alloc, Args&&... args)
+    CETL_NODISCARD static interface_ptr<Interface> make_unique(PmrAllocator alloc, Args&&... args)
     {
         // Allocate memory for the concrete object.
         // Then try to construct it in-place - it could potentially throw,
         // so RAII will deallocate the memory BUT won't try to destroy the uninitialized object!
         //
-        ConcreteRaii<PmrAllocator> concrete_raii{alloc};
-        if (auto* const concrete_ptr = concrete_raii.get())
+        concrete_raii<PmrAllocator> raii{alloc};
+        if (auto* const concrete_ptr = raii.get())
         {
-            concrete_raii.construct(std::forward<Args>(args)...);
+            raii.construct(std::forward<Args>(args)...);
         }
 
         // Everything is good, so now we can move ownership of the concrete object to the interface smart pointer.
         //
-        return InterfacePtr<Interface>{concrete_raii.release(), PmrInterfaceDeleter<Interface>{alloc, 1}};
+        return interface_ptr<Interface>{raii.release(), pmr_interface_deleter<Interface>{alloc, 1}};
     }
 
 private:
-    /// Helper RAII class for temporal management of allocated/initialized memory of a Concrete object.
-    /// In use together with `InterfacePtr` to ensure proper deallocation in case of exceptions.
+    /// Helper RAII class for temporal management of allocated/initialized memory of a concrete object.
+    /// In use together with `interface_ptr` to ensure proper deallocation in case of exceptions.
     ///
     template <typename PmrAllocator>
-    class ConcreteRaii final
+    class concrete_raii final
     {
-        using Concrete = typename PmrAllocator::value_type;
+        using concrete = typename PmrAllocator::value_type;
 
     public:
-        explicit ConcreteRaii(PmrAllocator& pmr_allocator)
+        explicit concrete_raii(PmrAllocator& pmr_allocator)
             : concrete_{pmr_allocator.allocate(1)}
             , constructed_{false}
             , pmr_allocator_{pmr_allocator}
         {
         }
-        ~ConcreteRaii()
+        ~concrete_raii()
         {
             if (nullptr != concrete_)
             {
@@ -196,10 +196,10 @@ private:
                 pmr_allocator_.deallocate(concrete_, 1);
             }
         }
-        ConcreteRaii(const ConcreteRaii&)                = delete;
-        ConcreteRaii(ConcreteRaii&&) noexcept            = delete;
-        ConcreteRaii& operator=(const ConcreteRaii&)     = delete;
-        ConcreteRaii& operator=(ConcreteRaii&&) noexcept = delete;
+        concrete_raii(const concrete_raii&)                = delete;
+        concrete_raii(concrete_raii&&) noexcept            = delete;
+        concrete_raii& operator=(const concrete_raii&)     = delete;
+        concrete_raii& operator=(concrete_raii&&) noexcept = delete;
 
         template <typename... Args>
         void construct(Args&&... args)
@@ -213,27 +213,39 @@ private:
             }
         }
 
-        Concrete* get() const noexcept
+        concrete* get() const noexcept
         {
             return concrete_;
         }
 
-        Concrete* release()
+        concrete* release()
         {
             constructed_ = false;
-            Concrete* result{nullptr};
+            concrete* result{nullptr};
             std::swap(result, concrete_);
             return result;
         }
 
     private:
-        Concrete*     concrete_;
+        concrete*     concrete_;
         bool          constructed_;
         PmrAllocator& pmr_allocator_;
 
-    };  // ConcreteRaii
+    };  // concrete_raii
 
-};  // InterfaceFactory
+};  // interface_factory
+
+/// @deprecated Renamed to cetl::pmr::pmr_interface_deleter; this alias will be removed in a future major version.
+template <typename Interface>
+using PmrInterfaceDeleter [[deprecated("renamed to cetl::pmr::pmr_interface_deleter")]] =
+    pmr_interface_deleter<Interface>;
+
+/// @deprecated Renamed to cetl::pmr::interface_ptr; this alias will be removed in a future major version.
+template <typename Interface>
+using InterfacePtr [[deprecated("renamed to cetl::pmr::interface_ptr")]] = interface_ptr<Interface>;
+
+/// @deprecated Renamed to cetl::pmr::interface_factory; this alias will be removed in a future major version.
+using InterfaceFactory [[deprecated("renamed to cetl::pmr::interface_factory")]] = interface_factory;
 
 }  // namespace pmr
 }  // namespace cetl

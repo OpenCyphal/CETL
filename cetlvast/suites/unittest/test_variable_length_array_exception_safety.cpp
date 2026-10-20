@@ -263,7 +263,7 @@ struct Allocator
 
 // VLA under test, using the tracking allocator and either the copyable Value or MoveOnly element.
 template <typename T = Value>
-using Array = cetl::VariableLengthArray<T, Allocator<T>>;
+using Array = cetl::variable_length_array<T, Allocator<T>>;
 
 // Reserves up front so inserting recognizable values (10, 11, ...) does not trigger relocation.
 template <typename Subject>
@@ -698,7 +698,7 @@ void assign_subject(Subject& target, Subject& source, std::false_type)
 template <typename T, bool Propagate, bool Move>
 void check_assignment()
 {
-    using Subject = cetl::VariableLengthArray<T, Allocator<T, Propagate>>;
+    using Subject = cetl::variable_length_array<T, Allocator<T, Propagate>>;
     for (bool spare : {false, true})
     {
         for (std::size_t fail_at = 0; fail_at < (spare && !Propagate ? 3U : 4U); ++fail_at)
@@ -977,7 +977,7 @@ TEST(VLAExceptionSafety, BoolRangeFailureReleasesStorage)
             value.state = &lifetimes;
         }
         lifetimes.arm(Operation::Copy, fail_at);
-        using Subject = cetl::VariableLengthArray<bool, Allocator<bool>>;
+        using Subject = cetl::variable_length_array<bool, Allocator<bool>>;
         EXPECT_THROW((Subject{std::begin(values), std::end(values), Allocator<bool>{allocations}}), Failure);
         EXPECT_TRUE(allocations.allocations.empty());
     }
@@ -987,7 +987,7 @@ TEST(VLAExceptionSafety, BoolRangeFailureReleasesStorage)
 // Check that the emptied destination resets its bit count and that both containers support subsequent operations.
 TEST(VLAExceptionSafety, BoolAssignmentAllocationFailureLeavesReusableEmptyContainer)
 {
-    using Subject = cetl::VariableLengthArray<bool, Allocator<bool>>;
+    using Subject = cetl::variable_length_array<bool, Allocator<bool>>;
     for (bool move : {false, true})
     {
         AllocationState source_allocations;
@@ -1176,7 +1176,7 @@ TEST(VLAExceptionSafety, BoolInsertFailureRestoresTheBits)
         {
             value.state = &lifetimes;
         }
-        using Subject = cetl::VariableLengthArray<bool, Allocator<bool>>;
+        using Subject = cetl::variable_length_array<bool, Allocator<bool>>;
         Subject bits{{true, false, true, true, false}, Allocator<bool>{allocations}};
         lifetimes.arm(Operation::Copy, fail_at);
         EXPECT_THROW((void) bits.insert(bits.cbegin() + 2, std::begin(values), std::end(values)), Failure);
@@ -1202,7 +1202,7 @@ TEST(VLAExceptionSafety, CountValueConstructionFailuresConstructNothing)
     EXPECT_EQ(allocations.allocated, 0U);
     EXPECT_EQ(lifetimes.live.size(), 1U);
 
-    using Bits = cetl::VariableLengthArray<bool, Allocator<bool>>;
+    using Bits = cetl::variable_length_array<bool, Allocator<bool>>;
     EXPECT_THROW((Bits(17, true, 16, Allocator<bool>{allocations})), std::length_error);
     EXPECT_THROW((Bits(17, true, Allocator<bool>{allocations})), std::bad_alloc);
     EXPECT_EQ(allocations.allocated, 0U);

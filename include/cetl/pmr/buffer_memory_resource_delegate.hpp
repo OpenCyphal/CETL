@@ -38,7 +38,7 @@ namespace pmr
 /// @par Over-Alignment
 /// This class supports over-alignment but you will need to over-provision the backing array to support this feature.
 /// For example, if the buffer is too small to support the requested alignment then the allocation will fail as this
-/// example, using the delegate via cetl::pf17::pmr::UnsynchronizedArrayMemoryResource, demonstrates:
+/// example, using the delegate via cetl::pf17::pmr::unsynchronized_array_memory_resource, demonstrates:
 ///
 /// @snippet{trimleft} example_05_array_memory_resource.cpp example_0
 /// By over-provisioning the buffer the same alignment will succeed:
@@ -47,7 +47,7 @@ namespace pmr
 ///
 /// @tparam MemoryResourceType The type of the upstream memory resource to use.
 template <typename UpstreamMemoryResourceType>
-class UnsynchronizedBufferMemoryResourceDelegate final
+class unsynchronized_buffer_memory_resource_delegate final
 {
 private:
     // adapted from https://en.cppreference.com/w/cpp/experimental/is_detected
@@ -144,10 +144,10 @@ public:
     /// @param buffer_size_bytes        The size, in bytes, of the buffer.
     /// @param upstream                 An optional upstream memory resource to use if the buffer is already in use.
     /// @param upstream_max_size_bytes  The maximum size of the upstream buffer.
-    UnsynchronizedBufferMemoryResourceDelegate(void*                       buffer,
-                                               std::size_t                 buffer_size_bytes,
-                                               UpstreamMemoryResourceType* upstream,
-                                               std::size_t                 upstream_max_size_bytes) noexcept
+    unsynchronized_buffer_memory_resource_delegate(void*                       buffer,
+                                                   std::size_t                 buffer_size_bytes,
+                                                   UpstreamMemoryResourceType* upstream,
+                                                   std::size_t                 upstream_max_size_bytes) noexcept
         : upstream_{upstream}
         , buffer_{buffer}
         , buffer_size_bytes_{buffer_size_bytes}
@@ -162,11 +162,13 @@ public:
                           "CDE_ubmrd_002: Nullptr buffer provided with a buffer size > 0.");
     }
 
-    ~UnsynchronizedBufferMemoryResourceDelegate()                                                            = default;
-    UnsynchronizedBufferMemoryResourceDelegate(const UnsynchronizedBufferMemoryResourceDelegate&)            = delete;
-    UnsynchronizedBufferMemoryResourceDelegate& operator=(const UnsynchronizedBufferMemoryResourceDelegate&) = delete;
-    UnsynchronizedBufferMemoryResourceDelegate(UnsynchronizedBufferMemoryResourceDelegate&&) noexcept        = default;
-    UnsynchronizedBufferMemoryResourceDelegate& operator=(UnsynchronizedBufferMemoryResourceDelegate&&)      = delete;
+    ~unsynchronized_buffer_memory_resource_delegate()                                                     = default;
+    unsynchronized_buffer_memory_resource_delegate(const unsynchronized_buffer_memory_resource_delegate&) = delete;
+    unsynchronized_buffer_memory_resource_delegate& operator=(const unsynchronized_buffer_memory_resource_delegate&) =
+        delete;
+    unsynchronized_buffer_memory_resource_delegate(unsynchronized_buffer_memory_resource_delegate&&) noexcept = default;
+    unsynchronized_buffer_memory_resource_delegate& operator=(unsynchronized_buffer_memory_resource_delegate&&) =
+        delete;
 
     //  +--[public methods]---------------------------------------------------+
     constexpr UpstreamMemoryResourceType* upstream_resource() const
@@ -259,6 +261,13 @@ private:
     const std::size_t           upstream_max_size_bytes_;
     void*                       in_use_;
 };
+
+/// @deprecated Renamed to cetl::pmr::unsynchronized_buffer_memory_resource_delegate; this alias will be removed in a
+/// future major version.
+template <typename UpstreamMemoryResourceType>
+using UnsynchronizedBufferMemoryResourceDelegate
+    [[deprecated("renamed to cetl::pmr::unsynchronized_buffer_memory_resource_delegate")]] =
+        unsynchronized_buffer_memory_resource_delegate<UpstreamMemoryResourceType>;
 
 }  // namespace pmr
 }  // namespace cetl

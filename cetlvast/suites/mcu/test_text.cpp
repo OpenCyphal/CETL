@@ -18,14 +18,14 @@ namespace
 constexpr std::size_t DummyBssBufferSizeBytes{1024U};
 
 template <typename Allocator>
-cetl::optional<cetl::VariableLengthArray<cetl::byte, Allocator>> create_dummy_data(const Allocator& alloc)
+cetl::optional<cetl::variable_length_array<cetl::byte, Allocator>> create_dummy_data(const Allocator& alloc)
 {
-    return cetl::VariableLengthArray<cetl::byte, Allocator>{alloc};
+    return cetl::variable_length_array<cetl::byte, Allocator>{alloc};
 }
 
 cetl::pmr::memory_resource* make_bss_memory_resource()
 {
-    static cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<DummyBssBufferSizeBytes>
+    static cetl::pf17::pmr::unsynchronized_array_memory_resource<DummyBssBufferSizeBytes>
         memory{cetl::pmr::null_memory_resource(), 0};
     return &memory;
 }

@@ -1,5 +1,5 @@
 /// @file
-/// Stateful differential fuzzing of VariableLengthArray against std::vector.
+/// Stateful differential fuzzing of variable_length_array against std::vector.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team <opencyphal.org>
@@ -423,7 +423,7 @@ void emplace_or_insert(const unsigned    variant,
 }
 
 template <typename T, typename Allocator>
-void check(cetl::VariableLengthArray<T, Allocator>& actual, const Model<T>& expected)
+void check(cetl::variable_length_array<T, Allocator>& actual, const Model<T>& expected)
 {
     require(actual.size() == expected.size(), "size differs from std::vector");
     require(actual.empty() == expected.empty(), "empty differs from std::vector");
@@ -455,7 +455,7 @@ void check(cetl::VariableLengthArray<T, Allocator>& actual, const Model<T>& expe
 template <typename T, typename Allocator>
 void exercise(const std::vector<std::uint8_t>& input, const Allocator& first, const Allocator& second)
 {
-    using Array = cetl::VariableLengthArray<T, Allocator>;
+    using Array = cetl::variable_length_array<T, Allocator>;
     std::array<Array, 2>    arrays{{Array(MaxElements, first), Array(MaxElements, second)}};
     std::array<Model<T>, 2> models{};
 
