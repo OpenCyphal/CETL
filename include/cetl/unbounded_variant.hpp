@@ -10,6 +10,7 @@
 #define CETL_UNBOUNDED_VARIANT_HPP_INCLUDED
 
 #include "rtti.hpp"
+#include "pf17/new.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -547,7 +548,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         CETL_DEBUG_ASSERT(nullptr == value_const_converter_, "");
 
         value_destroyer_ = [](void* const storage) {
-            auto* const ptr = static_cast<Tp*>(storage);
+            auto* const ptr = cetl::pf17::launder(static_cast<Tp*>(storage));
             ptr->~Tp();
         };
 
@@ -560,13 +561,13 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         value_const_converter_ = [](const void* const    storage,
                                     const cetl::type_id& dst_type_id) -> value_const_ptr_and_type_id {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
-            const auto* const ptr     = static_cast<const Tp*>(storage);
+            const auto* const ptr     = cetl::pf17::launder(static_cast<const Tp*>(storage));
             const void* const dst_ptr = ptr->_cast_(dst_type_id);
             return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
         value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
-            auto* const ptr = static_cast<Tp*>(storage);
+            auto* const ptr = cetl::pf17::launder(static_cast<Tp*>(storage));
             return ptr->_cast_(dst_type_id);
         };
     }
@@ -577,12 +578,14 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
         value_const_converter_ = [](const void* const    storage,
                                     const cetl::type_id& dst_type_id) -> value_const_ptr_and_type_id {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
-            const void* const dst_ptr = (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
+            const void* const dst_ptr = (dst_type_id == cetl::type_id_value<Tp>)
+                                            ? cetl::pf17::launder(static_cast<const Tp*>(storage))
+                                            : nullptr;
             return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
         };
         value_mut_converter_ = [](void* const storage, const cetl::type_id& dst_type_id) -> void* {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
-            return (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
+            return (dst_type_id == cetl::type_id_value<Tp>) ? cetl::pf17::launder(static_cast<Tp*>(storage)) : nullptr;
         };
     }
 
@@ -892,7 +895,7 @@ struct base_copy<Pmr, Footprint, true /*Copyable*/, Moveable, Alignment>
             CETL_DEBUG_ASSERT(nullptr != src, "");
             CETL_DEBUG_ASSERT(nullptr != dst, "");
 
-            new (dst) Tp(*static_cast<const Tp*>(src));
+            new (dst) Tp(*cetl::pf17::launder(static_cast<const Tp*>(src)));
         };
     }
 
@@ -980,7 +983,7 @@ struct base_move<Pmr, Footprint, Copyable, true /*Movable*/, Alignment>
             CETL_DEBUG_ASSERT(nullptr != src, "");
             CETL_DEBUG_ASSERT(nullptr != dst, "");
 
-            new (dst) Tp(std::move(*static_cast<Tp*>(src)));
+            new (dst) Tp(std::move(*cetl::pf17::launder(static_cast<Tp*>(src))));
         };
     }
 

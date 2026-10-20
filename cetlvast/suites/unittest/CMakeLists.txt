@@ -86,6 +86,7 @@ set(NATIVE_TESTS
     test_buffer_memory_resource.cpp
     test_deprecated_names.cpp
     test_o1heap_memory_resource.cpp
+    test_pf17_new.cpp
     test_pf17_memory_resource.cpp
     test_pf17_monotonic_buffer_resource.cpp
     test_pf17_polymorphic_allocator.cpp
