@@ -1339,6 +1339,57 @@ TEST(VLACopyAssignmentReallocation, SizeLimitIsCheckedBeforeReallocating)
     EXPECT_EQ(source.size(), 7U);
 }
 
+TEST(VLACopyAssignmentReallocation, PackedBoolSizeLimitUsesStorageBytes)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<bool>;
+    using Array = cetl::variable_length_array<bool, Alloc>;
+    for (const std::size_t maximum_bytes : {1U, 2U, 3U})
+    {
+        CopyAssignmentResource resource;
+        Array                  destination{Alloc{&resource}};
+        Array                  source{Alloc{&resource}};
+        destination.resize(3, true);
+        for (std::size_t i = 0; i < 19; ++i)
+        {
+            source.push_back(i % 3U == 0);
+        }
+        resource.maximum_bytes = maximum_bytes;
+        resource.events.clear();
+        if (maximum_bytes < 3U)
+        {
+#if defined(__cpp_exceptions)
+            EXPECT_THROW(destination = source, std::length_error);
+            EXPECT_EQ(resource.events, "D");
+            EXPECT_TRUE(destination.empty());
+            EXPECT_EQ(destination.capacity(), 0U);
+#else
+            destination = source;
+            EXPECT_EQ(resource.events, "DA");
+            EXPECT_EQ(destination.size(), maximum_bytes * 8U);
+            EXPECT_EQ(destination.capacity(), maximum_bytes * 8U);
+#endif
+        }
+        else
+        {
+            destination = source;
+            EXPECT_EQ(resource.events, "R");
+            EXPECT_EQ(destination.size(), 19U);
+            EXPECT_EQ(destination, source);
+        }
+        EXPECT_LE(destination.size(), destination.max_size());
+        for (std::size_t i = 0; i < destination.size(); ++i)
+        {
+            EXPECT_EQ(destination[i], i % 3U == 0);
+        }
+        EXPECT_EQ(source.size(), 19U);
+        resource.maximum_bytes = 512;
+        const auto copied_size = destination.size();
+        destination.push_back(true);
+        EXPECT_EQ(destination.size(), copied_size + 1U);
+        EXPECT_TRUE(destination[copied_size]);
+    }
+}
+
 TEST(VLACopyAssignmentReallocation, PackedBoolPreservesPartialFinalByte)
 {
     using Alloc = cetl::pf17::pmr::polymorphic_allocator<bool>;

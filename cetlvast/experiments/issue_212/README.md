@@ -69,10 +69,10 @@ with a valid buffer. Allocator propagation and destruction must continue using t
 The existing PMR traits forwarding function is `noexcept`; this change does not alter its handling
 of a throwing resource. The example resource declines reallocation by returning null.
 
-Packed `bool` passes sizes to the base helper in **storage bytes**. Its assignment wrapper maintains
-logical bit count and final-byte occupancy, including partial-byte boundaries and failures. When
-replacement allocation returns null with exceptions disabled, it resets the final-byte count to
-zero along with the emptied base, so the destination can be reused.
+Packed `bool` passes sizes and the maximum size to the base helper in **storage bytes**. Its assignment
+wrapper maintains logical bit count and final-byte occupancy, including partial-byte boundaries and
+failures. With exceptions disabled, a copy truncated to the allocator's byte limit ends at a full
+byte; failed replacement allocation resets the final-byte count along with the emptied base.
 
 ## Allocator behavior and memory cost
 
@@ -181,7 +181,7 @@ The `VLACopyAssignmentReallocation` tests in
 - Self-assignment, sufficient capacity, empty sources, empty destinations, bound propagation,
   and a reduced allocator limit. Oversized requests reach the existing throw/clamp behavior
   without an out-of-bounds live-buffer realloc attempt.
-- Packed `bool` across byte boundaries and subsequent append; failed allocation with exceptions
+- Packed `bool` across byte boundaries, reduced allocator byte limits, and subsequent append; failed allocation with exceptions
   enabled or disabled; a direct allocator throwing from realloc; and construction-hook failure
   at the first, middle, or final element after successful reallocation.
 
@@ -203,7 +203,7 @@ cetlvast/build/suites/docs/examples/DebugEP/example_12_buddy_memory_resource
 
 The example has ten tests, including both copy-assignment cases. Local validation passed:
 
-- C++14 Debug: 1,209 tests across all 17 VLA executables and the buddy example.
-- C++14 DebugEP, with exceptions and RTTI disabled: 1,155 tests across the same targets.
-- C++17 with AddressSanitizer and UndefinedBehaviorSanitizer: 596 tests covering the detailed
+- C++14 Debug: 1,210 tests across all 17 VLA executables and the buddy example.
+- C++14 DebugEP, with exceptions and RTTI disabled: 1,156 tests across the same targets.
+- C++17 with AddressSanitizer and UndefinedBehaviorSanitizer: 597 tests covering the detailed
   allocation suite and buddy example, built together with a matching test-framework toolchain.

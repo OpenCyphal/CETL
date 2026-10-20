@@ -2882,7 +2882,8 @@ public:
         try
         {
 #endif
-            base::copy_assign_from(rhs, rhs.max_size());
+            // The base counts storage bytes, whereas the public maximum is in bits.
+            base::copy_assign_from(rhs, bits2bytes(rhs.max_size()));
 #if defined(__cpp_exceptions)
         } catch (...)
         {
@@ -2893,8 +2894,9 @@ public:
             throw;
         }
 #endif
-        // With exceptions disabled, a declined replacement allocation leaves the base empty.
-        last_byte_bit_fill_ = size_ == 0 ? 0 : rhs.last_byte_bit_fill_;
+        // With exceptions disabled, the base may have copied fewer bytes or no bytes at all.
+        // A truncated copy ends at a full byte, not at the source's partial final byte.
+        set_size_bits(std::min(rhs.size(), size_ * 8U));
         return *this;
     }
 
