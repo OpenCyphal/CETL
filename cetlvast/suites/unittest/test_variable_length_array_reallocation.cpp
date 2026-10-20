@@ -8,6 +8,7 @@
 #include "cetl/pf17/memory_resource.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -717,7 +718,8 @@ void expect_appended_elements_survive_growth(const bool decline)
                 expected.push_back(expected.front());
             }
             EXPECT_NE(array.data(), data_before);
-            EXPECT_EQ(resource.reallocations, reallocations + (std::is_trivially_copyable<T>::value ? 1U : 0U));
+            // An argument that is an element is constructed from in new storage, never through reallocate.
+            EXPECT_EQ(resource.reallocations, reallocations);
         }
     }
     ASSERT_EQ(array.size(), expected.size());
@@ -782,9 +784,9 @@ TEST(VLAReallocationGrowth, FailedAllocationOnAppendPreservesStorage)
 
 struct HookCounts
 {
-    std::size_t constructs       = 0;
-    std::size_t destroys         = 0;
-    const void* last_constructed = nullptr;
+    std::size_t              constructs = 0;
+    std::size_t              destroys   = 0;
+    std::vector<const void*> addresses;
 };
 
 // A reallocate-capable allocator that counts its construct and destroy hooks.
@@ -811,7 +813,7 @@ public:
     void construct(U* pointer, Args&&... args)
     {
         ++counts_->constructs;
-        counts_->last_constructed = pointer;
+        counts_->addresses.push_back(pointer);
         Base::construct(pointer, std::forward<Args>(args)...);
     }
 
@@ -853,6 +855,7 @@ TEST(VLAReallocationGrowth, AppendConstructsOnceInPlaceThroughAllocator)
             ASSERT_EQ(counts.constructs, AppendInitialCapacity);
             const int  value         = aliased ? array.front() : element_value(AppendInitialCapacity);
             const auto reallocations = resource.reallocations;
+            counts.addresses.clear();
             if (aliased)
             {
                 array.push_back(static_cast<const int&>(array.front()));
@@ -861,10 +864,13 @@ TEST(VLAReallocationGrowth, AppendConstructsOnceInPlaceThroughAllocator)
             {
                 array.push_back(value);
             }
-            EXPECT_EQ(resource.reallocations, reallocations + 1U);
-            // When reallocate is declined, the fallback also relocates each old element through the allocator.
-            EXPECT_EQ(counts.constructs, AppendInitialCapacity + 1U + (decline ? AppendInitialCapacity : 0U));
-            EXPECT_EQ(counts.last_constructed, &array.back());
+            // An aliased argument is constructed from in new storage, never through reallocate. Without reallocate,
+            // each old element is also relocated through the allocator.
+            const bool relocates = aliased || decline;
+            EXPECT_EQ(resource.reallocations, reallocations + (aliased ? 0U : 1U));
+            EXPECT_EQ(counts.constructs, AppendInitialCapacity + 1U + (relocates ? AppendInitialCapacity : 0U));
+            const void* const appended = &array.back();
+            EXPECT_EQ(std::count(counts.addresses.begin(), counts.addresses.end(), appended), 1);
             EXPECT_EQ(counts.destroys, 0U);
             EXPECT_EQ(array.back(), value);
 
@@ -899,6 +905,26 @@ TEST(VLAReallocationGrowth, AppendConstructsOnceInPlaceThroughAllocator)
             EXPECT_EQ(counts.constructs, constructs);
             EXPECT_EQ(counts.destroys, 0U);
         }
+    }
+}
+
+// std::decay drops volatile, but a volatile argument cannot be checked for aliasing through a const reference. It
+// takes the general path, which constructs from it in new storage.
+TEST(VLAReallocationGrowth, VolatileArgumentAppends)
+{
+    MovingResource resource;
+    Array<int>     array{typename Array<int>::allocator_type{&resource}};
+    array.reserve(AppendInitialCapacity);
+    for (std::size_t i = 0; i < AppendInitialCapacity; ++i)
+    {
+        array.push_back(element_value(i));
+    }
+    volatile int value = FillValue;
+    array.emplace_back(value);
+    ASSERT_EQ(array.size(), AppendInitialCapacity + 1U);
+    for (std::size_t i = 0; i < array.size(); ++i)
+    {
+        EXPECT_EQ(array[i], i < AppendInitialCapacity ? element_value(i) : FillValue);
     }
 }
 

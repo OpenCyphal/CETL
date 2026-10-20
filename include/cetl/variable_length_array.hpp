@@ -1119,38 +1119,25 @@ protected:
         return true;
     }
 
+    /// Whether `Arg&&` binds to a value_type that is not volatile, and so can be checked for aliasing.
+    template <typename Arg>
+    using is_element_argument = std::is_same<std::remove_const_t<std::remove_reference_t<Arg>>, value_type>;
+
     /// A single element-typed argument, as from push_back(), can be checked for aliasing. Either way the element is
-    /// constructed once, through the allocator, in its final storage.
-    template <typename Arg, std::enable_if_t<std::is_same<std::decay_t<Arg>, value_type>::value, int> = 0>
+    /// constructed once, through the allocator, in its final storage. Volatile arguments take the general path.
+    template <typename Arg, std::enable_if_t<is_element_argument<Arg>::value, int> = 0>
     bool grow_and_emplace_back_impl(std::true_type, const size_type max_size, Arg&& arg)
     {
-        if (!refers_to_element(arg))
+        if (refers_to_element(arg))
         {
-            if (!grow(max_size))
-            {
-                return false;
-            }
-            std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Arg>(arg));
-            ++size_;
-            return true;
+            // Reallocation may release the element, so construct from it in new storage before relocating.
+            return grow_and_emplace_back_impl(std::false_type{}, max_size, std::forward<Arg>(arg));
         }
-        // The argument is an element that reallocation may release. Copying the bytes of a trivially copyable object
-        // copies its value without running a constructor, so the copy stands in for the argument.
-        union Snapshot
-        {
-            Snapshot() noexcept {}
-            ~Snapshot() {}
-            value_type value;
-        } snapshot;
-        (void) std::memcpy(static_cast<void*>(std::addressof(snapshot.value)),
-                           static_cast<const void*>(std::addressof(arg)),
-                           sizeof(value_type));
         if (!grow(max_size))
         {
             return false;
         }
-        // Pass the copy with the argument's value category so that the same constructor is selected.
-        std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, static_cast<Arg&&>(snapshot.value));
+        std::allocator_traits<allocator_type>::construct(alloc_, data_ + size_, std::forward<Arg>(arg));
         ++size_;
         return true;
     }
