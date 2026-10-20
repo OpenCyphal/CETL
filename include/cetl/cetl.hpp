@@ -32,6 +32,7 @@
 /// - @subpage example_09_variant
 /// - @subpage example_10_unbounded_variant
 /// - @subpage example_11_memory_resource_o1heap
+/// - @subpage example_12_buddy_memory_resource
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -77,6 +78,10 @@
 /// @page example_11_memory_resource_o1heap Example 11: Using the 01heap memory_resource
 /// Full example for cetl::pmr::unsynchronized_o1heap_memory_resource_delegate
 /// @include example_11_memory_resource_o1heap.cpp
+///
+/// @page example_12_buddy_memory_resource Example 12: Growing a VLA with a buddy memory resource
+/// In-place buddy merging with the same application operations as std::vector.
+/// @include example_12_buddy_memory_resource.cpp
 ///
 
 #ifndef CETL_H_INCLUDED

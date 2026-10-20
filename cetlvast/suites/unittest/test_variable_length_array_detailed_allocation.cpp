@@ -20,6 +20,8 @@
 #include <array>
 #include <type_traits>
 #include <string>
+#include <cstring>
+#include <cstdint>
 
 // +---------------------------------------------------------------------------+
 // | TEST FIXTURES
@@ -911,3 +913,548 @@ TYPED_TEST(VLADetailedAllocationTests, MoveAssignReplacesAllocatorByMoveAssignme
 }
 
 // +---------------------------------------------------------------------------+
+
+namespace
+{
+// Fixed backing slots let tests force either in-place growth or a different returned address. The ledger
+// tracks requested sizes/alignment and call order independently of VLA, including every final deallocation.
+class CopyAssignmentResource final : public cetl::pf17::pmr::memory_resource
+{
+public:
+    enum class Reallocation
+    {
+        InPlace,
+        Move,
+        Decline
+    };
+    Reallocation mode = Reallocation::InPlace;
+    std::string  events;
+    std::size_t  old_bytes        = 0;
+    std::size_t  new_bytes        = 0;
+    std::size_t  maximum_bytes    = 512;
+    bool         fail_allocate    = false;
+    bool         throw_reallocate = false;  // Used by the direct allocator below, outside PMR's noexcept forwarding.
+    int          constructions_before_failure = -1;
+
+    CopyAssignmentResource()                                         = default;
+    CopyAssignmentResource(const CopyAssignmentResource&)            = delete;
+    CopyAssignmentResource& operator=(const CopyAssignmentResource&) = delete;
+    ~CopyAssignmentResource() override
+    {
+        for (const auto& block : blocks_)
+        {
+            EXPECT_EQ(block.bytes, 0U);
+        }
+    }
+
+private:
+    struct Block
+    {
+        alignas(std::max_align_t) unsigned char data[512]{};
+        std::size_t bytes     = 0;
+        std::size_t alignment = 0;
+    };
+    std::array<Block, 4> blocks_{};
+
+    Block* find(void* pointer)
+    {
+        for (auto& block : blocks_)
+        {
+            if (block.data == pointer && block.bytes != 0)
+            {
+                return &block;
+            }
+        }
+        ADD_FAILURE() << "Allocation is not owned by this resource";
+        return nullptr;
+    }
+
+    void* do_allocate(std::size_t bytes, std::size_t alignment) override
+    {
+        events += 'A';
+        if (!fail_allocate && bytes > 0 && bytes <= maximum_bytes && bytes <= 512 &&
+            alignment <= alignof(std::max_align_t))
+        {
+            for (auto& block : blocks_)
+            {
+                if (block.bytes == 0)
+                {
+                    block.bytes     = bytes;
+                    block.alignment = alignment;
+                    return block.data;
+                }
+            }
+        }
+#if defined(__cpp_exceptions)
+        throw std::bad_alloc{};
+#else
+        return nullptr;
+#endif
+    }
+
+    void do_deallocate(void* pointer, std::size_t bytes, std::size_t alignment) override
+    {
+        if (pointer != nullptr)
+        {
+            events += 'D';
+            auto* block = find(pointer);
+            ASSERT_NE(block, nullptr);
+            EXPECT_EQ(block->bytes, bytes);
+            EXPECT_EQ(block->alignment, alignment);
+            block->bytes = 0;
+        }
+    }
+
+    void* do_reallocate(void* pointer, std::size_t old_size, std::size_t new_size, std::size_t alignment) override
+    {
+        if (pointer == nullptr)
+        {
+            return nullptr;  // Initial allocation goes through allocate, without a live-buffer realloc event.
+        }
+        events += 'R';
+        old_bytes   = old_size;
+        new_bytes   = new_size;
+        auto* block = find(pointer);
+        EXPECT_NE(block, nullptr);
+        if (block == nullptr)
+        {
+            return nullptr;
+        }
+        EXPECT_EQ(block->bytes, old_size);
+        EXPECT_EQ(block->alignment, alignment);
+        if (mode == Reallocation::Decline || fail_allocate || new_size == 0 || new_size > 512)
+        {
+            return nullptr;
+        }
+        if (mode == Reallocation::InPlace)
+        {
+            block->bytes = new_size;
+            return pointer;
+        }
+        void* result = do_allocate(new_size, alignment);
+        if (result != nullptr)
+        {
+            std::memcpy(result, pointer, std::min(old_size, new_size));
+            do_deallocate(pointer, old_size, alignment);
+        }
+        return result;
+    }
+
+    bool do_is_equal(const memory_resource& rhs) const noexcept override
+    {
+        return this == &rhs;
+    }
+    std::size_t do_max_size() const noexcept override
+    {
+        return maximum_bytes;
+    }
+};
+
+// Identity is deliberately independent of equality, so equal-allocator propagation is observable.
+// AlwaysEqual test instances share the same resource. Disabling Reallocate removes the member via SFINAE.
+template <typename T, bool Propagate = false, bool AlwaysEqual = false, bool Reallocate = true>
+struct CopyAssignmentAllocator
+{
+    using value_type                             = T;
+    using propagate_on_container_copy_assignment = std::integral_constant<bool, Propagate>;
+    using is_always_equal                        = std::integral_constant<bool, AlwaysEqual>;
+    template <typename U>
+    struct rebind
+    {
+        using other = CopyAssignmentAllocator<U, Propagate, AlwaysEqual, Reallocate>;
+    };
+    CopyAssignmentResource* resource;
+    int                     identity;
+
+    explicit CopyAssignmentAllocator(CopyAssignmentResource& r, int id = 0) noexcept
+        : resource(&r)
+        , identity(id)
+    {
+    }
+    template <typename U>
+    CopyAssignmentAllocator(const CopyAssignmentAllocator<U, Propagate, AlwaysEqual, Reallocate>& rhs) noexcept
+        : resource(rhs.resource)
+        , identity(rhs.identity)
+    {
+    }
+
+    T* allocate(std::size_t count)
+    {
+        return cetl::pf17::pmr::polymorphic_allocator<T>{resource}.allocate(count);
+    }
+    void deallocate(T* pointer, std::size_t count) noexcept
+    {
+        cetl::pf17::pmr::polymorphic_allocator<T>{resource}.deallocate(pointer, count);
+    }
+    std::size_t max_size() const noexcept
+    {
+        return resource->max_size() / sizeof(T);
+    }
+    template <bool Enabled = Reallocate, std::enable_if_t<Enabled, int> = 0>
+    T* reallocate(T* pointer, std::size_t old_count, std::size_t new_count)
+    {
+#if defined(__cpp_exceptions)
+        if (resource->throw_reallocate)
+        {
+            throw std::bad_alloc{};
+        }
+#endif
+        return cetl::pf17::pmr::polymorphic_allocator<T>{resource}.reallocate(pointer, old_count, new_count);
+    }
+    template <typename U, typename... Args>
+    void construct(U* pointer, Args&&... args)
+    {
+#if defined(__cpp_exceptions)
+        if (resource->constructions_before_failure == 0)
+        {
+            throw std::bad_alloc{};
+        }
+        if (resource->constructions_before_failure > 0)
+        {
+            --resource->constructions_before_failure;
+        }
+#endif
+        ::new (static_cast<void*>(pointer)) U(std::forward<Args>(args)...);
+    }
+    bool operator==(const CopyAssignmentAllocator& rhs) const noexcept
+    {
+        return AlwaysEqual || resource == rhs.resource;
+    }
+    bool operator!=(const CopyAssignmentAllocator& rhs) const noexcept
+    {
+        return !(*this == rhs);
+    }
+};
+
+struct CopyAssignmentRecord
+{
+    std::uint32_t sequence;
+    std::uint16_t flags;
+    explicit CopyAssignmentRecord(int value = 0) noexcept
+        : sequence(static_cast<std::uint32_t>(value))
+        , flags(static_cast<std::uint16_t>(value % 3))
+    {
+    }
+    bool operator==(const CopyAssignmentRecord& rhs) const noexcept
+    {
+        return sequence == rhs.sequence && flags == rhs.flags;
+    }
+};
+static_assert(std::is_trivially_copyable<CopyAssignmentRecord>::value, "Exercise trivial records as well as scalars.");
+
+template <typename T>
+void check_copy_reallocation(CopyAssignmentResource::Reallocation mode)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<T>;
+    using Array = cetl::variable_length_array<T, Alloc>;
+    CopyAssignmentResource destination_resource;
+    CopyAssignmentResource source_resource;
+    Array                  destination{Alloc{&destination_resource}};
+    Array                  source{13, Alloc{&source_resource}};
+    destination.reserve(3);
+    destination.resize(2, T{1});
+    source.reserve(11);
+    for (int i = 0; i < 7; ++i)
+    {
+        source.push_back(T{i + 10});
+    }
+    const auto address = reinterpret_cast<std::uintptr_t>(destination.data());
+    destination_resource.events.clear();
+    source_resource.events.clear();
+    destination_resource.mode = mode;
+
+    destination = source;
+
+    EXPECT_EQ(destination, source);
+    EXPECT_EQ(destination.capacity(), 7U);
+    EXPECT_EQ(destination.max_size(), 13U);
+    EXPECT_EQ(destination_resource.old_bytes, 3U * sizeof(T));
+    EXPECT_EQ(destination_resource.new_bytes, 7U * sizeof(T));
+    EXPECT_EQ(source.size(), 7U);
+    EXPECT_EQ(source.capacity(), 11U);
+    EXPECT_TRUE(source_resource.events.empty());
+    for (std::size_t i = 0; i < source.size(); ++i)
+    {
+        EXPECT_EQ(source[i], T{static_cast<int>(i) + 10});
+    }
+    switch (mode)
+    {
+    case CopyAssignmentResource::Reallocation::InPlace:
+        EXPECT_EQ(destination_resource.events, "R");
+        EXPECT_EQ(reinterpret_cast<std::uintptr_t>(destination.data()), address);
+        break;
+    case CopyAssignmentResource::Reallocation::Move:
+        EXPECT_EQ(destination_resource.events, "RAD");  // Allocator internally allocates and releases.
+        EXPECT_NE(reinterpret_cast<std::uintptr_t>(destination.data()), address);
+        break;
+    case CopyAssignmentResource::Reallocation::Decline:
+        EXPECT_EQ(destination_resource.events, "RDA");  // Container releases before replacement allocation.
+        break;
+    }
+}
+
+TEST(VLACopyAssignmentReallocation, SuccessAndDeclineWithExplicitPmr)
+{
+    for (const auto mode : {CopyAssignmentResource::Reallocation::InPlace,
+                            CopyAssignmentResource::Reallocation::Move,
+                            CopyAssignmentResource::Reallocation::Decline})
+    {
+        SCOPED_TRACE(static_cast<int>(mode));
+        check_copy_reallocation<int>(mode);
+        check_copy_reallocation<CopyAssignmentRecord>(mode);
+    }
+}
+
+template <bool Propagate, bool AlwaysEqual>
+void check_copy_allocator(bool equal)
+{
+    using Alloc = CopyAssignmentAllocator<int, Propagate, AlwaysEqual>;
+    using Array = cetl::variable_length_array<int, Alloc>;
+    CopyAssignmentResource original_resource;
+    CopyAssignmentResource other_resource;
+    auto&                  source_resource = equal ? original_resource : other_resource;
+    Array                  destination{Alloc{original_resource, 1}};
+    Array                  source{Alloc{source_resource, 2}};
+    destination.resize(3, 1);
+    source.resize(7, 9);
+    original_resource.events.clear();
+    other_resource.events.clear();
+
+    destination = source;
+
+    EXPECT_EQ(destination, source);
+    EXPECT_EQ(destination.capacity(), 7U);
+    EXPECT_EQ(destination.get_allocator().identity, Propagate ? 2 : 1);
+    EXPECT_EQ(destination.get_allocator().resource, Propagate ? &source_resource : &original_resource);
+    if (Propagate && !equal)
+    {
+        EXPECT_EQ(original_resource.events, "D");
+        EXPECT_EQ(other_resource.events, "A");
+    }
+    else
+    {
+        EXPECT_EQ(original_resource.events, "R");
+        EXPECT_TRUE(other_resource.events.empty());
+    }
+}
+
+TEST(VLACopyAssignmentReallocation, AllocatorPropagationAndEquality)
+{
+    check_copy_allocator<false, false>(false);
+    check_copy_allocator<false, false>(true);
+    check_copy_allocator<true, false>(false);
+    check_copy_allocator<true, false>(true);
+    check_copy_allocator<false, true>(true);
+    check_copy_allocator<true, true>(true);
+}
+
+TEST(VLACopyAssignmentReallocation, AllocatorWithoutExtensionReleasesBeforeAllocating)
+{
+    using Alloc = CopyAssignmentAllocator<int, false, false, false>;
+    CopyAssignmentResource                  resource;
+    cetl::variable_length_array<int, Alloc> destination{Alloc{resource}};
+    cetl::variable_length_array<int, Alloc> source{Alloc{resource}};
+    destination.resize(3, 1);
+    source.resize(7, 9);
+    resource.events.clear();
+    destination = source;
+    EXPECT_EQ(resource.events, "DA");
+    EXPECT_EQ(destination, source);
+}
+
+TEST(VLACopyAssignmentReallocation, NonTrivialStorageNeverCallsReallocate)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<std::string>;
+    using Array = cetl::variable_length_array<std::string, Alloc>;
+    for (const bool empty : {false, true})
+    {
+        CopyAssignmentResource resource;
+        Array                  destination{Alloc{&resource}};
+        Array                  source{Alloc{&resource}};
+        destination.reserve(3);
+        if (!empty)
+        {
+            destination.resize(2, "old");
+        }
+        source.resize(7, "new");
+        resource.events.clear();
+        destination = source;
+        EXPECT_EQ(resource.events, "DA");
+        EXPECT_EQ(destination, source);
+    }
+}
+
+TEST(VLACopyAssignmentReallocation, NoGrowthSelfAssignmentAndEmptyBuffers)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<int>;
+    using Array = cetl::variable_length_array<int, Alloc>;
+    CopyAssignmentResource resource;
+    Array                  destination{Alloc{&resource}};
+    Array                  source{Alloc{&resource}};
+    source.resize(7, 9);
+    resource.events.clear();
+    destination = source;  // No original buffer to reallocate.
+    EXPECT_EQ(resource.events, "A");
+    resource.events.clear();
+    destination        = source;  // Capacity is already sufficient.
+    const Array& alias = destination;
+    destination        = alias;
+    EXPECT_TRUE(resource.events.empty());
+    source.clear();
+    destination = source;
+    EXPECT_TRUE(destination.empty());
+    EXPECT_EQ(destination.capacity(), 7U);
+    EXPECT_TRUE(resource.events.empty());
+    source.resize(8, 3);
+    resource.events.clear();
+    destination = source;  // Empty reserved trivial storage is eligible.
+    EXPECT_EQ(resource.events, "R");
+    EXPECT_EQ(destination, source);
+}
+
+TEST(VLACopyAssignmentReallocation, SizeLimitIsCheckedBeforeReallocating)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<int>;
+    using Array = cetl::variable_length_array<int, Alloc>;
+    CopyAssignmentResource resource;
+    Array                  destination{Alloc{&resource}};
+    Array                  source{Alloc{&resource}};
+    destination.resize(3, 1);
+    source.resize(7, 9);
+    // An allocator can lower its reported limit after the source was populated.
+    resource.maximum_bytes = 4U * sizeof(int);
+    resource.events.clear();
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(destination = source, std::length_error);
+    EXPECT_EQ(resource.events, "D");
+    EXPECT_TRUE(destination.empty());
+    EXPECT_EQ(destination.capacity(), 0U);
+#else
+    destination = source;
+    EXPECT_EQ(resource.events, "DA");
+    EXPECT_EQ(destination.size(), 4U);
+    EXPECT_EQ(destination.capacity(), 4U);
+    EXPECT_TRUE(std::all_of(destination.begin(), destination.end(), [](int value) { return value == 9; }));
+#endif
+    EXPECT_EQ(source.size(), 7U);
+}
+
+TEST(VLACopyAssignmentReallocation, PackedBoolPreservesPartialFinalByte)
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<bool>;
+    using Array = cetl::variable_length_array<bool, Alloc>;
+    for (const auto mode : {CopyAssignmentResource::Reallocation::InPlace,
+                            CopyAssignmentResource::Reallocation::Move,
+                            CopyAssignmentResource::Reallocation::Decline})
+    {
+        CopyAssignmentResource resource;
+        Array                  destination{Alloc{&resource}};
+        Array                  source{Alloc{&resource}};
+        destination.resize(3, true);
+        for (std::size_t i = 0; i < 19; ++i)
+        {
+            source.push_back(i % 3U == 0);
+        }
+        resource.events.clear();
+        resource.mode = mode;
+        destination   = source;
+        EXPECT_EQ(resource.old_bytes, 1U);
+        EXPECT_EQ(resource.new_bytes, 3U);
+        EXPECT_EQ(destination.size(), 19U);
+        EXPECT_EQ(destination.capacity(), 24U);
+        EXPECT_EQ(destination, source);
+        EXPECT_EQ(resource.events,
+                  mode == CopyAssignmentResource::Reallocation::InPlace ? "R"
+                  : mode == CopyAssignmentResource::Reallocation::Move  ? "RAD"
+                                                                        : "RDA");
+        destination.push_back(true);
+        EXPECT_EQ(destination.size(), 20U);
+        EXPECT_TRUE(destination[19]);
+        for (std::size_t i = 0; i < 19; ++i)
+        {
+            EXPECT_EQ(destination[i], i % 3U == 0);
+            EXPECT_EQ(source[i], i % 3U == 0);
+        }
+    }
+}
+
+template <typename T>
+void check_copy_allocation_failure()
+{
+    using Alloc = cetl::pf17::pmr::polymorphic_allocator<T>;
+    using Array = cetl::variable_length_array<T, Alloc>;
+    CopyAssignmentResource resource;
+    Array                  destination{Alloc{&resource}};
+    Array                  source{Alloc{&resource}};
+    destination.resize(3, T{1});
+    source.resize(19, T{0});
+    resource.events.clear();
+    resource.fail_allocate = true;
+#if defined(__cpp_exceptions)
+    EXPECT_THROW(destination = source, std::bad_alloc);
+#else
+    destination = source;
+#endif
+    EXPECT_EQ(resource.events, "RDA");
+    EXPECT_TRUE(destination.empty());
+    EXPECT_EQ(destination.capacity(), 0U);
+    EXPECT_EQ(source.size(), 19U);
+    resource.fail_allocate = false;
+    destination.push_back(T{1});
+    EXPECT_EQ(destination.size(), 1U);
+    EXPECT_EQ(destination[0], T{1});
+}
+
+TEST(VLACopyAssignmentReallocation, DeclineAndAllocationFailureLeaveReusableEmptyDestination)
+{
+    check_copy_allocation_failure<int>();
+    check_copy_allocation_failure<bool>();
+}
+
+#if defined(__cpp_exceptions)
+TEST(VLACopyAssignmentReallocation, ThrowingAllocatorRetainsOriginalBuffer)
+{
+    using Alloc = CopyAssignmentAllocator<int>;
+    CopyAssignmentResource                  resource;
+    cetl::variable_length_array<int, Alloc> destination{Alloc{resource}};
+    cetl::variable_length_array<int, Alloc> source{Alloc{resource}};
+    destination.resize(3, 1);
+    source.resize(7, 9);
+    const auto* address = destination.data();
+    resource.events.clear();
+    resource.throw_reallocate = true;
+    EXPECT_THROW(destination = source, std::bad_alloc);
+    EXPECT_EQ(destination.data(), address);
+    EXPECT_EQ(destination.size(), 3U);
+    EXPECT_EQ(destination.capacity(), 3U);
+    EXPECT_TRUE(std::all_of(destination.begin(), destination.end(), [](int value) { return value == 1; }));
+    EXPECT_TRUE(resource.events.empty());
+    resource.throw_reallocate = false;
+    destination               = source;
+    EXPECT_EQ(destination, source);
+}
+
+TEST(VLACopyAssignmentReallocation, ConstructionFailureAfterSuccessRetainsValidStorage)
+{
+    using Alloc = CopyAssignmentAllocator<int>;
+    for (const int fail_at : {0, 3, 6})
+    {
+        CopyAssignmentResource                  resource;
+        cetl::variable_length_array<int, Alloc> destination{Alloc{resource}};
+        cetl::variable_length_array<int, Alloc> source{Alloc{resource}};
+        destination.resize(3, 1);
+        source.resize(7, 9);
+        resource.events.clear();
+        resource.constructions_before_failure = fail_at;
+        EXPECT_THROW(destination = source, std::bad_alloc);
+        EXPECT_TRUE(destination.empty());
+        EXPECT_EQ(destination.capacity(), 7U);
+        EXPECT_EQ(resource.events, "R");
+        EXPECT_EQ(source.size(), 7U);
+        resource.constructions_before_failure = -1;
+        destination                           = source;
+        EXPECT_EQ(destination, source);
+    }
+}
+#endif
+}  // namespace
