@@ -381,15 +381,16 @@ class polymorphic_allocator
     };
 
     template <typename U, typename Enable = void>
-    struct EnableIfNotPair
+    struct enable_if_not_pair
     {
         using return_type = void;
     };
 
     template <typename U>
-    struct EnableIfNotPair<U,
-                           typename std::enable_if_t<
-                               std::is_base_of<std::pair<typename U::first_type, typename U::second_type>, U>::value>>
+    struct enable_if_not_pair<
+        U,
+        typename std::enable_if_t<
+            std::is_base_of<std::pair<typename U::first_type, typename U::second_type>, U>::value>>
     {};
 
     template <typename PairType, typename... PTArgsT>
@@ -548,7 +549,7 @@ public:
     /// @param ...args  The argument to forward to the constructor of U.
     /// @return void The type is constructed in-place if U is not an std::pair.
     template <typename U, typename... Args>
-    typename EnableIfNotPair<U>::return_type construct(U* p, Args&&... args)
+    typename enable_if_not_pair<U>::return_type construct(U* p, Args&&... args)
     {
         construct_not_pair_impl(p, std::forward<Args>(args)...);
     }
@@ -687,11 +688,11 @@ public:
     //  +--[public methods]---------------------------------------------------+
     void release() noexcept
     {
-        BufferControl* head = current_buffer_;
+        buffer_control* head = current_buffer_;
         while (head != &first_buffer_control_)
         {
-            BufferControl* previous = head->previous;
-            upstream_->deallocate(head, sizeof(BufferControl) + head->buffer_size, head->buffer_align);
+            buffer_control* previous = head->previous;
+            upstream_->deallocate(head, sizeof(buffer_control) + head->buffer_size, head->buffer_align);
             head = previous;
         }
         current_buffer_                             = &first_buffer_control_;
@@ -720,15 +721,15 @@ protected:
             // Simple geometric progression of buffer size growth.
             const std::size_t next_buffer_size = std::min(max_size_v, grow_from_size + (grow_from_size / 2U));
 
-            void* raw = upstream_->allocate(sizeof(BufferControl) + next_buffer_size, alignment);
+            void* raw = upstream_->allocate(sizeof(buffer_control) + next_buffer_size, alignment);
             if (nullptr == raw)
             {
                 // out-of-memory with no exceptions.
                 break;
             }
-            void* buffer = &static_cast<BufferControl*>(raw)[1];
+            void* buffer = &static_cast<buffer_control*>(raw)[1];
             current_buffer_ =
-                new (raw) BufferControl{buffer, next_buffer_size, alignment, next_buffer_size, current_buffer_};
+                new (raw) buffer_control{buffer, next_buffer_size, alignment, next_buffer_size, current_buffer_};
 
             result = do_allocate_from_current_buffer(size_bytes, alignment);
         }
@@ -791,18 +792,18 @@ private:
         return result;
     }
 
-    struct BufferControl
+    struct buffer_control
     {
-        void*          buffer;
-        std::size_t    buffer_size;
-        std::size_t    buffer_align;
-        std::size_t    remaining_buffer_size;
-        BufferControl* previous;
+        void*           buffer;
+        std::size_t     buffer_size;
+        std::size_t     buffer_align;
+        std::size_t     remaining_buffer_size;
+        buffer_control* previous;
     };
 
-    BufferControl    first_buffer_control_;
+    buffer_control   first_buffer_control_;
     memory_resource* upstream_;
-    BufferControl*   current_buffer_;
+    buffer_control*  current_buffer_;
 };
 }  // namespace deviant
 }  // namespace pmr

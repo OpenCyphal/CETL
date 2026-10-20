@@ -165,7 +165,7 @@ TEST_F(TestPmrInterfacePtr, make_unique_concrete)
 {
     cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<MyObject>(alloc, "obj0");
+    auto obj0 = cetl::pmr::interface_factory::make_unique<MyObject>(alloc, "obj0");
     EXPECT_THAT(obj0, NotNull());
     EXPECT_THAT(obj0->name(), "obj0");
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
@@ -175,7 +175,7 @@ TEST_F(TestPmrInterfacePtr, make_unique_interface)
 {
     cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj0");
+    auto obj0 = cetl::pmr::interface_factory::make_unique<IDescribable>(alloc, "obj0");
     EXPECT_THAT(obj0, NotNull());
     EXPECT_THAT(obj0->name(), "obj0");
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
@@ -187,7 +187,7 @@ TEST_F(TestPmrInterfacePtr, up_cast_interface)
 {
     cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj0");
+    auto obj0 = cetl::pmr::interface_factory::make_unique<IDescribable>(alloc, "obj0");
     EXPECT_THAT(obj0, NotNull());
     EXPECT_THAT(obj0->name(), "obj0");
     EXPECT_THAT(obj0->describe(), "obj0 is a MyObject instance.");
@@ -208,7 +208,7 @@ TEST_F(TestPmrInterfacePtr, make_unique_out_of_memory)
 
     EXPECT_CALL(mr_mock, do_allocate(sizeof(MyObject), _)).WillOnce(Return(nullptr));
 
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<IDescribable>(alloc, "obj0");
+    auto obj0 = cetl::pmr::interface_factory::make_unique<IDescribable>(alloc, "obj0");
     EXPECT_THAT(obj0, IsNull());
 }
 
@@ -227,9 +227,9 @@ TEST_F(TestPmrInterfacePtr, make_unique_myobj_ctor_throws)
         });
 
 #if defined(__cpp_exceptions)
-    EXPECT_THROW(sink(cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0", true)), std::runtime_error);
+    EXPECT_THROW(sink(cetl::pmr::interface_factory::make_unique<INamed>(alloc, "obj0", true)), std::runtime_error);
 #else
-    auto obj0 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0", true);
+    auto obj0 = cetl::pmr::interface_factory::make_unique<INamed>(alloc, "obj0", true);
     EXPECT_THAT(obj0, NotNull());
     EXPECT_THAT(obj0->name(), "obj0");
 #endif
@@ -240,11 +240,11 @@ TEST_F(TestPmrInterfacePtr, initially_empty_with_default_deleter)
     cetl::pmr::polymorphic_allocator<MyObject> alloc{get_mr()};
 
     // 1. Create initially empty interface pointer.
-    cetl::pmr::InterfacePtr<INamed> obj0;
+    cetl::pmr::interface_ptr<INamed> obj0;
     EXPECT_THAT(obj0, IsNull());
 
     // 2. Now assign a new instance.
-    obj0 = cetl::pmr::InterfaceFactory::make_unique<INamed>(alloc, "obj0");
+    obj0 = cetl::pmr::interface_factory::make_unique<INamed>(alloc, "obj0");
     EXPECT_THAT(obj0, NotNull());
 }
 

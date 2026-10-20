@@ -32,14 +32,14 @@ class O1HeapMemoryResourceTest : public ::testing::Test
     }
 
 protected:
-    static cetl::pmr::O1HeapAlignedStorage<TestBufferSize> large_buffer;
+    static cetl::pmr::o1heap_aligned_storage<TestBufferSize> large_buffer;
 };
 
-cetl::pmr::O1HeapAlignedStorage<O1HeapMemoryResourceTest::TestBufferSize> O1HeapMemoryResourceTest::large_buffer;
+cetl::pmr::o1heap_aligned_storage<O1HeapMemoryResourceTest::TestBufferSize> O1HeapMemoryResourceTest::large_buffer;
 
 TEST_F(O1HeapMemoryResourceTest, O1HeapAlignedStorageTest)
 {
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{large_buffer};
+    cetl::pmr::unsynchronized_o1heap_memory_resource_delegate test_subject{large_buffer};
     void*                                                 mem = test_subject.allocate(16);
     ASSERT_NE(nullptr, mem);
     test_subject.deallocate(mem, 16);
@@ -48,8 +48,8 @@ TEST_F(O1HeapMemoryResourceTest, O1HeapAlignedStorageTest)
 TEST_F(O1HeapMemoryResourceTest, TestAllocationFailureThrowsBadAlloc)
 {
     // Use a small buffer to easily exhaust memory
-    cetl::pmr::O1HeapAlignedStorage<1024>                 small_buffer{};
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{small_buffer};
+    cetl::pmr::o1heap_aligned_storage<1024>                 small_buffer{};
+    cetl::pmr::unsynchronized_o1heap_memory_resource_delegate test_subject{small_buffer};
 
     // Allocate all available memory to force the next allocation to fail
     std::vector<void*> allocations;
@@ -101,7 +101,7 @@ TEST_F(O1HeapMemoryResourceTest, TestAllocationFailureThrowsBadAlloc)
 static void TestNullBufferInCtor()
 {
     flush_coverage_on_death();
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{nullptr, 0xFFFFFFFF};
+    cetl::pmr::unsynchronized_o1heap_memory_resource_delegate test_subject{nullptr, 0xFFFFFFFF};
 }
 
 TEST(DeathTestUnsynchronizedO1HeapMemoryResourceAssertions, TestNullBufferInCtor)
@@ -114,7 +114,7 @@ static void TestArenaSizeTooSmall()
     flush_coverage_on_death();
     std::array<unsigned char, 1> small_storage{};
     CETL_DEBUG_ASSERT(small_storage.size() < o1heapMinArenaSize, "Test setup error");
-    cetl::pmr::UnsynchronizedO1HeapMemoryResourceDelegate test_subject{small_storage.data(), small_storage.size()};
+    cetl::pmr::unsynchronized_o1heap_memory_resource_delegate test_subject{small_storage.data(), small_storage.size()};
 }
 
 TEST(DeathTestUnsynchronizedO1HeapMemoryResourceAssertions, TestArenaSizeTooSmall)

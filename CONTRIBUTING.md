@@ -12,6 +12,46 @@ early-adopters. To facilitate git submodule access to CETL and to avoid noise we
 incubate such types. As such, we may request that your PR to `main` be redirected to a feature branch we setup in the
 form of `preview/{your incubating feature name}`.
 
+# Naming Conventions
+
+CETL is meant to read like the C++ standard library, so it uses the same naming style as `std`:
+
+| Entity                                                    | Style                  | Example                                    |
+|-----------------------------------------------------------|------------------------|--------------------------------------------|
+| Types, type aliases, and type traits                      | `snake_case`           | `variable_length_array`, `interface_ptr`   |
+| Functions, variables, constants, and enumerators          | `snake_case`           | `make_unique`, `max_size_max`              |
+| Namespaces                                                | `snake_case`           | `cetl::pf17::pmr`                          |
+| Implementation details                                    | a `detail` namespace   | `cetl::detail::variable_length_array_base` |
+| Private and protected data members                        | trailing underscore    | `capacity_`                                |
+| Template parameters                                       | `PascalCase`           | `typename Allocator`                       |
+| Macros                                                    | `CETL_SCREAMING_CASE`  | `CETL_DEBUG_ASSERT`                        |
+
+Where a type has a standard counterpart, its members should use the same names and semantics as the standard type
+(e.g. `value_type`, `size()`, `get_allocator()`). Test code in CETLVaSt follows the googletest conventions instead.
+
+## Renaming public entities
+
+Some older CETL types were contributed with `PascalCase` names (`VariableLengthArray`,
+`UnsynchronizedBufferMemoryResourceDelegate`, etc.) and have since been renamed (see
+[#96](https://github.com/OpenCyphal/CETL/issues/96)). When renaming anything a user can name:
+
+1. rename the entity and update every use of it in CETL and CETLVaSt;
+2. leave the old name behind as an alias marked `[[deprecated("renamed to <new name>")]]`, next to the new
+   definition, with a `/// @deprecated` comment;
+3. add the old name to `cetlvast/suites/unittest/test_deprecated_names.cpp` so the alias is checked to name the same
+   type;
+4. remove deprecated aliases only in a major version release.
+
+An alias keeps most source code compiling, but it is not a complete compatibility layer, so a rename of a public type
+must itself ship in a major version release:
+
+- the type's mangled name changes, so binaries built against the old name will not link with code built against the
+  new one;
+- before C++20, class template argument deduction does not work through an alias template, so C++17 code such as
+  `OldName d{args...};` must name the template arguments or switch to the new name.
+
+Entities that users cannot name (private members, `detail` namespaces) can be renamed without an alias.
+
 # Running CETLVaSt locally
 
 ```

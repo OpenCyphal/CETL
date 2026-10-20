@@ -34,10 +34,10 @@ namespace pmr
 /// (@ref example_06_memory_resource_deleter "See full example here...")
 ///
 template <typename MemoryResourceType>
-class MemoryResourceDeleter final
+class memory_resource_deleter final
 {
 private:
-    struct MemoryResourceData
+    struct memory_resource_data
     {
         MemoryResourceType* mem_resource;
         std::size_t         mem_size;
@@ -49,16 +49,16 @@ public:
     /// @param mem_resource The memory resource to use for deallocation.
     /// @param mem_size     The size of the memory to deallocate.
     /// @param mem_align    The alignment of the memory to deallocate.
-    MemoryResourceDeleter(MemoryResourceType* mem_resource,
-                          std::size_t         mem_size,
-                          std::size_t         mem_align = alignof(std::max_align_t)) noexcept
+    memory_resource_deleter(MemoryResourceType* mem_resource,
+                            std::size_t         mem_size,
+                            std::size_t         mem_align = alignof(std::max_align_t)) noexcept
         : data_{mem_resource, mem_size, mem_align}
     {
     }
 
     /// To support unique_ptr move semantics.
     /// @param rhs The deleter to move from.
-    MemoryResourceDeleter(MemoryResourceDeleter&& rhs) noexcept
+    memory_resource_deleter(memory_resource_deleter&& rhs) noexcept
         : data_{nullptr, 0, 0}
     {
         swap(std::move(rhs));
@@ -67,17 +67,17 @@ public:
     /// To support unique_ptr move semantics.
     /// @param rhs The deleter to move from.
     /// @return Reference to this.
-    MemoryResourceDeleter& operator=(MemoryResourceDeleter&& rhs) noexcept
+    memory_resource_deleter& operator=(memory_resource_deleter&& rhs) noexcept
     {
         swap(std::move(rhs));
         return *this;
     }
 
-    ~MemoryResourceDeleter() = default;
+    ~memory_resource_deleter() = default;
 
-    MemoryResourceDeleter() noexcept                               = delete;
-    MemoryResourceDeleter(const MemoryResourceDeleter&)            = delete;
-    MemoryResourceDeleter& operator=(const MemoryResourceDeleter&) = delete;
+    memory_resource_deleter() noexcept                                 = delete;
+    memory_resource_deleter(const memory_resource_deleter&)            = delete;
+    memory_resource_deleter& operator=(const memory_resource_deleter&) = delete;
 
     /// Functor called by smart-pointer to deallocate memory.
     /// @param p The memory to deallocate.
@@ -112,27 +112,27 @@ public:
     }
 
 private:
-    void swap(MemoryResourceDeleter&& rhs) noexcept
+    void swap(memory_resource_deleter&& rhs) noexcept
     {
         CETL_DEBUG_ASSERT(nullptr != rhs.data_.mem_resource, "Moving from resource deleter with null memory resource.");
         data_.mem_resource = nullptr;
         std::swap(data_, rhs.data_);
     }
 
-    MemoryResourceData data_;
+    memory_resource_data data_;
 };
 
 /// RAII helper for cetl::pf17::pmr::polymorphic_allocator and std::pmr::polymorphic_allocator. This type is designed
-/// to work with std::unique_ptr but is still cumbersome to use. Use with cetl::pmr::Factory for the best and safest
-/// experience. Remember, be safe, use the cetl::pmr::Factory.
+/// to work with std::unique_ptr but is still cumbersome to use. Use with cetl::pmr::factory for the best and safest
+/// experience. Remember, be safe, use the cetl::pmr::factory.
 ///
 /// @note
-/// See cetl::pmr::Factory for an example of how to use this type.
+/// See cetl::pmr::factory for an example of how to use this type.
 ///
 /// @tparam PolymorphicDeallocator    The type of the polymorphic allocator to use for deallocation.
 ///
 template <typename PolymorphicDeallocator>
-class PolymorphicDeleter final
+class polymorphic_deleter final
 {
 public:
     /// The allocator type this deleter uses to, uh... delete memory?
@@ -143,31 +143,31 @@ public:
 
     /// While this object is simply a functor and could be used with other smart pointers the
     /// design is optimized for and tested with this std::unique_ptr type.
-    using unique_ptr = std::unique_ptr<value_type, cetl::pmr::PolymorphicDeleter<PolymorphicDeallocator>>;
+    using unique_ptr = std::unique_ptr<value_type, cetl::pmr::polymorphic_deleter<PolymorphicDeallocator>>;
 
-    PolymorphicDeleter() noexcept = delete;
+    polymorphic_deleter() noexcept = delete;
 
     /// Designated constructor that copies a given allocator and records the object count to use when deleting
     /// the smart pointer resources.
     /// @param alloc        The allocator to use when deleting the objects in the smart pointer.
     /// @param object_count The number of objects in the smart pointer that will be deleted.
-    PolymorphicDeleter(const PolymorphicDeallocator& alloc, std::size_t object_count) noexcept(
+    polymorphic_deleter(const PolymorphicDeallocator& alloc, std::size_t object_count) noexcept(
         std::is_nothrow_copy_constructible<PolymorphicDeallocator>::value)
         : alloc_{alloc}
         , obj_count_{object_count}
     {
     }
 
-    ~PolymorphicDeleter() = default;
+    ~polymorphic_deleter() = default;
 
-    PolymorphicDeleter(PolymorphicDeleter&& rhs) noexcept(
+    polymorphic_deleter(polymorphic_deleter&& rhs) noexcept(
         std::is_nothrow_move_constructible<PolymorphicDeallocator>::value)
         : alloc_{rhs.alloc_}
         , obj_count_{rhs.obj_count_}
     {
     }
 
-    PolymorphicDeleter& operator=(PolymorphicDeleter&& rhs) noexcept(
+    polymorphic_deleter& operator=(polymorphic_deleter&& rhs) noexcept(
         std::is_nothrow_move_assignable<PolymorphicDeallocator>::value)
     {
         alloc_     = rhs.alloc_;
@@ -175,13 +175,13 @@ public:
         return *this;
     }
 
-    PolymorphicDeleter(const PolymorphicDeleter& rhs) noexcept(
+    polymorphic_deleter(const polymorphic_deleter& rhs) noexcept(
         std::is_nothrow_copy_constructible<PolymorphicDeallocator>::value)
         : alloc_{rhs.alloc_}
         , obj_count_{rhs.obj_count_}
     {
     }
-    PolymorphicDeleter& operator=(const PolymorphicDeleter& rhs) noexcept(
+    polymorphic_deleter& operator=(const polymorphic_deleter& rhs) noexcept(
         std::is_nothrow_copy_assignable<PolymorphicDeallocator>::value)
     {
         alloc_     = rhs.alloc_;
@@ -216,7 +216,7 @@ private:
 };
 
 /// Factory helper for creating objects with polymorphic allocators using proper RAII semantics.
-/// Uses the cetl::pmr::PolymorphicDeleter type to ensure proper deallocation.
+/// Uses the cetl::pmr::polymorphic_deleter type to ensure proper deallocation.
 ///
 /// Example usage:
 ///
@@ -224,11 +224,11 @@ private:
 /// @snippet{trimleft} example_07_polymorphic_alloc_deleter.cpp example_usage_1
 /// (@ref example_07_polymorphic_alloc_deleter "See full example here...")
 ///
-class Factory final
+class factory final
 {
 public:
-    ~Factory() = delete;
-    Factory()  = delete;
+    ~factory() = delete;
+    factory()  = delete;
 
     template <typename RebindAllocatorType>
     using allocator_t = typename std::allocator_traits<RebindAllocatorType>::template rebind_alloc<
@@ -236,15 +236,15 @@ public:
 
     template <typename RebindAllocatorType>
     using unique_ptr_t = std::unique_ptr<typename allocator_t<RebindAllocatorType>::value_type,
-                                         cetl::pmr::PolymorphicDeleter<allocator_t<RebindAllocatorType>>>;
+                                         cetl::pmr::polymorphic_deleter<allocator_t<RebindAllocatorType>>>;
 
     // TODO: make_unique_array
     template <typename PolymorphicAllocatorTypeU, typename... Args>
     static auto make_unique(PolymorphicAllocatorTypeU& alloc, Args&&... args) ->
-        typename Factory::unique_ptr_t<PolymorphicAllocatorTypeU>
+        typename factory::unique_ptr_t<PolymorphicAllocatorTypeU>
     {
-        typename Factory::unique_ptr_t<PolymorphicAllocatorTypeU>
-            p{alloc.allocate(1), typename Factory::unique_ptr_t<PolymorphicAllocatorTypeU>::deleter_type{alloc, 1}};
+        typename factory::unique_ptr_t<PolymorphicAllocatorTypeU>
+            p{alloc.allocate(1), typename factory::unique_ptr_t<PolymorphicAllocatorTypeU>::deleter_type{alloc, 1}};
         if (nullptr != p)
         {
             alloc.construct(p.get(), std::forward<Args>(args)...);
@@ -252,6 +252,23 @@ public:
         return p;
     }
 };
+
+/// @deprecated Renamed to cetl::pmr::memory_resource_deleter; this alias will be removed in a future major version.
+/// Before C++20 the old name cannot deduce its template argument (alias-template CTAD is C++20); name the argument or
+/// use the new name.
+template <typename MemoryResourceType>
+using MemoryResourceDeleter [[deprecated("renamed to cetl::pmr::memory_resource_deleter")]] =
+    memory_resource_deleter<MemoryResourceType>;
+
+/// @deprecated Renamed to cetl::pmr::polymorphic_deleter; this alias will be removed in a future major version.
+/// Before C++20 the old name cannot deduce its template argument (alias-template CTAD is C++20); name the argument or
+/// use the new name.
+template <typename PolymorphicDeallocator>
+using PolymorphicDeleter [[deprecated("renamed to cetl::pmr::polymorphic_deleter")]] =
+    polymorphic_deleter<PolymorphicDeallocator>;
+
+/// @deprecated Renamed to cetl::pmr::factory; this alias will be removed in a future major version.
+using Factory [[deprecated("renamed to cetl::pmr::factory")]] = factory;
 
 }  // namespace pmr
 }  // namespace cetl

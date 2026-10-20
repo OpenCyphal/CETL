@@ -94,14 +94,14 @@ class function<Result(Args...), Footprint, Pmr> final
               bool = (!std::is_same<std::remove_cv_t<std::remove_reference_t<Functor>>, function>::value) &&
                      // TODO: Uncomment when we have `cetl::is_invocable_v`.
                      true /* std::is_invocable_v<Functor, Args...> */>
-    struct IsCallable;
+    struct is_callable;
     template <typename Functor>
-    struct IsCallable<Functor, false>
+    struct is_callable<Functor, false>
     {
         static constexpr bool value = false;
     };
     template <typename Functor>
-    struct IsCallable<Functor, true>
+    struct is_callable<Functor, true>
     {
         static constexpr bool value =
             std::is_void<Result>::value ||
@@ -109,14 +109,14 @@ class function<Result(Args...), Footprint, Pmr> final
             true /* std::is_convertible<std::invoke_result_t<Functor, Args...>, Result>::value */;
     };
     template <class Functor>
-    using EnableIfLvIsCallable = std::enable_if_t<IsCallable<Functor&>::value>;
+    using enable_if_lv_is_callable_t = std::enable_if_t<is_callable<Functor&>::value>;
 
 public:
     using result_type = Result;
 
     /// @brief Creates an empty function.
     ///
-    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfNotPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = cetl::detail::enable_if_not_pmr_t<PmrAlias>>
     function() noexcept
     {
     }
@@ -127,7 +127,7 @@ public:
 
     /// @brief Creates an empty function with specific memory resource.
     ///
-    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = cetl::detail::enable_if_pmr_t<PmrAlias>>
     explicit function(Pmr* const mem_res)
         : any_handler_{mem_res}
     {
@@ -168,9 +168,9 @@ public:
     ///
     template <typename Functor,
               typename FunctorDecay = std::decay_t<Functor>,
-              typename              = EnableIfLvIsCallable<FunctorDecay>,
+              typename              = enable_if_lv_is_callable_t<FunctorDecay>,
               typename PmrAlias     = Pmr,
-              typename              = cetl::detail::EnableIfNotPmrT<PmrAlias>>
+              typename              = cetl::detail::enable_if_not_pmr_t<PmrAlias>>
     function(Functor&& functor)
         : any_handler_{detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<handler_t>(&any_handler_)}
@@ -183,9 +183,9 @@ public:
     ///
     template <typename Functor,
               typename FunctorDecay = std::decay_t<Functor>,
-              typename              = EnableIfLvIsCallable<FunctorDecay>,
+              typename              = enable_if_lv_is_callable_t<FunctorDecay>,
               typename PmrAlias     = Pmr,
-              typename              = cetl::detail::EnableIfPmrT<PmrAlias>>
+              typename              = cetl::detail::enable_if_pmr_t<PmrAlias>>
     function(Pmr* const mem_res, Functor&& functor)
         : any_handler_{mem_res, detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)}}
         , handler_ptr_{get_if<detail::function_handler<Result, Args...>>(&any_handler_)}
@@ -198,7 +198,7 @@ public:
     ///
     template <typename Functor,
               typename FunctorDecay = std::decay_t<Functor>,
-              typename              = EnableIfLvIsCallable<FunctorDecay>>
+              typename              = enable_if_lv_is_callable_t<FunctorDecay>>
     function& operator=(Functor&& functor)
     {
         any_handler_ = detail::functor_handler<FunctorDecay, Result, Args...>{std::forward<Functor>(functor)};
@@ -280,7 +280,7 @@ public:
 
     /// @brief Resets the current target, and sets specific memory resource. `*this` is empty after the call.
     ///
-    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = cetl::detail::enable_if_pmr_t<PmrAlias>>
     void reset(Pmr* const mem_res) noexcept
     {
         any_handler_.reset(mem_res);
@@ -314,7 +314,7 @@ public:
 
     /// @brief Gets current memory resource in use by the function.
     ///
-    template <typename PmrAlias = Pmr, typename = cetl::detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = cetl::detail::enable_if_pmr_t<PmrAlias>>
     CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
         return any_handler_.get_memory_resource();

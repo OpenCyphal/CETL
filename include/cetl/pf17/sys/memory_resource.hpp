@@ -33,7 +33,7 @@ namespace pmr
 namespace deviant
 {
 
-class MaxAlignNewDeleteResource : public memory_resource
+class max_align_new_delete_resource : public memory_resource
 {
 protected:
     void* do_allocate(std::size_t size_bytes, std::size_t alignment) override
@@ -71,6 +71,11 @@ protected:
     }
 };
 
+/// @deprecated Renamed to cetl::pf17::pmr::deviant::max_align_new_delete_resource; this alias will be removed in a
+/// future major version.
+using MaxAlignNewDeleteResource [[deprecated("renamed to cetl::pf17::pmr::deviant::max_align_new_delete_resource")]] =
+    max_align_new_delete_resource;
+
 }  // namespace deviant
 
 /// @namespace cetl::pf17::pmr::_detail Users should not utilize anything inside of this namespace directly. These
@@ -78,11 +83,12 @@ protected:
 namespace _detail
 {
 
-inline deviant::MaxAlignNewDeleteResource* get_max_align_new_delete_resource_singleton() noexcept
+inline deviant::max_align_new_delete_resource* get_max_align_new_delete_resource_singleton() noexcept
 {
-    alignas(
-        deviant::MaxAlignNewDeleteResource) static char singleton_storage[sizeof(deviant::MaxAlignNewDeleteResource)];
-    static deviant::MaxAlignNewDeleteResource* singleton = new (singleton_storage) deviant::MaxAlignNewDeleteResource();
+    alignas(deviant::max_align_new_delete_resource) static char
+                                                   singleton_storage[sizeof(deviant::max_align_new_delete_resource)];
+    static deviant::max_align_new_delete_resource* singleton =
+        new (singleton_storage) deviant::max_align_new_delete_resource();
     return singleton;
 }
 
@@ -114,7 +120,7 @@ namespace deviant
 /// This implementation uses std::atomic::exchange to avoid data races with cetl::pf17::pmr::new_delete_resource().
 ///
 /// @param r    If nullptr then the implementation returned from cetl::pf17::pmr::new_delete_resource() is set to
-///             a static-duration instance of cetl::pf17::pmr::MaxAlignNewDeleteResource otherwise
+///             a static-duration instance of cetl::pf17::pmr::max_align_new_delete_resource otherwise
 ///             cetl::pf17::pmr::new_delete_resource() is set to r.
 /// @return The previous value returned by cetl::pf17::pmr::new_delete_resource().
 inline memory_resource* set_new_delete_resource(memory_resource* r) noexcept

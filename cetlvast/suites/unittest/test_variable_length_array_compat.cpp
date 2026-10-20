@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests that confirm cetl::VariableLengthArray behaviour versus std::vector.
+/// Unit tests that confirm cetl::variable_length_array behaviour versus std::vector.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -43,7 +43,7 @@ TYPED_TEST_SUITE(VLATestsCompatPrimitiveTypes, VLATestsCompatPrimitiveTypesTypes
 
 TYPED_TEST(VLATestsCompatPrimitiveTypes, TestMoveToVector)
 {
-    cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
+    cetl::variable_length_array<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
         subject{10u, cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource())};
     subject.reserve(subject.max_size());
     ASSERT_GE(subject.capacity(), subject.max_size());
@@ -62,7 +62,7 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, TestMoveToVector)
 TYPED_TEST(VLATestsCompatPrimitiveTypes, TestPushBackGrowsCapacity)
 {
     static constexpr std::size_t                                                            PushBackItems = 9;
-    cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>> subject{
+    cetl::variable_length_array<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>> subject{
         cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource())};
 
     ASSERT_EQ(0U, subject.size());
@@ -82,7 +82,7 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, TestPushBackGrowsCapacity)
 TYPED_TEST(VLATestsCompatPrimitiveTypes, TestForEachConstIterators)
 {
     static constexpr std::size_t MaxSize = 9;
-    cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
+    cetl::variable_length_array<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>>
         subject{MaxSize, cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource())};
     const auto& const_subject = subject;
     ASSERT_EQ(0U, const_subject.size());
@@ -121,7 +121,7 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, TestForEachConstIterators)
 TYPED_TEST(VLATestsCompatPrimitiveTypes, SelfAssignment)
 {
     auto allocator = cetl::pf17::pmr::polymorphic_allocator<TypeParam>(cetl::pf17::pmr::new_delete_resource());
-    cetl::VariableLengthArray<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>> subject{allocator};
+    cetl::variable_length_array<TypeParam, cetl::pf17::pmr::polymorphic_allocator<TypeParam>> subject{allocator};
     subject.push_back(0);
     subject.push_back(1);
     ASSERT_EQ(2U, subject.size());
@@ -138,7 +138,7 @@ TYPED_TEST(VLATestsCompatPrimitiveTypes, SelfAssignment)
 TYPED_TEST(VLATestsCompatPrimitiveTypes, TestAssignCountItems)
 {
     std::allocator<TypeParam>                                       allocator{};
-    cetl::VariableLengthArray<TypeParam, std::allocator<TypeParam>> subject{allocator};
+    cetl::variable_length_array<TypeParam, std::allocator<TypeParam>> subject{allocator};
     const TypeParam                                                 value0 = std::numeric_limits<TypeParam>::max();
     const TypeParam                                                 value1 = std::numeric_limits<TypeParam>::min();
     subject.assign(16, value0);
@@ -170,7 +170,7 @@ protected:
 
     template <typename ValueType, typename AllocatorType>
     using TestSubjectType = std::conditional_t<std::is_same<cetlvast::CETLTag, T>::value,
-                                               cetl::VariableLengthArray<ValueType, AllocatorType>,
+                                               cetl::variable_length_array<ValueType, AllocatorType>,
                                                std::vector<ValueType, AllocatorType>>;
 };
 using VLATestsCompatAnyTypeTypes = ::testing::Types<cetlvast::CETLTag, cetlvast::STLTag>;

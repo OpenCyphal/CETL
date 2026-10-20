@@ -1,5 +1,5 @@
 /// @file
-/// Demonstration of memory alignment when using the cetl::pf17::pmr::UnsynchronizedArrayMemoryResource in
+/// Demonstration of memory alignment when using the cetl::pf17::pmr::unsynchronized_array_memory_resource in
 /// cetl/pf17/array_memory_resource.hpp.
 ///
 /// @copyright
@@ -20,10 +20,10 @@ TEST(example_05_array_memory_resource, example_0)
     static_assert(alignof(std::max_align_t) < 128, "Wow, what hardware are you running on?");
     //![example_0]
     constexpr std::size_t                                               BufferSizeBytes = 64;
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<BufferSizeBytes> resource{};
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<BufferSizeBytes> resource{};
 
     // let's say we have a buffer that must be aligned to a 128-byte (1024-bit) boundary. If we tried to use
-    // UnsynchronizedArrayMemoryResource with a 64-byte internal array, on a typical system, the allocation would fail.
+    // unsynchronized_array_memory_resource with a 64-byte internal array, on a typical system, the allocation would fail.
 
     void* r = nullptr;
 #if defined(__cpp_exceptions)
@@ -47,7 +47,7 @@ TEST(example_05_array_memory_resource, example_1)
     //![example_1]
     // By over-provisioning the buffer you can now get the alignment you want:
     constexpr std::size_t                                               BufferSizeBytes = 64 + 128;
-    cetl::pf17::pmr::UnsynchronizedArrayMemoryResource<BufferSizeBytes> resource{};
+    cetl::pf17::pmr::unsynchronized_array_memory_resource<BufferSizeBytes> resource{};
 
     void* r = resource.allocate(64, 128);
 

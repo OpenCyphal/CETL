@@ -302,7 +302,7 @@ static_assert(!std::is_nothrow_move_constructible<CopyFallback>::value, "Exercis
 
 // Explicit pf17 allocator keeps the reallocate-capable path under test in C++17 and newer too.
 template <typename T>
-using Array = cetl::VariableLengthArray<T, cetl::pf17::pmr::polymorphic_allocator<T>>;
+using Array = cetl::variable_length_array<T, cetl::pf17::pmr::polymorphic_allocator<T>>;
 
 // Every scenario runs once for reserve growth and once for shrink_to_fit; setup always leaves spare capacity.
 class VLAReallocation : public ::testing::TestWithParam<bool>
@@ -467,7 +467,7 @@ TEST_P(VLAReallocation, PackedBoolRetainsReallocation)
 // Allocators without the extension must remain well-formed and continue to construct non-trivial elements.
 TEST_P(VLAReallocation, StandardAllocatorNeedsNoReallocateMember)
 {
-    cetl::VariableLengthArray<SelfReference, std::allocator<SelfReference>> array{std::allocator<SelfReference>{}};
+    cetl::variable_length_array<SelfReference, std::allocator<SelfReference>> array{std::allocator<SelfReference>{}};
     array.reserve(InitialCapacity);
     for (std::size_t i = 0; i < ElementCount; ++i)
     {
@@ -845,7 +845,7 @@ TEST(VLAReallocationGrowth, AppendConstructsOnceInPlaceThroughAllocator)
             MovingResource resource;
             resource.decline = decline;
             HookCounts                                                 counts;
-            cetl::VariableLengthArray<int, HookCountingAllocator<int>> array{
+            cetl::variable_length_array<int, HookCountingAllocator<int>> array{
                 HookCountingAllocator<int>{&resource, &counts}};
             array.reserve(AppendInitialCapacity);
             for (std::size_t i = 0; i < AppendInitialCapacity; ++i)

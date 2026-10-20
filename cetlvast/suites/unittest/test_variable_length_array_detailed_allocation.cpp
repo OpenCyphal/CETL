@@ -1,6 +1,6 @@
 /// @file
 /// Detailed introspection of allocation patterns within the
-/// the VariableLengthArray type.
+/// the variable_length_array type.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -192,14 +192,14 @@ struct AreAllocatorsEqual : public std::integral_constant<bool,
                                                               TypeParam::allocator_type::is_equal::value>
 {};
 
-// Helper for distinguishing the VariableLengthArray instantiations from the std::vector instantiations used as a
+// Helper for distinguishing the variable_length_array instantiations from the std::vector instantiations used as a
 // reference implementation.
 template <typename TypeParam>
 struct IsVariableLengthArray : public std::false_type
 {};
 
 template <typename T, typename Allocator>
-struct IsVariableLengthArray<cetl::VariableLengthArray<T, Allocator>> : public std::true_type
+struct IsVariableLengthArray<cetl::variable_length_array<T, Allocator>> : public std::true_type
 {};
 
 // +---------------------------------------------------------------------------+
@@ -210,38 +210,38 @@ namespace cetlvast
 using MyTypes = ::testing::Types<
     /* container type            | item type       | allocator type                                  | is_always_equal | is equal      | move prop.     | copy prop.    | */
     /*--------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-/* 0*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::true_type  > >,
+/* 0*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::true_type  > >,
 /* 1*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::true_type  > >,
-/* 2*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::true_type  > >,
+/* 2*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::true_type  > >,
 /* 3*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::true_type  > >,
-/* 4*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::true_type  > >,
+/* 4*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::true_type  > >,
 /* 5*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::true_type  > >,
-/* 6*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::true_type  > >,
+/* 6*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::true_type  > >,
 /* 7*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::true_type  > >,
-/* 8*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::false_type > >,
+/* 8*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::false_type > >,
 /* 9*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::true_type,  std::false_type > >,
-/*10*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::false_type > >,
+/*10*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::false_type > >,
 /*11*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::true_type,  std::false_type, std::false_type > >,
-/*12*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::false_type > >,
+/*12*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::false_type > >,
 /*13*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::true_type,  std::false_type > >,
-/*14*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::false_type > >,
+/*14*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::false_type > >,
 /*15*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::true_type,  std::false_type, std::false_type > >,
 
-/*16*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::true_type  > >,
+/*16*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::true_type  > >,
 /*17*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::true_type  > >,
-/*18*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::true_type  > >,
+/*18*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::true_type  > >,
 /*19*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::true_type  > >,
-/*20*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::true_type  > >,
+/*20*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::true_type  > >,
 /*21*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::true_type  > >,
-/*22*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::true_type  > >,
+/*22*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::true_type  > >,
 /*23*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::true_type  > >,
-/*24*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::false_type > >,
+/*24*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::false_type > >,
 /*25*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::true_type,  std::false_type > >,
-/*26*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::false_type > >,
+/*26*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::false_type > >,
 /*27*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::true_type,  std::false_type, std::false_type, std::false_type > >,
-/*28*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::false_type > >,
+/*28*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::false_type > >,
 /*29*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::true_type,  std::false_type > >,
-/*30*/ cetl::VariableLengthArray< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::false_type > >,
+/*30*/ cetl::variable_length_array< InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::false_type > >,
 /*31*/ std::vector<               InstrumentedType, InstrumentedNewDeleteAllocator< InstrumentedType, std::false_type, std::false_type, std::false_type, std::false_type > >
 >;
 }
@@ -740,7 +740,7 @@ TYPED_TEST(VLADetailedAllocationTests, MoveConstruct)
 // m is used as-is: select_on_container_copy_construction is only applied by
 // the non-extended copy constructor. propagate_on_container_move_assignment
 // has no bearing on construction; it is only consulted by move assignment.
-// These tests run against std::vector as well as VariableLengthArray so the
+// These tests run against std::vector as well as variable_length_array so the
 // expectations below are known to agree with the standard library.
 
 TYPED_TEST(VLADetailedAllocationTests, CopyConstructWithNewAllocator)

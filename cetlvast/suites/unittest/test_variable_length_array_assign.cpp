@@ -20,7 +20,7 @@
 namespace
 {
 template <typename T>
-using Array = cetl::VariableLengthArray<T, std::allocator<T>>;
+using Array = cetl::variable_length_array<T, std::allocator<T>>;
 
 template <typename T>
 class VLAAssign : public ::testing::Test
@@ -241,7 +241,7 @@ struct Allocator
 TYPED_TEST(VLAAssign, ReusesStorageAndRetainsAllocatorAndMaximum)
 {
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, Allocator<TypeParam>>;
     Subject actual{23, typename Subject::allocator_type{state}};
     actual.reserve(19);
     const auto capacity = actual.capacity();
@@ -269,7 +269,7 @@ TYPED_TEST(VLAAssign, DeclinedGrowthKeepsAssignedPrefixAndCanRetry)
     for (const bool reserve : {false, true})
     {
         AllocationState state;
-        using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+        using Subject = cetl::variable_length_array<TypeParam, Allocator<TypeParam>>;
         Subject actual{typename Subject::allocator_type{state}};
         if (reserve)
         {
@@ -301,7 +301,7 @@ TYPED_TEST(VLAAssign, DeclinedGrowthKeepsAssignedPrefixAndCanRetry)
 TYPED_TEST(VLAAssign, ForwardAssignmentAllocatesOnceAndRecoversFromFailure)
 {
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, Allocator<TypeParam>>;
     Subject actual{typename Subject::allocator_type{state}};
     actual.assign({0, 0});
     state.calls   = 0;
@@ -411,7 +411,7 @@ TYPED_TEST(VLAAssign, EveryAssignOverloadReleasesBeforeGrowing)
 {
     // A bounded resource may permit only one outstanding block; no assign overload may hold two.
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, Allocator<TypeParam>>;
     Subject     actual{typename Subject::allocator_type{state}};
     std::size_t count = 4;
     for (int overload = 0; overload < 3; ++overload)
@@ -468,7 +468,7 @@ TYPED_TEST(VLAAssign, GrowthBeyondInheritedMaximumIsRejected)
 TYPED_TEST(VLAAssign, DeclinedFillGrowthStaysWithinStorage)
 {
     AllocationState state;
-    using Subject = cetl::VariableLengthArray<TypeParam, Allocator<TypeParam>>;
+    using Subject = cetl::variable_length_array<TypeParam, Allocator<TypeParam>>;
     Subject actual{typename Subject::allocator_type{state}};
     actual.push_back(TypeParam{1});
     const auto capacity = actual.capacity();

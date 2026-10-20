@@ -34,7 +34,7 @@ namespace
 static void TestBoolSpecLastByteBitFillTooLarge()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     vla.push_back(true);
     if (vla.size() == 1)
     {
@@ -55,7 +55,7 @@ TEST(DeathTestVLAAssertions, TestBoolSpecLastByteBitFillTooLarge)
 static void TestBoolSpecSizeGreaterThanCapacity()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     vla.push_back(true);
     if (vla.size() == 1)
     {
@@ -76,7 +76,7 @@ TEST(DeathTestVLAAssertions, TestBoolSpecSizeGreaterThanCapacity)
 static void TestBoolSpecLastByteFillZeroWhenSizeIs()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     if (vla.size() == 0)
     {
         vla.last_byte_bit_fill_ = 1;
@@ -95,7 +95,7 @@ TEST(DeathTestVLAAssertions, TestBoolSpecLastByteFillZeroWhenSizeIs)
 static void TestFrontOnEmpty()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     (void)vla.front();
 }
 
@@ -111,7 +111,7 @@ TEST(DeathTestVLAAssertions, TestFrontOnEmpty)
 static void TestConstFrontOnEmpty()
 {
     flush_coverage_on_death();
-    const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    const cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     (void)reinterpret_cast<const decltype(vla)*>(&vla)->front();
 }
 
@@ -127,7 +127,7 @@ TEST(DeathTestVLAAssertions, TestConstFrontOnEmpty)
 static void TestFrontOnEmptyBool()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     (void)vla.front();
 }
 
@@ -143,7 +143,7 @@ TEST(DeathTestVLAAssertions, TestFrontOnEmptyBool)
 static void TestConstFrontOnEmptyBool()
 {
     flush_coverage_on_death();
-    const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    const cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     (void)reinterpret_cast<const decltype(vla)*>(&vla)->front();
 }
 
@@ -159,7 +159,7 @@ TEST(DeathTestVLAAssertions, TestConstFrontOnEmptyBool)
 static void TestBackOnEmpty()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     (void)vla.back();
 }
 
@@ -175,7 +175,7 @@ TEST(DeathTestVLAAssertions, TestBackOnEmpty)
 static void TestConstBackOnEmpty()
 {
     flush_coverage_on_death();
-    const cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    const cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     (void)reinterpret_cast<const decltype(vla)*>(&vla)->back();
 }
 
@@ -191,7 +191,7 @@ TEST(DeathTestVLAAssertions, TestConstBackOnEmpty)
 static void TestBackOnEmptyBool()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     (void)vla.back();
 }
 
@@ -207,7 +207,7 @@ TEST(DeathTestVLAAssertions, TestBackOnEmptyBool)
 static void TestConstBackOnEmptyBool()
 {
     flush_coverage_on_death();
-    const cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    const cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     (void)reinterpret_cast<const decltype(vla)*>(&vla)->back();
 }
 
@@ -223,7 +223,7 @@ TEST(DeathTestVLAAssertions, TestConstBackOnEmptyBool)
 static void TestEraseEnd()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     vla.push_back(1);
     (void)vla.erase(vla.cend());
 }
@@ -240,7 +240,7 @@ TEST(DeathTestVLAAssertions, TestEraseEnd)
 static void TestEraseReversedRange()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     vla.push_back(1);
     vla.push_back(2);
     (void)vla.erase(vla.cbegin() + 1, vla.cbegin());
@@ -258,7 +258,7 @@ TEST(DeathTestVLAAssertions, TestEraseReversedRange)
 static void TestEraseEndBool()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
     vla.push_back(true);
     (void)vla.erase(vla.cend());
 }
@@ -275,8 +275,8 @@ TEST(DeathTestVLAAssertions, TestEraseEndBool)
 static void TestEraseOtherArrayRangeBool()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
-    cetl::VariableLengthArray<bool, std::allocator<bool> > other{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > other{std::allocator<bool>()};
     vla.push_back(true);
     other.push_back(true);
     (void)vla.erase(other.cbegin(), other.cend());
@@ -294,7 +294,7 @@ TEST(DeathTestVLAAssertions, TestEraseOtherArrayRangeBool)
 static void TestInsertPastEnd()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<int, std::allocator<int> > vla{std::allocator<int>()};
+    cetl::variable_length_array<int, std::allocator<int> > vla{std::allocator<int>()};
     vla.reserve(4);
     vla.push_back(1);
     (void)vla.insert(vla.cend() + 1, 2);
@@ -312,8 +312,8 @@ TEST(DeathTestVLAAssertions, TestInsertPastEnd)
 static void TestInsertOtherArrayBool()
 {
     flush_coverage_on_death();
-    cetl::VariableLengthArray<bool, std::allocator<bool> > vla{std::allocator<bool>()};
-    cetl::VariableLengthArray<bool, std::allocator<bool> > other{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > vla{std::allocator<bool>()};
+    cetl::variable_length_array<bool, std::allocator<bool> > other{std::allocator<bool>()};
     other.push_back(true);
     (void)vla.insert(other.cbegin(), true);
 }

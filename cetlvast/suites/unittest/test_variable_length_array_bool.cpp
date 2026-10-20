@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for bool specialization of cetl::VariableLengthArray
+/// Unit tests for bool specialization of cetl::variable_length_array
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -71,11 +71,11 @@ protected:
 namespace cetlvast
 {
 using VLAAndVectorTypes = ::testing::Types<
-      TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>
+      TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::variable_length_array, unsigned char>
     , TypeParamDef<cetlvast::DefaultAllocatorFactory, std::vector, bool>
 >;
 using VLATypes = ::testing::Types<
-      TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::VariableLengthArray, unsigned char>
+      TypeParamDef<cetlvast::PolymorphicAllocatorNewDeleteFactory, cetl::variable_length_array, unsigned char>
 >;
 }  // namespace cetlvast
 // clang-format on

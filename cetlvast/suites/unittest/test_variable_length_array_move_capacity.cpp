@@ -114,7 +114,7 @@ template <typename T>
 class VLAMoveCapacityTests : public ::testing::Test
 {
 protected:
-    using Subject   = cetl::VariableLengthArray<T, TrackingAllocator<T>>;
+    using Subject   = cetl::variable_length_array<T, TrackingAllocator<T>>;
     using Allocator = typename Subject::allocator_type;
 
     static std::size_t storage_bytes(std::size_t capacity)
@@ -514,7 +514,7 @@ static_assert(!std::is_default_constructible<NonDefaultConstructible>::value, "E
 // Move assignment without allocator propagation must not require default construction, whichever branch runs (#223).
 TEST(VLAMoveCapacityNonDefaultConstructibleTest, Assignment)
 {
-    using Subject   = cetl::VariableLengthArray<NonDefaultConstructible, TrackingAllocator<NonDefaultConstructible>>;
+    using Subject   = cetl::variable_length_array<NonDefaultConstructible, TrackingAllocator<NonDefaultConstructible>>;
     using Allocator = Subject::allocator_type;
     for (const bool equal : {true, false})
     {

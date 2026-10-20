@@ -319,16 +319,16 @@ private:
 };
 
 template <typename T>
-std::unique_ptr<T, cetl::pmr::MemoryResourceDeleter<cetl::pf17::pmr::memory_resource>> allocate_buffer(
+std::unique_ptr<T, cetl::pmr::memory_resource_deleter<cetl::pf17::pmr::memory_resource>> allocate_buffer(
     pmr::memory_resource& allocator,
     std::size_t           buffer_size,
     std::size_t           buffer_alignment)
 {
     return std::unique_ptr<
         T,
-        cetl::pmr::MemoryResourceDeleter<
+        cetl::pmr::memory_resource_deleter<
             cetl::pf17::pmr::memory_resource>>{static_cast<T*>(allocator.allocate(buffer_size, buffer_alignment)),
-                                               cetl::pmr::MemoryResourceDeleter<
+                                               cetl::pmr::memory_resource_deleter<
                                                    cetl::pf17::pmr::memory_resource>{&allocator,
                                                                                      buffer_size,
                                                                                      buffer_alignment}};

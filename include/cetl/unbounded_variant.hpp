@@ -71,13 +71,13 @@ inline std::nullptr_t throw_bad_alloc()
 }
 
 template <typename Pmr>
-using IsPmr = std::integral_constant<bool, !std::is_void<Pmr>::value>;
+using is_pmr = std::integral_constant<bool, !std::is_void<Pmr>::value>;
 
 template <typename Pmr>
-using EnableIfPmrT = std::enable_if_t<IsPmr<Pmr>::value>;
+using enable_if_pmr_t = std::enable_if_t<is_pmr<Pmr>::value>;
 
 template <typename Pmr>
-using EnableIfNotPmrT = std::enable_if_t<!IsPmr<Pmr>::value>;
+using enable_if_not_pmr_t = std::enable_if_t<!is_pmr<Pmr>::value>;
 
 // MARK: - Storage policy.
 //
@@ -515,7 +515,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
 {
     base_access() = default;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_access(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -558,7 +558,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     void make_converters() noexcept
     {
         value_const_converter_ = [](const void* const    storage,
-                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
+                                    const cetl::type_id& dst_type_id) -> value_const_ptr_and_type_id {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             const auto* const ptr     = static_cast<const Tp*>(storage);
             const void* const dst_ptr = ptr->_cast_(dst_type_id);
@@ -575,7 +575,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     void make_converters() noexcept
     {
         value_const_converter_ = [](const void* const    storage,
-                                    const cetl::type_id& dst_type_id) -> ValueConstPtrAndTypeId {
+                                    const cetl::type_id& dst_type_id) -> value_const_ptr_and_type_id {
             CETL_DEBUG_ASSERT(nullptr != storage, "");
             const void* const dst_ptr = (dst_type_id == cetl::type_id_value<Tp>) ? storage : nullptr;
             return std::make_pair(dst_ptr, cetl::type_id_value<Tp>);
@@ -655,7 +655,7 @@ struct base_access : base_storage<Pmr, Footprint, Alignment>
     void reset() noexcept
     {
         // Non-PMR storage can store any value as long as it fits into the footprint.
-        static_assert((Footprint > 0) || IsPmr<Pmr>::value, "Make non-zero footprint, or enable PMR support.");
+        static_assert((Footprint > 0) || is_pmr<Pmr>::value, "Make non-zero footprint, or enable PMR support.");
 
         // `has_value()` already checks for `value_destroyer_` not being `nullptr`,
         // but clang-tidy doesn't see it, so we get false positive here - hence the explicit double check.
@@ -690,8 +690,8 @@ private:
     // - Unique identifier of the actual type of the stored value,
     //   otherwise `type_id_value<void>` (all zeros) if storage is empty.
     //
-    using ValueConstPtrAndTypeId = std::pair<const void*, cetl::type_id>;
-    ValueConstPtrAndTypeId (*value_const_converter_)(const void* self, const cetl::type_id& dst_type_id) = nullptr;
+    using value_const_ptr_and_type_id = std::pair<const void*, cetl::type_id>;
+    value_const_ptr_and_type_id (*value_const_converter_)(const void* self, const cetl::type_id& dst_type_id) = nullptr;
 
 };  // base_access
 
@@ -706,7 +706,7 @@ struct base_handlers<Pmr, Footprint, false /*Copyable*/, false /*Moveable*/, Ali
 {
     base_handlers() = default;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -722,7 +722,7 @@ struct base_handlers<Pmr, Footprint, true /*Copyable*/, false /*Moveable*/, Alig
 {
     base_handlers() = default;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -755,7 +755,7 @@ struct base_handlers<Pmr, Footprint, false /*Copyable*/, true /*Moveable*/, Alig
 {
     base_handlers() = default;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -788,7 +788,7 @@ struct base_handlers<Pmr, Footprint, true /*Copyable*/, true /*Moveable*/, Align
 {
     base_handlers() = default;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_handlers(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -845,7 +845,7 @@ struct base_copy<Pmr, Footprint, false /*Copyable*/, Moveable, Alignment>
     base_copy(const base_copy&)            = delete;
     base_copy& operator=(const base_copy&) = delete;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_copy(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -868,7 +868,7 @@ struct base_copy<Pmr, Footprint, true /*Copyable*/, Moveable, Alignment>
         copy_from(other);
     }
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_copy(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -932,7 +932,7 @@ struct base_move<Pmr, Footprint, Copyable, false /*Movable*/, Alignment>
     base_move& operator=(const base_move&)     = default;
     base_move& operator=(base_move&&) noexcept = delete;
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_move(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -957,7 +957,7 @@ struct base_move<Pmr, Footprint, Copyable, true /*Movable*/, Alignment>
         move_from(other);
     }
 
-    template <typename PmrAlias = Pmr, typename = EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = enable_if_pmr_t<PmrAlias>>
     explicit base_move(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -1024,8 +1024,8 @@ template <std::size_t Footprint,
           typename Pmr          = void>
 class unbounded_variant : detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>
 {
-    using IsMovableT = std::integral_constant<bool, Movable>;
-    using base       = detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>;
+    using is_movable_t = std::integral_constant<bool, Movable>;
+    using base         = detail::base_move<Pmr, Footprint, Copyable, Movable, Alignment>;
 
     // Forward declaration.
     template <typename T>
@@ -1061,7 +1061,7 @@ public:
 
     /// \brief Constructs an empty `unbounded_variant` object.
     ///
-    template <typename PmrAlias = Pmr, typename = detail::EnableIfNotPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = detail::enable_if_not_pmr_t<PmrAlias>>
     unbounded_variant()
     {
     }
@@ -1070,7 +1070,7 @@ public:
     ///
     /// \param mem_res Pointer to a memory resource to be used by the variant.
     ///
-    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = detail::enable_if_pmr_t<PmrAlias>>
     explicit unbounded_variant(Pmr* const mem_res)
         : base{mem_res}
     {
@@ -1103,7 +1103,7 @@ public:
         typename ValueType,
         typename Tp       = std::decay_t<ValueType>,
         typename PmrAlias = Pmr,
-        typename          = detail::EnableIfNotPmrT<PmrAlias>,
+        typename          = detail::enable_if_not_pmr_t<PmrAlias>,
         typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(ValueType&& value)  // NOLINT(*-explicit-constructor)
     {
@@ -1124,7 +1124,7 @@ public:
         typename ValueType,
         typename Tp       = std::decay_t<ValueType>,
         typename PmrAlias = Pmr,
-        typename          = detail::EnableIfPmrT<PmrAlias>,
+        typename          = detail::enable_if_pmr_t<PmrAlias>,
         typename = std::enable_if_t<!std::is_same<Tp, unbounded_variant>::value && !is_in_place_type<ValueType>::value>>
     unbounded_variant(Pmr* const mem_res, ValueType&& value)
         : base{mem_res}
@@ -1147,7 +1147,7 @@ public:
               typename... Args,
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
-              typename          = detail::EnableIfNotPmrT<PmrAlias>>
+              typename          = detail::enable_if_not_pmr_t<PmrAlias>>
     explicit unbounded_variant(in_place_type_t<ValueType>, Args&&... args)
     {
         create<Tp>(std::forward<Args>(args)...);
@@ -1170,7 +1170,7 @@ public:
               typename... Args,
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
-              typename          = detail::EnableIfPmrT<PmrAlias>>
+              typename          = detail::enable_if_pmr_t<PmrAlias>>
     explicit unbounded_variant(Pmr* const mem_res, in_place_type_t<ValueType>, Args&&... args)
         : base{mem_res}
     {
@@ -1195,7 +1195,7 @@ public:
               typename... Args,
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
-              typename          = detail::EnableIfNotPmrT<PmrAlias>>
+              typename          = detail::enable_if_not_pmr_t<PmrAlias>>
     explicit unbounded_variant(in_place_type_t<ValueType>, std::initializer_list<Up> list, Args&&... args)
     {
         create<Tp>(list, std::forward<Args>(args)...);
@@ -1219,7 +1219,7 @@ public:
               typename... Args,
               typename Tp       = std::decay_t<ValueType>,
               typename PmrAlias = Pmr,
-              typename          = detail::EnableIfPmrT<PmrAlias>>
+              typename          = detail::enable_if_pmr_t<PmrAlias>>
     explicit unbounded_variant(Pmr* const mem_res,
                                in_place_type_t<ValueType>,
                                std::initializer_list<Up> list,
@@ -1338,12 +1338,12 @@ public:
             return;
         }
 
-        swapVariants(detail::IsPmr<Pmr>{}, IsMovableT{}, rhs);
+        swap_variants(detail::is_pmr<Pmr>{}, is_movable_t{}, rhs);
     }
 
     /// \brief Gets current memory resource in use by the variant.
     ///
-    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = detail::enable_if_pmr_t<PmrAlias>>
     CETL_NODISCARD Pmr* get_memory_resource() const noexcept
     {
         return base::get_memory_resource();
@@ -1353,7 +1353,7 @@ public:
     ///
     /// Useful to recover from the "valueless by exception" state (see `swap` method).
     ///
-    template <typename PmrAlias = Pmr, typename = detail::EnableIfPmrT<PmrAlias>>
+    template <typename PmrAlias = Pmr, typename = detail::enable_if_pmr_t<PmrAlias>>
     void reset(Pmr* const mem_res) noexcept
     {
         base::reset();
@@ -1413,7 +1413,7 @@ private:
         return ptr;
     }
 
-    void swapVariants(std::false_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
+    void swap_variants(std::false_type /*is_pmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
     {
         if (has_value())
         {
@@ -1436,7 +1436,7 @@ private:
         }
     }
 
-    void swapVariants(std::true_type /*IsPmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
+    void swap_variants(std::true_type /*is_pmr*/, std::false_type /*Movable*/, unbounded_variant& rhs)
     {
         if (has_value())
         {
@@ -1468,7 +1468,7 @@ private:
         }
     }
 
-    void swapVariants(std::false_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
+    void swap_variants(std::false_type /*is_pmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
     {
         if (has_value())
         {
@@ -1489,7 +1489,7 @@ private:
         }
     }
 
-    void swapVariants(std::true_type /*IsPmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
+    void swap_variants(std::true_type /*is_pmr*/, std::true_type /*Movable*/, unbounded_variant& rhs) noexcept
     {
         if (has_value())
         {
@@ -1545,7 +1545,7 @@ using unbounded_variant_like = unbounded_variant<sizeof(ValueType),
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename... Args,
-          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
+          typename = detail::enable_if_not_pmr_t<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
@@ -1569,7 +1569,7 @@ template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename Up,
           typename... Args,
-          typename = detail::EnableIfNotPmrT<typename UnboundedVariant::pmr_type>>
+          typename = detail::enable_if_not_pmr_t<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up> list, Args&&... args)
 {
     using in_place_type_t = typename UnboundedVariant::template in_place_type_t<ValueType>;
@@ -1592,7 +1592,7 @@ CETL_NODISCARD UnboundedVariant make_unbounded_variant(std::initializer_list<Up>
 template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename... Args,
-          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+          typename = detail::enable_if_pmr_t<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
                                                        Args&&... args)
 {
@@ -1618,7 +1618,7 @@ template <typename ValueType,
           typename UnboundedVariant = unbounded_variant_like<ValueType>,
           typename Up,
           typename... Args,
-          typename = detail::EnableIfPmrT<typename UnboundedVariant::pmr_type>>
+          typename = detail::enable_if_pmr_t<typename UnboundedVariant::pmr_type>>
 CETL_NODISCARD UnboundedVariant make_unbounded_variant(typename UnboundedVariant::pmr_type* const mem_res,
                                                        std::initializer_list<Up>                  list,
                                                        Args&&... args)
@@ -1656,11 +1656,11 @@ CETL_NODISCARD std::add_pointer_t<std::add_const_t<ValueType>> get_if(
         return nullptr;
     }
 
-    using RawValueType    = std::remove_cv_t<ValueType>;
-    const auto* const ptr = operand->template get_ptr<RawValueType>();
+    using raw_value_type  = std::remove_cv_t<ValueType>;
+    const auto* const ptr = operand->template get_ptr<raw_value_type>();
 
-    using ReturnType = std::add_pointer_t<std::add_const_t<ValueType>>;
-    return static_cast<ReturnType>(ptr);
+    using return_type = std::add_pointer_t<std::add_const_t<ValueType>>;
+    return static_cast<return_type>(ptr);
 }
 
 /// \brief Performs type-safe access to the contained object.
@@ -1692,11 +1692,11 @@ CETL_NODISCARD std::add_pointer_t<ValueType> get_if(
         return nullptr;
     }
 
-    using RawValueType = std::remove_cv_t<ValueType>;
-    auto* const ptr    = operand->template get_ptr<RawValueType>();
+    using raw_value_type = std::remove_cv_t<ValueType>;
+    auto* const ptr      = operand->template get_ptr<raw_value_type>();
 
-    using ReturnType = std::add_pointer_t<ValueType>;
-    return static_cast<ReturnType>(ptr);
+    using return_type = std::add_pointer_t<ValueType>;
+    return static_cast<return_type>(ptr);
 }
 
 /// \brief Performs type-safe access to the contained object.
@@ -1717,9 +1717,9 @@ template <
                                              unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
 CETL_NODISCARD const ValueType& get(const UbVar<Footprint, Copyable, Movable, Alignment, Pmr>& operand)
 {
-    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    using raw_value_type = std::remove_cv_t<std::remove_reference_t<ValueType>>;
 
-    const auto* const ptr = get_if<std::add_const_t<RawValueType>>(&operand);
+    const auto* const ptr = get_if<std::add_const_t<raw_value_type>>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();
@@ -1745,9 +1745,9 @@ template <
                                              unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
 CETL_NODISCARD ValueType& get(UbVar<Footprint, Copyable, Movable, Alignment, Pmr>& operand)
 {
-    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    using raw_value_type = std::remove_cv_t<std::remove_reference_t<ValueType>>;
 
-    auto* const ptr = get_if<RawValueType>(&operand);
+    auto* const ptr = get_if<raw_value_type>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();
@@ -1773,9 +1773,9 @@ template <
                                              unbounded_variant<Footprint, Copyable, Movable, Alignment, Pmr>>::value>>
 CETL_NODISCARD ValueType get(UbVar<Footprint, Copyable, Movable, Alignment, Pmr>&& operand)
 {
-    using RawValueType = std::remove_cv_t<std::remove_reference_t<ValueType>>;
+    using raw_value_type = std::remove_cv_t<std::remove_reference_t<ValueType>>;
 
-    auto* const ptr = get_if<RawValueType>(&operand);
+    auto* const ptr = get_if<raw_value_type>(&operand);
     if (ptr == nullptr)
     {
         detail::throw_bad_unbounded_variant_access();

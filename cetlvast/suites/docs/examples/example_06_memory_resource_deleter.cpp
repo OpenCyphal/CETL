@@ -1,5 +1,5 @@
 /// @file
-/// Example of using the cetl::pmr::MemoryResourceDeleter from cetl/pmr/memory.hpp.
+/// Example of using the cetl::pmr::memory_resource_deleter from cetl/pmr/memory.hpp.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -22,7 +22,7 @@ TEST(example_06_memory_resource_deleter, example_usage)
     // Let's say you wanted to store a bunch of buffers in a heap so you can get the largest one quickly.
     // You could do something like this:
 
-    using MemoryResourcePointer = std::unique_ptr<void, cetl::pmr::MemoryResourceDeleter<cetl::pmr::memory_resource>>;
+    using MemoryResourcePointer = std::unique_ptr<void, cetl::pmr::memory_resource_deleter<cetl::pmr::memory_resource>>;
 
     struct ByteBuffer
     {

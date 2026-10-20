@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate
+/// Unit tests for cetl::pmr::unsynchronized_buffer_memory_resource_delegate
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -27,7 +27,7 @@ static struct alignas(std::max_align_t)
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
 {
     cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
                                                                                                          0,
                                                                                                          &mock_upstream,
                                                                                                          0};
@@ -44,7 +44,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestNullBuffer)
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLargeBuffer)
 {
     cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{large_buffer.data,
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource> test_subject{large_buffer.data,
                                                                                                          TestBufferSize,
                                                                                                          &mock_upstream,
                                                                                                          0};
@@ -58,11 +58,11 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestDataAccess)
 {
     cetlvast::MockPf17MemoryResource mock_upstream{};
     cetl::pf17::byte                 small_buffer[4];
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject0{small_buffer, 2, &mock_upstream, 0};
     ASSERT_EQ(small_buffer, test_subject0.data());
     ASSERT_EQ(2, test_subject0.size());
-    const cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    const cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject1{small_buffer, 4, &mock_upstream, 0};
     ASSERT_EQ(small_buffer, test_subject1.data());
     ASSERT_EQ(4, test_subject1.size());
@@ -71,7 +71,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestDataAccess)
 TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestLocalReallocate)
 {
     cetlvast::MockMemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetlvast::MockMemoryResource> test_subject{large_buffer.data,
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetlvast::MockMemoryResource> test_subject{large_buffer.data,
                                                                                                      TestBufferSize,
                                                                                                      &mock_upstream,
                                                                                                      0};
@@ -93,7 +93,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestUpstreamSpilloverOnReal
     cetl::pf17::byte                 buffer[10];
     cetl::pf17::byte                 upstream_buffer[20];
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject_upstream{upstream_buffer, sizeof(cetl::pf17::byte) * 20, &mock_upstream, 0};
 
     ON_CALL(mock_upstream, do_allocate)
@@ -116,7 +116,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestUpstreamSpilloverOnReal
     EXPECT_CALL(mock_upstream, do_reallocate(upstream_buffer, 15, 20, 1)).Times(1);
     EXPECT_CALL(mock_upstream, do_deallocate(upstream_buffer, 20, ::testing::_)).Times(1);
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
           test_subject{buffer, sizeof(cetl::pf17::byte) * 10, &mock_upstream, 20};
     void* mem = test_subject.allocate(15, 2);
     ASSERT_NE(nullptr, mem);
@@ -131,7 +131,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestUpstreamSpilloverOnReal
     cetl::pf17::byte             buffer[10];
     cetl::pf17::byte             upstream_buffer[20];
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetlvast::MockMemoryResource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetlvast::MockMemoryResource>
         test_subject_upstream{upstream_buffer, sizeof(cetl::pf17::byte) * 20, &mock_upstream, 0};
 
     ON_CALL(mock_upstream, allocate)
@@ -146,7 +146,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestUpstreamSpilloverOnReal
     EXPECT_CALL(mock_upstream, allocate(15, 2)).Times(1);
     EXPECT_CALL(mock_upstream, deallocate(upstream_buffer, 15, ::testing::_)).Times(1);
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetlvast::MockMemoryResource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetlvast::MockMemoryResource>
           test_subject{buffer, sizeof(cetl::pf17::byte) * 10, &mock_upstream, 20};
     void* mem = test_subject.allocate(15, 2);
     ASSERT_NE(nullptr, mem);
@@ -163,7 +163,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestUpstreamSpillover)
     Expectation allocate = EXPECT_CALL(mock_upstream, do_allocate(6, 1)).Times(1).WillOnce(Return(upstream_buffer));
     EXPECT_CALL(mock_upstream, do_deallocate(upstream_buffer, 6, testing::_)).Times(1).After(allocate);
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject{buffer, sizeof(cetl::pf17::byte) * 10, &mock_upstream, sizeof(cetl::pf17::byte) * 20};
 
     void* mem = test_subject.allocate(5, 1);
@@ -187,19 +187,19 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestMaxSize)
     constexpr std::size_t            max_size_max      = std::numeric_limits<std::size_t>::max();
     constexpr std::size_t            max_size_expected = std::numeric_limits<std::ptrdiff_t>::max();
     ASSERT_EQ(max_size_expected,
-              cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>(buffer,
+              cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>(buffer,
                                                                                                       1,
                                                                                                       &mock_upstream,
                                                                                                       max_size_max)
                   .max_size());
     ASSERT_EQ(max_size_expected,
-              cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>(buffer,
+              cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>(buffer,
                                                                                                       max_size_max,
                                                                                                       &mock_upstream,
                                                                                                       1)
                   .max_size());
     ASSERT_EQ(max_size_expected,
-              cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>(buffer,
+              cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>(buffer,
                                                                                                       max_size_max,
                                                                                                       &mock_upstream,
                                                                                                       max_size_max)
@@ -211,7 +211,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestAllocateAllocateDealloc
     cetlvast::MockPf17MemoryResource mock_upstream{};
     cetl::pf17::byte                 buffer[10];
     cetl::pf17::byte                 upstream_buffer[20];
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject_upstream{upstream_buffer, sizeof(cetl::pf17::byte) * 20, &mock_upstream, 0};
 
     ON_CALL(mock_upstream, do_allocate)
@@ -226,7 +226,7 @@ TEST(UnsynchronizedBufferMemoryResourceDelegateTest, TestAllocateAllocateDealloc
     EXPECT_CALL(mock_upstream, do_allocate(20, ::testing::_)).Times(3);
     EXPECT_CALL(mock_upstream, do_deallocate(upstream_buffer, 20, ::testing::_)).Times(2);
 
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
           test_subject{buffer, sizeof(cetl::pf17::byte) * 10, &mock_upstream, test_subject_upstream.max_size()};
     void* internal = test_subject.allocate(10, 1);
     ASSERT_NE(nullptr, internal);
@@ -262,7 +262,7 @@ static void TestNullUpstreamInCtor()
 {
     flush_coverage_on_death();
     cetl::pf17::byte small_buffer[255];
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource>
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource>
         test_subject{small_buffer, sizeof(cetl::pf17::byte) * 255, nullptr, 0};
 }
 
@@ -275,7 +275,7 @@ static void TestNullBufferInCtor()
 {
     flush_coverage_on_death();
     cetlvast::MockPf17MemoryResource                                                        mock_upstream{};
-    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
+    cetl::pmr::unsynchronized_buffer_memory_resource_delegate<cetl::pf17::pmr::memory_resource> test_subject{nullptr,
                                                                                                          1,
                                                                                                          &mock_upstream,
                                                                                                          0};
