@@ -39,6 +39,7 @@
 ///
 #if (__cplusplus >= CETL_CPP_STANDARD_17 && !defined(CETL_DOXYGEN))
 #    include <memory>
+#    include <new>
 #    include <memory_resource>
 #    include <cstddef>
 #    include <optional>
@@ -51,6 +52,9 @@ using byte = std::byte;
 
 // memory
 using std::uninitialized_move;
+
+// new
+using std::launder;
 
 // pmr
 namespace pmr
@@ -129,6 +133,7 @@ using std::string_view;
 #else
 #    include "cetl/pf17/byte.hpp"
 #    include "cetl/pf17/memory.hpp"
+#    include "cetl/pf17/new.hpp"
 #    include "cetl/pf17/utility.hpp"
 #    include "cetl/pf17/optional.hpp"
 #    include "cetl/pf17/variant.hpp"
@@ -141,6 +146,9 @@ using byte = cetl::pf17::byte;
 
 // memory
 using cetl::pf17::uninitialized_move;
+
+// new
+using cetl::pf17::launder;
 
 // pmr
 namespace pmr

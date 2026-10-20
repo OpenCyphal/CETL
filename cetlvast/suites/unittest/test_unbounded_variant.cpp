@@ -284,6 +284,40 @@ private:
 struct Empty
 {};
 
+/// A type with a const member. Since C++17 (P0137R1), reaching a new one of these through the address of storage that
+/// held an earlier one needs std::launder.
+struct Constant
+{
+    explicit Constant(const int value)
+        : value_{value}
+    {
+    }
+    const int value_;
+};
+
+/// Re-creates an object with a const member in the storage of @p var and reads it back through each access path.
+template <typename T, typename UbVar>
+void expect_value_after_reusing_storage(UbVar& var)
+{
+    var.template emplace<T>(1);
+    ASSERT_THAT(get_if<T>(&var), NotNull());
+    EXPECT_THAT(get_if<T>(&var)->value_, 1);
+
+    // Destroys the first object and creates the second one in the same storage.
+    var.template emplace<T>(2);
+    ASSERT_THAT(get_if<T>(&var), NotNull());
+    EXPECT_THAT(get_if<T>(&var)->value_, 2);
+    EXPECT_THAT(get_if<T>(static_cast<const UbVar*>(&var))->value_, 2);
+
+    UbVar copy{var};
+    ASSERT_THAT(get_if<T>(&copy), NotNull());
+    EXPECT_THAT(get_if<T>(&copy)->value_, 2);
+
+    UbVar moved{std::move(copy)};
+    ASSERT_THAT(get_if<T>(&moved), NotNull());
+    EXPECT_THAT(get_if<T>(&moved)->value_, 2);
+}
+
 class TestPmrUnboundedVariant : public testing::Test
 {
 protected:
@@ -1164,6 +1198,29 @@ TEST_F(TestPmrUnboundedVariant, emplace_1)
     }
 }
 
+TEST_F(TestPmrUnboundedVariant, emplace_over_object_with_const_member)
+{
+    struct RttiConstant : rtti_helper<type_id_type<33>>
+    {
+        explicit RttiConstant(const int value)
+            : value_{value}
+        {
+        }
+        const int value_;
+    };
+
+    // In-place storage, value without RTTI.
+    {
+        unbounded_variant<sizeof(Constant)> var;
+        expect_value_after_reusing_storage<Constant>(var);
+    }
+    // PMR storage, value with RTTI.
+    {
+        unbounded_variant<0, true, true, alignof(std::max_align_t), pmr> var{get_mr()};
+        expect_value_after_reusing_storage<RttiConstant>(var);
+    }
+}
+
 TEST_F(TestPmrUnboundedVariant, emplace_1_ctor_exception)
 {
     side_effect_stats stats;
@@ -1846,6 +1903,11 @@ template <>
 constexpr type_id type_id_getter<Empty>() noexcept
 {
     return {0xD5, 0x62, 0x39, 0x66, 0x90, 0x8B, 0x4F, 0x56, 0x8F, 0x2A, 0x2F, 0x4F, 0xDF, 0x3F, 0x31, 0x5B};
+}
+template <>
+constexpr type_id type_id_getter<Constant>() noexcept
+{
+    return {0x87, 0x3D, 0x84, 0x25, 0xA9, 0xFC, 0x48, 0xEC, 0xBF, 0x0A, 0xCD, 0xC7, 0x71, 0x48, 0xB3, 0xF1};
 }
 
 }  // namespace cetl
