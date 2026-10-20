@@ -1220,8 +1220,12 @@ TEST(VLAExceptionSafety, AllocationFailurePreservesExistingStorage)
     auto* const original = source.data();
     allocations.fail     = true;
     EXPECT_THROW(source.reserve(16), std::bad_alloc);
-    // shrink_to_fit deliberately suppresses allocation failure and keeps the original buffer.
+    // Debug builds diagnose allocation failure; release builds retain the original buffer silently.
+#    if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
+    EXPECT_DEATH(source.shrink_to_fit(), "CDE_vla_016");
+#    else
     EXPECT_NO_THROW(source.shrink_to_fit());
+#    endif
     EXPECT_THROW(source.resize(16), std::bad_alloc);
     EXPECT_EQ(source.data(), original);
     EXPECT_EQ(source.capacity(), 8U);

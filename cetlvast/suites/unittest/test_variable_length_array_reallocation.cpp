@@ -477,8 +477,8 @@ TEST_P(VLAReallocation, StandardAllocatorNeedsNoReallocateMember)
     expect_elements(array);
 }
 
-// Allocation failure must retain the original buffer and values; shrink suppresses bad_alloc, reserve propagates it.
-// In embedded profiles both calls return with the unchanged container when the allocator returns nullptr.
+// Allocation failure must retain the original buffer and values; debug builds diagnose a failed shrink.
+// Without debug asserts, shrink suppresses bad_alloc; reserve propagates it when exceptions are enabled.
 TEST_P(VLAReallocation, AllocationFailurePreservesNonTrivialStorage)
 {
     MovingResource       resource;
@@ -490,15 +490,24 @@ TEST_P(VLAReallocation, AllocationFailurePreservesNonTrivialStorage)
     }
     const auto old_data = array.data();
     resource.fail       = true;
-#if defined(__cpp_exceptions)
-    if (!GetParam())
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
+    if (GetParam())
     {
-        EXPECT_THROW(relocate(array), std::bad_alloc);
+        EXPECT_DEATH(relocate(array), "CDE_vla_01[56]");
     }
     else
 #endif
     {
-        relocate(array);
+#if defined(__cpp_exceptions)
+        if (!GetParam())
+        {
+            EXPECT_THROW(relocate(array), std::bad_alloc);
+        }
+        else
+#endif
+        {
+            relocate(array);
+        }
     }
     EXPECT_EQ(array.data(), old_data);
     EXPECT_EQ(array.capacity(), InitialCapacity);

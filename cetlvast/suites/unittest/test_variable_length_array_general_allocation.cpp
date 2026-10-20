@@ -643,7 +643,21 @@ TYPED_TEST(VLATestsGeneralAllocation, TestShrink)
     ASSERT_EQ(1, subject[0]);
     ASSERT_EQ(1U, subject.size());
     ASSERT_EQ(reserved, subject.capacity());
-    subject.shrink_to_fit();
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
+    // The single-allocation buffer cannot supply replacement storage for non-trivial CETL elements.
+    if (std::is_same<typename TypeParam::container_type, cetlvast::CETLTag>::value &&
+        !std::is_trivially_copyable<typename TestFixture::Value>::value &&
+        std::is_same<typename TestFixture::MemoryResourceFactoryType,
+                     CetlUnsynchronizedArrayMemoryResourceFactory<sizeof(typename TestFixture::Value) * 8>>::value &&
+        std::is_same<typename TestFixture::MemoryResourceUpstreamFactoryType, NullResourceFactory>::value)
+    {
+        EXPECT_DEATH(subject.shrink_to_fit(), "CDE_vla_01[56]");
+    }
+    else
+#endif
+    {
+        subject.shrink_to_fit();
+    }
     // shrink_to_fit implementations are not required to exactly match the size of the container, but they can't grow
     // the size.
     ASSERT_LE(subject.capacity(), clamped_max);
@@ -907,7 +921,7 @@ TYPED_TEST(VLATestsGeneralAllocation, TestAssignValue)
 // +-------------------------------------------------------------------------------------------------------------------+
 
 // A resource that can resize its sole allocation in place still cannot safely advertise byte reallocation for
-// non-trivial elements. Growth must report allocation failure, and shrink must retain the existing allocation.
+// non-trivial elements. Growth must report allocation failure, and shrink must diagnose it in debug builds.
 // Pre-reserving capacity remains usable, and the original element survives both unsuccessful operations.
 TEST(VLATestsAdHocAllocation, NonTrivialRelocationNeedsReplacementStorage)
 {
@@ -927,7 +941,11 @@ TEST(VLATestsAdHocAllocation, NonTrivialRelocationNeedsReplacementStorage)
 #endif
     EXPECT_EQ(subject.data(), original);
     EXPECT_EQ(subject.capacity(), 4U);
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
+    EXPECT_DEATH(subject.shrink_to_fit(), "CDE_vla_01[56]");
+#else
     subject.shrink_to_fit();
+#endif
     EXPECT_EQ(subject.data(), original);
     EXPECT_EQ(subject.capacity(), 4U);
     ASSERT_EQ(subject.size(), 1U);
