@@ -569,9 +569,10 @@ protected:
             return;
         }
         max_size_max_ = rhs.max_size_max_;
-        if ((std::allocator_traits<allocator_type>::is_always_equal::value || alloc_ == rhs.alloc_ ||
-             !std::allocator_traits<allocator_type>::propagate_on_container_copy_assignment::value) &&
-            rhs.size_ <= capacity_)
+        const bool can_reuse_storage =
+            std::allocator_traits<allocator_type>::is_always_equal::value || alloc_ == rhs.alloc_ ||
+            !std::allocator_traits<allocator_type>::propagate_on_container_copy_assignment::value;
+        if (can_reuse_storage && rhs.size_ <= capacity_)
         {
             // First off, we're here because the incoming data will fit within our existing capacity.
 
@@ -601,22 +602,27 @@ protected:
         }
         else
         {
-            // If the incoming data doesn't fit in our capacity we have to resize. It doesn't make any sense, until
-            // we support realloc here (TODO: support realloc here), to move the existing data with the resize since
-            // we're going to be copying over it right away. That means the most efficient procedure at this point
-            // is to simply discard everything on the lhs, reserve enough memory for the rhs, and copy everything
-            // over in one go.
-
-            fast_deallocate(data_, size_, capacity_, alloc_);
-            data_                    = nullptr;
-            capacity_                = 0;
-            size_                    = 0;
-            const size_type new_size = rhs.size_;
-
-            // Also note that it doesn't matter if the allocators are equal or not since we just delete first using the
-            // current allocator, either adopt or don't adopt the rhs allocator (based on SFINAE of copy_assign_alloc),
-            // then allocate using the new (or not) allocator. If they are equal then this is all the same thing.
-            // If they are not then we did it right anyway. All hail TMP!
+            // The helper only calls allocator reallocate for trivially copyable storage. It may grow in place or
+            // return a different block, so always adopt its result. Leave out-of-bounds requests to reserve below,
+            // preserving its exception/clamping behavior without passing an excessive size to reallocate.
+            const size_type   new_size = rhs.size_;
+            value_type* const new_data = (can_reuse_storage && data_ != nullptr && new_size <= rhs_max_size)
+                                             ? reallocate(data_, alloc_, capacity_, new_size)
+                                             : nullptr;
+            if (new_data != nullptr)
+            {
+                data_     = new_data;
+                capacity_ = new_size;
+            }
+            else
+            {
+                // Assignment will overwrite the old values. Release them before allocating replacement storage
+                // instead of using reserve's allocate-and-relocate fallback. Use the old allocator until release.
+                fast_deallocate(data_, size_, capacity_, alloc_);
+                data_     = nullptr;
+                capacity_ = 0;
+            }
+            size_ = 0;
             copy_assign_alloc(rhs.alloc_);
             reserve(new_size, rhs_max_size);
             size_ = fast_copy_construct(data_, capacity_, rhs.data_, new_size, alloc_);
@@ -1352,9 +1358,15 @@ protected:
 ///
 /// The allocator's optional `reallocate` extension is used only for trivially copyable storage. Non-trivial
 /// elements require replacement storage during capacity changes, even if the allocator could resize in place.
-/// With a resource that supports only one outstanding allocation, reserve sufficient capacity before adding elements.
-/// If such a resource backs the source of an unequal-allocator move, the empty source still holds that allocation
-/// afterward (see the table below); call `shrink_to_fit()` on the source before allocating from the resource again.
+/// Copy assignment also tries this extension when compatible destination storage must grow. On success it adopts
+/// the returned buffer, then copies the source values. On decline it releases the old buffer before allocating a
+/// replacement. An allocator that moves storage during reallocate may temporarily hold both buffers and copy bytes
+/// that assignment will overwrite; an allocator that grows in place can avoid that work. See
+/// @ref example_12_buddy_memory_resource for a buddy resource demonstrating growth and copy assignment with trivial
+/// data. With a resource that supports only one outstanding allocation, reserve sufficient capacity before adding
+/// elements. If such a resource backs the source of an unequal-allocator move, the empty source still holds that
+/// allocation afterward (see the table below); call `shrink_to_fit()` on the source before allocating from the resource
+/// again.
 ///
 /// After successful move construction or move assignment between distinct arrays, the source is empty. If its
 /// storage is transferred, its capacity becomes zero. If unequal allocators require element relocation, the source
@@ -2870,7 +2882,8 @@ public:
         try
         {
 #endif
-            base::copy_assign_from(rhs, rhs.max_size());
+            // The base counts storage bytes, whereas the public maximum is in bits.
+            base::copy_assign_from(rhs, bits2bytes(rhs.max_size()));
 #if defined(__cpp_exceptions)
         } catch (...)
         {
@@ -2881,7 +2894,9 @@ public:
             throw;
         }
 #endif
-        last_byte_bit_fill_ = rhs.last_byte_bit_fill_;
+        // With exceptions disabled, the base may have copied fewer bytes or no bytes at all.
+        // A truncated copy ends at a full byte, not at the source's partial final byte.
+        set_size_bits(std::min(rhs.size(), size_ * 8U));
         return *this;
     }
 
