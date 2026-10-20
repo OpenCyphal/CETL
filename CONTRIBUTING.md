@@ -42,6 +42,14 @@ Some older CETL types were contributed with `PascalCase` names (`VariableLengthA
    type;
 4. remove deprecated aliases only in a major version release.
 
+An alias keeps most source code compiling, but it is not a complete compatibility layer, so a rename of a public type
+must itself ship in a major version release:
+
+- the type's mangled name changes, so binaries built against the old name will not link with code built against the
+  new one;
+- before C++20, class template argument deduction does not work through an alias template, so C++17 code such as
+  `OldName d{args...};` must name the template arguments or switch to the new name.
+
 Entities that users cannot name (private members, `detail` namespaces) can be renamed without an alias.
 
 # Running CETLVaSt locally

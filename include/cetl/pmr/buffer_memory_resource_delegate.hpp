@@ -264,6 +264,8 @@ private:
 
 /// @deprecated Renamed to cetl::pmr::unsynchronized_buffer_memory_resource_delegate; this alias will be removed in a
 /// future major version.
+/// Before C++20 the old name cannot deduce its template argument (alias-template CTAD is C++20); name the argument or
+/// use the new name.
 template <typename UpstreamMemoryResourceType>
 using UnsynchronizedBufferMemoryResourceDelegate
     [[deprecated("renamed to cetl::pmr::unsynchronized_buffer_memory_resource_delegate")]] =

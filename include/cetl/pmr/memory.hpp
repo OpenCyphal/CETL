@@ -254,11 +254,15 @@ public:
 };
 
 /// @deprecated Renamed to cetl::pmr::memory_resource_deleter; this alias will be removed in a future major version.
+/// Before C++20 the old name cannot deduce its template argument (alias-template CTAD is C++20); name the argument or
+/// use the new name.
 template <typename MemoryResourceType>
 using MemoryResourceDeleter [[deprecated("renamed to cetl::pmr::memory_resource_deleter")]] =
     memory_resource_deleter<MemoryResourceType>;
 
 /// @deprecated Renamed to cetl::pmr::polymorphic_deleter; this alias will be removed in a future major version.
+/// Before C++20 the old name cannot deduce its template argument (alias-template CTAD is C++20); name the argument or
+/// use the new name.
 template <typename PolymorphicDeallocator>
 using PolymorphicDeleter [[deprecated("renamed to cetl::pmr::polymorphic_deleter")]] =
     polymorphic_deleter<PolymorphicDeallocator>;

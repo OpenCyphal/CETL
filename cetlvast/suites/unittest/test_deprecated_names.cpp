@@ -109,4 +109,33 @@ TEST(TestDeprecatedNames, OldNamesAreUsable)
     EXPECT_EQ(3, iface->value());
 }
 
+// Deduction through an alias template needs C++20, so before that these old names must be given their template
+// arguments (see CONTRIBUTING.md, "Renaming public entities").
+#if __cplusplus >= 202002L
+TEST(TestDeprecatedNames, OldNamesDeduceTemplateArguments)
+{
+    cetl::pf17::pmr::memory_resource* const upstream = cetl::pf17::pmr::new_delete_resource();
+    unsigned char                           buffer[64]{};
+
+    cetl::pmr::UnsynchronizedBufferMemoryResourceDelegate delegate{buffer, sizeof(buffer), upstream, sizeof(buffer)};
+    static_assert(std::is_same<decltype(delegate),
+                               cetl::pmr::unsynchronized_buffer_memory_resource_delegate<
+                                   cetl::pf17::pmr::memory_resource>>::value,
+                  "");
+    EXPECT_EQ(static_cast<void*>(buffer), delegate.data());
+
+    void* const                      mem = upstream->allocate(sizeof(int), alignof(int));
+    cetl::pmr::MemoryResourceDeleter deleter{upstream, sizeof(int), alignof(int)};
+    static_assert(std::is_same<decltype(deleter),
+                               cetl::pmr::memory_resource_deleter<cetl::pf17::pmr::memory_resource>>::value,
+                  "");
+    deleter(mem);
+
+    pf17_alloc                    alloc{upstream};
+    cetl::pmr::PolymorphicDeleter poly_deleter{alloc, 1};
+    static_assert(std::is_same<decltype(poly_deleter), cetl::pmr::polymorphic_deleter<pf17_alloc>>::value, "");
+    poly_deleter(alloc.allocate(1));
+}
+#endif
+
 }  // namespace
