@@ -1034,6 +1034,7 @@ protected:
 
         if (minimized_data == nullptr)
         {
+            CETL_DEBUG_ASSERT(false, "CDE_vla_015: shrink_to_fit could not allocate a smaller buffer.");
             return;
         }
         else
@@ -1949,8 +1950,10 @@ public:
 
     /// Reduce the amount of memory held by this object to the minimum required
     /// based on size. This method may not actually deallocate any memory if
-    /// if there is not enough memory to allocate a smaller buffer before
+    /// there is not enough memory to allocate a smaller buffer before
     /// moving the existing elements and freeing the larger buffer.
+    /// Allocation failure triggers a CETL_DEBUG_ASSERT when CETL_ENABLE_DEBUG_ASSERT is enabled;
+    /// otherwise, the original buffer and capacity are retained and std::bad_alloc is suppressed.
     /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
@@ -1962,8 +1965,7 @@ public:
 #if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
-            // per-spec. Any exceptions thrown have no effects. We simply don't
-            // shrink.
+            CETL_DEBUG_ASSERT(false, "CDE_vla_016: shrink_to_fit could not allocate a smaller buffer.");
         }
 #endif
     }
@@ -3195,8 +3197,10 @@ public:
 
     /// Reduce the amount of memory held by this object to the minimum required
     /// based on size. This method may not actually deallocate any memory if
-    /// if there is not enough memory to allocate a smaller buffer before
+    /// there is not enough memory to allocate a smaller buffer before
     /// moving the existing elements and freeing the larger buffer.
+    /// Allocation failure triggers a CETL_DEBUG_ASSERT when CETL_ENABLE_DEBUG_ASSERT is enabled;
+    /// otherwise, the original buffer and capacity are retained and std::bad_alloc is suppressed.
     /// @throws if any items throw while being moved.
     void shrink_to_fit()
     {
@@ -3208,8 +3212,7 @@ public:
 #if defined(__cpp_exceptions)
         } catch (const std::bad_alloc&)
         {
-            // per-spec. Any exceptions thrown have no effects. We simply don't
-            // shrink.
+            CETL_DEBUG_ASSERT(false, "CDE_vla_017: shrink_to_fit could not allocate a smaller buffer.");
         }
 #endif
     }

@@ -1,5 +1,5 @@
 /// @file
-/// Unit tests for span.hpp
+/// Unit tests for variable_length_array debug assertions and shrink allocation failure.
 ///
 /// @copyright
 /// Copyright (C) OpenCyphal Development Team  <opencyphal.org>
@@ -8,6 +8,7 @@
 ///
 
 #include "cetl/cetl.hpp"
+#include "cetl/pf17/memory_resource.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
 #if defined(__clang__)
@@ -25,6 +26,88 @@
 
 namespace
 {
+
+// Reallocation is always declined so shrink must allocate a replacement. Failure is injected only after setup.
+class ShrinkFailureResource final : public cetl::pf17::pmr::memory_resource
+{
+public:
+    bool fail = false;
+
+private:
+    void* do_allocate(std::size_t bytes, std::size_t alignment) override
+    {
+        EXPECT_LE(alignment, alignof(std::max_align_t));
+        if (fail)
+        {
+#if defined(__cpp_exceptions)
+            throw std::bad_alloc{};
+#else
+            return nullptr;
+#endif
+        }
+        return std::allocator<unsigned char>{}.allocate(bytes);
+    }
+
+    void do_deallocate(void* pointer, std::size_t bytes, std::size_t) override
+    {
+        std::allocator<unsigned char>{}.deallocate(static_cast<unsigned char*>(pointer), bytes);
+    }
+
+    bool do_is_equal(const cetl::pf17::pmr::memory_resource& other) const noexcept override
+    {
+        return this == &other;
+    }
+};
+
+template <typename T>
+void TestShrinkAllocationFailure(const char* diagnostic)
+{
+    using Allocator = cetl::pf17::pmr::polymorphic_allocator<T>;
+    ShrinkFailureResource                     resource;
+    cetl::variable_length_array<T, Allocator> array{Allocator{&resource}};
+    array.reserve(32);
+    array.push_back(T{1});
+    array.push_back(T{0});
+    const auto old_capacity = array.capacity();
+    const auto old_begin    = array.cbegin();
+    resource.fail           = true;
+#if defined(CETL_ENABLE_DEBUG_ASSERT) && CETL_ENABLE_DEBUG_ASSERT
+    EXPECT_DEATH(array.shrink_to_fit(), diagnostic);
+#else
+    (void) diagnostic;
+    array.shrink_to_fit();
+#endif
+    EXPECT_EQ(array.cbegin(), old_begin);
+    EXPECT_EQ(array.capacity(), old_capacity);
+    ASSERT_EQ(array.size(), 2U);
+    EXPECT_EQ(array[0], T{1});
+    EXPECT_EQ(array[1], T{0});
+    resource.fail = false;
+    array.shrink_to_fit();
+    EXPECT_LT(array.capacity(), old_capacity);
+    ASSERT_EQ(array.size(), 2U);
+    EXPECT_EQ(array[0], T{1});
+    EXPECT_EQ(array[1], T{0});
+}
+
+// These tests also verify unchanged release behavior and a successful fallback after reallocate returns nullptr.
+TEST(DeathTestVLAAssertions, TestShrinkAllocationFailure)
+{
+#if defined(__cpp_exceptions)
+    TestShrinkAllocationFailure<int>("CDE_vla_016");
+#else
+    TestShrinkAllocationFailure<int>("CDE_vla_015");
+#endif
+}
+
+TEST(DeathTestVLAAssertions, TestShrinkAllocationFailureBool)
+{
+#if defined(__cpp_exceptions)
+    TestShrinkAllocationFailure<bool>("CDE_vla_017");
+#else
+    TestShrinkAllocationFailure<bool>("CDE_vla_015");
+#endif
+}
 
 // +----------------------------------------------------------------------+
 // | DEBUG ASSERT TESTS
