@@ -8,6 +8,11 @@
 #include <cetl/rtti.hpp>
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 /// A simple non-polymorphic type that supports CETL RTTI.
 struct Static final
 {
@@ -15,6 +20,25 @@ struct Static final
     {
         return {0x3, 0x0};
     }
+};
+
+/// Non-polymorphic types where the derived type inherits the type ID of its secondary base,
+/// so the IDs match but the base subobject is not at the start of the derived object.
+struct StaticPad
+{
+    char pad = 'p';
+};
+struct StaticBase
+{
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return {0x4, 0x0};
+    }
+    int value = 1;
+};
+struct StaticDerived final : StaticPad, StaticBase
+{
+    int other = 2;
 };
 
 /// A simple polymorphic inheritance hierarchy: A <- B <- C.
@@ -293,4 +317,205 @@ TEST(test_rtti, multi_inheritance)
     // down-conversion, a to d through c
     EXPECT_EQ('d', rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiC*>(&d)))->value);
     EXPECT_EQ(&d, rtti_cast<MultiD*>(static_cast<MultiA*>(static_cast<MultiC*>(&d))));
+}
+
+/// Collects the type IDs of the given types.
+template <typename... Ts>
+std::vector<cetl::type_id> collect_type_ids()
+{
+    return {cetl::type_id_value<Ts>...};
+}
+
+TEST(test_rtti, builtin_type_ids)
+{
+    using cetl::has_type_id;
+    using cetl::type_id;
+    using cetl::type_id_value;
+
+    static_assert(has_type_id<bool>, "");
+    static_assert(has_type_id<char>, "");
+    static_assert(has_type_id<signed char>, "");
+    static_assert(has_type_id<unsigned char>, "");
+    static_assert(has_type_id<wchar_t>, "");
+    static_assert(has_type_id<char16_t>, "");
+    static_assert(has_type_id<char32_t>, "");
+#if defined(__cpp_char8_t)
+    static_assert(has_type_id<char8_t>, "");
+#endif
+    static_assert(has_type_id<short>, "");
+    static_assert(has_type_id<unsigned short>, "");
+    static_assert(has_type_id<int>, "");
+    static_assert(has_type_id<unsigned int>, "");
+    static_assert(has_type_id<long>, "");
+    static_assert(has_type_id<unsigned long>, "");
+    static_assert(has_type_id<long long>, "");
+    static_assert(has_type_id<unsigned long long>, "");
+    static_assert(has_type_id<float>, "");
+    static_assert(has_type_id<double>, "");
+    static_assert(has_type_id<long double>, "");
+    static_assert(has_type_id<std::nullptr_t>, "");
+    static_assert(has_type_id<std::uint8_t>, "");
+    static_assert(has_type_id<std::int64_t>, "");
+    static_assert(has_type_id<Static>, "");
+
+    static_assert(!has_type_id<void>, "");
+    static_assert(!has_type_id<int*>, "");
+    static_assert(!has_type_id<int[3]>, "");
+    static_assert(!has_type_id<PolymorphA*>, "");
+
+    std::vector<type_id> ids = collect_type_ids<bool,
+                                                char,
+                                                signed char,
+                                                unsigned char,
+                                                wchar_t,
+                                                char16_t,
+                                                char32_t,
+#if defined(__cpp_char8_t)
+                                                char8_t,
+#endif
+                                                short,
+                                                unsigned short,
+                                                int,
+                                                unsigned int,
+                                                long,
+                                                unsigned long,
+                                                long long,
+                                                unsigned long long,
+                                                float,
+                                                double,
+                                                long double,
+                                                std::nullptr_t,
+                                                Static,
+                                                PolymorphA>();
+    // No built-in type shares the ID reserved for void.
+    EXPECT_EQ(ids.end(), std::find(ids.begin(), ids.end(), type_id_value<void>));
+    // All IDs are unique.
+    std::sort(ids.begin(), ids.end());
+    EXPECT_EQ(ids.end(), std::adjacent_find(ids.begin(), ids.end()));
+}
+
+TEST(test_rtti, cv_and_reference_qualified_type_ids)
+{
+    using cetl::has_type_id;
+    using cetl::type_id_value;
+
+    static_assert(has_type_id<const int>, "");
+    static_assert(has_type_id<volatile int>, "");
+    static_assert(has_type_id<const volatile int>, "");
+    static_assert(has_type_id<int&>, "");
+    static_assert(has_type_id<const int&>, "");
+    static_assert(has_type_id<int&&>, "");
+    static_assert(has_type_id<const Static&>, "");
+
+    EXPECT_EQ(type_id_value<int>, type_id_value<const int>);
+    EXPECT_EQ(type_id_value<int>, type_id_value<volatile int>);
+    EXPECT_EQ(type_id_value<int>, type_id_value<const volatile int>);
+    EXPECT_EQ(type_id_value<int>, type_id_value<int&>);
+    EXPECT_EQ(type_id_value<int>, type_id_value<const int&>);
+    EXPECT_EQ(type_id_value<int>, type_id_value<int&&>);
+    EXPECT_EQ(type_id_value<double>, type_id_value<const volatile double&>);
+    EXPECT_EQ(type_id_value<void>, type_id_value<const void>);
+    EXPECT_EQ(type_id_value<Static>, type_id_value<const Static&>);
+    EXPECT_EQ(type_id_value<PolymorphA>, type_id_value<const PolymorphA>);
+    EXPECT_NE(type_id_value<int>, type_id_value<unsigned int>);
+}
+
+TEST(test_rtti, non_polymorphic_is_instance_of)
+{
+    using cetl::is_instance_of;
+    using cetl::type_id_value;
+
+    const int    i = 42;
+    const Static s{};
+
+    EXPECT_TRUE(is_instance_of<int>(i));
+    EXPECT_TRUE(is_instance_of<const int>(i));
+    EXPECT_TRUE(is_instance_of<int&>(i));
+    EXPECT_FALSE(is_instance_of<unsigned int>(i));
+    EXPECT_FALSE(is_instance_of<long>(i));
+    EXPECT_FALSE(is_instance_of<Static>(i));
+    EXPECT_FALSE(is_instance_of<PolymorphA>(i));
+    EXPECT_TRUE(is_instance_of(i, type_id_value<int>));
+    EXPECT_FALSE(is_instance_of(i, type_id_value<void>));
+
+    EXPECT_TRUE(is_instance_of<bool>(true));
+    EXPECT_TRUE(is_instance_of<double>(1.0));
+    EXPECT_FALSE(is_instance_of<float>(1.0));
+    EXPECT_TRUE(is_instance_of<std::nullptr_t>(nullptr));
+
+    EXPECT_TRUE(is_instance_of<Static>(s));
+    EXPECT_TRUE(is_instance_of<const Static>(s));
+    EXPECT_FALSE(is_instance_of<int>(s));
+    EXPECT_FALSE(is_instance_of<PolymorphA>(s));
+    EXPECT_TRUE(is_instance_of(s, type_id_value<Static>));
+
+    // Polymorphic objects still go through _cast_().
+    EXPECT_FALSE(is_instance_of<int>(PolymorphA{}));
+}
+
+TEST(test_rtti, non_polymorphic_rtti_cast)
+{
+    using cetl::rtti_cast;
+
+    int    i = 42;
+    Static s{};
+
+    // identity
+    EXPECT_EQ(&i, rtti_cast<int*>(&i));
+    EXPECT_EQ(&i, rtti_cast<int*>(static_cast<const int*>(&i)));
+    EXPECT_EQ(&i, rtti_cast<const int*>(&i));
+    EXPECT_EQ(&s, rtti_cast<Static*>(&s));
+    EXPECT_EQ(&s, rtti_cast<Static*>(static_cast<const Static*>(&s)));
+    *rtti_cast<int*>(&i) = 7;
+    EXPECT_EQ(7, i);
+
+    // the const overload preserves constness
+    static_assert(std::is_same<const int*, decltype(rtti_cast<int*>(static_cast<const int*>(&i)))>::value, "");
+    static_assert(std::is_same<int*, decltype(rtti_cast<int*>(&i))>::value, "");
+
+    // mismatched types
+    EXPECT_EQ(nullptr, rtti_cast<unsigned int*>(&i));
+    EXPECT_EQ(nullptr, rtti_cast<long*>(static_cast<const int*>(&i)));
+    EXPECT_EQ(nullptr, rtti_cast<Static*>(&i));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(&s));
+    EXPECT_EQ(nullptr, rtti_cast<PolymorphA*>(&s));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(static_cast<const Static*>(&s)));
+
+    // null pointers
+    EXPECT_EQ(nullptr, rtti_cast<int*>(static_cast<int*>(nullptr)));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(static_cast<const int*>(nullptr)));
+    EXPECT_EQ(nullptr, rtti_cast<Static*>(static_cast<Static*>(nullptr)));
+
+    // casting a polymorphic object to a built-in type goes through _cast_() and fails
+    PolymorphA a;
+    EXPECT_EQ(nullptr, rtti_cast<int*>(&a));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(static_cast<const PolymorphA*>(&a)));
+}
+
+TEST(test_rtti, non_polymorphic_rtti_cast_requires_identical_static_type)
+{
+    using cetl::rtti_cast;
+    using cetl::type_id_value;
+
+    StaticDerived d;
+    StaticBase    b;
+    ASSERT_EQ(type_id_value<StaticBase>, type_id_value<StaticDerived>);
+    ASSERT_NE(static_cast<void*>(&d), static_cast<void*>(static_cast<StaticBase*>(&d)));
+
+    // Equal type IDs alone must not allow a cast between different static types.
+    EXPECT_EQ(nullptr, rtti_cast<StaticBase*>(&d));
+    EXPECT_EQ(nullptr, rtti_cast<StaticBase*>(static_cast<const StaticDerived*>(&d)));
+    EXPECT_EQ(nullptr, rtti_cast<StaticDerived*>(&b));
+    EXPECT_EQ(nullptr, rtti_cast<StaticDerived*>(static_cast<const StaticBase*>(&b)));
+
+    EXPECT_EQ(&b, rtti_cast<StaticBase*>(&b));
+    EXPECT_EQ(&d, rtti_cast<StaticDerived*>(&d));
+    EXPECT_EQ(&d, rtti_cast<StaticDerived*>(static_cast<const StaticDerived*>(&d)));
+
+    // cv-qualifiers can be added but not removed.
+    int          i  = 0;
+    volatile int vi = 0;
+    EXPECT_EQ(&i, rtti_cast<volatile int*>(&i));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(&vi));
+    EXPECT_EQ(&vi, rtti_cast<volatile int*>(&vi));
 }

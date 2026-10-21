@@ -17,6 +17,7 @@
 #endif
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <utility>
 #include <type_traits>
@@ -53,6 +54,41 @@ auto has_cast_impl(int) -> decltype(std::declval<std::decay_t<T>&>()._cast_(std:
 template <typename>
 std::false_type has_cast_impl(...);
 
+// is_any_of
+template <typename T, typename... Ts>
+struct is_any_of : std::false_type
+{};
+template <typename T, typename Head, typename... Tail>
+struct is_any_of<T, Head, Tail...>
+    : std::conditional_t<std::is_same<T, Head>::value, std::true_type, is_any_of<T, Tail...>>
+{};
+
+// has_builtin_type_id: the built-in types that CETL provides type_id_getter specializations for.
+template <typename T>
+constexpr bool has_builtin_type_id = is_any_of<T,
+                                               bool,
+                                               char,
+                                               signed char,
+                                               unsigned char,
+                                               wchar_t,
+                                               char16_t,
+                                               char32_t,
+#if defined(__cpp_char8_t)
+                                               char8_t,
+#endif
+                                               short,
+                                               unsigned short,
+                                               int,
+                                               unsigned int,
+                                               long,
+                                               unsigned long,
+                                               long long,
+                                               unsigned long long,
+                                               float,
+                                               double,
+                                               long double,
+                                               std::nullptr_t>::value;
+
 // type_id_type_value_impl
 template <std::uint8_t... Bytes>
 constexpr type_id type_id_type_value_impl(const type_id_type<Bytes...>) noexcept
@@ -61,9 +97,12 @@ constexpr type_id type_id_type_value_impl(const type_id_type<Bytes...>) noexcept
 }
 }  // namespace detail
 
-/// True iff \c T has a public static method \c _get_type_id_().
+/// True iff \c T has a public static method \c _get_type_id_() or is a built-in type for which CETL provides
+/// a \ref cetl::type_id_getter specialization. CV-qualifiers and references are ignored.
+/// User-provided \ref cetl::type_id_getter specializations are not detected.
 template <typename T>
-constexpr bool has_type_id = decltype(detail::has_type_id_impl<std::decay_t<T>>(0))::value;
+constexpr bool has_type_id =
+    decltype(detail::has_type_id_impl<std::decay_t<T>>(0))::value || detail::has_builtin_type_id<std::decay_t<T>>;
 
 /// True iff \c T has a public method \c _cast_().
 template <typename T>
@@ -80,7 +119,8 @@ constexpr type_id type_id_type_value() noexcept
 /// This helper is provided for regularity; it returns the same value as \c T::_get_type_id_().
 /// The type shall satisfy \ref cetl::has_type_id.
 /// Specialize this getter to add RTTI support to types where it is not possible to define a static method
-/// (e.g., builtins, pointers, third-party classes, etc).
+/// (e.g., pointers, third-party classes, etc). The built-in types are already specialized by CETL below.
+/// Specialize it only for cv-unqualified non-reference types; \ref cetl::type_id_value strips the qualifiers.
 template <typename T>
 constexpr type_id type_id_getter() noexcept
 {
@@ -95,11 +135,142 @@ constexpr type_id type_id_getter<void>() noexcept
     return {};
 }
 
+/// Type ID getter specializations for the built-in (fundamental) types, which cannot define \c _get_type_id_().
+/// These make the built-in types usable with \ref cetl::unbounded_variant and the RTTI helpers out of the box.
+/// The values are fixed UUIDs that are part of the CETL API; they will not change between releases.
+/// @{
+// NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+// 6B02B2B9-610B-414E-9304-E7FC5BC0D061
+template <>
+constexpr type_id type_id_getter<bool>() noexcept
+{
+    return {0x6B, 0x02, 0xB2, 0xB9, 0x61, 0x0B, 0x41, 0x4E, 0x93, 0x04, 0xE7, 0xFC, 0x5B, 0xC0, 0xD0, 0x61};
+}
+// 05855903-D323-41C3-8C58-691E035507D8
+template <>
+constexpr type_id type_id_getter<char>() noexcept
+{
+    return {0x05, 0x85, 0x59, 0x03, 0xD3, 0x23, 0x41, 0xC3, 0x8C, 0x58, 0x69, 0x1E, 0x03, 0x55, 0x07, 0xD8};
+}
+// CA295A7D-851F-42B0-9E4B-B9D318C01CCC
+template <>
+constexpr type_id type_id_getter<signed char>() noexcept
+{
+    return {0xCA, 0x29, 0x5A, 0x7D, 0x85, 0x1F, 0x42, 0xB0, 0x9E, 0x4B, 0xB9, 0xD3, 0x18, 0xC0, 0x1C, 0xCC};
+}
+// 6BC0579E-B665-480A-AFB0-45DB755A143E
+template <>
+constexpr type_id type_id_getter<unsigned char>() noexcept
+{
+    return {0x6B, 0xC0, 0x57, 0x9E, 0xB6, 0x65, 0x48, 0x0A, 0xAF, 0xB0, 0x45, 0xDB, 0x75, 0x5A, 0x14, 0x3E};
+}
+// ADB357FE-DDB1-4A14-B41C-035D2D1FBB6D
+template <>
+constexpr type_id type_id_getter<wchar_t>() noexcept
+{
+    return {0xAD, 0xB3, 0x57, 0xFE, 0xDD, 0xB1, 0x4A, 0x14, 0xB4, 0x1C, 0x03, 0x5D, 0x2D, 0x1F, 0xBB, 0x6D};
+}
+// 9E7A3934-4D6D-40F4-8155-D8524D8687E1
+template <>
+constexpr type_id type_id_getter<char16_t>() noexcept
+{
+    return {0x9E, 0x7A, 0x39, 0x34, 0x4D, 0x6D, 0x40, 0xF4, 0x81, 0x55, 0xD8, 0x52, 0x4D, 0x86, 0x87, 0xE1};
+}
+// 2AF4DA75-4A3F-4769-8DE3-4A39B38F7812
+template <>
+constexpr type_id type_id_getter<char32_t>() noexcept
+{
+    return {0x2A, 0xF4, 0xDA, 0x75, 0x4A, 0x3F, 0x47, 0x69, 0x8D, 0xE3, 0x4A, 0x39, 0xB3, 0x8F, 0x78, 0x12};
+}
+#if defined(__cpp_char8_t)
+// 95F505AD-CFB9-477E-B538-BCDB71667E64
+template <>
+constexpr type_id type_id_getter<char8_t>() noexcept
+{
+    return {0x95, 0xF5, 0x05, 0xAD, 0xCF, 0xB9, 0x47, 0x7E, 0xB5, 0x38, 0xBC, 0xDB, 0x71, 0x66, 0x7E, 0x64};
+}
+#endif
+// 0E1E2001-3D58-43CF-ABF5-CDC937C3A016
+template <>
+constexpr type_id type_id_getter<short>() noexcept
+{
+    return {0x0E, 0x1E, 0x20, 0x01, 0x3D, 0x58, 0x43, 0xCF, 0xAB, 0xF5, 0xCD, 0xC9, 0x37, 0xC3, 0xA0, 0x16};
+}
+// 3C22EF31-63C0-4710-9AAE-966E89134C19
+template <>
+constexpr type_id type_id_getter<unsigned short>() noexcept
+{
+    return {0x3C, 0x22, 0xEF, 0x31, 0x63, 0xC0, 0x47, 0x10, 0x9A, 0xAE, 0x96, 0x6E, 0x89, 0x13, 0x4C, 0x19};
+}
+// AA3F7C4D-0E44-43CB-AB4C-2AE19E646F91
+template <>
+constexpr type_id type_id_getter<int>() noexcept
+{
+    return {0xAA, 0x3F, 0x7C, 0x4D, 0x0E, 0x44, 0x43, 0xCB, 0xAB, 0x4C, 0x2A, 0xE1, 0x9E, 0x64, 0x6F, 0x91};
+}
+// 89A2F7BC-5BEA-47BF-96C4-CFFA3A2DBBB2
+template <>
+constexpr type_id type_id_getter<unsigned int>() noexcept
+{
+    return {0x89, 0xA2, 0xF7, 0xBC, 0x5B, 0xEA, 0x47, 0xBF, 0x96, 0xC4, 0xCF, 0xFA, 0x3A, 0x2D, 0xBB, 0xB2};
+}
+// F2C4457F-55EB-45DE-888C-F54506129768
+template <>
+constexpr type_id type_id_getter<long>() noexcept
+{
+    return {0xF2, 0xC4, 0x45, 0x7F, 0x55, 0xEB, 0x45, 0xDE, 0x88, 0x8C, 0xF5, 0x45, 0x06, 0x12, 0x97, 0x68};
+}
+// 6A4E9AEC-AB7C-45E0-AF75-1574C93C529A
+template <>
+constexpr type_id type_id_getter<unsigned long>() noexcept
+{
+    return {0x6A, 0x4E, 0x9A, 0xEC, 0xAB, 0x7C, 0x45, 0xE0, 0xAF, 0x75, 0x15, 0x74, 0xC9, 0x3C, 0x52, 0x9A};
+}
+// 28A39F1C-EDF3-4973-AB97-ADA9FBFAFE5D
+template <>
+constexpr type_id type_id_getter<long long>() noexcept
+{
+    return {0x28, 0xA3, 0x9F, 0x1C, 0xED, 0xF3, 0x49, 0x73, 0xAB, 0x97, 0xAD, 0xA9, 0xFB, 0xFA, 0xFE, 0x5D};
+}
+// FBFECFA7-B41C-4A59-9D4C-FF977CC4877E
+template <>
+constexpr type_id type_id_getter<unsigned long long>() noexcept
+{
+    return {0xFB, 0xFE, 0xCF, 0xA7, 0xB4, 0x1C, 0x4A, 0x59, 0x9D, 0x4C, 0xFF, 0x97, 0x7C, 0xC4, 0x87, 0x7E};
+}
+// 42844900-45ED-41A0-AA63-D6A42B60B343
+template <>
+constexpr type_id type_id_getter<float>() noexcept
+{
+    return {0x42, 0x84, 0x49, 0x00, 0x45, 0xED, 0x41, 0xA0, 0xAA, 0x63, 0xD6, 0xA4, 0x2B, 0x60, 0xB3, 0x43};
+}
+// 6B5BE490-194C-4E2E-B8DE-3BB15CC52777
+template <>
+constexpr type_id type_id_getter<double>() noexcept
+{
+    return {0x6B, 0x5B, 0xE4, 0x90, 0x19, 0x4C, 0x4E, 0x2E, 0xB8, 0xDE, 0x3B, 0xB1, 0x5C, 0xC5, 0x27, 0x77};
+}
+// 035E728E-8539-48BA-8D3F-FBCD4EEF0F16
+template <>
+constexpr type_id type_id_getter<long double>() noexcept
+{
+    return {0x03, 0x5E, 0x72, 0x8E, 0x85, 0x39, 0x48, 0xBA, 0x8D, 0x3F, 0xFB, 0xCD, 0x4E, 0xEF, 0x0F, 0x16};
+}
+// 7A9A6AB3-2259-48D4-B6B5-2648A0A7673A
+template <>
+constexpr type_id type_id_getter<std::nullptr_t>() noexcept
+{
+    return {0x7A, 0x9A, 0x6A, 0xB3, 0x22, 0x59, 0x48, 0xD4, 0xB6, 0xB5, 0x26, 0x48, 0xA0, 0xA7, 0x67, 0x3A};
+}
+// NOLINTEND(cppcoreguidelines-avoid-magic-numbers, readability-magic-numbers)
+/// @}
+
 /// The type ID value of the given type.
 /// This helper is provided for regularity; it has the same value as \c T::_get_type_id_().
-/// The type shall satisfy \ref cetl::has_type_id.
+/// The type shall satisfy \ref cetl::has_type_id or have a \ref cetl::type_id_getter specialization.
+/// CV-qualifiers and references are ignored, so \c type_id_value<const int&> equals \c type_id_value<int>.
 template <typename T>
-constexpr type_id type_id_value = type_id_getter<T>();
+constexpr type_id type_id_value = type_id_getter<std::remove_cv_t<std::remove_reference_t<T>>>();
 
 /// An alternative implementation of simple runtime type information (RTTI) capability designed for high-integrity
 /// real-time systems, where the use of the standard C++ RTTI is discouraged.
@@ -348,6 +519,62 @@ CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
 }
 /// @}
 
+namespace detail
+{
+// True iff the pointer conversion From -> To keeps the object's static type, up to added cv-qualifiers.
+template <typename To, typename From>
+using is_static_identity_cast = std::integral_constant<
+    bool,
+    std::is_same<std::remove_cv_t<std::remove_pointer_t<To>>, std::remove_cv_t<std::remove_pointer_t<From>>>::value &&
+        std::is_convertible<From, To>::value>;
+
+template <typename To, typename From>
+CETL_NODISCARD To static_identity_cast(const From obj, std::true_type) noexcept
+{
+    return obj;
+}
+template <typename To, typename From>
+CETL_NODISCARD To static_identity_cast(const From, std::false_type) noexcept
+{
+    return nullptr;
+}
+}  // namespace detail
+
+/// Performs a safe type conversion for types that have a type ID but do not implement \ref cetl::rtti::_cast_,
+/// such as non-polymorphic types and built-in types. Such types carry no runtime type information beyond their
+/// static type, so the conversion succeeds iff \c std::remove_pointer_t<T> is the static type of the object,
+/// ignoring cv-qualifiers (which can be added but not removed).
+/// Matching type IDs are not sufficient because a derived type may inherit the \c _get_type_id_() of its base;
+/// conversion to a base class is not supported.
+/// Returns \c nullptr if the object pointer is null or the static types differ.
+/// @{
+// clang-format off
+template <typename T, typename _from>
+CETL_NODISCARD std::enable_if_t<!is_rtti_convertible<_from> &&    //
+                                    has_type_id<_from> &&         //
+                                    std::is_pointer<T>::value &&  //
+                                    has_type_id<std::remove_pointer_t<T>>,
+                                T>
+               rtti_cast(_from* const obj) noexcept
+// clang-format on
+{
+    return detail::static_identity_cast<T>(obj, detail::is_static_identity_cast<T, _from*>{});
+}
+// clang-format off
+template <typename T, typename _from>
+CETL_NODISCARD std::enable_if_t<!is_rtti_convertible<_from> &&    //
+                                    has_type_id<_from> &&         //
+                                    std::is_pointer<T>::value &&  //
+                                    has_type_id<std::remove_pointer_t<T>>,
+                                const std::remove_pointer_t<T>*>
+               rtti_cast(const _from* const obj) noexcept
+// clang-format on
+{
+    using to = const std::remove_pointer_t<T>*;
+    return detail::static_identity_cast<to>(obj, detail::is_static_identity_cast<to, const _from*>{});
+}
+/// @}
+
 /// Detects whether the given polymorphic object is an instance of the type with the given type ID.
 /// For example, given a polymorphic type hierarchy <tt>A<-B<-C</tt>,
 /// \c is_instance_of(C{}, get_type_id<X>())==true for \c X in \c {A,B,C};
@@ -360,11 +587,21 @@ CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_u>, bool> is_instance_of(co
 {
     return nullptr != obj._cast_(id);
 }
-/// Detects whether the given polymorphic object is an instance of the given type.
-/// T shall satisfy \ref cetl::has_type_id.
-/// Refer to the non-template overload for details.
+/// Detects whether the given object of a type that has a type ID but does not implement \ref cetl::rtti::_cast_
+/// (such as a non-polymorphic or built-in type) is an instance of the type with the given type ID.
+/// Such an object is an instance of its own static type only.
+template <typename _u>
+CETL_NODISCARD std::enable_if_t<!is_rtti_convertible<_u> && has_type_id<_u>, bool> is_instance_of(
+    const _u&,
+    const type_id& id) noexcept
+{
+    return id == type_id_value<_u>;
+}
+/// Detects whether the given object is an instance of the given type.
+/// Q shall satisfy \ref cetl::has_type_id.
+/// Refer to the non-template overloads for details.
 template <typename Q, typename _u>
-CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_u>, bool> is_instance_of(const _u& obj) noexcept
+CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_u> || has_type_id<_u>, bool> is_instance_of(const _u& obj) noexcept
 {
     return is_instance_of(obj, type_id_value<Q>);
 }
