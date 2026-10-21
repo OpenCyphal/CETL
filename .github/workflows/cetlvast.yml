@@ -9,6 +9,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      docs_ref:
+        description: "Tag or commit to build the docs from instead of the dispatched ref. Set by release-docs."
+        required: false
+        default: ""
 
 jobs:
   cache-warmup:
@@ -24,6 +29,8 @@ jobs:
     container: ghcr.io/opencyphal/toolshed:ts26.4.5
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.docs_ref }}
       - name: Cache ext modules
         id: cetlvast-ext
         uses: actions/cache@v6
@@ -36,13 +43,15 @@ jobs:
         run: cmake --workflow --preset manual-simple-workflow-online
 
   verification-amd64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
@@ -75,13 +84,15 @@ jobs:
           if-no-files-found: error
 
   verification-arm64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-24.04-arm
     container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
@@ -115,13 +126,15 @@ jobs:
 
   # Compilers the current toolshed image no longer ships run here, in the last image that has them.
   verification-legacy-arm64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-24.04-arm
     # ts26.4.x dropped g++-7. Keep this pinned to ts24.4.3 rather than following the other jobs.
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
@@ -169,6 +182,21 @@ jobs:
       - cache-warmup
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.docs_ref }}
+      - name: check-release-version
+        if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          header=include/cetl/cetl.hpp
+          major=$(sed -n 's/^#define CETL_VERSION_MAJOR \([0-9]*\)$/\1/p' "$header")
+          minor=$(sed -n 's/^#define CETL_VERSION_MINOR \([0-9]*\)$/\1/p' "$header")
+          patch=$(sed -n 's/^#define CETL_VERSION_PATCH \([0-9]*\)$/\1/p' "$header")
+          if [ "$RELEASE_TAG" != "v$major.$minor.$patch" ]; then
+            echo "::error file=$header::Release $RELEASE_TAG does not match CETL_VERSION_* in $header (v$major.$minor.$patch)."
+            exit 1
+          fi
       - name: Cache ext modules
         uses: actions/cache@v6
         with:
@@ -190,10 +218,25 @@ jobs:
         with:
           path: "cetlvast/build/suites/docs/html/"
 
+  # A release run's ref is its tag, which the github-pages environment does not allow to deploy. Instead, start a
+  # dispatch run on main that builds the docs from the release tag and deploys them.
+  release-docs:
+    if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
+    needs:
+      - docs
+    permissions:
+      actions: write # to dispatch this workflow
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch docs deployment from main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: >
+          gh workflow run cetlvast.yml --repo "$GITHUB_REPOSITORY" --ref main -f docs_ref="$RELEASE_TAG"
+
   deploy-docs:
-    if: >
-      (github.event_name == 'release' && !github.event.release.prerelease) ||
-      github.event_name == 'workflow_dispatch'
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
     needs:
       - docs
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
