@@ -521,18 +521,32 @@ CETL_NODISCARD std::enable_if_t<is_rtti_convertible<_from> &&     //
 
 namespace detail
 {
-template <typename A, typename B>
-CETL_NODISCARD bool has_same_type_id() noexcept
+// True iff the pointer conversion From -> To keeps the object's static type, up to added cv-qualifiers.
+template <typename To, typename From>
+using is_static_identity_cast = std::integral_constant<
+    bool,
+    std::is_same<std::remove_cv_t<std::remove_pointer_t<To>>, std::remove_cv_t<std::remove_pointer_t<From>>>::value &&
+        std::is_convertible<From, To>::value>;
+
+template <typename To, typename From>
+CETL_NODISCARD To static_identity_cast(const From obj, std::true_type) noexcept
 {
-    return type_id_value<A> == type_id_value<B>;
+    return obj;
+}
+template <typename To, typename From>
+CETL_NODISCARD To static_identity_cast(const From, std::false_type) noexcept
+{
+    return nullptr;
 }
 }  // namespace detail
 
 /// Performs a safe type conversion for types that have a type ID but do not implement \ref cetl::rtti::_cast_,
 /// such as non-polymorphic types and built-in types. Such types carry no runtime type information beyond their
-/// static type, so the conversion succeeds iff the type IDs of \c _from and \c std::remove_pointer_t<T> match;
+/// static type, so the conversion succeeds iff \c std::remove_pointer_t<T> is the static type of the object,
+/// ignoring cv-qualifiers (which can be added but not removed).
+/// Matching type IDs are not sufficient because a derived type may inherit the \c _get_type_id_() of its base;
 /// conversion to a base class is not supported.
-/// Returns \c nullptr if the object pointer is null or the type IDs differ.
+/// Returns \c nullptr if the object pointer is null or the static types differ.
 /// @{
 // clang-format off
 template <typename T, typename _from>
@@ -544,9 +558,7 @@ CETL_NODISCARD std::enable_if_t<!is_rtti_convertible<_from> &&    //
                rtti_cast(_from* const obj) noexcept
 // clang-format on
 {
-    return ((obj == nullptr) || !detail::has_same_type_id<_from, std::remove_pointer_t<T>>())
-               ? nullptr
-               : static_cast<T>(static_cast<void*>(obj));
+    return detail::static_identity_cast<T>(obj, detail::is_static_identity_cast<T, _from*>{});
 }
 // clang-format off
 template <typename T, typename _from>
@@ -558,9 +570,8 @@ CETL_NODISCARD std::enable_if_t<!is_rtti_convertible<_from> &&    //
                rtti_cast(const _from* const obj) noexcept
 // clang-format on
 {
-    return ((obj == nullptr) || !detail::has_same_type_id<_from, std::remove_pointer_t<T>>())
-               ? nullptr
-               : static_cast<const std::remove_pointer_t<T>*>(static_cast<const void*>(obj));
+    using to = const std::remove_pointer_t<T>*;
+    return detail::static_identity_cast<to>(obj, detail::is_static_identity_cast<to, const _from*>{});
 }
 /// @}
 

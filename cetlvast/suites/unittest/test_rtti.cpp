@@ -22,6 +22,25 @@ struct Static final
     }
 };
 
+/// Non-polymorphic types where the derived type inherits the type ID of its secondary base,
+/// so the IDs match but the base subobject is not at the start of the derived object.
+struct StaticPad
+{
+    char pad = 'p';
+};
+struct StaticBase
+{
+    static constexpr cetl::type_id _get_type_id_() noexcept
+    {
+        return {0x4, 0x0};
+    }
+    int value = 1;
+};
+struct StaticDerived final : StaticPad, StaticBase
+{
+    int other = 2;
+};
+
 /// A simple polymorphic inheritance hierarchy: A <- B <- C.
 struct PolymorphA : cetl::rtti_helper<cetl::type_id_type<0x0, 0x1>>
 {
@@ -471,4 +490,32 @@ TEST(test_rtti, non_polymorphic_rtti_cast)
     PolymorphA a;
     EXPECT_EQ(nullptr, rtti_cast<int*>(&a));
     EXPECT_EQ(nullptr, rtti_cast<int*>(static_cast<const PolymorphA*>(&a)));
+}
+
+TEST(test_rtti, non_polymorphic_rtti_cast_requires_identical_static_type)
+{
+    using cetl::rtti_cast;
+    using cetl::type_id_value;
+
+    StaticDerived d;
+    StaticBase    b;
+    ASSERT_EQ(type_id_value<StaticBase>, type_id_value<StaticDerived>);
+    ASSERT_NE(static_cast<void*>(&d), static_cast<void*>(static_cast<StaticBase*>(&d)));
+
+    // Equal type IDs alone must not allow a cast between different static types.
+    EXPECT_EQ(nullptr, rtti_cast<StaticBase*>(&d));
+    EXPECT_EQ(nullptr, rtti_cast<StaticBase*>(static_cast<const StaticDerived*>(&d)));
+    EXPECT_EQ(nullptr, rtti_cast<StaticDerived*>(&b));
+    EXPECT_EQ(nullptr, rtti_cast<StaticDerived*>(static_cast<const StaticBase*>(&b)));
+
+    EXPECT_EQ(&b, rtti_cast<StaticBase*>(&b));
+    EXPECT_EQ(&d, rtti_cast<StaticDerived*>(&d));
+    EXPECT_EQ(&d, rtti_cast<StaticDerived*>(static_cast<const StaticDerived*>(&d)));
+
+    // cv-qualifiers can be added but not removed.
+    int          i  = 0;
+    volatile int vi = 0;
+    EXPECT_EQ(&i, rtti_cast<volatile int*>(&i));
+    EXPECT_EQ(nullptr, rtti_cast<int*>(&vi));
+    EXPECT_EQ(&vi, rtti_cast<volatile int*>(&vi));
 }
