@@ -43,13 +43,15 @@ jobs:
         run: cmake --workflow --preset manual-simple-workflow-online
 
   verification-amd64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && inputs.docs_ref == '') ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-latest
     container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
@@ -82,13 +84,15 @@ jobs:
           if-no-files-found: error
 
   verification-arm64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && inputs.docs_ref == '') ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-24.04-arm
     container: ghcr.io/opencyphal/toolshed:ts26.4.5
     needs:
@@ -122,13 +126,15 @@ jobs:
 
   # Compilers the current toolshed image no longer ships run here, in the last image that has them.
   verification-legacy-arm64:
+    # Skipped in the docs-only dispatch that release-docs starts.
     if: >
+      !inputs.docs_ref && (
       github.event_name == 'release' ||
-      (github.event_name == 'workflow_dispatch' && inputs.docs_ref == '') ||
+      github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, '#verification') ||
       contains(github.ref, '/main') ||
       contains(github.ref, '/issue/') ||
-      (github.event_name == 'pull_request')
+      (github.event_name == 'pull_request'))
     runs-on: ubuntu-24.04-arm
     # ts26.4.x dropped g++-7. Keep this pinned to ts24.4.3 rather than following the other jobs.
     container: ghcr.io/opencyphal/toolshed:ts24.4.3
@@ -179,7 +185,7 @@ jobs:
         with:
           ref: ${{ inputs.docs_ref }}
       - name: check-release-version
-        if: ${{ github.event_name == 'release' }}
+        if: ${{ github.event_name == 'release' && !github.event.release.prerelease }}
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
