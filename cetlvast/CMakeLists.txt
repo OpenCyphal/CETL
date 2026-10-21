@@ -16,21 +16,30 @@ if(NOT DEFINED CMAKE_MESSAGE_LOG_LEVEL)
     set(CMAKE_MESSAGE_LOG_LEVEL STATUS)
 endif()
 
-if (NOT DEFINED CETL_PROJECT_VERSION)
-    message(WARNING "CETL_PROJECT_VERSION was not set. Setting CETL_VERSION to default of 0.0.0.")
-    set(CETL_VERSION "0.0.0")
-else()
-    set(CETL_VERSION ${CETL_PROJECT_VERSION})
-endif()
-
-add_compile_definitions("CETL_VERSION=\"${CETL_VERSION}\"")
-
 if (NOT DEFINED CETL_ROOT)
     cmake_path(GET CMAKE_SOURCE_DIR PARENT_PATH CETL_ROOT)
     message(DEBUG "Setting CETL_ROOT = ${CETL_ROOT}")
 else()
     message(DEBUG "Using ${CETL_ROOT} for CETL_ROOT")
 endif()
+
+if (NOT DEFINED CETL_PROJECT_VERSION)
+    # The CETL_VERSION_* macros in cetl/cetl.hpp are the single source of truth for the library version.
+    foreach(LOCAL_CETL_VERSION_PART MAJOR MINOR PATCH)
+        file(STRINGS "${CETL_ROOT}/include/cetl/cetl.hpp" LOCAL_CETL_VERSION_DEFINE
+             REGEX "^#define CETL_VERSION_${LOCAL_CETL_VERSION_PART} [0-9]+$")
+        if (NOT LOCAL_CETL_VERSION_DEFINE MATCHES "^#define CETL_VERSION_${LOCAL_CETL_VERSION_PART} ([0-9]+)$")
+            message(FATAL_ERROR "CETL_VERSION_${LOCAL_CETL_VERSION_PART} was not found in ${CETL_ROOT}/include/cetl/cetl.hpp")
+        endif()
+        set(LOCAL_CETL_VERSION_${LOCAL_CETL_VERSION_PART} ${CMAKE_MATCH_1})
+    endforeach()
+    set(CETL_PROJECT_VERSION "${LOCAL_CETL_VERSION_MAJOR}.${LOCAL_CETL_VERSION_MINOR}.${LOCAL_CETL_VERSION_PATCH}")
+    message(DEBUG "Read CETL_PROJECT_VERSION = ${CETL_PROJECT_VERSION} from cetl/cetl.hpp")
+endif()
+
+set(CETL_VERSION ${CETL_PROJECT_VERSION})
+
+add_compile_definitions("CETL_VERSION=\"${CETL_VERSION}\"")
 
 if(DEFINED CETLVAST_CMAKE_MODULE_PATH)
     message(DEBUG "CETLVAST_CMAKE_MODULE_PATH was set to ${CETLVAST_CMAKE_MODULE_PATH}. Will use this to override CMAKE_MODULE_PATH.")
