@@ -10,34 +10,6 @@
 
 #include <gmock/gmock.h>
 
-//! [example_10_unbounded_variant_type_id]
-namespace cetl
-{
-
-template <>
-constexpr type_id type_id_getter<bool>() noexcept
-{
-    return {1};
-}
-template <>
-constexpr type_id type_id_getter<int>() noexcept
-{
-    return {2};
-}
-template <>
-constexpr type_id type_id_getter<float>() noexcept
-{
-    return {3};
-}
-template <>
-constexpr type_id type_id_getter<double>() noexcept
-{
-    return {4};
-}
-
-}  // namespace cetl
-//! [example_10_unbounded_variant_type_id]
-
 TEST(example_10_unbounded_variant, basic_usage)
 {
     //! [example_10_unbounded_variant_basic_usage]
