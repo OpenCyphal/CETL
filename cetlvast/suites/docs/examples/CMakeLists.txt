@@ -33,6 +33,7 @@ set(NATIVE_EXAMPLES
     example_10_unbounded_variant.cpp
     example_11_memory_resource_o1heap.cpp
     example_12_buddy_memory_resource.cpp
+    example_13_saturating_arithmetic.cpp
 )
 
 set(ALL_EXAMPLES "")
