@@ -445,6 +445,85 @@
                 "configure-standard-cpp-23",
                 "configure-update-offline"
             ]
+        },
+        {
+            "name": "configure-standard-cpp-26",
+            "hidden": true,
+            "cacheVariables": {
+                "CETLVAST_CPP_STANDARD": "26"
+            }
+        },
+        {
+            "name": "configure-gcc-native-cpp-26-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-26",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-cpp-26-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native",
+                "configure-standard-cpp-26",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-26-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-26",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-gcc-native-32-cpp-26-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-gcc-native-32",
+                "configure-standard-cpp-26",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-26-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-26",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-clang-native-cpp-26-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-clang-native",
+                "configure-standard-cpp-26",
+                "configure-update-offline"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-26-online",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-26",
+                "configure-update-online"
+            ]
+        },
+        {
+            "name": "configure-arm-none-eabi-gcc-cpp-26-offline",
+            "inherits": [
+                "configure-common",
+                "configure-toolchain-arm-none-eabi-gcc",
+                "configure-standard-cpp-26",
+                "configure-update-offline"
+            ]
         }
     ],
     "buildPresets": [
@@ -2011,6 +2090,358 @@
                 "run_examples",
                 "gcovr_html_report_for_examples"
             ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-26-online",
+            "configurePreset": "configure-gcc-native-cpp-26-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-cpp-26-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-26-online",
+            "configurePreset": "configure-gcc-native-32-cpp-26-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-gcc-native-32-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-26-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-26-online",
+            "configurePreset": "configure-clang-native-cpp-26-online",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Release-clang-native-cpp-26-offline",
+            "configurePreset": "configure-clang-native-cpp-26-offline",
+            "configuration": "Release",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-26-online",
+            "configurePreset": "configure-gcc-native-cpp-26-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-cpp-26-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-26-online",
+            "configurePreset": "configure-gcc-native-32-cpp-26-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-gcc-native-32-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-26-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-26-online",
+            "configurePreset": "configure-clang-native-cpp-26-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-clang-native-cpp-26-offline",
+            "configurePreset": "configure-clang-native-cpp-26-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-26-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-26-online",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-26-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-26-offline",
+            "configuration": "ReleaseEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-26-online",
+            "configurePreset": "configure-gcc-native-cpp-26-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-cpp-26-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-26-online",
+            "configurePreset": "configure-gcc-native-32-cpp-26-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-gcc-native-32-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-26-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-26-online",
+            "configurePreset": "configure-clang-native-cpp-26-online",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Debug-clang-native-cpp-26-offline",
+            "configurePreset": "configure-clang-native-cpp-26-offline",
+            "configuration": "Debug",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-26-online",
+            "configurePreset": "configure-gcc-native-cpp-26-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-cpp-26-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-26-online",
+            "configurePreset": "configure-gcc-native-32-cpp-26-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-gcc-native-32-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-26-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-26-online",
+            "configurePreset": "configure-clang-native-cpp-26-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-clang-native-cpp-26-offline",
+            "configurePreset": "configure-clang-native-cpp-26-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-26-online",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-26-online",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-DebugEP-arm-none-eabi-gcc-cpp-26-offline",
+            "configurePreset": "configure-arm-none-eabi-gcc-cpp-26-offline",
+            "configuration": "DebugEP",
+            "targets": [
+                "build",
+                "run_unittests",
+                "run_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-26-online",
+            "configurePreset": "configure-gcc-native-cpp-26-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-cpp-26-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-26-online",
+            "configurePreset": "configure-gcc-native-32-cpp-26-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-gcc-native-32-cpp-26-offline",
+            "configurePreset": "configure-gcc-native-32-cpp-26-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-26-online",
+            "configurePreset": "configure-clang-native-cpp-26-online",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
+        },
+        {
+            "name": "build-Coverage-clang-native-cpp-26-offline",
+            "configurePreset": "configure-clang-native-cpp-26-offline",
+            "configuration": "Coverage",
+            "targets": [
+                "build",
+                "run_unittests",
+                "gcovr_html_report_for_unittest",
+                "run_examples",
+                "gcovr_html_report_for_examples"
+            ]
         }
     ],
     "workflowPresets": [
@@ -2927,6 +3358,206 @@
                     "name": "build-DebugEP-arm-none-eabi-gcc-cpp-23-offline"
                 }
             ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-26-online",
+            "displayName": "gcc native cpp 26 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-26-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-cpp-26-offline",
+            "displayName": "gcc native cpp 26 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-cpp-26-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-26-online",
+            "displayName": "gcc native 32 cpp 26 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-26-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-gcc-native-32-cpp-26-offline",
+            "displayName": "gcc native 32 cpp 26 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-gcc-native-32-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-gcc-native-32-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-gcc-native-32-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-gcc-native-32-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-gcc-native-32-cpp-26-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-26-online",
+            "displayName": "clang native cpp 26 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-26-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-clang-native-cpp-26-offline",
+            "displayName": "clang native cpp 26 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-clang-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Release-clang-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-clang-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-Debug-clang-native-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-clang-native-cpp-26-offline"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-26-online",
+            "displayName": "arm none eabi gcc cpp 26 online",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-26-online"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-26-online"
+                }
+            ]
+        },
+        {
+            "name": "workflow-arm-none-eabi-gcc-cpp-26-offline",
+            "displayName": "arm none eabi gcc cpp 26 offline",
+            "description": "autogenerated workflow",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "configure-arm-none-eabi-gcc-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-ReleaseEP-arm-none-eabi-gcc-cpp-26-offline"
+                },
+                {
+                    "type": "build",
+                    "name": "build-DebugEP-arm-none-eabi-gcc-cpp-26-offline"
+                }
+            ]
         }
     ],
     "packagePresets": [],
@@ -2991,7 +3622,8 @@
                             "cpp-14",
                             "cpp-17",
                             "cpp-20",
-                            "cpp-23"
+                            "cpp-23",
+                            "cpp-26"
                         ],
                         "update": [
                             "online",
@@ -3004,7 +3636,8 @@
                             "standard": [
                                 "cpp-17",
                                 "cpp-20",
-                                "cpp-23"
+                                "cpp-23",
+                                "cpp-26"
                             ]
                         }
                     ],
@@ -3048,7 +3681,8 @@
                             "cpp-14",
                             "cpp-17",
                             "cpp-20",
-                            "cpp-23"
+                            "cpp-23",
+                            "cpp-26"
                         ],
                         "update": [
                             "online",
@@ -3061,7 +3695,8 @@
                             "standard": [
                                 "cpp-17",
                                 "cpp-20",
-                                "cpp-23"
+                                "cpp-23",
+                                "cpp-26"
                             ]
                         },
                         {
@@ -3098,7 +3733,8 @@
                             "cpp-14",
                             "cpp-17",
                             "cpp-20",
-                            "cpp-23"
+                            "cpp-23",
+                            "cpp-26"
                         ],
                         "update": [
                             "online",
@@ -3120,7 +3756,8 @@
                             "standard": [
                                 "cpp-17",
                                 "cpp-20",
-                                "cpp-23"
+                                "cpp-23",
+                                "cpp-26"
                             ]
                         },
                         {

@@ -45,6 +45,7 @@
 #    include <optional>
 #    include <variant>
 #    include <string_view>
+#    include <algorithm>
 
 namespace cetl
 {
@@ -128,6 +129,9 @@ using std::holds_alternative;
 using std::basic_string_view;
 using std::string_view;
 
+// algorithm
+using std::clamp;
+
 }  // namespace cetl
 
 #else
@@ -138,6 +142,7 @@ using std::string_view;
 #    include "cetl/pf17/optional.hpp"
 #    include "cetl/pf17/variant.hpp"
 #    include "cetl/pf17/string_view.hpp"
+#    include "cetl/pf17/algorithm.hpp"
 
 namespace cetl
 {
@@ -225,6 +230,9 @@ using cetl::pf17::bad_variant_access;
 // string_view
 using cetl::pf17::basic_string_view;
 using cetl::pf17::string_view;
+
+// algorithm
+using cetl::pf17::clamp;
 
 }  // namespace cetl
 #endif

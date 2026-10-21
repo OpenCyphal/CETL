@@ -86,6 +86,7 @@ set(NATIVE_TESTS
     test_buffer_memory_resource.cpp
     test_deprecated_names.cpp
     test_o1heap_memory_resource.cpp
+    test_pf17_algorithm.cpp
     test_pf17_new.cpp
     test_pf17_memory_resource.cpp
     test_pf17_monotonic_buffer_resource.cpp
@@ -108,6 +109,8 @@ set(NATIVE_TESTS
     test_pf20_span_asserts.cpp
     test_pf20_span.cpp
     test_pf20.cpp
+    test_pf20_utility.cpp
+    test_pf26_numeric.cpp
     test_rtti.cpp
     test_type_traits_ext.cpp
     test_typelist.cpp
