@@ -104,6 +104,41 @@ static_assert(saturating_cast<std::uint32_t>(std::int64_t{-1}) == 0, "");
 static_assert(saturating_cast<std::uint32_t>(INT64_C(4294967296)) == std::numeric_limits<std::uint32_t>::max(), "");
 static_assert(saturating_cast<std::int64_t>(std::int64_t{42}) == 42, "same type");
 
+// cv-qualified explicit template arguments name the same integer types.
+static_assert(saturating_add<const std::int8_t>(100, 100) == 127, "");
+static_assert(saturating_cast<const std::uint8_t>(-1) == 0, "");
+
+#if CETLVAST_HAS_INT128
+// Extended 128-bit integers, including GCC's strict -std=c++NN modes where std::numeric_limits does not describe them.
+constexpr cetlvast_int128  i128_max = static_cast<cetlvast_int128>(~cetlvast_uint128{0} >> 1);
+constexpr cetlvast_int128  i128_min = -i128_max - 1;
+constexpr cetlvast_uint128 u128_max = ~cetlvast_uint128{0};
+static_assert(saturating_add(i128_max, cetlvast_int128{1}) == i128_max, "");
+static_assert(saturating_add(i128_min, cetlvast_int128{-1}) == i128_min, "");
+static_assert(saturating_add(cetlvast_int128{1} << 100, cetlvast_int128{1} << 100) == cetlvast_int128{1} << 101, "");
+static_assert(saturating_sub(i128_min, cetlvast_int128{1}) == i128_min, "");
+static_assert(saturating_sub(cetlvast_int128{0}, i128_min) == i128_max, "");
+static_assert(saturating_mul(i128_min, cetlvast_int128{-1}) == i128_max, "");
+static_assert(saturating_mul(cetlvast_int128{1} << 64, cetlvast_int128{1} << 64) == i128_max, "");
+static_assert(saturating_mul(cetlvast_int128{1} << 63, cetlvast_int128{1} << 63) == cetlvast_int128{1} << 126, "");
+static_assert(saturating_mul(-(cetlvast_int128{1} << 64), cetlvast_int128{1} << 64) == i128_min, "");
+static_assert(saturating_div(i128_min, cetlvast_int128{-1}) == i128_max, "");
+static_assert(saturating_div(i128_min, cetlvast_int128{2}) == -(cetlvast_int128{1} << 126), "");
+static_assert(saturating_add(u128_max, cetlvast_uint128{1}) == u128_max, "");
+static_assert(saturating_sub(cetlvast_uint128{0}, cetlvast_uint128{1}) == 0, "");
+static_assert(saturating_mul(u128_max, cetlvast_uint128{2}) == u128_max, "");
+static_assert(saturating_cast<std::int64_t>(cetlvast_int128{1} << 70) == i64_max, "");
+static_assert(saturating_cast<std::int64_t>(i128_min) == i64_min, "");
+static_assert(saturating_cast<std::uint64_t>(cetlvast_int128{-1}) == 0, "");
+static_assert(saturating_cast<std::uint8_t>(u128_max) == 255, "");
+static_assert(saturating_cast<cetlvast_int128>(u64_max) == static_cast<cetlvast_int128>(u64_max), "");
+static_assert(saturating_cast<cetlvast_uint128>(i64_min) == 0, "");
+static_assert(saturating_cast<cetlvast_int128>(u128_max) == i128_max, "");
+static_assert(saturating_add_portable(i128_max, cetlvast_int128{1}) == i128_max, "");
+static_assert(saturating_sub_portable(cetlvast_uint128{0}, cetlvast_uint128{1}) == 0, "");
+static_assert(saturating_mul_portable(i128_min, cetlvast_int128{-1}) == i128_max, "");
+#endif
+
 // The portable implementations are constant expressions as well.
 static_assert(saturating_add_portable<std::int8_t>(100, 100) == 127, "");
 static_assert(saturating_sub_portable<std::uint8_t>(3, 5) == 0, "");
