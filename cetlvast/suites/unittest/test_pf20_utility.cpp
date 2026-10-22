@@ -55,6 +55,31 @@ static_assert(!in_range<std::int64_t>(std::numeric_limits<std::uint64_t>::max())
 static_assert(in_range<std::int64_t>(std::numeric_limits<std::uint32_t>::max()), "");
 static_assert(in_range<const std::int16_t>(-32768), "cv-qualified R");
 
+// cv-qualified explicit template arguments name the same integer types.
+static_assert(cmp_less<const int, const long>(1, 2L), "");
+static_assert(cmp_equal<const unsigned, const int>(1U, 1), "");
+static_assert(in_range<const std::uint8_t>(255), "");
+
+#if defined(__SIZEOF_INT128__)
+// Extended 128-bit integers, including GCC's strict -std=c++NN modes where std::is_integral does not report them.
+__extension__ typedef __int128          test_int128;
+__extension__ typedef unsigned __int128 test_uint128;
+static_assert(cmp_less(std::numeric_limits<std::int64_t>::min(), test_int128{0}), "");
+static_assert(cmp_less(test_int128{-1}, std::uint8_t{0}), "");
+static_assert(cmp_equal(test_int128{-1}, std::int8_t{-1}), "");
+static_assert(!cmp_equal(test_int128{-1}, ~test_uint128{0}), "");
+static_assert(cmp_greater(static_cast<test_uint128>(std::numeric_limits<std::uint64_t>::max()) + 1,
+                          std::numeric_limits<std::uint64_t>::max()),
+              "");
+static_assert(cmp_greater_equal(~test_uint128{0}, test_int128{-1}), "");
+static_assert(in_range<test_int128>(std::numeric_limits<std::uint64_t>::max()), "");
+static_assert(!in_range<std::int64_t>(static_cast<test_int128>(1) << 70), "");
+static_assert(!in_range<test_uint128>(-1), "");
+static_assert(in_range<test_uint128>(std::numeric_limits<std::int64_t>::max()), "");
+static_assert(in_range<std::int8_t>(test_int128{-128}), "");
+static_assert(!in_range<std::int8_t>(test_int128{128}), "");
+#endif
+
 static_assert(cetl::cmp_less(-1, 1U), "cetlpf alias");
 static_assert(!cetl::in_range<std::uint8_t>(256), "cetlpf alias");
 
