@@ -758,6 +758,95 @@ TYPED_TEST(test_pf23_expected, constructor_exception_propagates)
 #endif  // __cpp_exceptions
 
 // +----------------------------------------------------------------------+
+// | CONSTANT EVALUATION
+// +----------------------------------------------------------------------+
+#if (__cplusplus >= CETL_CPP_STANDARD_20) && defined(__cpp_constexpr_dynamic_alloc) && \
+    defined(__cpp_lib_constexpr_dynamic_alloc)
+
+/// A literal type whose copy, move and destruction are not trivial, so that the non-trivial storage layers are used.
+struct constexpr_non_trivial
+{
+    constexpr explicit constexpr_non_trivial(const int v) noexcept
+        : value{v}
+    {
+    }
+    constexpr constexpr_non_trivial(const constexpr_non_trivial& other) noexcept
+        : value{other.value}
+    {
+    }
+    constexpr constexpr_non_trivial(constexpr_non_trivial&& other) noexcept
+        : value{other.value}
+    {
+        other.value = -1;
+    }
+    constexpr constexpr_non_trivial& operator=(const constexpr_non_trivial& other) noexcept
+    {
+        value = other.value;
+        return *this;
+    }
+    constexpr constexpr_non_trivial& operator=(constexpr_non_trivial&& other) noexcept
+    {
+        value       = other.value;
+        other.value = -1;
+        return *this;
+    }
+    constexpr ~constexpr_non_trivial() noexcept {}
+
+    int value;
+};
+
+constexpr int get(const int v)
+{
+    return v;
+}
+constexpr int get(const constexpr_non_trivial& v)
+{
+    return v.value;
+}
+
+/// Exercises every operation that changes the held alternative, appending one digit per step.
+template <typename Impl, typename T>
+constexpr int constexpr_mutations()
+{
+    using ex   = expected_t<Impl, T, T>;
+    using unex = unexpected_t<Impl, T>;
+    ex a(Impl::in_place(), 1);
+    ex b(Impl::unexpect(), 2);
+    a          = b;                               // value <- error
+    int digits = get(a.error());                  // 2
+    a          = T(3);                            // error <- value
+    digits     = (digits * 10) + get(*a);         // 23
+    a          = unex(T(4));                      // value <- unexpected
+    digits     = (digits * 10) + get(a.error());  // 234
+    a.emplace(5);                                 // error -> value
+    digits = (digits * 10) + get(*a);             // 2345
+    a.swap(b);                                    // a: error 2, b: value 5
+    digits = (digits * 10) + get(a.error());      // 23452
+    swap(a, b);                                   // a: value 5, b: error 2
+    digits = (digits * 10) + get(*a);             // 234525
+    const ex converted(expected_t<Impl, int, int>(6));
+    digits = (digits * 10) + get(*converted);  // 2345256
+    expected_t<Impl, void, T> v;
+    v      = unex(T(7));                      // value <- unexpected
+    digits = (digits * 10) + get(v.error());  // 23452567
+    v.emplace();
+    unex u(T(8));
+    unex w(T(9));
+    swap(u, w);
+    digits = (digits * 10) + get(u.error());  // 234525679
+    return v.has_value() ? digits : -1;
+}
+
+TYPED_TEST(test_pf23_expected, constexpr_mutations)
+{
+    static_assert(constexpr_mutations<TypeParam, int>() == 234525679, "");
+    static_assert(constexpr_mutations<TypeParam, constexpr_non_trivial>() == 234525679, "");
+    EXPECT_EQ(234525679, (constexpr_mutations<TypeParam, constexpr_non_trivial>()));
+}
+
+#endif
+
+// +----------------------------------------------------------------------+
 // | POLYFILL-SPECIFIC
 // +----------------------------------------------------------------------+
 
