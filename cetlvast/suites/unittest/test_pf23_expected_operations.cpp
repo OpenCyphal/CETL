@@ -143,6 +143,43 @@ TYPED_TEST(test_pf23_expected_operations, error_or)
     EXPECT_EQ("moved", std::move(vmovable).error_or("default"));
 }
 
+/// Constructible from conversion_source both explicitly (the better match) and, through the source's conversion
+/// operator, implicitly; how records which one was used.
+struct conversion_source;
+struct conversion_target
+{
+    explicit conversion_target(const conversion_source&) noexcept
+        : how{1}
+    {
+    }
+    conversion_target(const int h) noexcept  // NOLINT(*-explicit-constructor)
+        : how{h}
+    {
+    }
+    int how;
+};
+struct conversion_source
+{
+    operator conversion_target() const noexcept  // NOLINT(*-explicit-constructor)
+    {
+        return conversion_target{2};
+    }
+};
+
+TYPED_TEST(test_pf23_expected_operations, error_or_converts_implicitly)
+{
+    // error_or returns its argument, so the implicit conversion is used even where an explicit constructor would match
+    // better.
+    using ex  = expected_t<TypeParam, int, conversion_target>;
+    using vex = expected_t<TypeParam, void, conversion_target>;
+    const ex  value(1);
+    const vex vvalue;
+    EXPECT_EQ(2, value.error_or(conversion_source{}).how);
+    EXPECT_EQ(2, ex(1).error_or(conversion_source{}).how);
+    EXPECT_EQ(2, vvalue.error_or(conversion_source{}).how);
+    EXPECT_EQ(2, vex().error_or(conversion_source{}).how);
+}
+
 TYPED_TEST(test_pf23_expected_operations, void_value_access)
 {
     using vex = expected_t<TypeParam, void, int>;
@@ -652,6 +689,104 @@ TEST(test_pf23_expected_cetl, invoke_member_pointers)
     EXPECT_EQ(5, invoke([](const int x) { return x; }, 5));
 }
 
+/// Converts to bool implicitly as true and explicitly (from a non-const object) as false, so the result of an operator
+/// shows which conversion it applied.
+struct conversion_witness
+{
+    operator bool() const noexcept  // NOLINT(*-explicit-constructor)
+    {
+        return true;
+    }
+    explicit operator bool() noexcept
+    {
+        return false;
+    }
+};
+
+struct witnessed
+{
+    int value;
+};
+
+conversion_witness operator==(const witnessed&, const witnessed&) noexcept
+{
+    return {};
+}
+
+/// As conversion_witness, but the explicit conversion is deleted, so an operator that applies it does not compile.
+struct deleted_explicit_bool
+{
+    operator bool() const noexcept  // NOLINT(*-explicit-constructor)
+    {
+        return true;
+    }
+    explicit operator bool() = delete;
+};
+
+struct strictly_compared
+{
+    int value;
+};
+
+deleted_explicit_bool operator==(const strictly_compared&, const strictly_compared&) noexcept
+{
+    return {};
+}
+
+#if CETLVAST_HAS_STD_EXPECTED
+/// True if the standard library implements LWG 4366 (libc++ 23 does; libstdc++ 13 and 15 do not).
+bool std_implements_lwg4366()
+{
+    return std::expected<witnessed, int>(witnessed{1}) == witnessed{2};
+}
+#endif
+
+TYPED_TEST(test_pf23_expected_operations, expected_equality_converts_implicitly)
+{
+    // The operators return the comparison, so its implicit conversion to bool is used (LWG 4366).
+#if CETLVAST_HAS_STD_EXPECTED
+    if (std::is_same<TypeParam, std_impl>::value && !std_implements_lwg4366())
+    {
+        GTEST_SKIP() << "This standard library predates LWG 4366.";
+    }
+#endif
+    using wex  = expected_t<TypeParam, witnessed, witnessed>;
+    using unex = unexpected_t<TypeParam, witnessed>;
+    const wex value(witnessed{1});
+    const wex error(TypeParam::unexpect(), witnessed{2});
+    EXPECT_TRUE(value == wex(witnessed{3}));
+    EXPECT_TRUE(error == wex(TypeParam::unexpect(), witnessed{4}));
+    EXPECT_TRUE(value == witnessed{3});
+    EXPECT_TRUE(witnessed{3} == value);
+    EXPECT_FALSE(value != witnessed{3});
+    EXPECT_TRUE(error == unex(witnessed{4}));
+    EXPECT_TRUE(unex(witnessed{4}) == error);
+    using vex = expected_t<TypeParam, void, witnessed>;
+    const vex verror(TypeParam::unexpect(), witnessed{2});
+    EXPECT_TRUE(verror == vex(TypeParam::unexpect(), witnessed{4}));
+    EXPECT_TRUE(verror == unex(witnessed{4}));
+}
+
+TEST(test_pf23_expected_cetl, equality_never_converts_explicitly)
+{
+    // With the explicit conversion deleted, these compile only because no operator applies it (LWG 4366).
+    using sex  = cetl::pf23::expected<strictly_compared, strictly_compared>;
+    using unex = cetl::pf23::unexpected<strictly_compared>;
+    using vex  = cetl::pf23::expected<void, strictly_compared>;
+    const sex value(strictly_compared{1});
+    const sex error(cetl::pf23::unexpect, strictly_compared{2});
+    const vex verror(cetl::pf23::unexpect, strictly_compared{3});
+    EXPECT_TRUE(value == sex(strictly_compared{4}));
+    EXPECT_TRUE(error == sex(cetl::pf23::unexpect, strictly_compared{4}));
+    EXPECT_TRUE(value == strictly_compared{4});
+    EXPECT_TRUE(strictly_compared{4} == value);
+    EXPECT_TRUE(error == unex(strictly_compared{4}));
+    EXPECT_TRUE(unex(strictly_compared{4}) == error);
+    EXPECT_TRUE(verror == vex(cetl::pf23::unexpect, strictly_compared{4}));
+    EXPECT_TRUE(verror == unex(strictly_compared{4}));
+    EXPECT_TRUE(unex(strictly_compared{1}) == unex(strictly_compared{4}));
+}
+
 // +----------------------------------------------------------------------+
 // | UNEXPECTED
 // +----------------------------------------------------------------------+
@@ -681,6 +816,8 @@ TYPED_TEST(test_pf23_expected_operations, unexpected)
     swap(copy, from_value);
     EXPECT_EQ(5, copy.error().value);
     EXPECT_TRUE((unexpected_t<TypeParam, int>(1) == unexpected_t<TypeParam, long>(1L)));
+    // The comparison is returned, so its implicit conversion to bool is used.
+    EXPECT_TRUE((unexpected_t<TypeParam, witnessed>(witnessed{1}) == unexpected_t<TypeParam, witnessed>(witnessed{2})));
     // Construction from a value is explicit.
     static_assert(!std::is_convertible<int, unexpected_t<TypeParam, int>>::value, "");
     static_assert(std::is_constructible<unexpected_t<TypeParam, int>, int>::value, "");
