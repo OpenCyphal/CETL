@@ -13,6 +13,7 @@ set(COMPILE_TESTS
      ${CMAKE_CURRENT_SOURCE_DIR}/test_cetl_h_erase.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf20_cmp_less_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_bool.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_const_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_mixed_types.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_span_empty.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_unbounded_variant_footprint_get_const.cpp

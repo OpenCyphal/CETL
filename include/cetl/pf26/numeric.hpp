@@ -46,9 +46,15 @@ namespace pf26
 {
 namespace detail
 {
-/// The "signed or unsigned integer types" of [basic.fundamental]: the standard and extended integer types.
+/// The "signed or unsigned integer types" of [basic.fundamental]: the standard and extended integer types
+/// (cv-qualifiers ignored, `bool` and the character types excluded). Extended 128-bit integers are supported even
+/// where std::is_integral and std::numeric_limits do not describe them (GCC in strict -std=c++NN modes).
 template <typename T>
 using is_signed_or_unsigned_integer = pf20::detail::is_standard_or_extended_integer<T>;
+template <typename T>
+using is_signed = pf20::detail::is_signed_integer<T>;
+template <typename T>
+using limits = pf20::detail::integer_limits<T>;
 
 template <typename T>
 using enable_if_integer_t = std::enable_if_t<is_signed_or_unsigned_integer<T>::value, int>;
@@ -59,32 +65,32 @@ using enable_if_integer_t = std::enable_if_t<is_signed_or_unsigned_integer<T>::v
 template <typename T>
 constexpr T add_saturated(T x, std::true_type /*signed*/) noexcept
 {
-    return (x < 0) ? std::numeric_limits<T>::min() : std::numeric_limits<T>::max();
+    return (x < 0) ? limits<T>::min() : limits<T>::max();
 }
 template <typename T>
 constexpr T add_saturated(T, std::false_type /*unsigned*/) noexcept
 {
-    return std::numeric_limits<T>::max();
+    return limits<T>::max();
 }
 template <typename T>
 constexpr T sub_saturated(T x, std::true_type /*signed*/) noexcept
 {
-    return (x < 0) ? std::numeric_limits<T>::min() : std::numeric_limits<T>::max();
+    return (x < 0) ? limits<T>::min() : limits<T>::max();
 }
 template <typename T>
 constexpr T sub_saturated(T, std::false_type /*unsigned*/) noexcept
 {
-    return std::numeric_limits<T>::min();
+    return limits<T>::min();
 }
 template <typename T>
 constexpr T mul_saturated(T x, T y, std::true_type /*signed*/) noexcept
 {
-    return ((x < 0) != (y < 0)) ? std::numeric_limits<T>::min() : std::numeric_limits<T>::max();
+    return ((x < 0) != (y < 0)) ? limits<T>::min() : limits<T>::max();
 }
 template <typename T>
 constexpr T mul_saturated(T, T, std::false_type /*unsigned*/) noexcept
 {
-    return std::numeric_limits<T>::max();
+    return limits<T>::max();
 }
 
 // +----------------------------------------------------------------------------------------------------------------+
@@ -95,19 +101,17 @@ constexpr T mul_saturated(T, T, std::false_type /*unsigned*/) noexcept
 template <typename T>
 constexpr bool add_overflows(T x, T y, std::true_type /*signed*/) noexcept
 {
-    return (y > 0) ? (x > static_cast<T>(std::numeric_limits<T>::max() - y))
-                   : (x < static_cast<T>(std::numeric_limits<T>::min() - y));
+    return (y > 0) ? (x > static_cast<T>(limits<T>::max() - y)) : (x < static_cast<T>(limits<T>::min() - y));
 }
 template <typename T>
 constexpr bool add_overflows(T x, T y, std::false_type /*unsigned*/) noexcept
 {
-    return x > static_cast<T>(std::numeric_limits<T>::max() - y);
+    return x > static_cast<T>(limits<T>::max() - y);
 }
 template <typename T>
 constexpr bool sub_overflows(T x, T y, std::true_type /*signed*/) noexcept
 {
-    return (y < 0) ? (x > static_cast<T>(std::numeric_limits<T>::max() + y))
-                   : (x < static_cast<T>(std::numeric_limits<T>::min() + y));
+    return (y < 0) ? (x > static_cast<T>(limits<T>::max() + y)) : (x < static_cast<T>(limits<T>::min() + y));
 }
 template <typename T>
 constexpr bool sub_overflows(T x, T y, std::false_type /*unsigned*/) noexcept
@@ -118,18 +122,18 @@ template <typename T>
 constexpr bool mul_overflows(T x, T y, std::true_type /*signed*/) noexcept
 {
     return ((x == 0) || (y == 0)) ? false
-           : (x > 0) ? ((y > 0) ? (x > std::numeric_limits<T>::max() / y) : (y < std::numeric_limits<T>::min() / x))
-                     : ((y > 0) ? (x < std::numeric_limits<T>::min() / y) : (y < std::numeric_limits<T>::max() / x));
+           : (x > 0)              ? ((y > 0) ? (x > limits<T>::max() / y) : (y < limits<T>::min() / x))
+                                  : ((y > 0) ? (x < limits<T>::min() / y) : (y < limits<T>::max() / x));
 }
 template <typename T>
 constexpr bool mul_overflows(T x, T y, std::false_type /*unsigned*/) noexcept
 {
-    return (y != 0) && (x > std::numeric_limits<T>::max() / y);
+    return (y != 0) && (x > limits<T>::max() / y);
 }
 template <typename T>
 constexpr bool is_min_over_minus_one(T x, T y, std::true_type /*signed*/) noexcept
 {
-    return (x == std::numeric_limits<T>::min()) && (y == static_cast<T>(-1));
+    return (x == limits<T>::min()) && (y == static_cast<T>(-1));
 }
 template <typename T>
 constexpr bool is_min_over_minus_one(T, T, std::false_type /*unsigned*/) noexcept
@@ -143,17 +147,17 @@ constexpr bool is_min_over_minus_one(T, T, std::false_type /*unsigned*/) noexcep
 template <typename T>
 constexpr T saturating_add_portable(T x, T y) noexcept
 {
-    return add_overflows(x, y, std::is_signed<T>{}) ? add_saturated(x, std::is_signed<T>{}) : static_cast<T>(x + y);
+    return add_overflows(x, y, is_signed<T>{}) ? add_saturated(x, is_signed<T>{}) : static_cast<T>(x + y);
 }
 template <typename T>
 constexpr T saturating_sub_portable(T x, T y) noexcept
 {
-    return sub_overflows(x, y, std::is_signed<T>{}) ? sub_saturated(x, std::is_signed<T>{}) : static_cast<T>(x - y);
+    return sub_overflows(x, y, is_signed<T>{}) ? sub_saturated(x, is_signed<T>{}) : static_cast<T>(x - y);
 }
 template <typename T>
 constexpr T saturating_mul_portable(T x, T y) noexcept
 {
-    return mul_overflows(x, y, std::is_signed<T>{}) ? mul_saturated(x, y, std::is_signed<T>{}) : static_cast<T>(x * y);
+    return mul_overflows(x, y, is_signed<T>{}) ? mul_saturated(x, y, is_signed<T>{}) : static_cast<T>(x * y);
 }
 
 #if CETL_PF26_DETAIL_OVERFLOW_BUILTINS
@@ -161,19 +165,19 @@ template <typename T>
 constexpr T saturating_add_builtin(T x, T y) noexcept
 {
     T result{};
-    return __builtin_add_overflow(x, y, &result) ? add_saturated(x, std::is_signed<T>{}) : result;
+    return __builtin_add_overflow(x, y, &result) ? add_saturated(x, is_signed<T>{}) : result;
 }
 template <typename T>
 constexpr T saturating_sub_builtin(T x, T y) noexcept
 {
     T result{};
-    return __builtin_sub_overflow(x, y, &result) ? sub_saturated(x, std::is_signed<T>{}) : result;
+    return __builtin_sub_overflow(x, y, &result) ? sub_saturated(x, is_signed<T>{}) : result;
 }
 template <typename T>
 constexpr T saturating_mul_builtin(T x, T y) noexcept
 {
     T result{};
-    return __builtin_mul_overflow(x, y, &result) ? mul_saturated(x, y, std::is_signed<T>{}) : result;
+    return __builtin_mul_overflow(x, y, &result) ? mul_saturated(x, y, is_signed<T>{}) : result;
 }
 #endif
 }  // namespace detail
@@ -219,7 +223,7 @@ CETL_NODISCARD constexpr T saturating_mul(T x, T y) noexcept
 
 /// Polyfill for std::saturating_div (C++26, [numeric.sat.func]).
 /// Returns `x / y` (truncated toward zero) if it is representable in `T`; the only other case,
-/// `numeric_limits<T>::min() / -1`, returns `numeric_limits<T>::max()`.
+/// `numeric_detail::limits<T>::min() / -1`, returns `numeric_detail::limits<T>::max()`.
 /// @tparam T A signed or unsigned integer type (not `bool` or a character type); never promoted.
 /// @pre `y != 0` (CDE_numeric_001). As in the standard, a zero divisor is undefined behaviour and a call that
 ///      divides by zero is not a constant expression.
@@ -227,8 +231,8 @@ template <typename T, detail::enable_if_integer_t<T> = 0>
 CETL_NODISCARD constexpr T saturating_div(T x, T y) noexcept
 {
     CETL_DEBUG_ASSERT(y != 0, "CDE_numeric_001: saturating_div requires a non-zero divisor.");
-    return detail::is_min_over_minus_one(x, y, std::is_signed<T>{}) ? std::numeric_limits<T>::max()
-                                                                    : static_cast<T>(x / y);
+    return detail::is_min_over_minus_one(x, y, detail::is_signed<T>{}) ? detail::limits<T>::max()
+                                                                       : static_cast<T>(x / y);
 }
 
 /// Polyfill for std::saturating_cast (C++26, [numeric.sat.cast]).
@@ -238,9 +242,9 @@ CETL_NODISCARD constexpr T saturating_div(T x, T y) noexcept
 template <typename T, typename U, detail::enable_if_integer_t<T> = 0, detail::enable_if_integer_t<U> = 0>
 CETL_NODISCARD constexpr T saturating_cast(U x) noexcept
 {
-    return pf20::cmp_less(x, std::numeric_limits<T>::min())      ? std::numeric_limits<T>::min()
-           : pf20::cmp_greater(x, std::numeric_limits<T>::max()) ? std::numeric_limits<T>::max()
-                                                                 : static_cast<T>(x);
+    return pf20::cmp_less(x, detail::limits<T>::min())      ? detail::limits<T>::min()
+           : pf20::cmp_greater(x, detail::limits<T>::max()) ? detail::limits<T>::max()
+                                                            : static_cast<T>(x);
 }
 
 }  // namespace pf26

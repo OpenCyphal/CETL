@@ -60,29 +60,31 @@ using std::saturating_cast;
 
 namespace cetl
 {
-// The standard library implements P0543R3 but not the P4052R0 renaming. The standard's constraints apply.
+// The standard library implements P0543R3 but not the P4052R0 renaming. The trailing return types make each
+// forwarder's participation in overload resolution depend on the standard call, so the standard's constraints apply
+// here exactly as they would to the renamed functions.
 template <typename T>
-CETL_NODISCARD constexpr T saturating_add(T x, T y) noexcept
+CETL_NODISCARD constexpr auto saturating_add(T x, T y) noexcept -> decltype(std::add_sat(x, y))
 {
     return std::add_sat(x, y);
 }
 template <typename T>
-CETL_NODISCARD constexpr T saturating_sub(T x, T y) noexcept
+CETL_NODISCARD constexpr auto saturating_sub(T x, T y) noexcept -> decltype(std::sub_sat(x, y))
 {
     return std::sub_sat(x, y);
 }
 template <typename T>
-CETL_NODISCARD constexpr T saturating_mul(T x, T y) noexcept
+CETL_NODISCARD constexpr auto saturating_mul(T x, T y) noexcept -> decltype(std::mul_sat(x, y))
 {
     return std::mul_sat(x, y);
 }
 template <typename T>
-CETL_NODISCARD constexpr T saturating_div(T x, T y) noexcept
+CETL_NODISCARD constexpr auto saturating_div(T x, T y) noexcept -> decltype(std::div_sat(x, y))
 {
     return std::div_sat(x, y);
 }
 template <typename T, typename U>
-CETL_NODISCARD constexpr T saturating_cast(U x) noexcept
+CETL_NODISCARD constexpr auto saturating_cast(U x) noexcept -> decltype(std::saturate_cast<T>(x))
 {
     return std::saturate_cast<T>(x);
 }
