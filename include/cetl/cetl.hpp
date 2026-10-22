@@ -34,6 +34,7 @@
 /// - @subpage example_11_memory_resource_o1heap
 /// - @subpage example_12_buddy_memory_resource
 /// - @subpage example_13_saturating_arithmetic
+/// - @subpage example_14_expected
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -87,6 +88,10 @@
 /// @page example_13_saturating_arithmetic Example 13: Saturation arithmetic with the C++26 polyfill header
 /// Full example for @ref cetl/pf26/cetlpf.hpp
 /// @include example_13_saturating_arithmetic.cpp
+///
+/// @page example_14_expected Example 14: Returning a value or an error with the C++23 polyfill header
+/// Full example for @ref cetl/pf23/cetlpf.hpp
+/// @include example_14_expected.cpp
 ///
 
 #ifndef CETL_H_INCLUDED
