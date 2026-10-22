@@ -16,6 +16,7 @@ set(COMPILE_TESTS
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_transform_reference.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_unexpected_value_type.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_value_rvalue_move_only_error.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_unexpected_swap_not_swappable.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_const_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_mixed_types.cpp

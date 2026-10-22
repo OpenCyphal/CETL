@@ -824,6 +824,39 @@ TYPED_TEST(test_pf23_expected_operations, unexpected)
     static_assert(!std::is_default_constructible<unexpected_t<TypeParam, int>>::value, "");
 }
 
+TYPED_TEST(test_pf23_expected_operations, unexpected_swap_constraints)
+{
+    // What libc++ and libstdc++ agree on ([expected.un.swap]): the free swap takes part in overload resolution only if
+    // E is swappable, so the swappable traits see through to E, and swapping works when E is swappable. They disagree
+    // on whether the member swap is constrained (libstdc++) or only mandated (the standard's wording, libc++ and this
+    // polyfill), so that is not checked here; test_pf23_unexpected_swap_not_swappable.cpp checks that calling it with
+    // a non-swappable E does not compile.
+    static_assert(cetl::pf17::is_swappable<unexpected_t<TypeParam, int>>::value, "");
+    static_assert(cetl::pf17::is_nothrow_swappable<unexpected_t<TypeParam, int>>::value, "");
+    static_assert(cetl::pf17::is_swappable<unexpected_t<TypeParam, move_only>>::value, "");
+    static_assert(!cetl::pf17::is_swappable<unexpected_t<TypeParam, non_movable>>::value, "");
+    static_assert(cetl::pf17::is_swappable<unexpected_t<TypeParam, potentially_throwing_int>>::value, "");
+    static_assert(!cetl::pf17::is_nothrow_swappable<unexpected_t<TypeParam, potentially_throwing_int>>::value, "");
+#if __cplusplus >= CETL_CPP_STANDARD_17
+    static_assert(std::is_swappable_v<unexpected_t<TypeParam, move_only>>, "");
+    static_assert(!std::is_swappable_v<unexpected_t<TypeParam, non_movable>>, "");
+    static_assert(!std::is_nothrow_swappable_v<unexpected_t<TypeParam, potentially_throwing_int>>, "");
+#endif
+    unexpected_t<TypeParam, move_only> a(move_only{1});
+    unexpected_t<TypeParam, move_only> b(move_only{2});
+    swap(a, b);
+    EXPECT_EQ(2, a.error().value);
+    EXPECT_EQ(1, b.error().value);
+    a.swap(b);
+    EXPECT_EQ(1, a.error().value);
+    EXPECT_EQ(2, b.error().value);
+    unexpected_t<TypeParam, potentially_throwing_int> c(potentially_throwing_int{3});
+    unexpected_t<TypeParam, potentially_throwing_int> d(potentially_throwing_int{4});
+    swap(c, d);
+    EXPECT_EQ(4, c.error().value);
+    EXPECT_EQ(3, d.error().value);
+}
+
 #if defined(__cpp_deduction_guides)
 TEST(test_pf23_expected_cetl, unexpected_deduction_guide)
 {
