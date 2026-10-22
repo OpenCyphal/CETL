@@ -767,7 +767,8 @@ template <typename E>
 using enable_void_swap = cetl::pf17::conjunction<cetl::pf17::is_swappable<E>, std::is_move_constructible<E>>;
 
 /// The equality operators take part in overload resolution only if every comparison they make is well-formed and
-/// yields something convertible to bool (P3379R0).
+/// yields something implicitly convertible to bool (P3379R0). They return the result of the comparison, so that
+/// conversion is the one used, never an explicit one (LWG 4366).
 template <typename... Results>
 using enable_comparison = std::enable_if_t<cetl::pf17::conjunction<std::is_convertible<Results, bool>...>::value, bool>;
 
@@ -857,7 +858,7 @@ public:
     template <typename E2>
     friend constexpr bool operator==(const unexpected& x, const unexpected<E2>& y)
     {
-        return static_cast<bool>(x.error() == y.error());
+        return x.error() == y.error();
     }
     template <typename E2>
     friend constexpr bool operator!=(const unexpected& x, const unexpected<E2>& y)
@@ -1324,14 +1325,22 @@ public:
     {
         static_assert(std::is_copy_constructible<E>::value, "error_or() requires a copy constructible error type.");
         static_assert(detail::exp::is_convertible<G, E>::value, "error_or() requires an argument convertible to E.");
-        return has_value() ? static_cast<E>(std::forward<G>(default_error)) : this->m_error;
+        if (has_value())
+        {
+            return std::forward<G>(default_error);
+        }
+        return this->m_error;
     }
     template <typename G = E>
     CETL_NODISCARD constexpr E error_or(G&& default_error) &&
     {
         static_assert(std::is_move_constructible<E>::value, "error_or() requires a move constructible error type.");
         static_assert(detail::exp::is_convertible<G, E>::value, "error_or() requires an argument convertible to E.");
-        return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(this->m_error);
+        if (has_value())
+        {
+            return std::forward<G>(default_error);
+        }
+        return std::move(this->m_error);
     }
     /// @}
 
@@ -1570,8 +1579,15 @@ public:
                                                     decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const expected& x, const expected<T2, E2>& y)
     {
-        return (x.has_value() == y.has_value()) &&
-               (x.has_value() ? static_cast<bool>(*x == *y) : static_cast<bool>(x.error() == y.error()));
+        if (x.has_value() != y.has_value())
+        {
+            return false;
+        }
+        if (x.has_value())
+        {
+            return *x == *y;
+        }
+        return x.error() == y.error();
     }
     template <typename T2, typename E2, std::enable_if_t<!std::is_void<T2>::value, int> = 0>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const T&>() == std::declval<const T2&>()),
@@ -1588,13 +1604,21 @@ public:
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const T&>() == std::declval<const T2&>())>
     operator==(const expected& x, const T2& v)
     {
-        return x.has_value() && static_cast<bool>(*x == v);
+        if (x.has_value())
+        {
+            return *x == v;
+        }
+        return false;
     }
     template <typename T2, std::enable_if_t<!detail::exp::is_expected<T2>::value, int> = 0>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const T&>() == std::declval<const T2&>())>
     operator==(const T2& v, const expected& x)
     {
-        return x.has_value() && static_cast<bool>(*x == v);
+        if (x.has_value())
+        {
+            return *x == v;
+        }
+        return false;
     }
     template <typename T2, std::enable_if_t<!detail::exp::is_expected<T2>::value, int> = 0>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const T&>() == std::declval<const T2&>())>
@@ -1616,13 +1640,21 @@ public:
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const expected& x, const unexpected<E2>& e)
     {
-        return (!x.has_value()) && static_cast<bool>(x.error() == e.error());
+        if (!x.has_value())
+        {
+            return x.error() == e.error();
+        }
+        return false;
     }
     template <typename E2>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const unexpected<E2>& e, const expected& x)
     {
-        return (!x.has_value()) && static_cast<bool>(x.error() == e.error());
+        if (!x.has_value())
+        {
+            return x.error() == e.error();
+        }
+        return false;
     }
     template <typename E2>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
@@ -2005,14 +2037,22 @@ public:
     {
         static_assert(std::is_copy_constructible<E>::value, "error_or() requires a copy constructible error type.");
         static_assert(detail::exp::is_convertible<G, E>::value, "error_or() requires an argument convertible to E.");
-        return has_value() ? static_cast<E>(std::forward<G>(default_error)) : this->m_error;
+        if (has_value())
+        {
+            return std::forward<G>(default_error);
+        }
+        return this->m_error;
     }
     template <typename G = E>
     CETL_NODISCARD constexpr E error_or(G&& default_error) &&
     {
         static_assert(std::is_move_constructible<E>::value, "error_or() requires a move constructible error type.");
         static_assert(detail::exp::is_convertible<G, E>::value, "error_or() requires an argument convertible to E.");
-        return has_value() ? static_cast<E>(std::forward<G>(default_error)) : std::move(this->m_error);
+        if (has_value())
+        {
+            return std::forward<G>(default_error);
+        }
+        return std::move(this->m_error);
     }
     /// @}
 
@@ -2246,7 +2286,15 @@ public:
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const expected& x, const expected<T2, E2>& y)
     {
-        return (x.has_value() == y.has_value()) && (x.has_value() || static_cast<bool>(x.error() == y.error()));
+        if (x.has_value() != y.has_value())
+        {
+            return false;
+        }
+        if (x.has_value())
+        {
+            return true;
+        }
+        return x.error() == y.error();
     }
     template <typename T2, typename E2, std::enable_if_t<std::is_void<T2>::value, int> = 0>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
@@ -2262,13 +2310,21 @@ public:
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const expected& x, const unexpected<E2>& e)
     {
-        return (!x.has_value()) && static_cast<bool>(x.error() == e.error());
+        if (!x.has_value())
+        {
+            return x.error() == e.error();
+        }
+        return false;
     }
     template <typename E2>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
     operator==(const unexpected<E2>& e, const expected& x)
     {
-        return (!x.has_value()) && static_cast<bool>(x.error() == e.error());
+        if (!x.has_value())
+        {
+            return x.error() == e.error();
+        }
+        return false;
     }
     template <typename E2>
     friend constexpr detail::exp::enable_comparison<decltype(std::declval<const E&>() == std::declval<const E2&>())>
