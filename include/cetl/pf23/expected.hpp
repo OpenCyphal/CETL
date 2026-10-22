@@ -21,6 +21,16 @@
 #include <type_traits>
 #include <utility>
 
+// From C++20 a constant expression can change the active member of a union (std::construct_at and constexpr
+// destructors), so the operations that do so are constexpr there, as they are in std::expected. Before C++20 they
+// cannot be. The macro is undefined at the end of this header.
+#if (__cplusplus >= CETL_CPP_STANDARD_20) && defined(__cpp_constexpr_dynamic_alloc) && \
+    defined(__cpp_lib_constexpr_dynamic_alloc)
+#    define CETL_PF23_CONSTEXPR20 constexpr
+#else
+#    define CETL_PF23_CONSTEXPR20
+#endif
+
 namespace cetl
 {
 namespace pf23
@@ -273,13 +283,17 @@ struct invoke_error_tag final
 
 /// Constructs a union member in place. The member may be const-qualified.
 template <typename T, typename... Args>
-void construct_member(T& member, Args&&... args)
+CETL_PF23_CONSTEXPR20 void construct_member(T& member, Args&&... args)
 {
+#if (__cplusplus >= CETL_CPP_STANDARD_20) && defined(__cpp_lib_constexpr_dynamic_alloc)
+    std::construct_at(const_cast<std::remove_cv_t<T>*>(std::addressof(member)), std::forward<Args>(args)...);
+#else
     ::new (const_cast<void*>(static_cast<const volatile void*>(std::addressof(member)))) T(std::forward<Args>(args)...);
+#endif
 }
 
 template <typename T>
-void destroy_member(T& member) noexcept
+CETL_PF23_CONSTEXPR20 void destroy_member(T& member) noexcept
 {
     member.~T();
 }
@@ -297,20 +311,20 @@ using reinit_strategy =
                                : (std::is_nothrow_move_constructible<New>::value ? 1 : 2)>;
 
 template <typename New, typename Old, typename... Args>
-void reinit(std::integral_constant<int, 0>, New& newval, Old& oldval, Args&&... args)
+CETL_PF23_CONSTEXPR20 void reinit(std::integral_constant<int, 0>, New& newval, Old& oldval, Args&&... args)
 {
     detail::exp::destroy_member(oldval);
     detail::exp::construct_member(newval, std::forward<Args>(args)...);
 }
 template <typename New, typename Old, typename... Args>
-void reinit(std::integral_constant<int, 1>, New& newval, Old& oldval, Args&&... args)
+CETL_PF23_CONSTEXPR20 void reinit(std::integral_constant<int, 1>, New& newval, Old& oldval, Args&&... args)
 {
     New tmp(std::forward<Args>(args)...);
     detail::exp::destroy_member(oldval);
     detail::exp::construct_member(newval, std::move(tmp));
 }
 template <typename New, typename Old, typename... Args>
-void reinit(std::integral_constant<int, 2>, New& newval, Old& oldval, Args&&... args)
+CETL_PF23_CONSTEXPR20 void reinit(std::integral_constant<int, 2>, New& newval, Old& oldval, Args&&... args)
 {
     Old tmp(std::move(oldval));
     detail::exp::destroy_member(oldval);
@@ -329,7 +343,7 @@ void reinit(std::integral_constant<int, 2>, New& newval, Old& oldval, Args&&... 
 }
 
 template <typename New, typename Old, typename... Args>
-void reinit_expected(New& newval, Old& oldval, Args&&... args)
+CETL_PF23_CONSTEXPR20 void reinit_expected(New& newval, Old& oldval, Args&&... args)
 {
     detail::exp::reinit(reinit_strategy<New, Old, Args...>{}, newval, oldval, std::forward<Args>(args)...);
 }
@@ -383,7 +397,7 @@ struct base_destruction<T, E, true>
     {
     }
     template <typename Other>
-    explicit base_destruction(const copy_tag, Other&& other)
+    CETL_PF23_CONSTEXPR20 explicit base_destruction(const copy_tag, Other&& other)
         : m_has_value(other.m_has_value)
     {
         if (m_has_value)
@@ -431,7 +445,7 @@ struct base_destruction<T, E, false>
     {
     }
     template <typename Other>
-    explicit base_destruction(const copy_tag, Other&& other)
+    CETL_PF23_CONSTEXPR20 explicit base_destruction(const copy_tag, Other&& other)
         : m_has_value(other.m_has_value)
     {
         if (m_has_value)
@@ -447,7 +461,7 @@ struct base_destruction<T, E, false>
     constexpr base_destruction(base_destruction&&)                 = default;
     constexpr base_destruction& operator=(const base_destruction&) = default;
     constexpr base_destruction& operator=(base_destruction&&)      = default;
-    ~base_destruction() noexcept
+    CETL_PF23_CONSTEXPR20 ~base_destruction() noexcept
     {
         if (m_has_value)
         {
@@ -483,7 +497,7 @@ template <typename T, typename E>
 struct base_copy_construction<T, E, false, true> : base_destruction<T, E>
 {
     using base_destruction<T, E>::base_destruction;
-    base_copy_construction(const base_copy_construction& other)
+    CETL_PF23_CONSTEXPR20 base_copy_construction(const base_copy_construction& other)
         : base_destruction<T, E>(copy_tag{}, other)
     {
     }
@@ -522,8 +536,8 @@ struct base_move_construction<T, E, false, true> : base_copy_construction<T, E>
 {
     using base_copy_construction<T, E>::base_copy_construction;
     constexpr base_move_construction(const base_move_construction&) = default;
-    base_move_construction(base_move_construction&& other) noexcept(std::is_nothrow_move_constructible<T>::value &&
-                                                                    std::is_nothrow_move_constructible<E>::value)
+    CETL_PF23_CONSTEXPR20 base_move_construction(base_move_construction&& other) noexcept(
+        std::is_nothrow_move_constructible<T>::value && std::is_nothrow_move_constructible<E>::value)
         : base_copy_construction<T, E>(copy_tag{}, std::move(other))
     {
     }
@@ -577,7 +591,7 @@ struct base_copy_assignment<T, E, false, true> : base_move_construction<T, E>
     using base_move_construction<T, E>::base_move_construction;
     constexpr base_copy_assignment(const base_copy_assignment&) = default;
     constexpr base_copy_assignment(base_copy_assignment&&)      = default;
-    base_copy_assignment& operator=(const base_copy_assignment& other)
+    CETL_PF23_CONSTEXPR20 base_copy_assignment& operator=(const base_copy_assignment& other)
     {
         if (this->m_has_value && other.m_has_value)
         {
@@ -824,7 +838,7 @@ public:
     /// @}
 
     /// Swaps the errors.
-    void swap(unexpected& other) noexcept(cetl::pf17::is_nothrow_swappable<E>::value)
+    CETL_PF23_CONSTEXPR20 void swap(unexpected& other) noexcept(cetl::pf17::is_nothrow_swappable<E>::value)
     {
         static_assert(cetl::pf17::is_swappable<E>::value, "E must be swappable.");
         using std::swap;
@@ -833,7 +847,7 @@ public:
 
     template <typename Dependency                                                                             = void,
               std::enable_if_t<cetl::pf17::is_swappable<detail::exp::dependent_t<Dependency, E>>::value, int> = 0>
-    friend void swap(unexpected& x, unexpected& y) noexcept(noexcept(x.swap(y)))
+    friend CETL_PF23_CONSTEXPR20 void swap(unexpected& x, unexpected& y) noexcept(noexcept(x.swap(y)))
     {
         x.swap(y);
     }
@@ -866,9 +880,11 @@ unexpected(E) -> unexpected<E>;
 /// Differences from \c std::expected that are visible to a program:
 /// - Copy and move assignment are trivial when T and E are trivially copyable, so
 ///   \c std::is_trivially_copy_assignable<expected<T, E>> can be true where the standard leaves it unspecified.
-/// - In C++14 the members that cannot be constant expressions there (assignment, emplace(), swap(), and constructors
-///   that convert from another expected) are not \c constexpr, and transform() and transform_error() require the new
-///   value or error type to be move constructible, because C++14 has no guaranteed copy elision.
+/// - Before C++20 the members that change which alternative is held (assignment, emplace(), swap(), and constructors
+///   that convert from another expected) are not \c constexpr, because only C++20 lets a constant expression change
+///   the active member of a union.
+/// - In C++14 transform() and transform_error() require the new value or error type to be move constructible, because
+///   C++14 has no guaranteed copy elision.
 /// - In C++14 the in-place constructors take \c cetl::pf17::in_place_t; in C++17 and later they take
 ///   \c std::in_place_t. \c cetl::in_place from cetl/pf17/cetlpf.hpp is the right one in every case.
 /// - cv-qualified void is not supported as the value type; plain void is.
@@ -925,7 +941,7 @@ public:
                                                  detail::exp::is_convertible<const U&, T>,
                                                  detail::exp::is_convertible<const G&, E>>::value,
                          int> = 0>
-    expected(const expected<U, G>& other)  // NOLINT(*-explicit-constructor)
+    CETL_PF23_CONSTEXPR20 expected(const expected<U, G>& other)  // NOLINT(*-explicit-constructor)
         : base(detail::exp::copy_tag{}, static_cast<const typename expected<U, G>::base&>(other))
     {
     }
@@ -937,7 +953,7 @@ public:
                       cetl::pf17::negation<cetl::pf17::conjunction<detail::exp::is_convertible<const U&, T>,
                                                                    detail::exp::is_convertible<const G&, E>>>>::value,
                   int> = 0>
-    explicit expected(const expected<U, G>& other)
+    CETL_PF23_CONSTEXPR20 explicit expected(const expected<U, G>& other)
         : base(detail::exp::copy_tag{}, static_cast<const typename expected<U, G>::base&>(other))
     {
     }
@@ -947,7 +963,7 @@ public:
                                                        detail::exp::is_convertible<U, T>,
                                                        detail::exp::is_convertible<G, E>>::value,
                                int> = 0>
-    expected(expected<U, G>&& other)  // NOLINT(*-explicit-constructor)
+    CETL_PF23_CONSTEXPR20 expected(expected<U, G>&& other)  // NOLINT(*-explicit-constructor)
         : base(detail::exp::copy_tag{}, static_cast<typename expected<U, G>::base&&>(other))
     {
     }
@@ -959,7 +975,7 @@ public:
                              cetl::pf17::negation<cetl::pf17::conjunction<detail::exp::is_convertible<U, T>,
                                                                           detail::exp::is_convertible<G, E>>>>::value,
                          int> = 0>
-    explicit expected(expected<U, G>&& other)
+    CETL_PF23_CONSTEXPR20 explicit expected(expected<U, G>&& other)
         : base(detail::exp::copy_tag{}, static_cast<typename expected<U, G>::base&&>(other))
     {
     }
@@ -1077,7 +1093,7 @@ public:
     /// Assigns a value.
     template <typename U                                                                  = std::remove_cv_t<T>,
               std::enable_if_t<detail::exp::enable_value_assignment<T, E, U>::value, int> = 0>
-    expected& operator=(U&& value)
+    CETL_PF23_CONSTEXPR20 expected& operator=(U&& value)
     {
         if (has_value())
         {
@@ -1094,13 +1110,13 @@ public:
     /// Assigns an error.
     /// @{
     template <typename G, std::enable_if_t<detail::exp::enable_unexpected_assignment<T, E, const G&>::value, int> = 0>
-    expected& operator=(const unexpected<G>& e)
+    CETL_PF23_CONSTEXPR20 expected& operator=(const unexpected<G>& e)
     {
         assign_error(e.error());
         return *this;
     }
     template <typename G, std::enable_if_t<detail::exp::enable_unexpected_assignment<T, E, G>::value, int> = 0>
-    expected& operator=(unexpected<G>&& e)
+    CETL_PF23_CONSTEXPR20 expected& operator=(unexpected<G>&& e)
     {
         assign_error(std::move(e).error());
         return *this;
@@ -1110,7 +1126,7 @@ public:
     /// Destroys the value or the error and constructs a value in place.
     /// @{
     template <typename... Args, std::enable_if_t<std::is_nothrow_constructible<T, Args...>::value, int> = 0>
-    T& emplace(Args&&... args) noexcept
+    CETL_PF23_CONSTEXPR20 T& emplace(Args&&... args) noexcept
     {
         destroy_active();
         detail::exp::construct_member(this->m_value, std::forward<Args>(args)...);
@@ -1120,7 +1136,7 @@ public:
     template <typename U,
               typename... Args,
               std::enable_if_t<std::is_nothrow_constructible<T, std::initializer_list<U>&, Args...>::value, int> = 0>
-    T& emplace(std::initializer_list<U> il, Args&&... args) noexcept
+    CETL_PF23_CONSTEXPR20 T& emplace(std::initializer_list<U> il, Args&&... args) noexcept
     {
         destroy_active();
         detail::exp::construct_member(this->m_value, il, std::forward<Args>(args)...);
@@ -1133,10 +1149,10 @@ public:
     /// constructible is moved first so that the swap gives the strong exception guarantee.
     template <typename Dependency                                                                                = void,
               std::enable_if_t<detail::exp::enable_swap<detail::exp::dependent_t<Dependency, T>, E>::value, int> = 0>
-    void swap(expected& other) noexcept(std::is_nothrow_move_constructible<T>::value &&
-                                        cetl::pf17::is_nothrow_swappable<T>::value &&
-                                        std::is_nothrow_move_constructible<E>::value &&
-                                        cetl::pf17::is_nothrow_swappable<E>::value)
+    CETL_PF23_CONSTEXPR20 void swap(expected& other) noexcept(std::is_nothrow_move_constructible<T>::value &&
+                                                              cetl::pf17::is_nothrow_swappable<T>::value &&
+                                                              std::is_nothrow_move_constructible<E>::value &&
+                                                              cetl::pf17::is_nothrow_swappable<E>::value)
     {
         if (has_value() && other.has_value())
         {
@@ -1162,7 +1178,7 @@ public:
 
     template <typename Dependency                                                                                = void,
               std::enable_if_t<detail::exp::enable_swap<detail::exp::dependent_t<Dependency, T>, E>::value, int> = 0>
-    friend void swap(expected& x, expected& y) noexcept(noexcept(x.swap(y)))
+    friend CETL_PF23_CONSTEXPR20 void swap(expected& x, expected& y) noexcept(noexcept(x.swap(y)))
     {
         x.swap(y);
     }
@@ -1635,7 +1651,7 @@ private:
     }
 
     template <typename G>
-    void assign_error(G&& error)
+    CETL_PF23_CONSTEXPR20 void assign_error(G&& error)
     {
         if (has_value())
         {
@@ -1648,7 +1664,7 @@ private:
         }
     }
 
-    void destroy_active() noexcept
+    CETL_PF23_CONSTEXPR20 void destroy_active() noexcept
     {
         if (has_value())
         {
@@ -1662,7 +1678,7 @@ private:
 
     /// Moves this value into other and other's error into this. E can be moved without throwing, so it is set aside
     /// first and put back if moving the value throws.
-    void swap_value_with_error(expected& other, std::true_type)
+    CETL_PF23_CONSTEXPR20 void swap_value_with_error(expected& other, std::true_type)
     {
         E tmp(std::move(other.m_error));
         detail::exp::destroy_member(other.m_error);
@@ -1682,7 +1698,7 @@ private:
         detail::exp::construct_member(this->m_error, std::move(tmp));
     }
     /// As above, but only T can be moved without throwing, so the value is set aside first.
-    void swap_value_with_error(expected& other, std::false_type)
+    CETL_PF23_CONSTEXPR20 void swap_value_with_error(expected& other, std::false_type)
     {
         T tmp(std::move(this->m_value));
         detail::exp::destroy_member(this->m_value);
@@ -1742,7 +1758,7 @@ public:
               std::enable_if_t<cetl::pf17::conjunction<detail::exp::enable_void_converting_ctor<E, U, G, const G&>,
                                                        detail::exp::is_convertible<const G&, E>>::value,
                                int> = 0>
-    expected(const expected<U, G>& other)  // NOLINT(*-explicit-constructor)
+    CETL_PF23_CONSTEXPR20 expected(const expected<U, G>& other)  // NOLINT(*-explicit-constructor)
         : base(detail::exp::copy_tag{}, static_cast<const typename expected<U, G>::base&>(other))
     {
     }
@@ -1752,7 +1768,7 @@ public:
         std::enable_if_t<cetl::pf17::conjunction<detail::exp::enable_void_converting_ctor<E, U, G, const G&>,
                                                  cetl::pf17::negation<detail::exp::is_convertible<const G&, E>>>::value,
                          int> = 0>
-    explicit expected(const expected<U, G>& other)
+    CETL_PF23_CONSTEXPR20 explicit expected(const expected<U, G>& other)
         : base(detail::exp::copy_tag{}, static_cast<const typename expected<U, G>::base&>(other))
     {
     }
@@ -1761,7 +1777,7 @@ public:
               std::enable_if_t<cetl::pf17::conjunction<detail::exp::enable_void_converting_ctor<E, U, G, G>,
                                                        detail::exp::is_convertible<G, E>>::value,
                                int> = 0>
-    expected(expected<U, G>&& other)  // NOLINT(*-explicit-constructor)
+    CETL_PF23_CONSTEXPR20 expected(expected<U, G>&& other)  // NOLINT(*-explicit-constructor)
         : base(detail::exp::copy_tag{}, static_cast<typename expected<U, G>::base&&>(other))
     {
     }
@@ -1770,7 +1786,7 @@ public:
               std::enable_if_t<cetl::pf17::conjunction<detail::exp::enable_void_converting_ctor<E, U, G, G>,
                                                        cetl::pf17::negation<detail::exp::is_convertible<G, E>>>::value,
                                int> = 0>
-    explicit expected(expected<U, G>&& other)
+    CETL_PF23_CONSTEXPR20 explicit expected(expected<U, G>&& other)
         : base(detail::exp::copy_tag{}, static_cast<typename expected<U, G>::base&&>(other))
     {
     }
@@ -1853,7 +1869,7 @@ public:
     template <typename G,
               std::enable_if_t<detail::exp::enable_unexpected_assignment<detail::exp::void_value, E, const G&>::value,
                                int> = 0>
-    expected& operator=(const unexpected<G>& e)
+    CETL_PF23_CONSTEXPR20 expected& operator=(const unexpected<G>& e)
     {
         assign_error(e.error());
         return *this;
@@ -1861,7 +1877,7 @@ public:
     template <
         typename G,
         std::enable_if_t<detail::exp::enable_unexpected_assignment<detail::exp::void_value, E, G>::value, int> = 0>
-    expected& operator=(unexpected<G>&& e)
+    CETL_PF23_CONSTEXPR20 expected& operator=(unexpected<G>&& e)
     {
         assign_error(std::move(e).error());
         return *this;
@@ -1869,7 +1885,7 @@ public:
     /// @}
 
     /// Destroys the error, if any, so that the expected holds a value.
-    void emplace() noexcept
+    CETL_PF23_CONSTEXPR20 void emplace() noexcept
     {
         if (!has_value())
         {
@@ -1882,8 +1898,8 @@ public:
     /// Swaps the contents.
     template <typename Dependency = void,
               std::enable_if_t<detail::exp::enable_void_swap<detail::exp::dependent_t<Dependency, E>>::value, int> = 0>
-    void swap(expected& other) noexcept(std::is_nothrow_move_constructible<E>::value &&
-                                        cetl::pf17::is_nothrow_swappable<E>::value)
+    CETL_PF23_CONSTEXPR20 void swap(expected& other) noexcept(std::is_nothrow_move_constructible<E>::value &&
+                                                              cetl::pf17::is_nothrow_swappable<E>::value)
     {
         if (has_value() && other.has_value())
         {
@@ -1910,7 +1926,7 @@ public:
 
     template <typename Dependency = void,
               std::enable_if_t<detail::exp::enable_void_swap<detail::exp::dependent_t<Dependency, E>>::value, int> = 0>
-    friend void swap(expected& x, expected& y) noexcept(noexcept(x.swap(y)))
+    friend CETL_PF23_CONSTEXPR20 void swap(expected& x, expected& y) noexcept(noexcept(x.swap(y)))
     {
         x.swap(y);
     }
@@ -2282,7 +2298,7 @@ private:
     }
 
     template <typename G>
-    void assign_error(G&& error)
+    CETL_PF23_CONSTEXPR20 void assign_error(G&& error)
     {
         if (has_value())
         {
@@ -2298,5 +2314,7 @@ private:
 
 }  // namespace pf23
 }  // namespace cetl
+
+#undef CETL_PF23_CONSTEXPR20
 
 #endif  // CETL_PF23_EXPECTED_HPP_INCLUDED
