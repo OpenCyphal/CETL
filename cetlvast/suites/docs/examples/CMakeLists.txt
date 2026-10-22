@@ -34,6 +34,7 @@ set(NATIVE_EXAMPLES
     example_11_memory_resource_o1heap.cpp
     example_12_buddy_memory_resource.cpp
     example_13_saturating_arithmetic.cpp
+    example_14_expected.cpp
 )
 
 set(ALL_EXAMPLES "")

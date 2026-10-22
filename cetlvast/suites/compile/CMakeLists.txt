@@ -12,6 +12,9 @@ include(CompileTest)
 set(COMPILE_TESTS
      ${CMAKE_CURRENT_SOURCE_DIR}/test_cetl_h_erase.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf20_cmp_less_bool.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_and_then_not_expected.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_transform_reference.cpp
+     ${CMAKE_CURRENT_SOURCE_DIR}/test_pf23_expected_unexpected_value_type.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_const_bool.cpp
      ${CMAKE_CURRENT_SOURCE_DIR}/test_pf26_saturating_add_mixed_types.cpp
