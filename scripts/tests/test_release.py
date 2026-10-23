@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -19,8 +20,8 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
-from release import GitHub, cut_release, require_latest_stable  # noqa: E402
-from release_tools import (Git, HEADER, ReleaseError, check_bundle, check_run, command,  # noqa: E402
+from release import GitHub, check_local_tools, cut_release, require_latest_stable  # noqa: E402
+from release_tools import (Git, HEADER, RELEASE_FILES, ReleaseError, check_bundle, check_documentation, check_run, command,  # noqa: E402
                            header_version, package, parse_version, repository_from_url,
                            required_jobs, sha256, validate)
 
@@ -118,6 +119,64 @@ class GateTests(unittest.TestCase):
 
 
 class GitHubTransportTests(unittest.TestCase):
+    def test_local_tools_require_python_310(self):
+        with patch("release.command") as execute:
+            with self.assertRaisesRegex(ReleaseError, "Python 3.10"):
+                check_local_tools((3, 9))
+            execute.assert_not_called()
+
+    def test_old_github_cli_prints_upgrade_instruction(self):
+        with patch("release.command", side_effect=["git version", "gh version", ReleaseError("unsupported")]):
+            with self.assertRaisesRegex(ReleaseError, "Update GitHub CLI"):
+                check_local_tools((3, 10))
+
+    def test_missing_tool_prints_install_instruction(self):
+        with patch("release_tools.subprocess.run", side_effect=FileNotFoundError):
+            with self.assertRaisesRegex(ReleaseError, "Install GitHub CLI"):
+                command(["gh", "--version"])
+
+    def test_api_error_explains_authentication_without_echoing_credentials(self):
+        with patch("release.command", side_effect=ReleaseError("secret-token")):
+            with self.assertRaisesRegex(ReleaseError, "gh auth login") as caught:
+                GitHub("example/cetl").api("")
+        self.assertNotIn("secret-token", str(caught.exception))
+
+    def test_documentation_version_reads_visible_doxygen_number(self):
+        check_documentation('<span id="projectnumber">&#160;2.0.0</span>', "2.0.0")
+        for html in ('<span id="projectnumber">1.0.0</span>', '<p>2.0.0 elsewhere in the page</p>'):
+            with self.assertRaisesRegex(ReleaseError, "Documentation displays"):
+                check_documentation(html, "2.0.0")
+
+    def test_site_verification_fetches_actual_published_html(self):
+        github = GitHub("example/cetl")
+        response = io.BytesIO(b'<span id="projectnumber">2.0.0</span>')
+        with patch.object(github, "api", return_value={"html_url": "https://example.test/cetl/"}), \
+                patch("release.urlopen", return_value=response) as fetch:
+            with contextlib.redirect_stdout(io.StringIO()):
+                github.verify_pages("2.0.0", 1, 1)
+        self.assertEqual(fetch.call_args.args[0].full_url, "https://example.test/cetl/")
+        self.assertIsNone(fetch.call_args.args[0].get_header("Authorization"))
+
+    def test_wrong_published_site_version_fails_with_resume_instruction(self):
+        github = GitHub("example/cetl")
+        response = io.BytesIO(b'<span id="projectnumber">1.0.0</span>')
+        with patch.object(github, "api", return_value={"html_url": "https://example.test/cetl/"}), \
+                patch("release.urlopen", return_value=response), \
+                patch("release.time.monotonic", side_effect=[0, 0, 2]), patch("release.time.sleep"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ReleaseError, "Documentation displays 1.0.0, expected 2.0.0.*printed resume command"):
+                github.verify_pages("2.0.0", 1, 1)
+
+    def test_site_network_failure_is_distinguished_from_wrong_version(self):
+        github = GitHub("example/cetl")
+        with patch.object(github, "api", return_value={"html_url": "https://example.test/cetl/"}), \
+                patch("release.urlopen", side_effect=OSError("sensitive transport details")), \
+                patch("release.time.monotonic", side_effect=[0, 0, 2]), patch("release.time.sleep"), \
+                contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaisesRegex(ReleaseError, "check network/TLS access") as caught:
+                github.verify_pages("2.0.0", 1, 1)
+        self.assertNotIn("sensitive transport details", str(caught.exception))
+
     def test_cli_pins_host_and_api_encodes_booleans(self):
         github = GitHub("example/cetl")
         with patch("release.command", return_value="{}") as execute:
@@ -167,6 +226,7 @@ class LocalGit(Git):
 class SimulatedGitHub:
     def __init__(self, git, docs, tag):
         self.git, self.docs, self.tag = git, docs, tag
+        self.repository = "example/cetl"
         self.run = successful_run(git.commit("HEAD"), tag)
         self.release_data = None
         self.asset_data = {}
@@ -176,6 +236,23 @@ class SimulatedGitHub:
         self.docs_run = None
         self.fail_docs = False
         self.other_versions = set()
+        self.workflow_state = "active"
+        self.pages_type = "workflow"
+        self.environment_policy = {"protected_branches": False, "custom_branch_policies": True}
+        self.branch_policies = [{"name": "main", "type": "branch"}]
+        self.main_protected = True
+        self.site_version = "2.0.0"
+
+    def preflight(self, stable):
+        return GitHub.preflight(self, stable)
+
+    def pages(self, path, key=None):
+        if path == "environments/github-pages/deployment-branch-policies":
+            return self.branch_policies
+        raise AssertionError(path)
+
+    def verify_pages(self, version, timeout, poll):
+        check_documentation(f'<span id="projectnumber">{self.site_version}</span>', version)
 
     def published_stable_versions(self):
         versions = set(self.other_versions)
@@ -186,6 +263,14 @@ class SimulatedGitHub:
     def api(self, path, method="GET", **fields):
         if path == "":
             return {"permissions": self.permissions, "default_branch": "main"}
+        if path == "actions/workflows/cetlvast.yml":
+            return {"state": self.workflow_state}
+        if path == "pages":
+            return {"build_type": self.pages_type, "html_url": "https://example.test/cetl/"}
+        if path == "environments/github-pages":
+            return {"deployment_branch_policy": self.environment_policy}
+        if path == "branches/main":
+            return {"protected": self.main_protected}
         if path == "releases/1" and method == "PATCH":
             self.writes.append("publish")
             self.release_data["draft"] = fields["draft"]
@@ -227,6 +312,10 @@ class SimulatedGitHub:
             self.writes.append("upload")
             if self.fail_after_upload == len(self.asset_data):
                 raise ReleaseError("Simulated interrupted upload")
+        elif args[:2] == ("release", "download"):
+            directory = Path(args[args.index("--dir") + 1])
+            for name, data in self.asset_data.items():
+                (directory / name).write_bytes(data)
         elif args[:2] == ("workflow", "run"):
             self.writes.append("dispatch")
             if args[args.index("--ref") + 1] == "main":
@@ -239,6 +328,9 @@ class SimulatedGitHub:
 
 class RepositoryTests(unittest.TestCase):
     def setUp(self):
+        tools = patch("release.check_local_tools")
+        tools.start()
+        self.addCleanup(tools.stop)
         self.temporary = tempfile.TemporaryDirectory(prefix="cetl-rehearsal-")
         self.addCleanup(self.temporary.cleanup)
         root = Path(self.temporary.name)
@@ -252,6 +344,10 @@ class RepositoryTests(unittest.TestCase):
         (self.root / HEADER).write_text(HEADER_TEXT)
         (self.root / "LICENSE").write_text("Fixture license\n")
         (self.root / "README.md").write_text("Fixture source\n")
+        for path in RELEASE_FILES:
+            destination = self.root / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(SCRIPTS.parent / path, destination)
         self.git.run("add", ".")
         self.git.run("commit", "-m", "Release fixture")
         command(["git", "init", "--bare", "--initial-branch=main", str(root / "remote.git")])
@@ -310,6 +406,62 @@ class RepositoryTests(unittest.TestCase):
         self.assertFalse(self.github.writes)
         self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
 
+    def test_defaults_fetch_main_and_derive_header_version(self):
+        (self.root / HEADER).write_text(HEADER_TEXT.replace("MINOR 0", "MINOR 1"))
+        self.git.run("add", ".")
+        self.git.run("commit", "-m", "Prepare version 2.1.0")
+        new_commit = self.git.commit("HEAD")
+        self.git.run("push", "origin", "main")
+        self.git.run("checkout", "--detach", self.commit)
+        self.args.ref, self.args.version, self.args.dry_run = None, None, True
+        output = self.cut()
+        self.assertIn("Tag: v2.1.0", output)
+        self.assertIn("Commit: " + new_commit, output)
+        self.assertIn("--ref " + new_commit, output)
+        self.assertIn("Release this checked commit:", output)
+        self.assertFalse(self.github.writes)
+        self.assertIsNone(self.git.remote_tag("origin", "v2.1.0"))
+
+    def test_missing_workflow_on_main_stops_before_tag_creation(self):
+        self.git.run("rm", ".github/workflows/cetlvast.yml")
+        self.git.run("commit", "-m", "Remove workflow")
+        self.git.run("push", "origin", "main")
+        self.args.ref = self.git.commit("HEAD")
+        with self.assertRaisesRegex(ReleaseError, "Merge the release tooling"):
+            self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+
+    def test_disabled_workflow_stops_before_tag_creation(self):
+        self.github.workflow_state = "disabled_manually"
+        with self.assertRaisesRegex(ReleaseError, "gh workflow enable"):
+            self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+
+    def test_pages_must_use_actions_before_publishing_stable(self):
+        self.github.pages_type = "legacy"
+        with self.assertRaisesRegex(ReleaseError, "Pages build source"):
+            self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+
+    def test_tag_only_pages_policy_does_not_allow_main(self):
+        self.github.branch_policies = [{"name": "*", "type": "tag"}]
+        with self.assertRaisesRegex(ReleaseError, "Allow main"):
+            self.cut()
+        self.assertFalse(self.github.writes)
+
+    def test_protected_branch_pages_policy_rejects_unprotected_main(self):
+        self.github.environment_policy = {"protected_branches": True, "custom_branch_policies": False}
+        self.github.main_protected = False
+        with self.assertRaisesRegex(ReleaseError, "Allow main"):
+            self.cut()
+
+    def test_prerelease_does_not_require_pages_configuration(self):
+        self.args.version, self.args.dry_run = "2.0.0-rc.1", True
+        self.github.pages_type = "legacy"
+        self.github.branch_policies = []
+        self.cut()
+        self.assertFalse(self.github.writes)
+
     def test_authentication_failure(self):
         with patch.object(self.github, "api", side_effect=ReleaseError("Authentication failed")):
             with self.assertRaisesRegex(ReleaseError, "Authentication"):
@@ -364,6 +516,21 @@ class RepositoryTests(unittest.TestCase):
         self.add_tag()
         with self.assertRaisesRegex(ReleaseError, "--resume"):
             self.cut()
+
+    def test_dry_run_for_existing_tag_prints_a_working_resume_command(self):
+        self.add_tag()
+        self.args.dry_run = True
+        output = self.cut()
+        release_line = next(line for line in output.splitlines() if line.startswith("Release this checked commit:"))
+        self.assertIn("--resume", release_line)
+        self.assertIn("--ref " + self.commit, release_line)
+        self.assertFalse(self.github.writes)
+
+    def test_resume_requires_pinned_version_and_commit(self):
+        self.args.resume, self.args.ref = True, None
+        with self.assertRaisesRegex(ReleaseError, "printed Resume command"):
+            self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
 
     def test_failed_ci_cannot_create_draft_or_publish(self):
         self.add_tag()
@@ -438,6 +605,37 @@ class RepositoryTests(unittest.TestCase):
         self.cut()
         self.assertEqual(self.github.writes.count("publish"), 1)
         self.assertEqual(self.github.writes.count("dispatch"), 2)
+
+    def test_published_resume_works_without_ci_runs_or_artifacts(self):
+        self.add_tag()
+        self.args.resume = True
+        self.cut()
+        before = list(self.github.writes)
+        self.github.run = None
+        self.args.notes_file = Path(self.temporary.name) / "deleted-original-release-notes.md"
+        self.cut()
+        self.assertEqual(self.github.writes, before)
+
+    def test_published_resume_detects_corrupt_actual_assets(self):
+        self.add_tag()
+        self.args.resume = True
+        self.cut()
+        self.github.asset_data["SHA256SUMS"] = b"corrupt"
+        before = list(self.github.writes)
+        with self.assertRaisesRegex(ReleaseError, "checksums"):
+            self.cut()
+        self.assertEqual(self.github.writes, before)
+
+    def test_resume_reuses_pending_documentation_deployment(self):
+        self.add_tag()
+        self.args.resume = True
+        self.cut()
+        self.github.docs_run.update(status="waiting", conclusion=None)
+        before = list(self.github.writes)
+        with patch("release.time.monotonic", side_effect=[0, 2]):
+            with self.assertRaisesRegex(ReleaseError, "documentation timed out"):
+                self.cut()
+        self.assertEqual(self.github.writes, before)
 
     def test_new_release_cannot_downgrade_or_prerelease_a_stable_version(self):
         self.github.other_versions = {(2, 0, 0)}

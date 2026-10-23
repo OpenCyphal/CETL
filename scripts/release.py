@@ -2,15 +2,46 @@
 """Cut a CETL release using Git and the maintainer's authenticated GitHub CLI."""
 
 import argparse
+from fnmatch import fnmatchcase
 import json
+import os
 from pathlib import Path
 import re
+import shlex
+import subprocess
+import sys
 import tempfile
 import time
 from urllib.parse import urlencode
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
-from release_tools import (Git, ReleaseError, WORKFLOW, check_bundle, check_run, command,
+from release_tools import (Git, ReleaseError, WORKFLOW, check_bundle, check_documentation, check_run, command,
                            parse_version, sha256)
+
+
+def check_local_tools(python_version=None):
+    if (python_version or sys.version_info) < (3, 10):
+        raise ReleaseError("Run the release script with Python 3.10 or newer.")
+    command(["git", "--version"])
+    command(["gh", "--version"])
+    for operation in (("run", "download"), ("release", "upload"), ("workflow", "run")):
+        try:
+            command(["gh", *operation, "--help"])
+        except ReleaseError as ex:
+            raise ReleaseError("Update GitHub CLI from https://cli.github.com/ and retry; "
+                               f"gh {' '.join(operation)} is unavailable.") from ex
+
+
+def release_command(args, root, version, commit, resume=False):
+    parts = [sys.executable, str(Path(__file__).resolve()), "--root", str(root), "--repo", args.repo,
+             "--remote", args.remote, "--version", version, "--ref", commit,
+             "--timeout", str(args.timeout), "--poll", str(args.poll)]
+    if args.notes_file:
+        parts.extend(["--notes-file", str(args.notes_file.resolve())])
+    if resume:
+        parts.append("--resume")
+    return subprocess.list2cmdline(parts) if os.name == "nt" else shlex.join(parts)
 
 
 class GitHub:
@@ -18,7 +49,12 @@ class GitHub:
         self.repository = repository
 
     def cli(self, *args):
-        return command(["gh", *args, "--repo", "github.com/" + self.repository])
+        try:
+            return command(["gh", *args, "--repo", "github.com/" + self.repository])
+        except ReleaseError as ex:
+            raise ReleaseError(f"gh {' '.join(args[:2])} failed. Run gh auth status --hostname github.com; "
+                               "release operations need Contents read/write and Actions read/write access. "
+                               "Then retry the printed resume command.") from ex
 
     def api(self, path, method="GET", **fields):
         args = ["gh", "api", "--hostname", "github.com", "--method", method,
@@ -26,8 +62,64 @@ class GitHub:
         for key, value in fields.items():
             args.extend(["-F" if isinstance(value, bool) else "-f",
                          f"{key}={str(value).lower() if isinstance(value, bool) else value}"])
-        result = command(args)
+        try:
+            result = command(args)
+        except ReleaseError as ex:
+            raise ReleaseError(f"GitHub {method} {path or 'repository access'} failed. "
+                               "Run gh auth login --hostname github.com or fix GH_TOKEN/SSO access. "
+                               "The credential needs Contents read/write and Actions read/write "
+                               "(plus Pages read for stable documentation).") from ex
         return json.loads(result) if result else None
+
+    def preflight(self, stable):
+        workflow = self.api(f"actions/workflows/{WORKFLOW}")
+        if workflow.get("state") != "active":
+            raise ReleaseError(f"Enable CETLVaSt: gh workflow enable {WORKFLOW} --repo {self.repository}")
+        if not stable:
+            return
+        try:
+            site = self.api("pages")
+            environment = self.api("environments/github-pages")
+        except ReleaseError as ex:
+            raise ReleaseError(f"Cannot read Pages setup. Check credential Pages/Actions read access and "
+                               f"https://github.com/{self.repository}/settings/pages and "
+                               f"https://github.com/{self.repository}/settings/environments.") from ex
+        if site.get("build_type") != "workflow":
+            raise ReleaseError(f"Select GitHub Actions as the Pages build source at "
+                               f"https://github.com/{self.repository}/settings/pages.")
+        policy = environment.get("deployment_branch_policy") or {}
+        if policy.get("protected_branches"):
+            allowed = self.api("branches/main").get("protected", False)
+        elif policy.get("custom_branch_policies"):
+            policies = self.pages("environments/github-pages/deployment-branch-policies", "branch_policies")
+            allowed = any(item.get("type", "branch") == "branch" and fnmatchcase("main", item["name"])
+                          for item in policies)
+        else:
+            allowed = True
+        if not allowed:
+            raise ReleaseError(f"Allow main to deploy to github-pages at "
+                               f"https://github.com/{self.repository}/settings/environments.")
+
+    def verify_pages(self, version, timeout, poll):
+        url = self.api("pages")["html_url"]
+        print(f"Checking published documentation: {url} ({version})")
+        deadline = time.monotonic() + timeout
+        last_error = "No documentation response received."
+        while time.monotonic() < deadline:
+            try:
+                with urlopen(Request(url, headers={"Cache-Control": "no-cache"}), timeout=15) as response:
+                    check_documentation(response.read(2 * 1024 * 1024).decode("utf-8"), version)
+                print(f"Published documentation verified: {url} ({version})")
+                return
+            except ReleaseError as ex:
+                last_error = str(ex)
+            except HTTPError as ex:
+                last_error = f"Documentation request returned HTTP {ex.code}."
+            except (OSError, ValueError) as ex:
+                last_error = f"Could not read documentation ({type(ex).__name__}); check network/TLS access."
+            time.sleep(poll)
+        raise ReleaseError(f"Release is published, but documentation verification failed at {url}. {last_error} "
+                           "Fix access or allow Pages/CDN propagation, then retry the printed resume command.")
 
     def pages(self, path, key=None):
         items = []
@@ -89,7 +181,12 @@ def wait_for_release_run(github, commit, tag, timeout, poll):
         if candidates:
             run = max(candidates, key=lambda item: item["id"])
             if run["status"] == "completed":
-                check_run(run, github.jobs(run), commit, tag)
+                try:
+                    check_run(run, github.jobs(run), commit, tag)
+                except ReleaseError as ex:
+                    raise ReleaseError(f"{ex} See {run['html_url']}. For a transient failure run "
+                                       f"gh run rerun {run['id']} --repo {github.repository} "
+                                       "(the entire run), then use the printed resume command.") from ex
                 print(f"Verification: {run['html_url']}")
                 return run
         time.sleep(poll)
@@ -136,6 +233,16 @@ def sync_assets(github, release, tag, directory, names, upload):
         github.cli("release", "upload", tag, str(directory / name))
 
 
+def verify_published_assets(github, release, commit, tag):
+    # Published releases can outlive CI artifacts. Verify their actual assets directly on --resume.
+    with tempfile.TemporaryDirectory(prefix="cetl-published-") as temporary:
+        directory = Path(temporary)
+        github.cli("release", "download", tag, "--dir", str(directory))
+        names = check_bundle(directory, commit, tag)
+        sync_assets(github, release, tag, directory, names, upload=False)
+    print("Published release assets verified.")
+
+
 def deploy_docs(github, tag, timeout, poll):
     title = f"CETLVaSt / {tag}"
     runs = [run for run in github.runs(event="workflow_dispatch", branch="main")
@@ -148,14 +255,21 @@ def deploy_docs(github, tag, timeout, poll):
             if any(job["name"] == "deploy-docs" and job["conclusion"] == "success" for job in jobs):
                 print(f"Documentation: {latest['html_url']}")
                 return
-    previous = max((run["id"] for run in runs), default=0)
-    github.cli("workflow", "run", WORKFLOW, "--ref", "main", "-f", f"docs_ref={tag}")
+    if runs and latest["status"] != "completed":
+        previous = latest["id"] - 1  # Resume an in-flight deployment instead of queueing another full build.
+    else:
+        previous = max((run["id"] for run in runs), default=0)
+        github.cli("workflow", "run", WORKFLOW, "--ref", "main", "-f", f"docs_ref={tag}")
     deadline = time.monotonic() + timeout
+    approval_reported = set()
     while time.monotonic() < deadline:
         runs = [run for run in github.runs(event="workflow_dispatch", branch="main")
                 if run["display_title"] == title and run["id"] > previous]
         if runs:
             run = max(runs, key=lambda item: item["id"])
+            if run["status"] == "waiting" and run["id"] not in approval_reported:
+                print(f"GitHub environment approval required: {run['html_url']}")
+                approval_reported.add(run["id"])
             if run["status"] == "completed":
                 jobs = github.jobs(run)
                 if run["conclusion"] != "success" or not any(
@@ -169,29 +283,41 @@ def deploy_docs(github, tag, timeout, poll):
 
 
 def cut_release(args, git=None, github=None):
-    parse_version(args.version)
-    notes = args.notes_file.read_text(encoding="utf-8") if args.notes_file else None
-    tag = "v" + args.version
+    check_local_tools()
+    if args.resume and (not args.version or not args.ref):
+        raise ReleaseError("Use the printed Resume command: --resume requires explicit --version and --ref "
+                           "so an advancing main branch cannot change the release being resumed.")
+    if args.version:
+        parse_version(args.version)
     if not re.fullmatch(r"[\w.-]+/[\w.-]+", args.repo) or args.remote.startswith("-"):
         raise ReleaseError("Expected --repo OWNER/NAME and a named Git remote.")
     git = git or Git(args.root)
     github = github or GitHub(args.repo)
     if git.run("status", "--porcelain"):
-        raise ReleaseError("The checkout must be clean, including untracked files.")
+        raise ReleaseError("The checkout must be clean, including untracked files. "
+                           "Run git status --short and commit or stash the reported changes.")
     if git.remote_repository(args.remote).lower() != args.repo.lower():
         raise ReleaseError("Git remote does not match --repo.")
     repository = github.api("")
     if repository.get("archived") or not repository.get("permissions", {}).get("push"):
-        raise ReleaseError("GitHub credentials require repository write access.")
+        raise ReleaseError("GitHub credentials require repository write access. "
+                           "Run gh auth login --hostname github.com with a maintainer account.")
     if repository["default_branch"] != "main":
         raise ReleaseError("The supported release branch is main; review the policy before changing it.")
     git.run("fetch", "--no-tags", args.remote, "refs/heads/main:refs/remotes/" + args.remote + "/main")
-    commit = git.commit(args.ref)
+    main_commit = git.commit(f"refs/remotes/{args.remote}/main")
+    commit = git.commit(args.ref) if args.ref else main_commit
     try:
         git.run("merge-base", "--is-ancestor", commit, f"refs/remotes/{args.remote}/main")
     except ReleaseError as ex:
         raise ReleaseError("Release commit must already be merged into the remote main branch.") from ex
+    for target in {main_commit, commit}:
+        git.require_release_files(target)
+    version = args.version or git.validate(commit)["version"]
+    tag = "v" + version
     metadata = git.validate(commit, tag)
+    print(f"Repository: {args.repo}\nTag: {tag}\nCommit: {commit}\nPrerelease: {metadata['prerelease']}")
+    print("Resume command: " + release_command(args, git.root, version, commit, resume=True))
     remote_commit = git.remote_tag(args.remote, tag)
     if remote_commit and remote_commit != commit:
         raise ReleaseError(f"Remote tag {tag} points to another commit; refusing to move it.")
@@ -199,22 +325,35 @@ def cut_release(args, git=None, github=None):
     if local_tags and git.commit(f"refs/tags/{tag}") != commit:
         raise ReleaseError(f"Local tag {tag} points to another commit.")
     release = github.release(tag)
+    notes = args.notes_file.read_text(encoding="utf-8") if args.notes_file and not release else None
     runs = github.runs(head_sha=commit)  # Check Actions read access before pushing a tag.
     marker = f"<!-- CETL release tag={tag} commit={commit} -->"
     if release:
+        if not release["draft"] and marker not in (release.get("body") or "") and not args.resume:
+            raise ReleaseError(f"Version {version} is already published. Merge a reviewed version bump into main "
+                               "before cutting a new release.")
         check_draft(release, tag, metadata["prerelease"], marker)
         if not remote_commit:
             raise ReleaseError("A release exists without its remote tag; manual investigation is required.")
     if not release or release["draft"]:
-        require_new_version(github, args.version)
+        require_new_version(github, version)
+    deploy_stable = not metadata["prerelease"] and not any(
+        prior > version_core(version) for prior in github.published_stable_versions())
+    github.preflight(deploy_stable)
     if (release or remote_commit) and not args.resume and not args.dry_run:
         raise ReleaseError("Release/tag already exists; inspect it and use --resume for a matching attempt.")
     if not remote_commit:
         git.run("push", "--dry-run", args.remote, f"{commit}:refs/tags/{tag}")
-    print(f"Repository: {args.repo}\nTag: {tag}\nCommit: {commit}\nPrerelease: {metadata['prerelease']}")
     if args.dry_run:
         print("Dry run: push immutable tag; await full CETLVaSt; download and verify bundle; create/resume draft; "
               "upload matching assets; publish; deploy stable documentation. No remote writes performed.")
+        print("Release this checked commit: " + release_command(
+            args, git.root, version, commit, resume=bool(release or remote_commit or args.resume)))
+        return
+    if release and not release["draft"]:
+        verify_published_assets(github, release, commit, tag)
+        print(f"Release: https://github.com/{args.repo}/releases/tag/{tag}")
+        finish_documentation(github, tag, version, metadata["prerelease"], args.timeout, args.poll)
         return
     if not remote_commit:
         git.run("push", args.remote, f"{commit}:refs/tags/{tag}")
@@ -239,26 +378,36 @@ def cut_release(args, git=None, github=None):
         check_draft(release, tag, metadata["prerelease"], marker)
         sync_assets(github, release, tag, directory, names, upload=False)
         if release["draft"]:
-            require_new_version(github, args.version)
+            require_new_version(github, version)
             if git.remote_tag(args.remote, tag) != commit:
                 raise ReleaseError("Remote tag changed before publication.")
             # Never edit a published release, including on a retry.
             github.api(f"releases/{release['id']}", "PATCH", draft=False, make_latest="false" if metadata["prerelease"] else "true")
+        release = github.release(tag)
+        check_draft(release, tag, metadata["prerelease"], marker)
+        if release["draft"]:
+            raise ReleaseError("GitHub still reports a draft; retry the printed resume command.")
+        sync_assets(github, release, tag, directory, names, upload=False)
         print(f"Release: https://github.com/{args.repo}/releases/tag/{tag}")
-    if metadata["prerelease"]:
+    finish_documentation(github, tag, version, metadata["prerelease"], args.timeout, args.poll)
+
+
+def finish_documentation(github, tag, version, prerelease, timeout, poll):
+    if prerelease:
         print("Documentation: built and attached; prereleases do not replace the stable Pages site.")
     else:
-        if any(prior > version_core(args.version) for prior in github.published_stable_versions()):
+        if any(prior > version_core(version) for prior in github.published_stable_versions()):
             print("Documentation: a newer stable release is published; its site is retained.")
         else:
             require_latest_stable(github, tag)
-            deploy_docs(github, tag, args.timeout, args.poll)
+            deploy_docs(github, tag, timeout, poll)
+            github.verify_pages(version, timeout, poll)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", required=True, help="X.Y.Z or X.Y.Z-{alpha,beta,rc}.N, without v")
-    parser.add_argument("--ref", required=True, help="Explicit commit/ref already merged into origin/main")
+    parser.add_argument("--version", help="Override header version, e.g. X.Y.Z-rc.1 (without v)")
+    parser.add_argument("--ref", help="Commit/ref merged into remote main; defaults to freshly fetched main")
     parser.add_argument("--repo", default="OpenCyphal/CETL")
     parser.add_argument("--remote", default="origin")
     parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -272,8 +421,10 @@ def main():
         parser.error("--timeout and --poll must be positive")
     try:
         cut_release(args)
+    except KeyboardInterrupt:
+        parser.exit(130, "Release interrupted. Use the printed Resume command to continue.\n")
     except (ReleaseError, OSError, ValueError, KeyError) as ex:
-        parser.exit(1, f"Release stopped: {ex}\nNo tags or assets were force-updated. Inspect remote state before --resume.\n")
+        parser.exit(1, f"Release stopped: {ex}\nFix the reported problem and retry; existing tags/assets are preserved.\n")
 
 
 if __name__ == "__main__":

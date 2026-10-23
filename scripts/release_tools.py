@@ -4,6 +4,7 @@
 import argparse
 import gzip
 import hashlib
+from html.parser import HTMLParser
 import io
 import json
 import os
@@ -20,6 +21,8 @@ class ReleaseError(RuntimeError):
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(alpha|beta|rc)\.([1-9][0-9]*))?")
 HEADER = "include/cetl/cetl.hpp"
 WORKFLOW = "cetlvast.yml"
+RELEASE_FILES = ("scripts/release.py", "scripts/release_tools.py", "scripts/tests/test_release.py",
+                 f".github/workflows/{WORKFLOW}")
 
 
 def parse_version(value):
@@ -58,7 +61,9 @@ def command(args, cwd=None, binary=False):
     try:
         result = subprocess.run(args, cwd=cwd, capture_output=True, check=False, timeout=120)
     except FileNotFoundError as ex:
-        raise ReleaseError(f"Required executable is missing: {args[0]}") from ex
+        hint = {"git": "Install Git and rerun the release command.",
+                "gh": "Install GitHub CLI from https://cli.github.com/ and run gh auth login --hostname github.com."}
+        raise ReleaseError(f"Required executable is missing: {args[0]}. " + hint.get(args[0], "Install it and retry.")) from ex
     except subprocess.TimeoutExpired as ex:
         raise ReleaseError(f"{args[0]} timed out; inspect remote state before retrying.") from ex
     if result.returncode:
@@ -79,6 +84,14 @@ class Git:
 
     def validate(self, commit, tag=None, prerelease=None):
         return validate(self.run("show", f"{commit}:{HEADER}"), tag, prerelease)
+
+    def require_release_files(self, commit):
+        for path in RELEASE_FILES:
+            try:
+                self.run("cat-file", "-e", f"{commit}:{path}")
+            except ReleaseError as ex:
+                raise ReleaseError(f"{path} is missing from {commit}. Merge the release tooling into main "
+                                   "and select a commit containing it.") from ex
 
     def remote_repository(self, remote):
         fetch = repository_from_url(self.run("remote", "get-url", remote))
@@ -136,6 +149,32 @@ def sha256(path):
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def check_documentation(html, version):
+    class ProjectNumber(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.recording = False
+            self.values = []
+
+        def handle_starttag(self, tag, attrs):
+            if dict(attrs).get("id") == "projectnumber":
+                self.recording = True
+
+        def handle_endtag(self, tag):
+            if tag == "span":
+                self.recording = False
+
+        def handle_data(self, data):
+            if self.recording:
+                self.values.append(data)
+
+    parser = ProjectNumber()
+    parser.feed(html)
+    actual = "".join(parser.values).strip()
+    if actual != version:
+        raise ReleaseError(f"Documentation displays {actual or '(no version)'}, expected {version}.")
 
 
 def package(git, commit, tag, docs, output):
@@ -203,9 +242,16 @@ def main():
     build.add_argument("--commit", required=True)
     build.add_argument("--docs", required=True)
     build.add_argument("--output", required=True)
+    docs = subparsers.add_parser("verify-docs", help="Check the version displayed by built documentation.")
+    docs.add_argument("--version", required=True)
+    docs.add_argument("--path", type=Path, required=True)
     args = parser.parse_args()
     git = Git(Path.cwd())
     try:
+        if args.operation == "verify-docs":
+            parse_version(args.version)
+            check_documentation(args.path.read_text(encoding="utf-8"), args.version)
+            return
         commit = git.commit("HEAD")
         if args.operation == "package":
             package(git, git.commit(args.commit), args.tag, args.docs, args.output)

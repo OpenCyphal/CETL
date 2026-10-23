@@ -255,6 +255,12 @@ jobs:
       - name: doc-gen-build
         working-directory: cetlvast/build
         run: ninja docs
+      - name: Verify the version displayed by the built documentation
+        env:
+          CETL_RELEASE_VERSION: ${{ needs.version.outputs.version }}
+        run: >-
+          python3 scripts/release_tools.py verify-docs --version "$CETL_RELEASE_VERSION"
+          --path cetlvast/build/suites/docs/html/index.html
       - name: Setup Pages
         if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' }}
         uses: actions/configure-pages@v6
