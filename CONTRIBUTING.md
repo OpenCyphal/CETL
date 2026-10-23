@@ -107,13 +107,14 @@ and manually run it.
 
 ### TLDR
 
-See [devcontainer.json](.devcontainer/toolshed/devcontainer.json) for the current value of x for `ts24.4.x`.
+The [AMD64](.devcontainer/toolshed-amd64/devcontainer.json) and
+[ARM64](.devcontainer/toolshed-arm64/devcontainer.json) devcontainers use Toolshed `ts26.4.5`, matching the main CI jobs.
 
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts24.4.x
+docker pull ghcr.io/opencyphal/toolshed:ts26.4.5
 git clone {this repo}
 cd CETL
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts24.4.x
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts26.4.5
 cd cetlvast
 cmake --workflow --preset workflow-clang-native-cpp-14-online
 ```
@@ -122,7 +123,7 @@ cmake --workflow --preset workflow-clang-native-cpp-14-online
 
 1. Pull the OpenCyphal dev-container used for CETL:
 ```
-docker pull ghcr.io/opencyphal/toolshed:ts24.4.x
+docker pull ghcr.io/opencyphal/toolshed:ts26.4.5
 ```
 2. Clone CETL, cd into the repo, and launch an interactive terminal session of
 the dev container. This command will mount the current directory (`${PWD}`) in
@@ -133,7 +134,7 @@ building.
 ```
 git clone {this repo}
 cd CETL
-docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts24.4.x
+docker run --rm -it -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts26.4.5
 ```
 3. See available configurations
 ```
@@ -160,7 +161,7 @@ To ensure that the formatting matches the expectations of the CI suite,
 invoke Clang-Format of the correct version from the container (be sure to use the correct image tag):
 
 ```
-docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts24.4.x /bin/sh -c 'cd cetlvast && cmake --preset configure-clang-native-cpp-17-offline && cd build && ninja danger-danger-cetlvast-clang-format-in-place'
+docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts26.4.5 /bin/sh -c 'cd cetlvast && cmake --preset configure-clang-native-cpp-17-offline && cd build && ninja danger-danger-cetlvast-clang-format-in-place'
 ```
 
 # `issue/*` and hashtag-based CI triggering
