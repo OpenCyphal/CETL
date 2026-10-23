@@ -19,7 +19,7 @@ from unittest.mock import patch
 SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
-from release import GitHub, cut_release  # noqa: E402
+from release import GitHub, cut_release, require_latest_stable  # noqa: E402
 from release_tools import (Git, HEADER, ReleaseError, check_bundle, check_run, command,  # noqa: E402
                            header_version, package, parse_version, repository_from_url,
                            required_jobs, sha256, validate)
@@ -140,6 +140,14 @@ class GitHubTransportTests(unittest.TestCase):
             with self.assertRaisesRegex(ReleaseError, "Forbidden"):
                 github.release("v2.0.0")
 
+    def test_stable_version_comparison_uses_numeric_versions(self):
+        github = GitHub("example/cetl")
+        releases = [{"tag_name": tag, "draft": draft, "prerelease": prerelease} for tag, draft, prerelease in (
+            ("v2.9.0", False, False), ("v2.10.0", False, False), ("v3.0.0", True, False),
+            ("v4.0.0-rc.1", False, True), ("historical-non-semver", False, False))]
+        with patch.object(github, "pages", return_value=releases):
+            self.assertEqual(max(github.published_stable_versions()), (2, 10, 0))
+
     def test_subprocess_errors_do_not_echo_credentials(self):
         with patch("release_tools.subprocess.run", return_value=subprocess.CompletedProcess(
             ["gh"], 1, stdout=b"", stderr=b"secret-token"
@@ -167,6 +175,13 @@ class SimulatedGitHub:
         self.permissions = {"push": True}
         self.docs_run = None
         self.fail_docs = False
+        self.other_versions = set()
+
+    def published_stable_versions(self):
+        versions = set(self.other_versions)
+        if self.release_data and not self.release_data["draft"] and not self.release_data["prerelease"]:
+            versions.add(tuple(map(int, self.tag[1:].split("."))))
+        return versions
 
     def api(self, path, method="GET", **fields):
         if path == "":
@@ -423,6 +438,31 @@ class RepositoryTests(unittest.TestCase):
         self.cut()
         self.assertEqual(self.github.writes.count("publish"), 1)
         self.assertEqual(self.github.writes.count("dispatch"), 2)
+
+    def test_new_release_cannot_downgrade_or_prerelease_a_stable_version(self):
+        self.github.other_versions = {(2, 0, 0)}
+        for version in ("2.0.0", "2.0.0-rc.1"):
+            self.args.version = version
+            with self.assertRaisesRegex(ReleaseError, "advance"):
+                self.cut()
+            self.assertIsNone(self.git.remote_tag("origin", "v" + version))
+
+    def test_resume_old_release_does_not_roll_documentation_back(self):
+        self.add_tag()
+        self.args.resume = True
+        self.cut()
+        before = list(self.github.writes)
+        self.github.other_versions.add((2, 1, 0))
+        self.github.docs_run = None
+        self.assertIn("newer stable release", self.cut())
+        self.assertEqual(self.github.writes, before)
+        with self.assertRaisesRegex(ReleaseError, "latest published"):
+            require_latest_stable(self.github, "v2.0.0")
+
+    def test_unpublished_tag_cannot_deploy_stable_documentation(self):
+        self.add_tag()
+        with self.assertRaisesRegex(ReleaseError, "latest published"):
+            require_latest_stable(self.github, "v2.0.0")
 
     def test_packaging_contents_reproducibility_and_corruption(self):
         self.add_tag()

@@ -23,6 +23,9 @@ tag version, including any prerelease suffix.
   new library release. Ordinary development commits need no matching tag.
 - A release tag and its published assets are immutable. Fix a defective release
   with a new version, rather than moving the tag or replacing its assets.
+- New release versions must advance beyond every published stable version.
+  Only the latest published stable version may replace the Pages site; resuming
+  an older release retains the newer documentation.
 - Releases currently come from `main` only. A maintenance branch policy must be
   reviewed and implemented before releasing from other branches.
 

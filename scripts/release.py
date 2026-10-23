@@ -44,6 +44,15 @@ class GitHub:
         # List rather than treating every failed tag lookup (403, outage, etc.) as 'not found'.
         return next((release for release in self.pages("releases") if release["tag_name"] == tag), None)
 
+    def published_stable_versions(self):
+        versions = set()
+        for release in self.pages("releases"):
+            if not release["draft"] and not release["prerelease"]:
+                match = re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", release["tag_name"])
+                if match:
+                    versions.add(tuple(map(int, match.groups())))
+        return versions
+
     def runs(self, **filters):
         return self.pages(f"actions/workflows/{WORKFLOW}/runs?{urlencode(filters)}", "workflow_runs")
 
@@ -91,6 +100,23 @@ def check_draft(release, tag, prerelease, marker):
     if (release.get("tag_name") != tag or release.get("prerelease") != prerelease
             or marker not in (release.get("body") or "")):
         raise ReleaseError("Existing release is not a matching script-managed release; refusing to change it.")
+
+
+def version_core(version):
+    return tuple(map(int, parse_version(version).groups()[:3]))
+
+
+def require_new_version(github, version):
+    if any(prior >= version_core(version) for prior in github.published_stable_versions()):
+        raise ReleaseError("A new release must advance the numeric version beyond published stable releases.")
+
+
+def require_latest_stable(github, tag):
+    release = github.release(tag)
+    versions = github.published_stable_versions()
+    if (not release or release["draft"] or release["prerelease"] or not versions
+            or version_core(tag[1:]) != max(versions)):
+        raise ReleaseError("Only the latest published stable release may replace the documentation site.")
 
 
 def sync_assets(github, release, tag, directory, names, upload):
@@ -179,6 +205,8 @@ def cut_release(args, git=None, github=None):
         check_draft(release, tag, metadata["prerelease"], marker)
         if not remote_commit:
             raise ReleaseError("A release exists without its remote tag; manual investigation is required.")
+    if not release or release["draft"]:
+        require_new_version(github, args.version)
     if (release or remote_commit) and not args.resume and not args.dry_run:
         raise ReleaseError("Release/tag already exists; inspect it and use --resume for a matching attempt.")
     if not remote_commit:
@@ -211,6 +239,7 @@ def cut_release(args, git=None, github=None):
         check_draft(release, tag, metadata["prerelease"], marker)
         sync_assets(github, release, tag, directory, names, upload=False)
         if release["draft"]:
+            require_new_version(github, args.version)
             if git.remote_tag(args.remote, tag) != commit:
                 raise ReleaseError("Remote tag changed before publication.")
             # Never edit a published release, including on a retry.
@@ -219,7 +248,11 @@ def cut_release(args, git=None, github=None):
     if metadata["prerelease"]:
         print("Documentation: built and attached; prereleases do not replace the stable Pages site.")
     else:
-        deploy_docs(github, tag, args.timeout, args.poll)
+        if any(prior > version_core(args.version) for prior in github.published_stable_versions()):
+            print("Documentation: a newer stable release is published; its site is retained.")
+        else:
+            require_latest_stable(github, tag)
+            deploy_docs(github, tag, args.timeout, args.poll)
 
 
 def main():

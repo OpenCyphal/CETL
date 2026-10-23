@@ -360,6 +360,9 @@ jobs:
   deploy-docs:
     if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.version.outputs.tag != '' && needs.version.outputs.prerelease == 'false' }}
     needs: [version, release-ready, release-assets]
+    concurrency:
+      group: cetl-stable-pages
+      cancel-in-progress: false
     # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
     permissions:
       contents: read
@@ -374,6 +377,20 @@ jobs:
     # Specify runner + deployment step
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.version.outputs.commit }}
+      - name: Prevent unpublished releases or older retries from replacing stable docs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          PYTHONPATH: scripts
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from release import GitHub, require_latest_stable
+          require_latest_stable(GitHub(os.environ['GITHUB_REPOSITORY']), os.environ['RELEASE_TAG'])
+          PYTHON
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
