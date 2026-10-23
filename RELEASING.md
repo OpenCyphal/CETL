@@ -26,12 +26,12 @@ tag version, including any prerelease suffix.
 - New release versions must advance beyond every published stable version.
   Only the latest published stable version may replace the Pages site; resuming
   an older release retains the newer documentation.
-- Releases currently come from `main` only. A maintenance branch policy must be
+- Releases must come from `main`. A maintenance branch policy must be
   reviewed and implemented before releasing from other branches.
 
 Prepare the version bump and relevant code/documentation changes in a PR, describe
 compatibility changes, and merge through normal review. Do not tag an unmerged
-branch. No version is bumped just by installing the release tooling.
+branch.
 
 ## Maintainer prerequisites
 
@@ -49,8 +49,7 @@ the repository. SSO authorization and repository rulesets may impose additional
 requirements. The script checks repository access before pushing a tag; individual
 API operations also enforce the token's permissions and fail closed on errors.
 
-The release workflow must already be on `main` and in the target commit. Existing
-historical tags without this workflow cannot satisfy the new release contract.
+The release workflow and tooling must be present on `main` and in the target commit.
 
 Repository administrators should configure:
 
@@ -60,7 +59,8 @@ Repository administrators should configure:
    tag creation to the maintainers responsible for releases.
 3. GitHub release immutability, where available, to protect published tags/assets.
 4. The `github-pages` environment permitting deployments from `main`, with any
-   required reviewers retained. A tag deployment exception is unnecessary.
+   required reviewers. Documentation is built from the release tag and deployed
+   by a workflow dispatched on `main`.
 5. Release publishing permissions limited to release maintainers, who use this
    script. The workflow itself has read-only repository contents permission.
 
@@ -180,30 +180,14 @@ published tag to make a retry pass.
 - Permission/network failures stop the script. Confirm the remote state before
   resuming: a failed response does not prove the preceding write did not happen.
 
-The automated rehearsal uses disposable local checkouts and bare Git remotes,
-with a simulated GitHub service. It exercises real tag pushes, archive contents,
+## Rehearse changes to the release process
+
+The tooling tests use disposable local checkouts and bare Git remotes,
+with a simulated GitHub service. They exercise real tag pushes, archive contents,
 publication ordering, dry runs, failed gates, interrupted uploads, and deployment
-recovery without contacting GitHub or publishing a production release. Run the
-same CLI against a disposable GitHub fork for an end-to-end credentials/Actions/
-Pages rehearsal before the first production release; its environment/rules must
-be configured as above. The local simulation does not substitute for those hosted
-service settings.
+recovery without contacting GitHub or publishing a production release.
 
-## Additional distribution channels
-
-Keep direct header use, Git submodules, and the header archive supported. Packaging
-must not install CETLVaSt or require its build/test dependencies in consuming
-projects. Package versions must equal the stable tag's numeric version; pin the
-source commit and archive checksum, install the license, and compile a small
-consumer using the installed include tree under C++14 and a newer standard.
-
-| Channel | Assessment and decision |
-| --- | --- |
-| Conan 2 / ConanCenter | A [header-only recipe](https://docs.conan.io/2/tutorial/creating_packages/other_types_of_packages/header_only_packages.html) plus `test_package` fits CETL. Package the verified header archive with its checksum, preserve `include/cetl`, install licenses, and expose consumer metadata without building CETLVaSt. Revisit #9, which was closed as not planned, before committing to registry maintenance. Defer registry submission until a maintainer owns recipe updates and ConanCenter review. |
-| vcpkg | Prototype an [overlay port](https://learn.microsoft.com/en-us/vcpkg/get_started/get-started-packaging), installing the verified headers/license, then consider the curated registry under its [maintainer policy](https://learn.microsoft.com/en-us/vcpkg/contributing/maintainer-guide). Pin each tag/source and SHA-512 as required by the port's download helper; test installed consumers on Windows and Linux. Defer submission until a port owner and update process are agreed. |
-| CMake package / FetchContent | The lowest external maintenance cost: a future minimal interface target and install/export config can serve both package managers and direct consumers, without configuring CETLVaSt. Recommend this as the first packaging follow-up. Until implemented, consumers can fetch a pinned archive and use its `include/` directory; no `find_package(CETL)` target is promised by this change. |
-
-The core release process ships independently of registry adoption. Future packaging
-PRs should name the owner, add installed-consumer smoke tests, and specify whether
-the release script opens recipe/port update PRs or a maintainer does so manually.
-Registry review/acceptance is separate from successful CETL release publication.
+Before using changes to the release process for a production release, run the CLI
+against a disposable GitHub fork to rehearse credentials, Actions, and Pages.
+Configure the fork's environment and rules as described above; the local simulation
+does not verify those hosted service settings.

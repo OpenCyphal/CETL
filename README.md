@@ -25,7 +25,7 @@ so by violating certain AUTOSAR-14 rules. We recommend using the CETL polyfill t
 to AUTOSAR-14.
 
 There are currently three ways to take a dependency on CETL. See
-[Releasing CETL](RELEASING.md) for the release process and the assessment of additional package distribution options:
+[Releasing CETL](RELEASING.md) for the release process:
 
 1. **Download the [release zip/tar from github](https://github.com/OpenCyphal/CETL/releases)** – This, of course, provides
 no strong link back to the CETL source and test artifacts associated with it but you have full control over it and can
