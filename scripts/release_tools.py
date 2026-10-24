@@ -32,30 +32,29 @@ class ReleaseError(RuntimeError):
     """
 
 
-VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(alpha|beta|rc)\.([1-9][0-9]*))?")
+VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)")
 HEADER = "include/cetl/cetl.hpp"
 WORKFLOW = "cetlvast.yml"
+DOCS_WORKFLOW = "release-docs.yml"
 RELEASE_FILES = ("scripts/release.py", "scripts/release_tools.py", "scripts/tests/test_release.py",
-                 f".github/workflows/{WORKFLOW}")
+                 f".github/workflows/{WORKFLOW}", f".github/workflows/{DOCS_WORKFLOW}")
 
 
 def parse_version(value):
-    """Parse a supported stable or prerelease version without a tag prefix.
+    """Parse a release version without a tag prefix.
 
     Args:
-        value (str): X.Y.Z or X.Y.Z-{alpha,beta,rc}.N, with decimal components,
-            no leading zeros, and a positive prerelease sequence number.
+        value (str): X.Y.Z with decimal components and no leading zeros.
 
     Returns:
-        re.Match: Five groups: major, minor, patch, stage, and sequence number.
-            The final two groups are None for stable versions.
+        re.Match: Three groups: major, minor, and patch.
 
     Raises:
         ReleaseError: The entire string does not match the version grammar.
     """
     match = VERSION.fullmatch(value)
     if not match:
-        raise ReleaseError("Expected X.Y.Z or X.Y.Z-{alpha,beta,rc}.N (no leading zeros; N >= 1).")
+        raise ReleaseError("Expected X.Y.Z with no leading zeros.")
     return match
 
 
@@ -81,34 +80,28 @@ def header_version(text):
     return ".".join(parts)
 
 
-def validate(text, tag=None, prerelease=None):
-    """Check agreement between header macros, a tag, and release classification.
+def validate(text, tag=None):
+    """Check agreement between header macros and a release tag.
 
     Args:
         text (str): CETL header source to inspect.
         tag (str | None): A v-prefixed version; None uses the header's version.
-        prerelease (bool | None): Expected GitHub prerelease flag, or None to
-            derive the classification from the version suffix.
 
     Returns:
-        dict: ``version`` without v, ``tag`` (empty when omitted), and the
-            boolean ``prerelease`` classification.
+        dict: ``version`` without v and ``tag`` (empty when omitted).
 
     Raises:
-        ReleaseError: Header/version syntax is invalid, the tag's numeric core
-            differs from the header, or the supplied classification disagrees.
+        ReleaseError: Header/version syntax is invalid or the tag differs from
+            the header version.
     """
     core = header_version(text)
     version = tag[1:] if tag and tag.startswith("v") else core
     if tag and not tag.startswith("v"):
         raise ReleaseError("Release tags must start with v.")
-    match = parse_version(version)
-    if ".".join(match.groups()[:3]) != core:
+    parse_version(version)
+    if version != core:
         raise ReleaseError(f"Tag {tag} does not match {HEADER} ({core}).")
-    is_prerelease = match.group(4) is not None
-    if prerelease is not None and prerelease != is_prerelease:
-        raise ReleaseError("GitHub's prerelease flag does not match the tag suffix.")
-    return {"version": version, "tag": tag or "", "prerelease": is_prerelease}
+    return {"version": version, "tag": tag or ""}
 
 
 @overload
@@ -213,21 +206,20 @@ class Git:
         # --end-of-options prevents a ref supplied at the CLI from becoming a Git option.
         return self.run("rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
 
-    def validate(self, commit, tag=None, prerelease=None):
+    def validate(self, commit, tag=None):
         """Validate a committed header using ``validate``'s metadata contract.
 
         Args:
             commit (str): Commit or revision containing the header.
             tag (str | None): Expected v-prefixed release version.
-            prerelease (bool | None): Expected GitHub prerelease classification.
 
         Returns:
-            dict: Validated ``version``, ``tag``, and ``prerelease`` fields.
+            dict: Validated ``version`` and ``tag`` fields.
 
         Raises:
             ReleaseError: Git cannot read the header or its metadata disagrees.
         """
-        return validate(self.run("show", f"{commit}:{HEADER}"), tag, prerelease)
+        return validate(self.run("show", f"{commit}:{HEADER}"), tag)
 
     def require_release_files(self, commit):
         """Require every path in RELEASE_FILES to exist in a committed tree.
@@ -324,7 +316,7 @@ def required_jobs():
     return names
 
 
-def check_run(run: Mapping[str, Any], jobs: Iterable[Mapping[str, Any]], commit: str, tag: str) -> None:
+def check_run(run: Mapping[str, Any], jobs: Iterable[Mapping[str, Any]], commit: str) -> None:
     """Require successful CETLVaSt verification of one exact release revision.
 
     Args:
@@ -333,16 +325,15 @@ def check_run(run: Mapping[str, Any], jobs: Iterable[Mapping[str, Any]], commit:
         jobs (Iterable[dict]): Jobs from this run's current attempt, each with
             name and conclusion fields. The caller must isolate the attempt.
         commit (str): Expected full commit object ID.
-        tag (str): Expected v-prefixed tag used as the run's head_branch.
 
     Raises:
         ReleaseError: The run identifies another workflow/revision/event, is
             unsuccessful or incomplete, or lacks a successful required job.
     """
-    if (run.get("head_sha") != commit or run.get("head_branch") != tag
-            or run.get("event") not in ("push", "workflow_dispatch")
+    if (run.get("head_sha") != commit or run.get("head_branch") != "main"
+            or run.get("event") != "push"
             or run.get("path") != f".github/workflows/{WORKFLOW}"):
-        raise ReleaseError("CI must be CETLVaSt on the exact release tag and commit (push or manual dispatch).")
+        raise ReleaseError("CI must be CETLVaSt for the exact main push commit.")
     if run.get("status") != "completed" or run.get("conclusion") != "success":
         raise ReleaseError("Release CI has not completed successfully.")
     successful = {job["name"] for job in jobs if job.get("conclusion") == "success"}
@@ -388,7 +379,7 @@ def check_documentation(html, version):
 
     Args:
         html (str): Decoded HTML containing CETL's projectnumber span.
-        version (str): Expected version text, including any prerelease suffix.
+        version (str): Expected X.Y.Z version text.
 
     Raises:
         ReleaseError: The displayed version is absent or differs after stripping
@@ -429,7 +420,7 @@ def package(git, commit, tag, docs, output):
     """Write reproducible release archives, a manifest, and their checksums.
 
     Args:
-        git (Git): Checkout containing the selected commit and local tag.
+        git (Git): Checkout containing the selected, CI-verified commit.
         commit (str): Full commit object ID to archive.
         tag (str): Matching v-prefixed release version.
         docs (str | Path): Built HTML directory containing index.html.
@@ -445,8 +436,6 @@ def package(git, commit, tag, docs, output):
     bytes from identical inputs. Failures may leave partial local output.
     """
     metadata = git.validate(commit, tag)
-    if git.commit(f"refs/tags/{tag}") != commit:
-        raise ReleaseError("Packaging commit differs from the local release tag.")
     docs, output = Path(docs), Path(output)
     if not (docs / "index.html").is_file():
         raise ReleaseError("Built documentation must contain index.html.")
@@ -505,12 +494,42 @@ def check_bundle(directory, commit, tag):
     if {path.name for path in directory.iterdir()} != expected | {"SHA256SUMS"}:
         raise ReleaseError("Release bundle contains missing or unexpected files.")
     manifest = json.loads((directory / "release.json").read_text())
-    if manifest != {"version": version, "tag": tag, "prerelease": "-" in version, "commit": commit}:
+    if manifest != {"version": version, "tag": tag, "commit": commit}:
         raise ReleaseError("Release bundle metadata does not match the requested release.")
     sums = (directory / "SHA256SUMS").read_text()
     if sums != "".join(f"{sha256(directory / name)}  {name}\n" for name in sorted(expected)):
         raise ReleaseError("Release bundle checksums do not match its contents.")
     return sorted(expected | {"SHA256SUMS"})
+
+
+
+def extract_documentation(directory, commit, tag, output):
+    """Verify a published bundle and extract its versioned documentation.
+
+    Args:
+        directory (str | Path): Downloaded release assets.
+        commit (str): Expected full source commit ID.
+        tag (str): Expected vX.Y.Z tag.
+        output (str | Path): Empty or nonexistent extraction directory.
+
+    Returns:
+        Path: HTML directory ready for Pages upload.
+
+    Raises:
+        ReleaseError: Bundle identity, checksums, displayed version, or output state is invalid.
+        OSError: Release files cannot be read or extracted.
+        tarfile.TarError: The archive is invalid or its paths fail the data filter.
+    """
+    check_bundle(directory, commit, tag)
+    output = Path(output)
+    if output.exists() and any(output.iterdir()):
+        raise ReleaseError("Documentation output directory must be empty.")
+    output.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(Path(directory) / f"cetl-{tag[1:]}-docs.tar.gz") as archive:
+        archive.extractall(output, filter="data")
+    html = output / f"cetl-{tag[1:]}" / "html"
+    check_documentation((html / "index.html").read_text(), tag[1:])
+    return html
 
 
 def main():
@@ -528,8 +547,7 @@ def main():
     subparsers = parser.add_subparsers(dest="operation", required=True)
     check = subparsers.add_parser("validate", help="Validate checkout and GitHub event metadata.")
     check.add_argument("--tag")
-    check.add_argument("--prerelease", choices=("true", "false"))
-    build = subparsers.add_parser("package", help="Package the validated tagged commit and built documentation.")
+    build = subparsers.add_parser("package", help="Package the verified commit and built documentation.")
     build.add_argument("--tag", required=True)
     build.add_argument("--commit", required=True)
     build.add_argument("--docs", required=True)
@@ -548,15 +566,17 @@ def main():
         if args.operation == "package":
             package(git, git.commit(args.commit), args.tag, args.docs, args.output)
             return
-        tag, prerelease = args.tag, None if args.prerelease is None else args.prerelease == "true"
+        tag = args.tag
         event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text()) if os.getenv("GITHUB_EVENT_PATH") else {}
         if os.getenv("GITHUB_EVENT_NAME") == "release":
-            tag, prerelease = event["release"]["tag_name"], event["release"]["prerelease"]
+            tag = event["release"]["tag_name"]
+            if event["release"]["prerelease"]:
+                raise ReleaseError("GitHub release must be a full release.")
         elif os.getenv("GITHUB_REF", "").startswith("refs/tags/"):
             tag = os.environ["GITHUB_REF"][len("refs/tags/"):]
         if tag and git.commit(f"refs/tags/{tag}") != commit:
             raise ReleaseError("Checkout does not match the requested tag's commit.")
-        result = {**git.validate(commit, tag, prerelease), "commit": commit}
+        result = {**git.validate(commit, tag), "commit": commit}
         print(json.dumps(result, indent=2))
         if os.getenv("GITHUB_OUTPUT"):
             with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as stream:
