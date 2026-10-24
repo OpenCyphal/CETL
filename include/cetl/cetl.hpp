@@ -33,6 +33,7 @@
 /// - @subpage example_10_unbounded_variant
 /// - @subpage example_11_memory_resource_o1heap
 /// - @subpage example_12_buddy_memory_resource
+/// - @subpage example_13_saturating_arithmetic
 ///
 /// @page example_01_polyfill_20 Example 1: CETL C++20 Polyfill Header
 /// Full example for @ref cetl/pf20/cetlpf.hpp
@@ -82,6 +83,10 @@
 /// @page example_12_buddy_memory_resource Example 12: Growing a VLA with a buddy memory resource
 /// In-place buddy merging with the same application operations as std::vector.
 /// @include example_12_buddy_memory_resource.cpp
+///
+/// @page example_13_saturating_arithmetic Example 13: Saturation arithmetic with the C++26 polyfill header
+/// Full example for @ref cetl/pf26/cetlpf.hpp
+/// @include example_13_saturating_arithmetic.cpp
 ///
 
 #ifndef CETL_H_INCLUDED
@@ -194,6 +199,16 @@
 /// #endif
 /// ```
 #define CETL_CPP_STANDARD_20 202002L
+
+/// @def CETL_CPP_STANDARD_23
+/// Provides the proper value to test against `__cplusplus` for c++23.
+#define CETL_CPP_STANDARD_23 202302L
+
+/// @def CETL_CPP_STANDARD_26
+/// Provides the proper value to test against `__cplusplus` for c++26. Compilers released before the standard was
+/// finalized report an interim value (for example `202400L`) for `-std=c++26`, so C++26 library features are detected
+/// with their feature-test macros (see cetl/pf26/cetlpf.hpp) rather than with this value.
+#define CETL_CPP_STANDARD_26 202603L
 
 /// @}
 
