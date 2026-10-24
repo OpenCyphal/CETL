@@ -110,13 +110,13 @@
 /// @def CETL_VERSION_MINOR
 /// CETL minor version.
 /// Minor versions shall only add to CETL or modify it in a backwards compatible way.
-#define CETL_VERSION_MINOR 5
+#define CETL_VERSION_MINOR 0
 
 /// @def CETL_VERSION_MAJOR
 /// CETL Major version.
 /// New major versions shall be rare. No overarching guarantees are made about compatibility
 /// between major versions.
-#define CETL_VERSION_MAJOR 1
+#define CETL_VERSION_MAJOR 2
 
 /// @}
 
