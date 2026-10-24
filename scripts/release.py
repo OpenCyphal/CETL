@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Cut a CETL release using Git and the maintainer's authenticated GitHub CLI."""
+"""Publish verified CETL releases using Git and authenticated GitHub CLI access.
+
+Preflight selects a merged commit and validates the release configuration.
+Publication waits for tagged CI, verifies assets, and deploys stable documentation.
+Matching attempts can resume after interruption; completed remote operations are
+preserved. Python 3.14+ and the standard library implement the orchestration;
+``release_tools`` supplies shared validation and packaging contracts.
+"""
 
 import argparse
 from fnmatch import fnmatchcase
@@ -21,6 +28,18 @@ from release_tools import (Git, ReleaseError, WORKFLOW, check_bundle, check_docu
 
 
 def check_local_tools(python_version=None):
+    """Require the supported Python version and Git/GitHub CLI operations.
+
+    Args:
+        python_version (tuple[int, ...] | None): Version tuple to check; None uses
+            sys.version_info. Supplying a tuple supports isolated preflight tests.
+
+    Raises:
+        ReleaseError: Python is older than 3.14, an executable is missing, or a
+            required GitHub CLI help command is unavailable.
+
+    Executes local version/help commands; repository access is checked separately.
+    """
     if (python_version or sys.version_info) < (3, 14):
         raise ReleaseError("Run the release script with Python 3.14 or newer.")
     command(["git", "--version"])
@@ -34,6 +53,20 @@ def check_local_tools(python_version=None):
 
 
 def release_command(args, root, version, commit, resume=False):
+    """Format a shell command pinned to a previously checked release revision.
+
+    Args:
+        args (argparse.Namespace): Parsed options containing repo, remote,
+            timeout, poll, and the optional notes_file Path.
+        root (str | Path): Checkout directory for the printed command.
+        version (str): Validated release version without the v prefix.
+        commit (str): Full commit object ID, retained even if main advances.
+        resume (bool): Include the option for continuing an existing attempt.
+
+    Returns:
+        str: Command using this interpreter/script, platform-appropriate quoting,
+            and an absolute notes path when notes_file is supplied.
+    """
     parts = [sys.executable, str(Path(__file__).resolve()), "--root", str(root), "--repo", args.repo,
              "--remote", args.remote, "--version", version, "--ref", commit,
              "--timeout", str(args.timeout), "--poll", str(args.poll)]
@@ -45,10 +78,38 @@ def release_command(args, root, version, commit, resume=False):
 
 
 class GitHub:
+    """Access a github.com repository through the authenticated ``gh`` executable.
+
+    Args:
+        repository (str): OWNER/NAME repository identity.
+
+    Attributes:
+        repository (str): Identity used for every API and CLI request.
+
+    API records retain GitHub's JSON field names. Methods propagate ReleaseError
+    for command failures and ValueError for malformed JSON responses. Read
+    methods query remote state; ``cli``, ``api``, and ``create_draft`` can mutate
+    it. Authentication comes from GitHub CLI's configuration or environment.
+    """
+
     def __init__(self, repository):
+        """Store the repository identity without issuing a network request."""
         self.repository = repository
 
     def cli(self, *args):
+        """Execute a repository-scoped GitHub CLI command on github.com.
+
+        Args:
+            *args (str): Subcommand and arguments; the repository option is added.
+
+        Returns:
+            str: Decoded, stripped stdout from the command.
+
+        Raises:
+            ReleaseError: The command is unavailable, fails, or times out.
+
+        The supplied subcommand controls downloads, uploads, or other mutations.
+        """
         try:
             return command(["gh", *args, "--repo", "github.com/" + self.repository])
         except ReleaseError as ex:
@@ -57,6 +118,24 @@ class GitHub:
                                "Then retry the printed resume command.") from ex
 
     def api(self, path, method="GET", **fields):
+        """Issue a repository-relative REST request and decode its JSON response.
+
+        Args:
+            path (str): Path beneath repos/OWNER/NAME, including any query string;
+                an empty string requests repository metadata.
+            method (str): HTTP method; defaults to a read-only GET.
+            **fields: Request fields. Booleans are typed JSON values; other
+                supplied values are passed as strings to GitHub CLI.
+
+        Returns:
+            dict | list | None: Parsed response, or None for an empty response.
+
+        Raises:
+            ReleaseError: GitHub CLI cannot complete the request.
+            ValueError: A nonempty response is invalid JSON.
+
+        Write methods may change remote state before a transport failure occurs.
+        """
         args = ["gh", "api", "--hostname", "github.com", "--method", method,
                 f"repos/{self.repository}/{path}".rstrip("/")]
         for key, value in fields.items():
@@ -72,6 +151,18 @@ class GitHub:
         return json.loads(result) if result else None
 
     def preflight(self, stable):
+        """Check workflow availability and, when needed, Pages deployment setup.
+
+        Args:
+            stable (bool): Require Actions-based Pages and an environment policy
+                permitting main when True; otherwise check only CETLVaSt.
+
+        Raises:
+            ReleaseError: Configuration is inaccessible, CETLVaSt is disabled,
+                Pages uses another build source, or main cannot deploy.
+
+        Performs reads and reports setup fixes without changing repository policy.
+        """
         workflow = self.api(f"actions/workflows/{WORKFLOW}")
         if workflow.get("state") != "active":
             raise ReleaseError(f"Enable CETLVaSt: gh workflow enable {WORKFLOW} --repo {self.repository}")
@@ -101,6 +192,21 @@ class GitHub:
                                f"https://github.com/{self.repository}/settings/environments.")
 
     def verify_pages(self, version, timeout, poll):
+        """Wait for the public Pages HTML to display the expected release version.
+
+        Args:
+            version (str): Expected Doxygen project number, without the tag's v.
+            timeout (int | float): Polling budget in seconds.
+            poll (int | float): Seconds to sleep between unsuccessful requests.
+
+        Raises:
+            ReleaseError: Pages metadata cannot be read, or network/content
+                verification remains unsuccessful when the budget expires.
+
+        Reads at most two MiB per HTML response with a 15-second request timeout.
+        Public HTML requests carry no GitHub credentials. Progress and successful
+        verification are printed; the last failure supplies recovery guidance.
+        """
         url = self.api("pages")["html_url"]
         print(f"Checking published documentation: {url} ({version})")
         deadline = time.monotonic() + timeout
@@ -122,6 +228,20 @@ class GitHub:
                            "Fix access or allow Pages/CDN propagation, then retry the printed resume command.")
 
     def pages(self, path, key=None):
+        """Collect a REST collection across pages of up to 100 records.
+
+        Args:
+            path (str): Repository-relative collection path, optionally with a
+                query string, without pagination parameters.
+            key (str | None): Collection field in an object response; None means
+                that each response is itself a list.
+
+        Returns:
+            list: Records in API page order, including an empty collection.
+
+        Raises:
+            ReleaseError: A request fails or 1,000 full pages are exhausted.
+        """
         items = []
         for page in range(1, 1001):
             separator = "&" if "?" in path else "?"
@@ -133,10 +253,31 @@ class GitHub:
         raise ReleaseError("GitHub pagination limit exceeded.")
 
     def release(self, tag):
-        # List rather than treating every failed tag lookup (403, outage, etc.) as 'not found'.
+        """Find a release, including visible drafts, by exact tag name.
+
+        Args:
+            tag (str): v-prefixed tag identifying the release.
+
+        Returns:
+            dict | None: GitHub release record, or None after a successful
+                complete listing finds no matching tag.
+
+        Raises:
+            ReleaseError: Listing fails; permission errors are not treated as
+                evidence that the release is absent.
+        """
         return next((release for release in self.pages("releases") if release["tag_name"] == tag), None)
 
     def published_stable_versions(self):
+        """Collect numeric versions from published, stable, vX.Y.Z releases.
+
+        Returns:
+            set[tuple[int, int, int]]: Version cores suitable for numeric ordering.
+                Drafts, prereleases, and nonconforming historical tags are ignored.
+
+        Raises:
+            ReleaseError: The release listing cannot be completed.
+        """
         versions = set()
         for release in self.pages("releases"):
             if not release["draft"] and not release["prerelease"]:
@@ -146,16 +287,67 @@ class GitHub:
         return versions
 
     def runs(self, **filters):
+        """List CETLVaSt workflow runs matching GitHub's REST filter fields.
+
+        Args:
+            **filters: Run-list parameters such as head_sha, event, and branch;
+                values are URL-encoded before requesting every result page.
+
+        Returns:
+            list[dict]: GitHub Actions run records, in API order.
+
+        Raises:
+            ReleaseError: The workflow run listing cannot be completed.
+        """
         return self.pages(f"actions/workflows/{WORKFLOW}/runs?{urlencode(filters)}", "workflow_runs")
 
     def jobs(self, run):
-        # Only the current attempt counts; successful jobs from an older attempt cannot fill gaps.
+        """List jobs belonging to exactly the attempt identified by a run record.
+
+        Args:
+            run (dict): Actions record containing id and run_attempt.
+
+        Returns:
+            list[dict]: Attempt-specific job records with names and conclusions.
+
+        Raises:
+            ReleaseError: The job listing cannot be completed.
+
+        Successful jobs from earlier attempts cannot satisfy a later attempt.
+        """
         return self.pages(f"actions/runs/{run['id']}/attempts/{run['run_attempt']}/jobs", "jobs")
 
     def assets(self, release):
+        """List all assets attached to a release.
+
+        Args:
+            release (dict): GitHub release record containing id.
+
+        Returns:
+            list[dict]: Asset records, including upload state, size, and any digest.
+
+        Raises:
+            ReleaseError: The asset listing cannot be completed.
+        """
         return self.pages(f"releases/{release['id']}/assets")
 
     def create_draft(self, tag, commit, prerelease, marker, run, notes=None):
+        """Create a draft with source identity and successful verification evidence.
+
+        Args:
+            tag (str): Existing v-prefixed remote tag; also the release title.
+            commit (str): Full source commit object ID.
+            prerelease (bool): Classification already validated against the tag.
+            marker (str): Script-management marker used to identify matching retries.
+            run (dict): Verified Actions run containing html_url.
+            notes (str | None): Reviewed body text, or None to generate GitHub notes.
+
+        Raises:
+            ReleaseError: Note generation or release creation fails.
+
+        Writes a remote draft. Callers must check for an existing release first
+        and re-read remote state after an interrupted creation request.
+        """
         if notes is None:
             notes = self.api("releases/generate-notes", "POST", tag_name=tag, target_commitish=commit)["body"]
         body = f"{notes}\n\nSource commit: `{commit}`\n\nVerification: {run['html_url']}\n\n{marker}\n"
@@ -163,6 +355,21 @@ class GitHub:
                  draft=True, prerelease=prerelease, body=body)
 
     def asset_matches(self, asset, path):
+        """Compare a remote asset's uploaded bytes with a local file.
+
+        Args:
+            asset (dict): Asset record with state and size, optional digest, and
+                release_tag for the download fallback.
+            path (Path): Local file whose name identifies the remote asset.
+
+        Returns:
+            bool: True when upload state, size, and SHA-256 match. Assets lacking
+                a server digest are downloaded into a temporary directory.
+
+        Raises:
+            ReleaseError: A fallback download fails.
+            OSError: The local or downloaded file cannot be read.
+        """
         if asset.get("state") != "uploaded" or asset.get("size") != path.stat().st_size:
             return False
         if asset.get("digest"):
@@ -174,6 +381,22 @@ class GitHub:
 
 
 def wait_for_release_run(github, commit, tag, timeout, poll):
+    """Wait for the newest tagged push/dispatch run and validate its full gate.
+
+    Args:
+        github (GitHub): Repository client used to list runs and attempt jobs.
+        commit (str): Full release commit object ID.
+        tag (str): Exact v-prefixed release tag.
+        timeout (int | float): Polling budget in seconds.
+        poll (int | float): Seconds between polls while a run is absent/incomplete.
+
+    Returns:
+        dict: Completed successful run accepted by ``check_run``.
+
+    Raises:
+        ReleaseError: API access fails, a completed run fails validation, or the
+            budget expires. A failed gate includes a full-run retry command.
+    """
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         candidates = [run for run in github.runs(head_sha=commit)
@@ -194,21 +417,64 @@ def wait_for_release_run(github, commit, tag, timeout, poll):
 
 
 def check_draft(release, tag, prerelease, marker):
+    """Require a release to belong to the same script-managed attempt.
+
+    Args:
+        release (dict): Draft or published release with tag_name, prerelease,
+            and body fields. Publication state is checked by the caller.
+        tag (str): Expected exact tag name.
+        prerelease (bool): Expected release classification.
+        marker (str): Management marker that must appear in the release body.
+
+    Raises:
+        ReleaseError: The tag, classification, or management marker disagrees.
+    """
     if (release.get("tag_name") != tag or release.get("prerelease") != prerelease
             or marker not in (release.get("body") or "")):
         raise ReleaseError("Existing release is not a matching script-managed release; refusing to change it.")
 
 
 def version_core(version):
+    """Extract an orderable numeric core from a supported version string.
+
+    Args:
+        version (str): Stable or prerelease version without a v prefix.
+
+    Returns:
+        tuple[int, int, int]: Major, minor, and patch as integers.
+
+    Raises:
+        ReleaseError: The version fails the shared grammar.
+    """
     return tuple(map(int, parse_version(version).groups()[:3]))
 
 
 def require_new_version(github, version):
+    """Require a candidate's numeric core to exceed every published stable core.
+
+    Args:
+        github (GitHub): Repository client used to list published stable versions.
+        version (str): Candidate stable or prerelease version without v.
+
+    Raises:
+        ReleaseError: A published stable core is greater than or equal to the
+            candidate's core, or the remote listing cannot be completed.
+    """
     if any(prior >= version_core(version) for prior in github.published_stable_versions()):
         raise ReleaseError("A new release must advance the numeric version beyond published stable releases.")
 
 
 def require_latest_stable(github, tag):
+    """Require a tag to identify the newest published stable release.
+
+    Args:
+        github (GitHub): Repository client providing release and version records.
+        tag (str): Validated v-prefixed version being considered for deployment.
+
+    Raises:
+        ReleaseError: The release is absent, draft, prerelease, older than the
+            newest stable core, or remote state cannot be read.
+    """
     release = github.release(tag)
     versions = github.published_stable_versions()
     if (not release or release["draft"] or release["prerelease"] or not versions
@@ -217,6 +483,25 @@ def require_latest_stable(github, tag):
 
 
 def sync_assets(github, release, tag, directory, names, upload):
+    """Verify existing assets and optionally upload missing expected files.
+
+    Args:
+        github (GitHub): Client used to list, compare, and upload assets.
+        release (dict): Target release record containing id.
+        tag (str): Exact release tag used for downloads and uploads.
+        directory (Path): Local directory containing the verified bundle files.
+        names (Collection[str]): Complete collection of expected asset filenames.
+        upload (bool): Permit missing assets to be uploaded when True; otherwise
+            require the release to contain the complete bundle already.
+
+    Raises:
+        ReleaseError: Names are duplicated/unexpected, existing bytes differ,
+            required assets are missing, or an upload/comparison fails.
+        OSError: A file needed for comparison cannot be read.
+
+    Existing files are checked before uploads and never overwritten. Interrupted
+    uploads may leave a partial remote set for a matching attempt to resume.
+    """
     existing = github.assets(release)
     if len({asset["name"] for asset in existing}) != len(existing):
         raise ReleaseError("Release contains duplicate asset names.")
@@ -234,7 +519,22 @@ def sync_assets(github, release, tag, directory, names, upload):
 
 
 def verify_published_assets(github, release, commit, tag):
-    # Published releases can outlive CI artifacts. Verify their actual assets directly on --resume.
+    """Verify a published release directly, independent of CI artifact retention.
+
+    Args:
+        github (GitHub): Client used for asset downloads and remote comparisons.
+        release (dict): Published release record containing id.
+        commit (str): Expected full source commit object ID.
+        tag (str): Expected validated v-prefixed release version.
+
+    Raises:
+        ReleaseError: Download, bundle validation, or remote comparison fails.
+        OSError: Temporary assets cannot be read or written.
+        ValueError: The downloaded manifest is invalid JSON.
+
+    Downloads into a temporary directory, prints successful verification, and
+    leaves the published release unchanged.
+    """
     with tempfile.TemporaryDirectory(prefix="cetl-published-") as temporary:
         directory = Path(temporary)
         github.cli("release", "download", tag, "--dir", str(directory))
@@ -244,6 +544,22 @@ def verify_published_assets(github, release, commit, tag):
 
 
 def deploy_docs(github, tag, timeout, poll):
+    """Complete a main-branch documentation deployment for a published stable tag.
+
+    Args:
+        github (GitHub): Client used to find/dispatch CETLVaSt and inspect jobs.
+        tag (str): Published stable tag, checked by the caller before deployment.
+        timeout (int | float): Polling budget in seconds.
+        poll (int | float): Seconds between deployment-status polls.
+
+    Raises:
+        ReleaseError: API/dispatch access fails, the newest matching run fails,
+            its deployment job is unsuccessful, or the budget expires.
+
+    Reuses a successful or in-flight matching dispatch. Otherwise starts a run
+    on main with the release tag as docs_ref. Prints environment-approval links
+    when required; site-content verification belongs to ``finish_documentation``.
+    """
     title = f"CETLVaSt / {tag}"
     runs = [run for run in github.runs(event="workflow_dispatch", branch="main")
             if run["display_title"] == title]
@@ -283,6 +599,30 @@ def deploy_docs(github, tag, timeout, poll):
 
 
 def cut_release(args, git=None, github=None):
+    """Preflight, publish, or resume a CETL release and its stable documentation.
+
+    Args:
+        args (argparse.Namespace): Options produced by ``main``: root (Path),
+            repo and remote (str), version and ref (str or None), notes_file
+            (Path or None), dry_run and resume (bool), and positive timeout and
+            poll durations in seconds. Omitted version/ref select the freshly
+            fetched main commit and its header version; resume requires both.
+        git (Git | None): Checkout adapter; None constructs Git(args.root).
+        github (GitHub | None): Repository adapter; None constructs GitHub(args.repo).
+            Tests may inject adapters implementing the same operations.
+
+    Raises:
+        ReleaseError: Preflight, version/ref policy, CI, asset, publication, or
+            deployment checks fail. Matching remote state is retained for retry.
+        OSError: Notes, temporary bundle files, or subprocesses are inaccessible.
+        ValueError: Remote or bundle JSON cannot be decoded.
+        KeyError: A service record lacks a required field.
+
+    Fetches remote main and prints commands pinned to the selected revision.
+    Dry runs stop before remote writes. Publication may push a tag, dispatch CI,
+    create/upload/publish a release, and deploy Pages. Resuming a published
+    release verifies its actual assets before finishing documentation.
+    """
     check_local_tools()
     if args.resume and (not args.version or not args.ref):
         raise ReleaseError("Use the printed Resume command: --resume requires explicit --version and --ref "
@@ -393,6 +733,23 @@ def cut_release(args, git=None, github=None):
 
 
 def finish_documentation(github, tag, version, prerelease, timeout, poll):
+    """Deploy and verify documentation when a release is the latest stable one.
+
+    Args:
+        github (GitHub): Repository and Pages client.
+        tag (str): Published, validated release tag.
+        version (str): Corresponding version without v.
+        prerelease (bool): Classification validated against the tag.
+        timeout (int | float): Separate polling budget for deployment and HTML checks.
+        poll (int | float): Seconds between status/content checks.
+
+    Raises:
+        ReleaseError: The latest-stable check, deployment, or public HTML
+            verification fails, or GitHub state cannot be read.
+
+    Prints a skip reason for prereleases and releases superseded by a newer
+    stable version. Eligible releases may dispatch a deployment through main.
+    """
     if prerelease:
         print("Documentation: built and attached; prereleases do not replace the stable Pages site.")
     else:
@@ -405,6 +762,15 @@ def finish_documentation(github, tag, version, prerelease, timeout, poll):
 
 
 def main():
+    """Parse maintainer CLI arguments and run the release operation.
+
+    Reads sys.argv and prints progress or recovery diagnostics. ``cut_release``
+    defines filesystem/network effects; argparse's help defines CLI options.
+
+    Raises:
+        SystemExit: Help/argument parsing exits, a release error exits with
+            status 1, or keyboard interruption exits with status 130.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", help="Override header version, e.g. X.Y.Z-rc.1 (without v)")
     parser.add_argument("--ref", help="Commit/ref merged into remote main; defaults to freshly fetched main")

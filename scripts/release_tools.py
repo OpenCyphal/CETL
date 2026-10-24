@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Shared release validation and packaging. Python 3.14+, standard library only."""
+"""Validate CETL releases and build their distribution archives.
+
+The maintainer CLI and CI share the version, verification-job, documentation,
+and bundle contracts defined here. Git reads use committed content; packaging
+writes local archives, a release manifest, and checksums. The module uses the
+Python 3.14+ standard library and the Git executable. ``main`` provides the CI
+entry point and writes validated metadata to GitHub Actions outputs.
+"""
 
 import argparse
 import gzip
@@ -15,7 +22,12 @@ import tarfile
 
 
 class ReleaseError(RuntimeError):
-    """An unsafe or incomplete release operation."""
+    """Report a failed release check or operation to the maintainer.
+
+    The message describes the failed condition or corrective action. CLI entry
+    points catch this exception and exit unsuccessfully. Operations completed
+    before the exception, including remote writes, may need to be resumed.
+    """
 
 
 VERSION = re.compile(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(alpha|beta|rc)\.([1-9][0-9]*))?")
@@ -26,6 +38,19 @@ RELEASE_FILES = ("scripts/release.py", "scripts/release_tools.py", "scripts/test
 
 
 def parse_version(value):
+    """Parse a supported stable or prerelease version without a tag prefix.
+
+    Args:
+        value (str): X.Y.Z or X.Y.Z-{alpha,beta,rc}.N, with decimal components,
+            no leading zeros, and a positive prerelease sequence number.
+
+    Returns:
+        re.Match: Five groups: major, minor, patch, stage, and sequence number.
+            The final two groups are None for stable versions.
+
+    Raises:
+        ReleaseError: The entire string does not match the version grammar.
+    """
     match = VERSION.fullmatch(value)
     if not match:
         raise ReleaseError("Expected X.Y.Z or X.Y.Z-{alpha,beta,rc}.N (no leading zeros; N >= 1).")
@@ -33,6 +58,18 @@ def parse_version(value):
 
 
 def header_version(text):
+    """Read the numeric version from CETL's public header.
+
+    Args:
+        text (str): Header source containing CETL_VERSION_MAJOR, MINOR, and PATCH.
+
+    Returns:
+        str: The normalized X.Y.Z version.
+
+    Raises:
+        ReleaseError: A macro is missing, repeated, or not a bare nonnegative
+            decimal integer without leading zeros.
+    """
     parts = []
     for part in ("MAJOR", "MINOR", "PATCH"):
         definitions = re.findall(r"^\s*#\s*define[ \t]+CETL_VERSION_" + part + r"\b([^\n]*)", text, re.M)
@@ -43,6 +80,22 @@ def header_version(text):
 
 
 def validate(text, tag=None, prerelease=None):
+    """Check agreement between header macros, a tag, and release classification.
+
+    Args:
+        text (str): CETL header source to inspect.
+        tag (str | None): A v-prefixed version; None uses the header's version.
+        prerelease (bool | None): Expected GitHub prerelease flag, or None to
+            derive the classification from the version suffix.
+
+    Returns:
+        dict: ``version`` without v, ``tag`` (empty when omitted), and the
+            boolean ``prerelease`` classification.
+
+    Raises:
+        ReleaseError: Header/version syntax is invalid, the tag's numeric core
+            differs from the header, or the supplied classification disagrees.
+    """
     core = header_version(text)
     version = tag[1:] if tag and tag.startswith("v") else core
     if tag and not tag.startswith("v"):
@@ -57,7 +110,24 @@ def validate(text, tag=None, prerelease=None):
 
 
 def command(args, cwd=None, binary=False):
-    # Do not echo commands, environment variables, or subprocess stderr: gh/git may include credentials.
+    """Run an argument vector with captured output and a 120-second timeout.
+
+    Args:
+        args (Sequence[str]): Executable and arguments, passed without a shell.
+        cwd (str | Path | None): Working directory; None inherits the caller's.
+        binary (bool): Return stdout bytes instead of decoded, stripped text.
+
+    Returns:
+        str | bytes: Captured stdout in the requested representation.
+
+    Raises:
+        ReleaseError: The executable is missing, times out, or exits nonzero.
+        OSError: Another process-launch error occurs.
+        UnicodeDecodeError: Text stdout cannot be decoded as UTF-8.
+
+    Subprocess diagnostics omit arguments and stderr, which may contain
+    credentials. The invoked command determines filesystem and network effects.
+    """
     try:
         result = subprocess.run(args, cwd=cwd, capture_output=True, check=False, timeout=120)
     except FileNotFoundError as ex:
@@ -72,20 +142,79 @@ def command(args, cwd=None, binary=False):
 
 
 class Git:
+    """Run Git operations against one checkout using captured subprocess output.
+
+    Args:
+        root (str | Path): Checkout directory, resolved to an absolute path.
+
+    Attributes:
+        root (Path): Working directory used by every Git subprocess.
+
+    Construction stores the path; individual operations check repository state.
+    Methods propagate ReleaseError from failed Git commands.
+    """
+
     def __init__(self, root):
+        """Store the resolved checkout path without opening or changing it."""
         self.root = Path(root).resolve()
 
     def run(self, *args, binary=False):
+        """Execute Git in this checkout with the output contract of ``command``.
+
+        Args:
+            *args (str): Git subcommand and arguments, passed without a shell.
+            binary (bool): Return raw stdout bytes when True.
+
+        Returns:
+            str | bytes: Captured stdout, stripped when returned as text.
+
+        Raises:
+            ReleaseError: Git is unavailable, times out, or exits nonzero.
+
+        Mutations and network access depend on the requested subcommand.
+        """
         return command(["git", *args], cwd=self.root, binary=binary)
 
     def commit(self, ref):
+        """Resolve a revision to its full commit object ID.
+
+        Args:
+            ref (str): Git revision expression; annotated tags are peeled.
+
+        Returns:
+            str: The full commit object ID.
+
+        Raises:
+            ReleaseError: The revision is missing or cannot resolve to a commit.
+        """
         # --end-of-options prevents a ref supplied at the CLI from becoming a Git option.
         return self.run("rev-parse", "--verify", "--end-of-options", ref + "^{commit}")
 
     def validate(self, commit, tag=None, prerelease=None):
+        """Validate a committed header using ``validate``'s metadata contract.
+
+        Args:
+            commit (str): Commit or revision containing the header.
+            tag (str | None): Expected v-prefixed release version.
+            prerelease (bool | None): Expected GitHub prerelease classification.
+
+        Returns:
+            dict: Validated ``version``, ``tag``, and ``prerelease`` fields.
+
+        Raises:
+            ReleaseError: Git cannot read the header or its metadata disagrees.
+        """
         return validate(self.run("show", f"{commit}:{HEADER}"), tag, prerelease)
 
     def require_release_files(self, commit):
+        """Require every path in RELEASE_FILES to exist in a committed tree.
+
+        Args:
+            commit (str): Revision to inspect for release scripts and workflow.
+
+        Raises:
+            ReleaseError: Git cannot find or inspect a required path.
+        """
         for path in RELEASE_FILES:
             try:
                 self.run("cat-file", "-e", f"{commit}:{path}")
@@ -94,6 +223,18 @@ class Git:
                                    "and select a commit containing it.") from ex
 
     def remote_repository(self, remote):
+        """Identify a remote whose fetch and push URLs name the same repository.
+
+        Args:
+            remote (str): Configured Git remote name.
+
+        Returns:
+            str: GitHub OWNER/NAME, preserving the fetch URL's spelling.
+
+        Raises:
+            ReleaseError: The remote is unavailable, a URL is unsupported, or
+                fetch and push identities differ when compared without case.
+        """
         fetch = repository_from_url(self.run("remote", "get-url", remote))
         push = repository_from_url(self.run("remote", "get-url", "--push", remote))
         if fetch.lower() != push.lower():
@@ -101,6 +242,19 @@ class Git:
         return fetch
 
     def remote_tag(self, remote, tag):
+        """Query a remote tag without fetching it into the checkout.
+
+        Args:
+            remote (str): Git remote name.
+            tag (str): Exact tag name, including the release's v prefix.
+
+        Returns:
+            str | None: Peeled target object ID for an annotated tag, direct
+                object ID for a lightweight tag, or None when the tag is absent.
+
+        Raises:
+            ReleaseError: Git cannot query the remote.
+        """
         refs = dict(line.split()[::-1] for line in self.run(
             "ls-remote", "--tags", remote, f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"
         ).splitlines())
@@ -108,6 +262,18 @@ class Git:
 
 
 def repository_from_url(url):
+    """Extract the repository identity from a supported github.com remote URL.
+
+    Args:
+        url (str): HTTPS, SCP-style git@github.com, or ssh://git@github.com URL.
+
+    Returns:
+        str: OWNER/NAME with an optional .git suffix and trailing slash removed.
+
+    Raises:
+        ReleaseError: The URL uses another host, embeds HTTPS credentials,
+            contains URL parameters, or does not identify one repository.
+    """
     match = re.fullmatch(r"(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)([\w.-]+/[\w.-]+?)(?:\.git)?/?", url)
     if not match:
         raise ReleaseError("Use a github.com SSH or HTTPS remote without embedded credentials.")
@@ -115,6 +281,15 @@ def repository_from_url(url):
 
 
 def required_jobs():
+    """Return the set of exact job names required for a release CI attempt.
+
+    The set contains validation, tooling tests, dependency preparation, docs,
+    the release gate, asset packaging, and each compiler/standard matrix entry.
+    The workflow contract test checks this list against CETLVaSt's matrix.
+
+    Returns:
+        set[str]: Job names whose conclusion must be success.
+    """
     names = {"version", "release-tests", "cache-warmup", "docs", "release-ready", "release-assets"}
     for architecture, compilers, standards in (
         ("amd64", ("gcc-native-32", "clang-native"), (14, 17, 20, 23)),
@@ -127,6 +302,20 @@ def required_jobs():
 
 
 def check_run(run, jobs, commit, tag):
+    """Require successful CETLVaSt verification of one exact release revision.
+
+    Args:
+        run (dict): Actions run with head_sha, head_branch, event, path, status,
+            and conclusion fields.
+        jobs (Iterable[dict]): Jobs from this run's current attempt, each with
+            name and conclusion fields. The caller must isolate the attempt.
+        commit (str): Expected full commit object ID.
+        tag (str): Expected v-prefixed tag used as the run's head_branch.
+
+    Raises:
+        ReleaseError: The run identifies another workflow/revision/event, is
+            unsuccessful or incomplete, or lacks a successful required job.
+    """
     if (run.get("head_sha") != commit or run.get("head_branch") != tag
             or run.get("event") not in ("push", "workflow_dispatch")
             or run.get("path") != f".github/workflows/{WORKFLOW}"):
@@ -140,10 +329,30 @@ def check_run(run, jobs, commit, tag):
 
 
 def asset_names(version):
+    """Return the archive and manifest filenames covered by SHA256SUMS.
+
+    Args:
+        version (str): Validated version without the v prefix.
+
+    Returns:
+        set[str]: Source, headers, and docs archive names plus release.json.
+            SHA256SUMS itself is outside this set.
+    """
     return {f"cetl-{version}-{kind}.tar.gz" for kind in ("source", "headers", "docs")} | {"release.json"}
 
 
 def sha256(path):
+    """Hash a file in chunks of at most one MiB.
+
+    Args:
+        path (str | Path): File to read as bytes.
+
+    Returns:
+        str: Lowercase hexadecimal SHA-256 digest.
+
+    Raises:
+        OSError: The file cannot be opened or read.
+    """
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -152,21 +361,37 @@ def sha256(path):
 
 
 def check_documentation(html, version):
+    """Require Doxygen's displayed project number to equal a release version.
+
+    Args:
+        html (str): Decoded HTML containing CETL's projectnumber span.
+        version (str): Expected version text, including any prerelease suffix.
+
+    Raises:
+        ReleaseError: The displayed version is absent or differs after stripping
+            surrounding whitespace. Incidental version text is ignored.
+    """
     class ProjectNumber(HTMLParser):
+        """Collect decoded text from CETL's projectnumber span."""
+
         def __init__(self):
+            """Initialize the capture flag and collected text fragments."""
             super().__init__()
             self.recording = False
             self.values = []
 
         def handle_starttag(self, tag, attrs):
+            """Start capturing at an element with the projectnumber ID."""
             if dict(attrs).get("id") == "projectnumber":
                 self.recording = True
 
         def handle_endtag(self, tag):
+            """End capture at a closing span, matching CETL's Doxygen template."""
             if tag == "span":
                 self.recording = False
 
         def handle_data(self, data):
+            """Append decoded text while the project number is being captured."""
             if self.recording:
                 self.values.append(data)
 
@@ -178,6 +403,24 @@ def check_documentation(html, version):
 
 
 def package(git, commit, tag, docs, output):
+    """Write reproducible release archives, a manifest, and their checksums.
+
+    Args:
+        git (Git): Checkout containing the selected commit and local tag.
+        commit (str): Full commit object ID to archive.
+        tag (str): Matching v-prefixed release version.
+        docs (str | Path): Built HTML directory containing index.html.
+        output (str | Path): Empty or nonexistent destination directory.
+
+    Raises:
+        ReleaseError: Version/tag checks fail, the documentation entry point is
+            missing, the output is nonempty, or documentation contains symlinks.
+        OSError: A directory or archive cannot be read or written.
+
+    Archives share a cetl-VERSION root. The header and documentation archives
+    include LICENSE. Archive metadata and ordering are normalized for repeatable
+    bytes from identical inputs. Failures may leave partial local output.
+    """
     metadata = git.validate(commit, tag)
     if git.commit(f"refs/tags/{tag}") != commit:
         raise ReleaseError("Packaging commit differs from the local release tag.")
@@ -217,6 +460,22 @@ def package(git, commit, tag, docs, output):
 
 
 def check_bundle(directory, commit, tag):
+    """Check a bundle's exact filenames, release identity, and file checksums.
+
+    Args:
+        directory (str | Path): Unpacked directory produced by ``package``.
+        commit (str): Expected full source commit object ID.
+        tag (str): Expected validated v-prefixed release version.
+
+    Returns:
+        list[str]: Sorted filenames, including SHA256SUMS, for asset syncing.
+
+    Raises:
+        ReleaseError: Files are missing/unexpected, metadata differs, or a
+            checksum differs. Archive contents are not extracted by this check.
+        ValueError: The manifest is invalid JSON.
+        OSError: A bundle file cannot be read.
+    """
     directory = Path(directory)
     version = tag[1:]
     expected = asset_names(version)
@@ -232,6 +491,16 @@ def check_bundle(directory, commit, tag):
 
 
 def main():
+    """Run the validation, packaging, or built-documentation CLI operation.
+
+    Arguments come from sys.argv. Validation checks HEAD against tag/release
+    event metadata from GitHub's environment, prints JSON, and appends fields to
+    GITHUB_OUTPUT when configured. Packaging writes the selected local bundle;
+    documentation verification reads the supplied HTML file.
+
+    Raises:
+        SystemExit: Argument parsing exits, or an operation fails with status 1.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="operation", required=True)
     check = subparsers.add_parser("validate", help="Validate checkout and GitHub event metadata.")
