@@ -157,6 +157,27 @@ class GateTests(unittest.TestCase):
                                             "verification-amd64", "verification-arm64", "verification-legacy-arm64"})
         self.assertIn("job['result'] != 'success'", gate)
 
+    def test_full_release_gate_triggers_cover_all_dependencies(self):
+        """Require every full-gate trigger to enable each conditional dependency."""
+        workflow = (SCRIPTS.parent / ".github/workflows/cetlvast.yml").read_text()
+        gate = _workflow_group(r"^  release-ready:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S)
+        condition_pattern = r"^    if: >-?\n(.*?)(?=^    \S)"
+        # Each predicate is an OR term; always() lets the gate inspect failed dependencies.
+        predicate_pattern = r"(?:startsWith|contains)\([^()\n]*\)|github\.event_name == '[^']+'"
+        condition = _workflow_group(condition_pattern, gate, re.M | re.S)
+        gate_triggers = set(re.findall(predicate_pattern, condition))
+        self.assertTrue(gate_triggers)
+        dependencies = _workflow_group(r"needs: \[(.*)\]", gate).split(", ")
+        for dependency in dependencies:
+            with self.subTest(dependency=dependency):
+                section = _workflow_group(rf"^  {re.escape(dependency)}:\n(.*?)(?=^  [a-z]|\Z)",
+                                          workflow, re.M | re.S)
+                if not re.search(r"^    if:", section, re.M):
+                    continue
+                condition = _workflow_group(condition_pattern, section, re.M | re.S)
+                missing = gate_triggers - set(re.findall(predicate_pattern, condition))
+                self.assertFalse(missing, f"{dependency} skips full-gate triggers: {sorted(missing)}")
+
 
 class GitHubTransportTests(unittest.TestCase):
     """Check CLI/API encoding, local prerequisites, diagnostics, and public HTML reads."""

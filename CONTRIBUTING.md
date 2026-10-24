@@ -177,6 +177,7 @@ will force the CI to execute jobs named `verification` and `docs`.
 Note that if the job you requested is dependent on other jobs that are not triggered, it will not run.
 
 Version/header validation and release-tool tests run independently of hashtags.
+The `#verification` trigger includes documentation and release archive checks.
 Version tags and release dispatches always run full verification. A release
 documentation dispatch also verifies the complete release; it is not a docs-only shortcut.
 See [Releasing CETL](RELEASING.md) for the maintainer Python CLI and recovery instructions.
