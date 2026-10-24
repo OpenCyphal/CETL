@@ -4,7 +4,7 @@ Pure checks exercise version, transport, CI-gate, and documentation contracts.
 Repository rehearsals use real Git subprocesses and a local bare remote, with
 SimulatedGitHub supplying API state and failure injection. GitHub/network access
 is replaced by fixtures or mocks; temporary repositories and assets are cleaned
-up by unittest. Run the suite through unittest discovery on Python 3.14+.
+up by unittest. Run the suite through unittest discovery.
 """
 
 import argparse

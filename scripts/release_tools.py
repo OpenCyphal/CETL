@@ -4,7 +4,7 @@
 The maintainer CLI and CI share the version, verification-job, documentation,
 and bundle contracts defined here. Git reads use committed content; packaging
 writes local archives, a release manifest, and checksums. The module uses the
-Python 3.14+ standard library and the Git executable. ``main`` provides the CI
+Python standard library and the Git executable. ``main`` provides the CI
 entry point and writes validated metadata to GitHub Actions outputs.
 """
 

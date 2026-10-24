@@ -4,7 +4,7 @@
 Preflight selects a merged commit and validates the release configuration.
 Publication waits for tagged CI, verifies assets, and deploys stable documentation.
 Matching attempts can resume after interruption; completed remote operations are
-preserved. Python 3.14+ and the standard library implement the orchestration;
+preserved. Python and the standard library implement the orchestration;
 ``release_tools`` supplies shared validation and packaging contracts.
 """
 
@@ -27,6 +27,7 @@ from urllib.request import Request, urlopen
 from release_tools import (Git, ReleaseError, WORKFLOW, check_bundle, check_documentation, check_run, command,
                            parse_version, sha256)
 
+_PYTHON_MINIMUM = (3, 14)
 
 def check_local_tools(python_version=None):
     """Require the supported Python version and Git/GitHub CLI operations.
@@ -36,13 +37,15 @@ def check_local_tools(python_version=None):
             sys.version_info. Supplying a tuple supports isolated preflight tests.
 
     Raises:
-        ReleaseError: Python is older than 3.14, an executable is missing, or a
-            required GitHub CLI help command is unavailable.
+        ReleaseError: Python is older than the minimum supported version, an executable
+            is missing, or a required GitHub CLI help command is unavailable.
 
     Executes local version/help commands; repository access is checked separately.
     """
-    if (python_version or sys.version_info) < (3, 14):
-        raise ReleaseError("Run the release script with Python 3.14 or newer.")
+    if (python_version or sys.version_info) < _PYTHON_MINIMUM:
+        raise ReleaseError(
+            f"Run the release script with Python {_PYTHON_MINIMUM[0]}.{_PYTHON_MINIMUM[1]} or newer."
+        )
     command(["git", "--version"])
     command(["gh", "--version"])
     for operation in (("run", "download"), ("release", "upload"), ("workflow", "run")):
