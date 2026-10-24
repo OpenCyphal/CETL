@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import textwrap
 from typing import Any
 import unittest
 from unittest.mock import patch
@@ -30,7 +31,7 @@ sys.path.insert(0, str(SCRIPTS))
 
 from release import GitHub, check_local_tools, cut_release, require_latest_stable  # noqa: E402
 from release_tools import (Git, HEADER, RELEASE_FILES, ReleaseError, check_bundle, check_documentation, check_run, command,  # noqa: E402
-                           header_version, package, parse_version, repository_from_url,
+                           extract_documentation, header_version, package, parse_version, repository_from_url,
                            required_jobs, sha256, validate)
 
 HEADER_TEXT = "#define CETL_VERSION_MAJOR 2\n#define CETL_VERSION_MINOR 0\n#define CETL_VERSION_PATCH 0\n"
@@ -47,16 +48,14 @@ def _workflow_group(pattern: str, workflow: str, flags: int = 0) -> str:
 class VersionTests(unittest.TestCase):
     """Check the accepted version grammar, header definitions, and remote identities."""
 
-    def test_stable_and_prerelease(self):
-        """Accept matching stable versions and each supported prerelease stage."""
+    def test_header_and_release_tag_agree(self):
+        """Derive the release version from the header and validate its exact tag."""
         self.assertEqual(header_version(HEADER_TEXT), "2.0.0")
-        self.assertFalse(validate(HEADER_TEXT, "v2.0.0", False)["prerelease"])
-        for stage in ("alpha", "beta", "rc"):
-            self.assertTrue(validate(HEADER_TEXT, f"v2.0.0-{stage}.1", True)["prerelease"])
+        self.assertEqual(validate(HEADER_TEXT, "v2.0.0"), {"version": "2.0.0", "tag": "v2.0.0"})
 
     def test_invalid_versions(self):
         """Reject ambiguous components, unsupported suffixes, and malformed version text."""
-        for version in ("02.0.0", "2.00.0", "2.0", "v2.0.0", "2.0.0-rc.0", "2.0.0-rc.01",
+        for version in ("02.0.0", "2.00.0", "2.0", "v2.0.0", "2.0.0-rc.1", "2.0.0-alpha.1", "2.0.0-beta.1",
                         "2.0.0-dev.1", "2.0.0+build", "2.0.0\n", "-n", "2.0.0-rc.1/branch"):
             with self.subTest(version=version), self.assertRaises(ReleaseError):
                 parse_version(version)
@@ -72,11 +71,11 @@ class VersionTests(unittest.TestCase):
             with self.subTest(header=header), self.assertRaises(ReleaseError):
                 header_version(header)
 
-    def test_misaligned_tags_and_flags(self):
-        """Reject tag/header disagreements and inconsistent prerelease flags."""
-        for tag, flag in (("v2.0.1", None), ("2.0.0", None), ("v2.0.0", True), ("v2.0.0-rc.1", False)):
-            with self.subTest(tag=tag, flag=flag), self.assertRaises(ReleaseError):
-                validate(HEADER_TEXT, tag, flag)
+    def test_misaligned_or_malformed_tags(self):
+        """Reject tags that differ from the header version or have invalid syntax."""
+        for tag in ("v2.0.1", "2.0.0", "v2.0.0-rc.1"):
+            with self.subTest(tag=tag), self.assertRaises(ReleaseError):
+                validate(HEADER_TEXT, tag)
 
     def test_github_remote_formats(self):
         """Accept supported GitHub remotes and reject credentials or another host."""
@@ -89,17 +88,16 @@ class VersionTests(unittest.TestCase):
                 repository_from_url(url)
 
 
-def successful_run(commit: str, tag: str) -> dict[str, Any]:
-    """Build a successful tagged-push Actions record for gate tests.
+def successful_run(commit: str) -> dict[str, Any]:
+    """Build a successful main-push Actions record for gate tests.
 
     Args:
         commit (str): Source object ID exposed as head_sha.
-        tag (str): Exact release tag exposed as head_branch.
 
     Returns:
         dict: Mutable run fixture identifying CETLVaSt, attempt 1, and run 123.
     """
-    return {"id": 123, "run_attempt": 1, "head_sha": commit, "head_branch": tag,
+    return {"id": 123, "run_attempt": 1, "head_sha": commit, "head_branch": "main",
             "event": "push", "path": ".github/workflows/cetlvast.yml",
             "status": "completed", "conclusion": "success", "html_url": "https://example.test/runs/123"}
 
@@ -109,12 +107,12 @@ class GateTests(unittest.TestCase):
 
     def setUp(self):
         """Create an accepted run and one successful record for every required job."""
-        self.workflow_run = successful_run("a" * 40, "v2.0.0")
+        self.workflow_run = successful_run("a" * 40)
         self.jobs = [{"name": name, "conclusion": "success"} for name in sorted(required_jobs())]
 
     def check(self):
         """Validate the mutable run/job fixtures against the fixed release identity."""
-        check_run(self.workflow_run, self.jobs, "a" * 40, "v2.0.0")
+        check_run(self.workflow_run, self.jobs, "a" * 40)
 
     def test_success(self):
         """Accept a successful run containing every required release job."""
@@ -126,15 +124,16 @@ class GateTests(unittest.TestCase):
             with self.subTest(result=result):
                 jobs = self.jobs[:-1] if result is None else [*self.jobs[:-1], {**self.jobs[-1], "conclusion": result}]
                 with self.assertRaises(ReleaseError):
-                    check_run(self.workflow_run, jobs, "a" * 40, "v2.0.0")
+                    check_run(self.workflow_run, jobs, "a" * 40)
 
     def test_wrong_commit_event_workflow_tag_or_state(self):
         """Reject a run whose identity or completion state differs from the release."""
-        for key, value in (("head_sha", "b" * 40), ("event", "pull_request"), ("head_branch", "main"),
+        for key, value in (("head_sha", "b" * 40), ("event", "pull_request"), ("event", "workflow_dispatch"),
+                           ("head_branch", "feature"),
                            ("path", ".github/workflows/other.yml"), ("status", "in_progress"),
                            ("conclusion", "cancelled")):
             with self.subTest(key=key), self.assertRaises(ReleaseError):
-                check_run({**self.workflow_run, key: value}, self.jobs, "a" * 40, "v2.0.0")
+                check_run({**self.workflow_run, key: value}, self.jobs, "a" * 40)
 
     def test_matrix_and_gate_contract_matches_workflow(self):
         """Keep required job names and aggregate dependencies aligned with CETLVaSt."""
@@ -235,7 +234,7 @@ class GitHubTransportTests(unittest.TestCase):
                 patch("release.urlopen", return_value=response), \
                 patch("release.time.monotonic", side_effect=[0, 0, 2]), patch("release.time.sleep"), \
                 contextlib.redirect_stdout(io.StringIO()):
-            with self.assertRaisesRegex(ReleaseError, "Documentation displays 1.0.0, expected 2.0.0.*printed resume command"):
+            with self.assertRaisesRegex(ReleaseError, "Documentation displays 1.0.0, expected 2.0.0.*same release command"):
                 github.verify_pages("2.0.0", 1, 1)
 
     def test_site_network_failure_is_distinguished_from_wrong_version(self):
@@ -260,6 +259,22 @@ class GitHubTransportTests(unittest.TestCase):
             self.assertIn("draft=false", args)
             self.assertIn("body=literal $() and `quotes`\nnext line", args)
             self.assertIn("github.com", args)
+
+    def test_metadata_reads_bypass_cached_responses(self):
+        """Request fresh metadata when checking state after remote mutations."""
+        with patch("release.command", return_value="{}") as execute:
+            GitHub("example/cetl").api("pages")
+        self.assertIn("Cache-Control: no-cache", execute.call_args.args[0])
+
+    def test_draft_creation_returns_the_post_response(self):
+        """Retain the server-assigned release ID without another listing request."""
+        github = GitHub("example/cetl")
+        record = {"id": 42, "tag_name": "v2.0.0", "draft": True, "prerelease": False, "body": "marker"}
+        with patch.object(github, "api", return_value=record) as request:
+            result = github.create_draft("v2.0.0", "a" * 40, "marker", {"html_url": "https://example.test/ci"}, "notes")
+        self.assertIs(result, record)
+        self.assertEqual(request.call_args.args, ("releases", "POST"))
+        self.assertIs(request.call_args.kwargs["prerelease"], False)
 
     def test_pagination_keeps_later_pages(self):
         """Collect records beyond the first full API page."""
@@ -296,7 +311,8 @@ class GitHubTransportTests(unittest.TestCase):
         github = GitHub("example/cetl")
         releases = [{"tag_name": tag, "draft": draft, "prerelease": prerelease} for tag, draft, prerelease in (
             ("v2.9.0", False, False), ("v2.10.0", False, False), ("v3.0.0", True, False),
-            ("v4.0.0-rc.1", False, True), ("historical-non-semver", False, False))]
+            ("v4.0.0-rc.1", False, True), ("v4.0.0-rc.1", False, False),
+            ("historical-non-semver", False, False))]
         with patch.object(github, "pages", return_value=releases):
             self.assertEqual(max(github.published_stable_versions()), (2, 10, 0))
 
@@ -342,7 +358,7 @@ class SimulatedGitHub(GitHub):
         """Initialize an accessible repository with passing CI and usable Pages setup."""
         self.git, self.docs, self.tag = git, docs, tag
         super().__init__("example/cetl")
-        self.run: dict[str, Any] | None = successful_run(git.commit("HEAD"), tag)
+        self.run: dict[str, Any] | None = successful_run(git.commit("HEAD"))
         self.release_data: dict[str, Any] | None = None
         self.asset_data: dict[str, bytes] = {}
         self.writes: list[str] = []
@@ -352,6 +368,7 @@ class SimulatedGitHub(GitHub):
         self.fail_docs = False
         self.other_versions = set()
         self.workflow_state = "active"
+        self.docs_workflow_state = "active"
         self.pages_type = "workflow"
         self.environment_policy = {"protected_branches": False, "custom_branch_policies": True}
         self.branch_policies = [{"name": "main", "type": "branch"}]
@@ -385,25 +402,34 @@ class SimulatedGitHub(GitHub):
             return {"permissions": self.permissions, "default_branch": "main"}
         if path == "actions/workflows/cetlvast.yml":
             return {"state": self.workflow_state}
+        if path == "actions/workflows/release-docs.yml":
+            return {"state": self.docs_workflow_state}
         if path == "pages":
             return {"build_type": self.pages_type, "html_url": "https://example.test/cetl/"}
         if path == "environments/github-pages":
             return {"deployment_branch_policy": self.environment_policy}
         if path == "branches/main":
             return {"protected": self.main_protected}
+        if path == "releases/tags/" + self.tag:
+            if self.release_data is None:
+                raise ReleaseError("Release has not been published.")
+            return self.release_data.copy()
+        if path == "releases/1" and method == "GET":
+            assert self.release_data is not None
+            return self.release_data.copy()
         if path == "releases/1" and method == "PATCH":
             assert self.release_data is not None
             self.writes.append("publish")
             self.release_data["draft"] = fields["draft"]
-            return self.release_data
+            return self.release_data.copy()
         raise AssertionError((path, method, fields))
 
     def release(self, tag):
         """Return release_data; each fixture represents a single release identity."""
         return self.release_data
 
-    def runs(self, **filters):
-        """Return the docs run for dispatch queries, or the fixture's tag run otherwise."""
+    def runs(self, workflow="cetlvast.yml", **filters):
+        """Return the docs run for dispatch queries, or the fixture's main run otherwise."""
         if filters.get("event") == "workflow_dispatch":
             return [self.docs_run] if self.docs_run else []
         return [self.run] if self.run else []
@@ -423,10 +449,11 @@ class SimulatedGitHub(GitHub):
         """Delegate byte/digest comparison to the production client implementation."""
         return super().asset_matches(asset, path)
 
-    def create_draft(self, tag, commit, prerelease, marker, run, notes=None):
+    def create_draft(self, tag, commit, marker, run, notes=None):
         """Record draft creation and retain the classification and management marker."""
         self.writes.append("draft")
-        self.release_data = {"id": 1, "draft": True, "tag_name": tag, "prerelease": prerelease, "body": marker}
+        self.release_data = {"id": 1, "draft": True, "tag_name": tag, "prerelease": False, "body": marker}
+        return self.release_data.copy()
 
     def cli(self, *args) -> str:
         """Simulate downloads, immutable uploads, and workflow dispatches.
@@ -454,7 +481,7 @@ class SimulatedGitHub(GitHub):
         elif args[:2] == ("workflow", "run"):
             self.writes.append("dispatch")
             if args[args.index("--ref") + 1] == "main":
-                self.docs_run = {"id": (self.docs_run or {"id": 200})["id"] + 1, "display_title": f"CETLVaSt / {self.tag}",
+                self.docs_run = {"id": (self.docs_run or {"id": 200})["id"] + 1, "display_title": f"CETL docs / {self.tag}",
                                  "status": "completed", "conclusion": "failure" if self.fail_docs else "success",
                                  "html_url": "https://example.test/docs"}
         else:
@@ -499,9 +526,9 @@ class RepositoryTests(unittest.TestCase):
         self.commit = self.git.commit("HEAD")
         self.docs = root / "html"
         self.docs.mkdir()
-        (self.docs / "index.html").write_text("<html>Fixture built documentation</html>")
-        self.args = argparse.Namespace(version="2.0.0", ref=self.commit, repo="example/cetl", remote="origin",
-                                       root=self.root, notes_file=None, dry_run=False, resume=False, timeout=1, poll=1)
+        (self.docs / "index.html").write_text('<span id="projectnumber">2.0.0</span>')
+        self.args = argparse.Namespace(ref=self.commit, repo="example/cetl", remote="origin",
+                                       root=self.root, notes_file=None, dry_run=False, timeout=1, poll=1)
         self.github = SimulatedGitHub(self.git, self.docs, "v2.0.0")
 
     def cut(self):
@@ -515,13 +542,8 @@ class RepositoryTests(unittest.TestCase):
         self.git.run("tag", tag)
         self.git.run("push", "origin", f"refs/tags/{tag}")
 
-    def test_full_release_rehearsal_and_published_resume(self):
-        """Publish once and verify a repeated matching attempt performs no remote writes."""
-        self.add_tag()
-        self.git.run("tag", "-d", "v2.0.0")  # Cutting a release must not require a local tag.
-        self.args.resume = True
-        # The simulated CI checkout has the tag, just as actions/checkout fetch-depth: 0 does.
-        self.git.run("fetch", "--tags", "origin")
+    def test_full_release_rehearsal_and_repeat(self):
+        """Publish once and verify that repeating the command performs no remote writes."""
         output = self.cut()
         self.assertIn("Documentation:", output)
         assert self.github.release_data is not None
@@ -531,25 +553,17 @@ class RepositoryTests(unittest.TestCase):
         self.cut()
         self.assertEqual(self.github.writes, writes)
 
-    def test_new_tag_push_and_prerelease(self):
-        """Push and publish a prerelease while retaining the stable documentation site."""
-        self.args.version = "2.0.0-rc.1"
-        self.github.tag = "v" + self.args.version
-        assert self.github.run is not None
-        self.github.run["head_branch"] = self.github.tag
-        # CI receives the pushed tag in its separate checkout. Simulate that fetch just before packaging.
+    def test_new_tag_is_created_after_verified_bundle_download(self):
+        """Keep the version untagged until verified CI artifacts have been downloaded."""
         original_cli = self.github.cli
         def cli(*args):
-            """Fetch the pushed tag before emulating CI's separate packaging checkout."""
+            """Check tag timing while emulating the verified bundle download."""
             if args[:2] == ("run", "download"):
-                self.git.run("fetch", "--tags", "origin")
+                self.assertIsNone(self.git.remote_tag("origin", self.github.tag))
             return original_cli(*args)
         self.github.cli = cli
         self.cut()
         self.assertEqual(self.git.remote_tag("origin", self.github.tag), self.commit)
-        assert self.github.release_data is not None
-        self.assertTrue(self.github.release_data["prerelease"])
-        self.assertNotIn("dispatch", self.github.writes)
 
     def test_dry_run_has_no_remote_writes(self):
         """Complete preflight without pushing a tag or changing simulated GitHub state."""
@@ -566,7 +580,7 @@ class RepositoryTests(unittest.TestCase):
         new_commit = self.git.commit("HEAD")
         self.git.run("push", "origin", "main")
         self.git.run("checkout", "--detach", self.commit)
-        self.args.ref, self.args.version, self.args.dry_run = None, None, True
+        self.args.ref, self.args.dry_run = None, True
         output = self.cut()
         self.assertIn("Tag: v2.1.0", output)
         self.assertIn("Commit: " + new_commit, output)
@@ -613,13 +627,6 @@ class RepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "Allow main"):
             self.cut()
 
-    def test_prerelease_does_not_require_pages_configuration(self):
-        """Allow prerelease preflight without a stable Pages deployment configuration."""
-        self.args.version, self.args.dry_run = "2.0.0-rc.1", True
-        self.github.pages_type = "legacy"
-        self.github.branch_policies = []
-        self.cut()
-        self.assertFalse(self.github.writes)
 
     def test_authentication_failure(self):
         """Stop on inaccessible repository metadata before creating remote release state."""
@@ -658,12 +665,20 @@ class RepositoryTests(unittest.TestCase):
             self.cut()
         self.assertFalse(self.github.writes)
 
-    def test_mismatched_version_never_pushes(self):
-        """Reject a version differing from the selected header before pushing its tag."""
-        self.args.version = "2.0.1"
-        with self.assertRaisesRegex(ReleaseError, "does not match"):
+    def test_mismatched_bundle_never_pushes_tag(self):
+        """Reject mismatched CI metadata before allocating a release tag."""
+        original_cli = self.github.cli
+        def cli(*args):
+            """Inject incorrect release identity into a downloaded bundle."""
+            result = original_cli(*args)
+            if args[:2] == ("run", "download"):
+                (Path(args[args.index("--dir") + 1]) / "release.json").write_text("{}")
+            return result
+        self.github.cli = cli
+        with self.assertRaisesRegex(ReleaseError, "metadata"):
             self.cut()
-        self.assertIsNone(self.git.remote_tag("origin", "v2.0.1"))
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+        self.assertFalse(self.github.writes)
 
     def test_conflicting_remote_tag(self):
         """Preserve an existing remote tag when the requested source commit differs."""
@@ -673,86 +688,177 @@ class RepositoryTests(unittest.TestCase):
         self.git.run("commit", "-m", "Next commit")
         self.git.run("push", "origin", "main")
         self.args.ref = self.git.commit("HEAD")
-        self.args.resume = True
         with self.assertRaisesRegex(ReleaseError, "another commit"):
             self.cut()
         self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), self.commit)
 
-    def test_existing_tag_requires_resume(self):
-        """Require explicit resume intent for an existing matching tag."""
+    def test_matching_tag_continues_automatically(self):
+        """Continue an existing matching tag using the ordinary release command."""
         self.add_tag()
-        with self.assertRaisesRegex(ReleaseError, "--resume"):
-            self.cut()
+        self.cut()
+        assert self.github.release_data is not None
+        self.assertFalse(self.github.release_data["draft"])
 
-    def test_dry_run_for_existing_tag_prints_a_working_resume_command(self):
-        """Include resume intent and the exact commit in an existing-tag dry-run command."""
+    def test_dry_run_pins_an_existing_release_commit(self):
+        """Print a command pinned to the existing release snapshot."""
         self.add_tag()
         self.args.dry_run = True
         output = self.cut()
         release_line = next(line for line in output.splitlines() if line.startswith("Release this checked commit:"))
-        self.assertIn("--resume", release_line)
         self.assertIn("--ref " + self.commit, release_line)
         self.assertFalse(self.github.writes)
 
-    def test_resume_requires_pinned_version_and_commit(self):
-        """Reject resume options that could follow an advancing main branch."""
-        self.args.resume, self.args.ref = True, None
-        with self.assertRaisesRegex(ReleaseError, "printed Resume command"):
-            self.cut()
-        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+    def test_default_repeat_retains_the_tagged_snapshot_when_main_advances(self):
+        """Continue the selected release after later commits reach main."""
+        self.cut()
+        before = list(self.github.writes)
+        (self.root / "README.md").write_text("Later documentation change")
+        self.git.run("add", ".")
+        self.git.run("commit", "-m", "Update documentation")
+        self.git.run("push", "origin", "main")
+        self.args.ref = None
+        self.github.run = None
+        self.assertIn("Commit: " + self.commit, self.cut())
+        self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), self.commit)
+        self.assertEqual(self.github.writes, before)
 
-    def test_failed_ci_cannot_create_draft_or_publish(self):
-        """Block draft creation and publication when tagged CI fails."""
-        self.add_tag()
-        self.args.resume = True
+    def test_failed_ci_cannot_create_a_tag_or_release(self):
+        """Leave the version available when main verification fails."""
         assert self.github.run is not None
         self.github.run["conclusion"] = "failure"
         with self.assertRaisesRegex(ReleaseError, "CI"):
             self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
         self.assertFalse(self.github.writes)
+
+    def test_corrected_main_commit_can_use_the_unallocated_version(self):
+        """Release a corrected commit after failed CI without changing the version."""
+        assert self.github.run is not None
+        self.github.run["conclusion"] = "failure"
+        with self.assertRaises(ReleaseError):
+            self.cut()
+        (self.root / "README.md").write_text("Corrected source")
+        self.git.run("add", ".")
+        self.git.run("commit", "-m", "Correct verification failure")
+        self.git.run("push", "origin", "main")
+        corrected = self.git.commit("HEAD")
+        self.args.ref = None
+        self.github.run = successful_run(corrected)
+        self.cut()
+        self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), corrected)
+        self.assertEqual(self.github.writes.count("publish"), 1)
 
     def test_unrelated_draft_cannot_be_adopted(self):
         """Refuse a draft lacking the matching script-management marker."""
         self.add_tag()
-        self.args.resume = True
-        self.github.release_data = {"tag_name": "v2.0.0", "prerelease": False, "body": "Manual draft", "draft": True}
+        self.github.release_data = {"id": 1, "tag_name": "v2.0.0", "prerelease": False, "body": "Manual draft", "draft": True}
         with self.assertRaisesRegex(ReleaseError, "script-managed"):
             self.cut()
         self.assertFalse(self.github.writes)
 
-    def test_missing_release_after_draft_creation_stops_before_upload(self):
-        """Refuse uploads when a draft creation attempt leaves no visible release."""
-        self.add_tag()
-        self.args.resume = True
-        with patch.object(self.github, "create_draft"):
-            with self.assertRaisesRegex(ReleaseError, "Release is missing after draft creation"):
-                self.cut()
-        self.assertNotIn("upload", self.github.writes)
-        self.assertNotIn("publish", self.github.writes)
+    def test_draft_creation_response_survives_release_list_delay(self):
+        """Publish from the creation response even when release listings remain stale."""
+        with patch.object(self.github, "release", return_value=None):
+            self.cut()
+        assert self.github.release_data is not None
+        self.assertFalse(self.github.release_data["draft"])
+        self.assertEqual(self.github.writes.count("draft"), 1)
+        self.assertEqual(self.github.writes.count("publish"), 1)
+
+    def test_lost_creation_response_recovers_the_existing_draft(self):
+        """Continue a successful draft write whose response was lost in transit."""
+        original_create = self.github.create_draft
+        def create(*args):
+            """Create the real fixture draft before simulating a transport failure."""
+            original_create(*args)
+            raise ReleaseError("Creation response lost")
+        with patch.object(self.github, "create_draft", side_effect=create):
+            self.cut()
+        self.assertEqual(self.github.writes.count("draft"), 1)
+        self.assertEqual(self.github.writes.count("publish"), 1)
+
+    def test_delayed_asset_listing_is_retried_before_publication(self):
+        """Wait for uploaded assets to become visible without uploading them twice."""
+        original_assets = self.github.assets
+        hidden_reads = 0
+        def assets(release):
+            """Hide one post-upload listing to model a delayed GitHub read."""
+            nonlocal hidden_reads
+            if len(self.github.asset_data) == 5 and hidden_reads == 0:
+                hidden_reads += 1
+                return []
+            return original_assets(release)
+        with patch.object(self.github, "assets", side_effect=assets), patch("release.time.sleep"):
+            self.cut()
+        self.assertEqual(hidden_reads, 1)
+        self.assertEqual(self.github.writes.count("upload"), 5)
+        self.assertEqual(self.github.writes.count("publish"), 1)
+
+    def test_delayed_publication_confirmation_is_retried_by_id(self):
+        """Confirm a completed publish through its ID when the PATCH response is stale."""
+        original_api = self.github.api
+        def api(path, method="GET", **fields):
+            """Publish successfully but return the preceding draft state once."""
+            result = original_api(path, method, **fields)
+            if method == "PATCH":
+                result = {**result, "draft": True}
+            return result
+        with patch.object(self.github, "api", side_effect=api), patch("release.time.sleep"):
+            self.cut()
+        self.assertEqual(self.github.writes.count("publish"), 1)
+        assert self.github.release_data is not None
+        self.assertFalse(self.github.release_data["draft"])
+
+    def test_lost_publication_response_is_confirmed_without_publishing_twice(self):
+        """Finish a successful publication when its response was lost in transit."""
+        original_api = self.github.api
+        def api(path, method="GET", **fields):
+            """Commit the publication before simulating a failed response."""
+            result = original_api(path, method, **fields)
+            if method == "PATCH":
+                raise ReleaseError("Publication response lost")
+            return result
+        with patch.object(self.github, "api", side_effect=api):
+            self.cut()
+        self.assertEqual(self.github.writes.count("publish"), 1)
+        self.assertIn("dispatch", self.github.writes)
+
+    def test_repeat_refreshes_stale_draft_metadata_by_id(self):
+        """Recognize a completed publication even when discovery still reports a draft."""
+        self.cut()
+        assert self.github.release_data is not None
+        stale_record = {**self.github.release_data, "draft": True}
+        before = list(self.github.writes)
+        with patch.object(self.github, "release", return_value=stale_record):
+            self.cut()
+        self.assertEqual(self.github.writes, before)
+
+    def test_new_publication_can_deploy_before_release_list_catches_up(self):
+        """Use the known publication record when version listings still show older releases."""
+        with patch.object(self.github, "published_stable_versions", return_value={(1, 0, 0)}):
+            self.cut()
+        self.assertIn("dispatch", self.github.writes)
 
     def test_remote_tag_movement_while_waiting_prevents_publication(self):
         """Recheck the remote tag after CI and reject movement before draft creation."""
         self.add_tag()
-        self.args.resume = True
         with patch.object(self.git, "remote_tag", side_effect=[self.commit, "b" * 40]):
             with self.assertRaisesRegex(ReleaseError, "changed"):
                 self.cut()
         self.assertFalse(self.github.writes)
 
-    def test_absent_ci_times_out_without_publication(self):
-        """Dispatch missing tagged CI and stop without publication when waiting expires."""
-        self.add_tag()
-        self.args.resume = True
+    def test_absent_ci_times_out_without_allocating_a_version(self):
+        """Wait for main verification without creating a tag or a draft."""
         self.github.run = None
         with patch("release.time.monotonic", side_effect=[0, 2]):
             with self.assertRaisesRegex(ReleaseError, "Timed out"):
                 self.cut()
-        self.assertEqual(self.github.writes, ["dispatch"])
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+        self.assertFalse(self.github.writes)
 
     def test_interrupted_upload_resumes_without_overwrite(self):
         """Retain uploaded bytes and upload only missing assets on a matching retry."""
         self.add_tag()
-        self.args.resume = True
         self.github.fail_after_upload = 2
         with self.assertRaisesRegex(ReleaseError, "interrupted"):
             self.cut()
@@ -770,7 +876,6 @@ class RepositoryTests(unittest.TestCase):
     def test_conflicting_asset_prevents_publication(self):
         """Preserve conflicting remote bytes and leave the release as a draft."""
         self.add_tag()
-        self.args.resume = True
         self.github.fail_after_upload = 1
         with self.assertRaises(ReleaseError):
             self.cut()
@@ -786,7 +891,6 @@ class RepositoryTests(unittest.TestCase):
     def test_documentation_failure_can_recover_after_publication(self):
         """Retry failed documentation deployment without republishing the release."""
         self.add_tag()
-        self.args.resume = True
         self.github.fail_docs = True
         with self.assertRaisesRegex(ReleaseError, "published, but documentation failed"):
             self.cut()
@@ -800,7 +904,6 @@ class RepositoryTests(unittest.TestCase):
     def test_published_resume_works_without_ci_runs_or_artifacts(self):
         """Verify published assets after CI retention and the original notes file expire."""
         self.add_tag()
-        self.args.resume = True
         self.cut()
         before = list(self.github.writes)
         self.github.run = None
@@ -811,7 +914,6 @@ class RepositoryTests(unittest.TestCase):
     def test_published_resume_detects_corrupt_actual_assets(self):
         """Reject corrupted published checksums without modifying remote release state."""
         self.add_tag()
-        self.args.resume = True
         self.cut()
         self.github.asset_data["SHA256SUMS"] = b"corrupt"
         before = list(self.github.writes)
@@ -822,7 +924,6 @@ class RepositoryTests(unittest.TestCase):
     def test_resume_reuses_pending_documentation_deployment(self):
         """Reuse an awaiting-approval deployment instead of dispatching another build."""
         self.add_tag()
-        self.args.resume = True
         self.cut()
         assert self.github.docs_run is not None
         self.github.docs_run.update(status="waiting", conclusion=None)
@@ -832,33 +933,84 @@ class RepositoryTests(unittest.TestCase):
                 self.cut()
         self.assertEqual(self.github.writes, before)
 
-    def test_new_release_cannot_downgrade_or_prerelease_a_stable_version(self):
-        """Require new stable and prerelease attempts to advance the published numeric core."""
+    def test_new_release_must_advance_the_published_version(self):
+        """Reject a new release whose numeric version is already published."""
         self.github.other_versions = {(2, 0, 0)}
-        for version in ("2.0.0", "2.0.0-rc.1"):
-            self.args.version = version
-            with self.assertRaisesRegex(ReleaseError, "advance"):
-                self.cut()
-            self.assertIsNone(self.git.remote_tag("origin", "v" + version))
+        with self.assertRaisesRegex(ReleaseError, "advance"):
+            self.cut()
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
 
     def test_resume_old_release_does_not_roll_documentation_back(self):
         """Retain the newer stable site when an older published release is resumed."""
         self.add_tag()
-        self.args.resume = True
         self.cut()
         before = list(self.github.writes)
         self.github.other_versions.add((2, 1, 0))
         self.github.docs_run = None
-        self.assertIn("newer stable release", self.cut())
+        self.assertIn("newer release", self.cut())
         self.assertEqual(self.github.writes, before)
-        with self.assertRaisesRegex(ReleaseError, "latest published"):
+        with self.assertRaisesRegex(ReleaseError, "published"):
             require_latest_stable(self.github, "v2.0.0")
 
     def test_unpublished_tag_cannot_deploy_stable_documentation(self):
         """Require a published stable release before allowing a Pages deployment."""
         self.add_tag()
-        with self.assertRaisesRegex(ReleaseError, "latest published"):
+        with self.assertRaisesRegex(ReleaseError, "published"):
             require_latest_stable(self.github, "v2.0.0")
+
+    def test_packaging_verified_main_does_not_require_a_tag(self):
+        """Build release artifacts before allocating the public version tag."""
+        output = Path(self.temporary.name) / "untagged-bundle"
+        package(self.git, self.commit, "v2.0.0", self.docs, output)
+        self.assertEqual(len(check_bundle(output, self.commit, "v2.0.0")), 5)
+        self.assertEqual(self.git.run("tag", "--list"), "")
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
+
+    def test_documentation_workflow_validates_a_merged_release_tag(self):
+        """Run the deployment workflow's identity check against an actual merged tag."""
+        self.add_tag()
+        workflow = (SCRIPTS.parent / ".github/workflows/release-docs.yml").read_text()
+        script = _workflow_group(r"python3 - <<'PYTHON'\n(.*?)^          PYTHON", workflow, re.M | re.S)
+        output = Path(self.temporary.name) / "outputs"
+        env = {**os.environ, "PYTHONPATH": str(SCRIPTS), "RELEASE_TAG": "v2.0.0", "GITHUB_OUTPUT": str(output)}
+        result = subprocess.run([sys.executable, "-c", textwrap.dedent(script)], cwd=self.root,
+                                env=env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("commit=" + self.commit, output.read_text())
+        self.assertIn("version=2.0.0", output.read_text())
+
+    def test_documentation_workflow_rejects_an_unmerged_release_tag(self):
+        """Refuse deployment of a tag whose source is outside main history."""
+        self.git.run("switch", "-c", "unmerged")
+        (self.root / "README.md").write_text("Unreviewed source")
+        self.git.run("add", ".")
+        self.git.run("commit", "-m", "Unmerged source")
+        self.git.run("tag", "v2.0.0")
+        self.git.run("switch", "main")
+        workflow = (SCRIPTS.parent / ".github/workflows/release-docs.yml").read_text()
+        script = _workflow_group(r"python3 - <<'PYTHON'\n(.*?)^          PYTHON", workflow, re.M | re.S)
+        output = Path(self.temporary.name) / "outputs"
+        env = {**os.environ, "PYTHONPATH": str(SCRIPTS), "RELEASE_TAG": "v2.0.0", "GITHUB_OUTPUT": str(output)}
+        result = subprocess.run([sys.executable, "-c", textwrap.dedent(script)], cwd=self.root,
+                                env=env, capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(output.exists())
+
+    def test_published_documentation_is_extracted_and_version_checked(self):
+        """Deploy the checksummed documentation archive from the verified release."""
+        root = Path(self.temporary.name)
+        package(self.git, self.commit, "v2.0.0", self.docs, root / "published")
+        html = extract_documentation(root / "published", self.commit, "v2.0.0", root / "site")
+        self.assertEqual(html, root / "site/cetl-2.0.0/html")
+        check_documentation((html / "index.html").read_text(), "2.0.0")
+
+    def test_published_documentation_with_wrong_displayed_version_is_rejected(self):
+        """Refuse deployment when a valid bundle displays another version."""
+        root = Path(self.temporary.name)
+        (self.docs / "index.html").write_text('<span id="projectnumber">1.0.0</span>')
+        package(self.git, self.commit, "v2.0.0", self.docs, root / "published")
+        with self.assertRaisesRegex(ReleaseError, "Documentation displays"):
+            extract_documentation(root / "published", self.commit, "v2.0.0", root / "site")
 
     def test_packaging_contents_reproducibility_and_corruption(self):
         """Verify archive layout, licenses, reproducible bytes, and manifest validation."""
@@ -887,7 +1039,7 @@ class RepositoryTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(SCRIPTS / "release_tools.py"), "validate"],
                                 cwd=self.root, env=env, capture_output=True, text=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("prerelease flag", result.stderr)
+        self.assertIn("full release", result.stderr)
         event.write_text(json.dumps({"release": {"tag_name": "v2.0.0", "prerelease": False}}))
         result = subprocess.run([sys.executable, str(SCRIPTS / "release_tools.py"), "validate"],
                                 cwd=self.root, env=env, capture_output=True, text=True)

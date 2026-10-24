@@ -1,0 +1,98 @@
+name: Release documentation
+run-name: CETL docs / ${{ inputs.tag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: cetl-stable-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy-docs:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Validate release identity
+        id: version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PYTHONPATH: scripts
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          from release_tools import Git, parse_version
+
+          tag = os.environ['RELEASE_TAG']
+          if not tag.startswith('v'):
+              raise SystemExit('Expected a vX.Y.Z tag')
+          parse_version(tag[1:])
+          git = Git(Path.cwd())
+          commit = git.commit('refs/tags/' + tag)
+          git.run('merge-base', '--is-ancestor', commit, 'HEAD')
+          metadata = {**git.validate(commit, tag), 'commit': commit}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              for key, value in metadata.items():
+                  output.write(f'{key}={value}\n')
+          PYTHON
+      - name: Download and verify published documentation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
+          PYTHONPATH: scripts
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from pathlib import Path
+          from release import GitHub, require_latest_stable, wait_for_release_run
+          from release_tools import extract_documentation
+
+          github = GitHub(os.environ['GITHUB_REPOSITORY'])
+          tag, commit = os.environ['RELEASE_TAG'], os.environ['RELEASE_COMMIT']
+          require_latest_stable(github, tag)
+          wait_for_release_run(github, commit, 300, 15)
+          bundle = Path('release-bundle')
+          bundle.mkdir()
+          github.cli('release', 'download', tag, '--dir', str(bundle))
+          extract_documentation(bundle, commit, tag, 'site')
+          PYTHON
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/cetl-${{ steps.version.outputs.version }}/html
+      - name: Confirm release is still latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          PYTHONPATH: scripts
+        run: |
+          python3 - <<'PYTHON'
+          import os
+          from release import GitHub, require_latest_stable
+          require_latest_stable(GitHub(os.environ['GITHUB_REPOSITORY']), os.environ['RELEASE_TAG'])
+          PYTHON
+      - uses: actions/deploy-pages@v5
+        id: deployment

@@ -178,8 +178,9 @@ Note that if the job you requested is dependent on other jobs that are not trigg
 
 Version/header validation and release-tool tests run independently of hashtags.
 The `#verification` trigger includes documentation and release archive checks.
-Version tags and release dispatches always run full verification. A release
-documentation dispatch also verifies the complete release; it is not a docs-only shortcut.
+Version tags and verification dispatches run full verification. Documentation
+deployment verifies the published bundle and its successful main CI run, then
+deploys the packaged documentation.
 See [Releasing CETL](RELEASING.md) for the maintainer Python CLI and recovery instructions.
 The CMake `release` target is a legacy build/test alias and does not publish a release.
 
