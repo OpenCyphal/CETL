@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from typing import Any
 from urllib.parse import urlencode
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -150,6 +151,13 @@ class GitHub:
                                "(plus Pages read for stable documentation).") from ex
         return json.loads(result) if result else None
 
+    def _api_object(self, path: str, method: str = "GET", **fields) -> dict[str, Any]:
+        """Require an object response from a metadata endpoint, or raise ReleaseError."""
+        result = self.api(path, method, **fields)
+        if not isinstance(result, dict):
+            raise ReleaseError(f"GitHub {method} {path or 'repository metadata'} returned no JSON object.")
+        return result
+
     def preflight(self, stable):
         """Check workflow availability and, when needed, Pages deployment setup.
 
@@ -163,14 +171,14 @@ class GitHub:
 
         Performs reads and reports setup fixes without changing repository policy.
         """
-        workflow = self.api(f"actions/workflows/{WORKFLOW}")
+        workflow = self._api_object(f"actions/workflows/{WORKFLOW}")
         if workflow.get("state") != "active":
             raise ReleaseError(f"Enable CETLVaSt: gh workflow enable {WORKFLOW} --repo {self.repository}")
         if not stable:
             return
         try:
-            site = self.api("pages")
-            environment = self.api("environments/github-pages")
+            site = self._api_object("pages")
+            environment = self._api_object("environments/github-pages")
         except ReleaseError as ex:
             raise ReleaseError(f"Cannot read Pages setup. Check credential Pages/Actions read access and "
                                f"https://github.com/{self.repository}/settings/pages and "
@@ -180,7 +188,7 @@ class GitHub:
                                f"https://github.com/{self.repository}/settings/pages.")
         policy = environment.get("deployment_branch_policy") or {}
         if policy.get("protected_branches"):
-            allowed = self.api("branches/main").get("protected", False)
+            allowed = self._api_object("branches/main").get("protected", False)
         elif policy.get("custom_branch_policies"):
             policies = self.pages("environments/github-pages/deployment-branch-policies", "branch_policies")
             allowed = any(item.get("type", "branch") == "branch" and fnmatchcase("main", item["name"])
@@ -207,7 +215,7 @@ class GitHub:
         Public HTML requests carry no GitHub credentials. Progress and successful
         verification are printed; the last failure supplies recovery guidance.
         """
-        url = self.api("pages")["html_url"]
+        url = self._api_object("pages")["html_url"]
         print(f"Checking published documentation: {url} ({version})")
         deadline = time.monotonic() + timeout
         last_error = "No documentation response received."
@@ -246,7 +254,14 @@ class GitHub:
         for page in range(1, 1001):
             separator = "&" if "?" in path else "?"
             result = self.api(f"{path}{separator}per_page=100&page={page}")
-            batch = result[key] if key else result
+            if key:
+                if not isinstance(result, dict):
+                    raise ReleaseError(f"GitHub collection {path} returned no JSON object.")
+                batch = result.get(key)
+            else:
+                batch = result
+            if not isinstance(batch, list):
+                raise ReleaseError(f"GitHub collection {path} returned no JSON array.")
             items.extend(batch)
             if len(batch) < 100:
                 return items
@@ -349,7 +364,7 @@ class GitHub:
         and re-read remote state after an interrupted creation request.
         """
         if notes is None:
-            notes = self.api("releases/generate-notes", "POST", tag_name=tag, target_commitish=commit)["body"]
+            notes = self._api_object("releases/generate-notes", "POST", tag_name=tag, target_commitish=commit)["body"]
         body = f"{notes}\n\nSource commit: `{commit}`\n\nVerification: {run['html_url']}\n\n{marker}\n"
         self.api("releases", "POST", tag_name=tag, target_commitish=commit, name=tag,
                  draft=True, prerelease=prerelease, body=body)
@@ -564,14 +579,14 @@ def deploy_docs(github, tag, timeout, poll):
     runs = [run for run in github.runs(event="workflow_dispatch", branch="main")
             if run["display_title"] == title]
     # A completed successful deployment makes --resume a no-op.
-    if runs:
-        latest = max(runs, key=lambda run: run["id"])
+    latest = max(runs, key=lambda run: run["id"]) if runs else None
+    if latest is not None:
         if latest["status"] == "completed" and latest["conclusion"] == "success":
             jobs = github.jobs(latest)
             if any(job["name"] == "deploy-docs" and job["conclusion"] == "success" for job in jobs):
                 print(f"Documentation: {latest['html_url']}")
                 return
-    if runs and latest["status"] != "completed":
+    if latest is not None and latest["status"] != "completed":
         previous = latest["id"] - 1  # Resume an in-flight deployment instead of queueing another full build.
     else:
         previous = max((run["id"] for run in runs), default=0)
@@ -638,7 +653,7 @@ def cut_release(args, git=None, github=None):
                            "Run git status --short and commit or stash the reported changes.")
     if git.remote_repository(args.remote).lower() != args.repo.lower():
         raise ReleaseError("Git remote does not match --repo.")
-    repository = github.api("")
+    repository = github._api_object("")
     if repository.get("archived") or not repository.get("permissions", {}).get("push"):
         raise ReleaseError("GitHub credentials require repository write access. "
                            "Run gh auth login --hostname github.com with a maintainer account.")
@@ -712,9 +727,13 @@ def cut_release(args, git=None, github=None):
         if not release:
             github.create_draft(tag, commit, metadata["prerelease"], marker, run, notes)
             release = github.release(tag)
+        if release is None:
+            raise ReleaseError("Release is missing after draft creation; retry the printed resume command.")
         check_draft(release, tag, metadata["prerelease"], marker)
         sync_assets(github, release, tag, directory, names, upload=release["draft"])
         release = github.release(tag)
+        if release is None:
+            raise ReleaseError("Release disappeared after asset verification; retry the printed resume command.")
         check_draft(release, tag, metadata["prerelease"], marker)
         sync_assets(github, release, tag, directory, names, upload=False)
         if release["draft"]:
@@ -724,6 +743,8 @@ def cut_release(args, git=None, github=None):
             # Never edit a published release, including on a retry.
             github.api(f"releases/{release['id']}", "PATCH", draft=False, make_latest="false" if metadata["prerelease"] else "true")
         release = github.release(tag)
+        if release is None:
+            raise ReleaseError("Release is missing after publication; retry the printed resume command.")
         check_draft(release, tag, metadata["prerelease"], marker)
         if release["draft"]:
             raise ReleaseError("GitHub still reports a draft; retry the printed resume command.")

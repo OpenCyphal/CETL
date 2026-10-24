@@ -9,6 +9,7 @@ entry point and writes validated metadata to GitHub Actions outputs.
 """
 
 import argparse
+from collections.abc import Iterable, Mapping, Sequence
 import gzip
 import hashlib
 from html.parser import HTMLParser
@@ -19,6 +20,7 @@ from pathlib import Path
 import re
 import subprocess
 import tarfile
+from typing import Any, Literal, overload
 
 
 class ReleaseError(RuntimeError):
@@ -109,7 +111,19 @@ def validate(text, tag=None, prerelease=None):
     return {"version": version, "tag": tag or "", "prerelease": is_prerelease}
 
 
-def command(args, cwd=None, binary=False):
+@overload
+def command(args: Sequence[str], cwd: str | Path | None = None, binary: Literal[False] = False) -> str: ...
+
+
+@overload
+def command(args: Sequence[str], cwd: str | Path | None = None, *, binary: Literal[True]) -> bytes: ...
+
+
+@overload
+def command(args: Sequence[str], cwd: str | Path | None = None, binary: bool = False) -> str | bytes: ...
+
+
+def command(args: Sequence[str], cwd: str | Path | None = None, binary: bool = False) -> str | bytes:
     """Run an argument vector with captured output and a 120-second timeout.
 
     Args:
@@ -158,7 +172,16 @@ class Git:
         """Store the resolved checkout path without opening or changing it."""
         self.root = Path(root).resolve()
 
-    def run(self, *args, binary=False):
+    @overload
+    def run(self, *args: str, binary: Literal[False] = False) -> str: ...
+
+    @overload
+    def run(self, *args: str, binary: Literal[True]) -> bytes: ...
+
+    @overload
+    def run(self, *args: str, binary: bool = False) -> str | bytes: ...
+
+    def run(self, *args: str, binary: bool = False) -> str | bytes:
         """Execute Git in this checkout with the output contract of ``command``.
 
         Args:
@@ -301,7 +324,7 @@ def required_jobs():
     return names
 
 
-def check_run(run, jobs, commit, tag):
+def check_run(run: Mapping[str, Any], jobs: Iterable[Mapping[str, Any]], commit: str, tag: str) -> None:
     """Require successful CETLVaSt verification of one exact release revision.
 
     Args:

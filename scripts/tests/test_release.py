@@ -21,6 +21,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from typing import Any
 import unittest
 from unittest.mock import patch
 
@@ -33,6 +34,14 @@ from release_tools import (Git, HEADER, RELEASE_FILES, ReleaseError, check_bundl
                            required_jobs, sha256, validate)
 
 HEADER_TEXT = "#define CETL_VERSION_MAJOR 2\n#define CETL_VERSION_MINOR 0\n#define CETL_VERSION_PATCH 0\n"
+
+
+def _workflow_group(pattern: str, workflow: str, flags: int = 0) -> str:
+    """Extract a required workflow field, failing explicitly when its pattern is absent."""
+    match = re.search(pattern, workflow, flags)
+    if match is None:
+        raise AssertionError(f"Required workflow pattern did not match: {pattern}")
+    return match.group(1)
 
 
 class VersionTests(unittest.TestCase):
@@ -80,7 +89,7 @@ class VersionTests(unittest.TestCase):
                 repository_from_url(url)
 
 
-def successful_run(commit, tag):
+def successful_run(commit: str, tag: str) -> dict[str, Any]:
     """Build a successful tagged-push Actions record for gate tests.
 
     Args:
@@ -100,12 +109,12 @@ class GateTests(unittest.TestCase):
 
     def setUp(self):
         """Create an accepted run and one successful record for every required job."""
-        self.run = successful_run("a" * 40, "v2.0.0")
+        self.workflow_run = successful_run("a" * 40, "v2.0.0")
         self.jobs = [{"name": name, "conclusion": "success"} for name in sorted(required_jobs())]
 
     def check(self):
         """Validate the mutable run/job fixtures against the fixed release identity."""
-        check_run(self.run, self.jobs, "a" * 40, "v2.0.0")
+        check_run(self.workflow_run, self.jobs, "a" * 40, "v2.0.0")
 
     def test_success(self):
         """Accept a successful run containing every required release job."""
@@ -117,7 +126,7 @@ class GateTests(unittest.TestCase):
             with self.subTest(result=result):
                 jobs = self.jobs[:-1] if result is None else [*self.jobs[:-1], {**self.jobs[-1], "conclusion": result}]
                 with self.assertRaises(ReleaseError):
-                    check_run(self.run, jobs, "a" * 40, "v2.0.0")
+                    check_run(self.workflow_run, jobs, "a" * 40, "v2.0.0")
 
     def test_wrong_commit_event_workflow_tag_or_state(self):
         """Reject a run whose identity or completion state differs from the release."""
@@ -125,25 +134,25 @@ class GateTests(unittest.TestCase):
                            ("path", ".github/workflows/other.yml"), ("status", "in_progress"),
                            ("conclusion", "cancelled")):
             with self.subTest(key=key), self.assertRaises(ReleaseError):
-                check_run({**self.run, key: value}, self.jobs, "a" * 40, "v2.0.0")
+                check_run({**self.workflow_run, key: value}, self.jobs, "a" * 40, "v2.0.0")
 
     def test_matrix_and_gate_contract_matches_workflow(self):
         """Keep required job names and aggregate dependencies aligned with CETLVaSt."""
         # Parse only the inline arrays we own; no third-party YAML dependency is needed by the tooling.
         workflow = (SCRIPTS.parent / ".github/workflows/cetlvast.yml").read_text()
         for architecture in ("amd64", "arm64", "legacy-arm64"):
-            section = re.search(
+            section = _workflow_group(
                 rf"^  verification-{architecture}:\n(.*?)(?=^  [a-z]|\Z)", workflow, re.M | re.S
-            ).group(1)
-            compilers = ast.literal_eval(re.search(r"toolchain: (\[.*\])", section).group(1))
-            standards = ast.literal_eval(re.search(r"standard: (\[.*\])", section).group(1))
+            )
+            compilers = ast.literal_eval(_workflow_group(r"toolchain: (\[.*\])", section))
+            standards = ast.literal_eval(_workflow_group(r"standard: (\[.*\])", section))
             expected = {f"verification-{architecture} ({compiler}, {standard})"
                         for compiler in compilers for standard in standards}
             self.assertEqual(expected, {name for name in required_jobs() if name.startswith(f"verification-{architecture} (")})
             self.assertIn("startsWith(github.ref, 'refs/tags/v')", section)
             self.assertNotIn("!inputs.docs_ref", section)
-        gate = re.search(r"^  release-ready:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S).group(1)
-        dependencies = re.search(r"needs: \[(.*)\]", gate).group(1).split(", ")
+        gate = _workflow_group(r"^  release-ready:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S)
+        dependencies = _workflow_group(r"needs: \[(.*)\]", gate).split(", ")
         self.assertEqual(set(dependencies), {"version", "release-tests", "cache-warmup", "docs",
                                             "verification-amd64", "verification-arm64", "verification-legacy-arm64"})
         self.assertIn("job['result'] != 'success'", gate)
@@ -244,6 +253,23 @@ class GitHubTransportTests(unittest.TestCase):
             with self.assertRaisesRegex(ReleaseError, "Forbidden"):
                 github.release("v2.0.0")
 
+    def test_unexpected_metadata_response_stops_preflight(self):
+        """Reject empty or non-object metadata before reading workflow configuration."""
+        github = GitHub("example/cetl")
+        for response in (None, [], "not an object"):
+            with self.subTest(response=response), patch.object(github, "api", return_value=response):
+                with self.assertRaisesRegex(ReleaseError, "returned no JSON object"):
+                    github.preflight(stable=False)
+
+    def test_malformed_collection_does_not_hide_missing_records(self):
+        """Reject malformed collections instead of treating their records as absent."""
+        github = GitHub("example/cetl")
+        for response, key in ((None, None), ({}, None), ([], "jobs"), ({}, "jobs"),
+                              ({"jobs": None}, "jobs"), ({"jobs": {}}, "jobs")):
+            with self.subTest(response=response, key=key), patch.object(github, "api", return_value=response):
+                with self.assertRaisesRegex(ReleaseError, "returned no JSON (object|array)"):
+                    github.pages("actions/runs/123/jobs", key)
+
     def test_stable_version_comparison_uses_numeric_versions(self):
         """Order published stable versions numerically and ignore other release records."""
         github = GitHub("example/cetl")
@@ -276,7 +302,7 @@ class LocalGit(Git):
         return "example/cetl"
 
 
-class SimulatedGitHub:
+class SimulatedGitHub(GitHub):
     """Implement the release client's test interface with mutable in-memory state.
 
     Args:
@@ -294,14 +320,14 @@ class SimulatedGitHub:
     def __init__(self, git, docs, tag):
         """Initialize an accessible repository with passing CI and usable Pages setup."""
         self.git, self.docs, self.tag = git, docs, tag
-        self.repository = "example/cetl"
-        self.run = successful_run(git.commit("HEAD"), tag)
-        self.release_data = None
-        self.asset_data = {}
-        self.writes = []
-        self.fail_after_upload = None
+        super().__init__("example/cetl")
+        self.run: dict[str, Any] | None = successful_run(git.commit("HEAD"), tag)
+        self.release_data: dict[str, Any] | None = None
+        self.asset_data: dict[str, bytes] = {}
+        self.writes: list[str] = []
+        self.fail_after_upload: int | None = None
         self.permissions = {"push": True}
-        self.docs_run = None
+        self.docs_run: dict[str, Any] | None = None
         self.fail_docs = False
         self.other_versions = set()
         self.workflow_state = "active"
@@ -313,7 +339,7 @@ class SimulatedGitHub:
 
     def preflight(self, stable):
         """Run the production preflight against simulated workflow and policy records."""
-        return GitHub.preflight(self, stable)
+        return super().preflight(stable)
 
     def pages(self, path, key=None):
         """Supply the configured deployment branch policies for preflight checks."""
@@ -345,6 +371,7 @@ class SimulatedGitHub:
         if path == "branches/main":
             return {"protected": self.main_protected}
         if path == "releases/1" and method == "PATCH":
+            assert self.release_data is not None
             self.writes.append("publish")
             self.release_data["draft"] = fields["draft"]
             return self.release_data
@@ -373,14 +400,14 @@ class SimulatedGitHub:
 
     def asset_matches(self, asset, path):
         """Delegate byte/digest comparison to the production client implementation."""
-        return GitHub.asset_matches(self, asset, path)
+        return super().asset_matches(asset, path)
 
     def create_draft(self, tag, commit, prerelease, marker, run, notes=None):
         """Record draft creation and retain the classification and management marker."""
         self.writes.append("draft")
         self.release_data = {"id": 1, "draft": True, "tag_name": tag, "prerelease": prerelease, "body": marker}
 
-    def cli(self, *args):
+    def cli(self, *args) -> str:
         """Simulate downloads, immutable uploads, and workflow dispatches.
 
         Run downloads package the fixture's real Git tree; release downloads
@@ -389,6 +416,7 @@ class SimulatedGitHub:
         Main dispatches create a completed docs run controlled by fail_docs.
         """
         if args[:2] == ("run", "download"):
+            assert self.run is not None
             package(self.git, self.run["head_sha"], self.tag, self.docs, Path(args[args.index("--dir") + 1]))
         elif args[:2] == ("release", "upload"):
             path = Path(args[3])
@@ -410,6 +438,7 @@ class SimulatedGitHub:
                                  "html_url": "https://example.test/docs"}
         else:
             raise AssertionError(args)
+        return ""
 
 
 class RepositoryTests(unittest.TestCase):
@@ -474,6 +503,7 @@ class RepositoryTests(unittest.TestCase):
         self.git.run("fetch", "--tags", "origin")
         output = self.cut()
         self.assertIn("Documentation:", output)
+        assert self.github.release_data is not None
         self.assertFalse(self.github.release_data["draft"])
         self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), self.commit)
         writes = list(self.github.writes)
@@ -484,6 +514,7 @@ class RepositoryTests(unittest.TestCase):
         """Push and publish a prerelease while retaining the stable documentation site."""
         self.args.version = "2.0.0-rc.1"
         self.github.tag = "v" + self.args.version
+        assert self.github.run is not None
         self.github.run["head_branch"] = self.github.tag
         # CI receives the pushed tag in its separate checkout. Simulate that fetch just before packaging.
         original_cli = self.github.cli
@@ -495,6 +526,7 @@ class RepositoryTests(unittest.TestCase):
         self.github.cli = cli
         self.cut()
         self.assertEqual(self.git.remote_tag("origin", self.github.tag), self.commit)
+        assert self.github.release_data is not None
         self.assertTrue(self.github.release_data["prerelease"])
         self.assertNotIn("dispatch", self.github.writes)
 
@@ -652,6 +684,7 @@ class RepositoryTests(unittest.TestCase):
         """Block draft creation and publication when tagged CI fails."""
         self.add_tag()
         self.args.resume = True
+        assert self.github.run is not None
         self.github.run["conclusion"] = "failure"
         with self.assertRaisesRegex(ReleaseError, "CI"):
             self.cut()
@@ -665,6 +698,16 @@ class RepositoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ReleaseError, "script-managed"):
             self.cut()
         self.assertFalse(self.github.writes)
+
+    def test_missing_release_after_draft_creation_stops_before_upload(self):
+        """Refuse uploads when a draft creation attempt leaves no visible release."""
+        self.add_tag()
+        self.args.resume = True
+        with patch.object(self.github, "create_draft"):
+            with self.assertRaisesRegex(ReleaseError, "Release is missing after draft creation"):
+                self.cut()
+        self.assertNotIn("upload", self.github.writes)
+        self.assertNotIn("publish", self.github.writes)
 
     def test_remote_tag_movement_while_waiting_prevents_publication(self):
         """Recheck the remote tag after CI and reject movement before draft creation."""
@@ -692,10 +735,12 @@ class RepositoryTests(unittest.TestCase):
         self.github.fail_after_upload = 2
         with self.assertRaisesRegex(ReleaseError, "interrupted"):
             self.cut()
+        assert self.github.release_data is not None
         self.assertTrue(self.github.release_data["draft"])
         saved = dict(self.github.asset_data)
         self.github.fail_after_upload = None
         self.cut()
+        assert self.github.release_data is not None
         self.assertFalse(self.github.release_data["draft"])
         for name, data in saved.items():
             self.assertEqual(self.github.asset_data[name], data)
@@ -713,6 +758,7 @@ class RepositoryTests(unittest.TestCase):
         self.github.fail_after_upload = None
         with self.assertRaisesRegex(ReleaseError, "differs"):
             self.cut()
+        assert self.github.release_data is not None
         self.assertTrue(self.github.release_data["draft"])
         self.assertEqual(self.github.asset_data[name], b"wrong bytes")
 
@@ -723,6 +769,7 @@ class RepositoryTests(unittest.TestCase):
         self.github.fail_docs = True
         with self.assertRaisesRegex(ReleaseError, "published, but documentation failed"):
             self.cut()
+        assert self.github.release_data is not None
         self.assertFalse(self.github.release_data["draft"])
         self.github.fail_docs = False
         self.cut()
@@ -756,6 +803,7 @@ class RepositoryTests(unittest.TestCase):
         self.add_tag()
         self.args.resume = True
         self.cut()
+        assert self.github.docs_run is not None
         self.github.docs_run.update(status="waiting", conclusion=None)
         before = list(self.github.writes)
         with patch("release.time.monotonic", side_effect=[0, 2]):
