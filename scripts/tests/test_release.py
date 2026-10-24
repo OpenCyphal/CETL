@@ -119,16 +119,17 @@ class GateTests(unittest.TestCase):
 
 
 class GitHubTransportTests(unittest.TestCase):
-    def test_local_tools_require_python_310(self):
-        with patch("release.command") as execute:
-            with self.assertRaisesRegex(ReleaseError, "Python 3.10"):
-                check_local_tools((3, 9))
-            execute.assert_not_called()
+    def test_local_tools_require_python_314(self):
+        for version in ((3, 10), (3, 13)):
+            with self.subTest(version=version), patch("release.command") as execute:
+                with self.assertRaisesRegex(ReleaseError, r"Python 3\.14"):
+                    check_local_tools(version)
+                execute.assert_not_called()
 
     def test_old_github_cli_prints_upgrade_instruction(self):
         with patch("release.command", side_effect=["git version", "gh version", ReleaseError("unsupported")]):
             with self.assertRaisesRegex(ReleaseError, "Update GitHub CLI"):
-                check_local_tools((3, 10))
+                check_local_tools((3, 14))
 
     def test_missing_tool_prints_install_instruction(self):
         with patch("release_tools.subprocess.run", side_effect=FileNotFoundError):

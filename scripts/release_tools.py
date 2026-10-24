@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared release validation and packaging. Python 3.10+, standard library only."""
+"""Shared release validation and packaging. Python 3.14+, standard library only."""
 
 import argparse
 import gzip

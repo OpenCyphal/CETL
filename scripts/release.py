@@ -21,8 +21,8 @@ from release_tools import (Git, ReleaseError, WORKFLOW, check_bundle, check_docu
 
 
 def check_local_tools(python_version=None):
-    if (python_version or sys.version_info) < (3, 10):
-        raise ReleaseError("Run the release script with Python 3.10 or newer.")
+    if (python_version or sys.version_info) < (3, 14):
+        raise ReleaseError("Run the release script with Python 3.14 or newer.")
     command(["git", "--version"])
     command(["gh", "--version"])
     for operation in (("run", "download"), ("release", "upload"), ("workflow", "run")):
