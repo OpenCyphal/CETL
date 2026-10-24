@@ -24,8 +24,8 @@ Also under each "cetl/pfXX" folder will be a "cetlpf.hpp" header. These headers 
 so by violating certain AUTOSAR-14 rules. We recommend using the CETL polyfill types directly in code that adheres
 to AUTOSAR-14.
 
-There are currently three ways to take a dependency on CETL (see [issue #9](https://github.com/OpenCyphal/CETL/issues/9)
-for a future 4th way):
+There are currently three ways to take a dependency on CETL. See
+[Releasing CETL](RELEASING.md) for the release process:
 
 1. **Download the [release zip/tar from github](https://github.com/OpenCyphal/CETL/releases)** – This, of course, provides
 no strong link back to the CETL source and test artifacts associated with it but you have full control over it and can
