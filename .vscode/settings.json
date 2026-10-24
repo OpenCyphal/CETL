@@ -51,5 +51,8 @@
     "files.associations": {
         "*.in": "cmake",
         "*.tcc": "cpp"
-    }
+    },
+    "cSpell.words": [
+        "anaphors"
+    ]
 }
