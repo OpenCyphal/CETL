@@ -416,18 +416,21 @@ class GitHub:
         if any(directory.iterdir()):
             raise ReleaseError("Release download directory must be empty.")
         for asset in assets:
-            data = command(["gh", "api", "--hostname", "github.com", "-H", "Accept: application/octet-stream",
-                            f"repos/{self.repository}/releases/assets/{asset['id']}"], binary=True)
+            data = self._asset_bytes(asset)
             if len(data) != asset["size"]:
                 raise ReleaseError(f"Incomplete download: {asset['name']}; rerun the release command.")
             (directory / asset["name"]).write_bytes(data)
+
+    def _asset_bytes(self, asset):
+        """Read immutable asset bytes by ID through authenticated GitHub CLI access."""
+        return command(["gh", "api", "--hostname", "github.com", "-H", "Accept: application/octet-stream",
+                        f"repos/{self.repository}/releases/assets/{asset['id']}"], binary=True)
 
     def asset_matches(self, asset, path):
         """Compare a remote asset's uploaded bytes with a local file.
 
         Args:
-            asset (dict): Asset record with state and size, optional digest, and
-                release_tag for the download fallback.
+            asset (dict): Asset record with id, state, size, and optional digest.
             path (Path): Local file whose name identifies the remote asset.
 
         Returns:
@@ -444,7 +447,7 @@ class GitHub:
             return asset["digest"] == "sha256:" + sha256(path)
         # Older GitHub assets may not have a server-side digest. Compare the actual bytes.
         with tempfile.TemporaryDirectory(prefix="cetl-asset-") as directory:
-            self.cli("release", "download", asset["release_tag"], "--pattern", path.name, "--dir", directory)
+            (Path(directory) / path.name).write_bytes(self._asset_bytes(asset))
             return sha256(Path(directory) / path.name) == sha256(path)
 
 
@@ -573,7 +576,7 @@ def sync_assets(github, release, tag, directory, names, upload):
     if {asset["name"] for asset in existing} - set(names):
         raise ReleaseError("Release contains unexpected assets; refusing to overwrite it.")
     for asset in existing:
-        if not github.asset_matches({**asset, "release_tag": tag}, directory / asset["name"]):
+        if not github.asset_matches(asset, directory / asset["name"]):
             raise ReleaseError(f"Existing asset differs: {asset['name']}; no assets were overwritten.")
     missing = set(names) - {asset["name"] for asset in existing}
     if missing and not upload:

@@ -295,6 +295,19 @@ class GitHubTransportTests(unittest.TestCase):
             github.download_assets({"id": 42, "tag_name": "v2.0.0"}, directory)
             self.assertEqual({path.name: path.read_bytes() for path in Path(directory).iterdir()}, files)
 
+    def test_asset_without_a_server_digest_is_compared_by_id(self):
+        """Verify downloaded bytes when GitHub omits an asset's digest."""
+        github = GitHub("example/cetl")
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "asset"
+            path.write_bytes(b"correct")
+            record = {"id": 42, "state": "uploaded", "size": 7}
+            with patch("release.command", return_value=b"correct") as download:
+                self.assertTrue(github.asset_matches(record, path))
+                self.assertTrue(download.call_args.args[0][-1].endswith("/releases/assets/42"))
+            with patch("release.command", return_value=b"changed"):
+                self.assertFalse(github.asset_matches(record, path))
+
     def test_unexpected_asset_names_cannot_escape_the_download_directory(self):
         """Reject hostile asset paths before writing files or downloading bytes."""
         github = GitHub("example/cetl")
@@ -440,10 +453,6 @@ class SimulatedGitHub(GitHub):
             return {"deployment_branch_policy": self.environment_policy}
         if path == "branches/main":
             return {"protected": self.main_protected}
-        if path == "releases/tags/" + self.tag:
-            if self.release_data is None:
-                raise ReleaseError("Release has not been published.")
-            return self.release_data.copy()
         if path == "releases/1" and method == "GET":
             assert self.release_data is not None
             return self.release_data.copy()
