@@ -24,7 +24,7 @@ from urllib.parse import urlencode
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from release_tools import (DOCS_WORKFLOW, Git, ReleaseError, WORKFLOW, check_bundle, check_documentation, check_run, command,
+from release_tools import (DOCS_WORKFLOW, Git, ReleaseError, WORKFLOW, asset_names, check_bundle, check_documentation, check_run, command,
                            parse_version, sha256)
 
 _PYTHON_MINIMUM = (3, 14)
@@ -390,6 +390,38 @@ class GitHub:
         return self._api_object("releases", "POST", tag_name=tag, target_commitish=commit, name=tag,
                                 draft=True, prerelease=False, body=body)
 
+    def download_assets(self, release, directory):
+        """Download a release's complete bundle through immutable asset IDs.
+
+        Args:
+            release (dict): Validated release record with id and tag_name.
+            directory (str | Path): Empty destination directory.
+
+        Raises:
+            ReleaseError: Assets are missing, unexpected, incomplete, or cannot be downloaded.
+            OSError: The destination cannot be written.
+
+        Uses asset endpoints instead of tag discovery so publication-index delays
+        cannot hide a release whose ID is already known. Callers verify the
+        resulting manifest and checksums with ``check_bundle``.
+        """
+        version = release["tag_name"][1:]
+        parse_version(version)
+        assets = self.assets(release)
+        expected = asset_names(version) | {"SHA256SUMS"}
+        if len(assets) != len(expected) or {asset["name"] for asset in assets} != expected:
+            raise ReleaseError("Published release has missing or unexpected assets.")
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        if any(directory.iterdir()):
+            raise ReleaseError("Release download directory must be empty.")
+        for asset in assets:
+            data = command(["gh", "api", "--hostname", "github.com", "-H", "Accept: application/octet-stream",
+                            f"repos/{self.repository}/releases/assets/{asset['id']}"], binary=True)
+            if len(data) != asset["size"]:
+                raise ReleaseError(f"Incomplete download: {asset['name']}; rerun the release command.")
+            (directory / asset["name"]).write_bytes(data)
+
     def asset_matches(self, asset, path):
         """Compare a remote asset's uploaded bytes with a local file.
 
@@ -497,20 +529,18 @@ def require_new_version(github, version):
         raise ReleaseError("A new release must advance the numeric version beyond published stable releases.")
 
 
-def require_latest_stable(github, tag, release=None):
+def require_latest_stable(github, tag, release):
     """Require a tag to identify the newest published stable release.
 
     Args:
         github (GitHub): Repository client providing release and version records.
         tag (str): Validated v-prefixed version being considered for deployment.
-        release (dict | None): Known publication response; otherwise read the
-            published release by its tag.
+        release (dict): Publication response or metadata read through its known ID.
 
     Raises:
         ReleaseError: The release is absent, draft, prerelease, older than the
             newest stable core, or remote state cannot be read.
     """
-    release = release if release is not None else github._api_object(f"releases/tags/{tag}")
     versions = github.published_stable_versions()
     if (release.get("tag_name") != tag or release["draft"] or release["prerelease"]
             or any(prior > version_core(tag[1:]) for prior in versions)):
@@ -603,13 +633,13 @@ def verify_published_assets(github, release, commit, tag):
     """
     with tempfile.TemporaryDirectory(prefix="cetl-published-") as temporary:
         directory = Path(temporary)
-        github.cli("release", "download", tag, "--dir", str(directory))
+        github.download_assets(release, directory)
         names = check_bundle(directory, commit, tag)
         sync_assets(github, release, tag, directory, names, upload=False)
     print("Published release assets verified.")
 
 
-def deploy_docs(github, tag, timeout, poll):
+def deploy_docs(github, tag, timeout, poll, release_id):
     """Deploy verified release documentation through the main-branch Pages environment.
 
     Args:
@@ -617,6 +647,7 @@ def deploy_docs(github, tag, timeout, poll):
         tag (str): Published stable tag, checked by the caller before deployment.
         timeout (int | float): Polling budget in seconds.
         poll (int | float): Seconds between deployment-status polls.
+        release_id (int): Known published release ID passed to the deployment workflow.
 
     Raises:
         ReleaseError: API/dispatch access fails, the newest matching run fails,
@@ -641,7 +672,8 @@ def deploy_docs(github, tag, timeout, poll):
         previous = latest["id"] - 1  # Resume an in-flight deployment instead of queueing another full build.
     else:
         previous = max((run["id"] for run in runs), default=0)
-        github.cli("workflow", "run", DOCS_WORKFLOW, "--ref", "main", "-f", f"tag={tag}")
+        github.cli("workflow", "run", DOCS_WORKFLOW, "--ref", "main", "-f", f"tag={tag}",
+                   "-f", f"release_id={release_id}")
     deadline = time.monotonic() + timeout
     approval_reported = set()
     while time.monotonic() < deadline:
@@ -800,7 +832,7 @@ def cut_release(args, git=None, github=None):
     finish_documentation(github, tag, version, args.timeout, args.poll, release)
 
 
-def finish_documentation(github, tag, version, timeout, poll, release=None):
+def finish_documentation(github, tag, version, timeout, poll, release):
     """Deploy and verify documentation for the latest published release.
 
     Args:
@@ -809,7 +841,7 @@ def finish_documentation(github, tag, version, timeout, poll, release=None):
         version (str): Matching header version.
         timeout (int | float): Budget for each deployment/content check.
         poll (int | float): Seconds between checks.
-        release (dict | None): Known publication response, avoiding list visibility delays.
+        release (dict): Known publication response, avoiding list visibility delays.
 
     Raises:
         ReleaseError: Publication identity, deployment, or public HTML checks fail.
@@ -820,7 +852,7 @@ def finish_documentation(github, tag, version, timeout, poll, release=None):
         print("Documentation: a newer release is published; its site is retained.")
     else:
         require_latest_stable(github, tag, release)
-        deploy_docs(github, tag, timeout, poll)
+        deploy_docs(github, tag, timeout, poll, release["id"])
         github.verify_pages(version, timeout, poll)
 
 

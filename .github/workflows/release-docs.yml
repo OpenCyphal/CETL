@@ -8,6 +8,10 @@ on:
         description: Published release tag
         required: true
         type: string
+      release_id:
+        description: Release ID supplied by the release script
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -62,6 +66,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
           RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
+          RELEASE_ID: ${{ inputs.release_id }}
           PYTHONPATH: scripts
         run: |
           python3 - <<'PYTHON'
@@ -72,11 +77,12 @@ jobs:
 
           github = GitHub(os.environ['GITHUB_REPOSITORY'])
           tag, commit = os.environ['RELEASE_TAG'], os.environ['RELEASE_COMMIT']
-          require_latest_stable(github, tag)
+          release = github.release_by_id(int(os.environ['RELEASE_ID']))
+          require_latest_stable(github, tag, release)
           wait_for_release_run(github, commit, 300, 15)
           bundle = Path('release-bundle')
           bundle.mkdir()
-          github.cli('release', 'download', tag, '--dir', str(bundle))
+          github.download_assets(release, bundle)
           extract_documentation(bundle, commit, tag, 'site')
           PYTHON
       - uses: actions/configure-pages@v6
@@ -87,12 +93,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          RELEASE_ID: ${{ inputs.release_id }}
           PYTHONPATH: scripts
         run: |
           python3 - <<'PYTHON'
           import os
           from release import GitHub, require_latest_stable
-          require_latest_stable(GitHub(os.environ['GITHUB_REPOSITORY']), os.environ['RELEASE_TAG'])
+          github = GitHub(os.environ['GITHUB_REPOSITORY'])
+          release = github.release_by_id(int(os.environ['RELEASE_ID']))
+          require_latest_stable(github, os.environ['RELEASE_TAG'], release)
           PYTHON
       - uses: actions/deploy-pages@v5
         id: deployment

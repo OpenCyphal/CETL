@@ -30,7 +30,7 @@ SCRIPTS = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPTS))
 
 from release import GitHub, check_local_tools, cut_release, require_latest_stable  # noqa: E402
-from release_tools import (Git, HEADER, RELEASE_FILES, ReleaseError, check_bundle, check_documentation, check_run, command,  # noqa: E402
+from release_tools import (Git, HEADER, RELEASE_FILES, asset_names, ReleaseError, check_bundle, check_documentation, check_run, command,  # noqa: E402
                            extract_documentation, header_version, package, parse_version, repository_from_url,
                            required_jobs, sha256, validate)
 
@@ -276,6 +276,36 @@ class GitHubTransportTests(unittest.TestCase):
         self.assertEqual(request.call_args.args, ("releases", "POST"))
         self.assertIs(request.call_args.kwargs["prerelease"], False)
 
+    def test_published_asset_downloads_use_ids_without_tag_discovery(self):
+        """Download all bundle files directly even when tag discovery is unavailable."""
+        github = GitHub("example/cetl")
+        files = {name: name.encode() for name in asset_names("2.0.0") | {"SHA256SUMS"}}
+        records = [{"id": index, "name": name, "size": len(data)}
+                   for index, (name, data) in enumerate(files.items(), 1)]
+        by_id = {record["id"]: files[record["name"]] for record in records}
+        def download(args, **kwargs):
+            """Serve immutable bytes for the requested asset ID."""
+            self.assertTrue(kwargs["binary"])
+            self.assertIn("Accept: application/octet-stream", args)
+            return by_id[int(args[-1].rsplit("/", 1)[1])]
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(github, "assets", return_value=records), \
+                patch.object(github, "release", side_effect=AssertionError("Tag lookup attempted")), \
+                patch("release.command", side_effect=download):
+            github.download_assets({"id": 42, "tag_name": "v2.0.0"}, directory)
+            self.assertEqual({path.name: path.read_bytes() for path in Path(directory).iterdir()}, files)
+
+    def test_unexpected_asset_names_cannot_escape_the_download_directory(self):
+        """Reject hostile asset paths before writing files or downloading bytes."""
+        github = GitHub("example/cetl")
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(github, "assets", return_value=[{"name": "../escape", "id": 1, "size": 0}]), \
+                patch("release.command") as download:
+            with self.assertRaisesRegex(ReleaseError, "missing or unexpected"):
+                github.download_assets({"id": 42, "tag_name": "v2.0.0"}, directory)
+            download.assert_not_called()
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_pagination_keeps_later_pages(self):
         """Collect records beyond the first full API page."""
         github = GitHub("example/cetl")
@@ -448,6 +478,11 @@ class SimulatedGitHub(GitHub):
     def asset_matches(self, asset, path):
         """Delegate byte/digest comparison to the production client implementation."""
         return super().asset_matches(asset, path)
+
+    def download_assets(self, release, directory):
+        """Copy published fixture bytes without tag discovery or network access."""
+        for name, data in self.asset_data.items():
+            (Path(directory) / name).write_bytes(data)
 
     def create_draft(self, tag, commit, marker, run, notes=None):
         """Record draft creation and retain the classification and management marker."""
@@ -950,13 +985,15 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("newer release", self.cut())
         self.assertEqual(self.github.writes, before)
         with self.assertRaisesRegex(ReleaseError, "published"):
-            require_latest_stable(self.github, "v2.0.0")
+            record = self.github.release_data or {"tag_name": "v2.0.0", "draft": True, "prerelease": False}
+            require_latest_stable(self.github, "v2.0.0", record)
 
     def test_unpublished_tag_cannot_deploy_stable_documentation(self):
         """Require a published stable release before allowing a Pages deployment."""
         self.add_tag()
         with self.assertRaisesRegex(ReleaseError, "published"):
-            require_latest_stable(self.github, "v2.0.0")
+            record = self.github.release_data or {"tag_name": "v2.0.0", "draft": True, "prerelease": False}
+            require_latest_stable(self.github, "v2.0.0", record)
 
     def test_packaging_verified_main_does_not_require_a_tag(self):
         """Build release artifacts before allocating the public version tag."""
