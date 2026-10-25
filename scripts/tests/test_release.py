@@ -571,7 +571,7 @@ class RepositoryTests(unittest.TestCase):
         self.docs = root / "html"
         self.docs.mkdir()
         (self.docs / "index.html").write_text('<span id="projectnumber">2.0.0</span>')
-        self.args = argparse.Namespace(ref=self.commit, repo="example/cetl", remote="origin",
+        self.args = argparse.Namespace(ref=self.commit, resume="2.0.0", repo="example/cetl", remote="origin",
                                        root=self.root, notes_file=None, dry_run=False, timeout=1, poll=1)
         self.github = SimulatedGitHub(self.git, self.docs, "v2.0.0")
 
@@ -596,6 +596,49 @@ class RepositoryTests(unittest.TestCase):
         writes = list(self.github.writes)
         self.cut()
         self.assertEqual(self.github.writes, writes)
+
+    def test_normal_release_requires_explicit_recovery_to_repeat(self):
+        """Publish a new header version once, then refuse an implicit recovery."""
+        self.args.ref, self.args.resume = None, None
+        output = self.cut()
+        self.assertIn("--resume 2.0.0 --ref " + self.commit, output)
+        self.assertFalse(self.github.release_data["draft"])
+        before = list(self.github.writes)
+        self.github.docs_run = None
+        with self.assertRaisesRegex(ReleaseError, "advance the numeric version"):
+            self.cut()
+        self.assertEqual(self.github.writes, before)
+        self.args.ref, self.args.resume = self.commit, "2.0.0"
+        self.cut()
+        self.assertIn("dispatch", self.github.writes[len(before):])
+
+    def test_normal_command_refuses_an_existing_unpublished_attempt(self):
+        """Require explicit recovery before adopting an allocated release tag."""
+        self.add_tag()
+        self.args.ref, self.args.resume = None, None
+        with self.assertRaisesRegex(ReleaseError, "attempt.*already exists"):
+            self.cut()
+        self.assertFalse(self.github.writes)
+        self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), self.commit)
+
+    def test_recovery_requires_an_immutable_commit(self):
+        """Reject missing and moving recovery refs before any GitHub operation."""
+        for ref in (None, "main", "HEAD", self.commit[:12]):
+            with self.subTest(ref=ref):
+                self.args.ref = ref
+                with patch("release.check_local_tools") as tools:
+                    with self.assertRaisesRegex(ReleaseError, "full release commit ID"):
+                        self.cut()
+                    tools.assert_not_called()
+                self.assertFalse(self.github.writes)
+
+    def test_recovery_version_must_match_the_pinned_commit(self):
+        """Reject another version without allocating tags or changing a release."""
+        self.args.resume = "2.1.0"
+        with self.assertRaisesRegex(ReleaseError, "does not match"):
+            self.cut()
+        self.assertFalse(self.github.writes)
+        self.assertIsNone(self.git.remote_tag("origin", "v2.0.0"))
 
     def test_new_tag_is_created_after_verified_bundle_download(self):
         """Keep the version untagged until verified CI artifacts have been downloaded."""
@@ -624,7 +667,7 @@ class RepositoryTests(unittest.TestCase):
         new_commit = self.git.commit("HEAD")
         self.git.run("push", "origin", "main")
         self.git.run("checkout", "--detach", self.commit)
-        self.args.ref, self.args.dry_run = None, True
+        self.args.ref, self.args.resume, self.args.dry_run = None, None, True
         output = self.cut()
         self.assertIn("Tag: v2.1.0", output)
         self.assertIn("Commit: " + new_commit, output)
@@ -752,8 +795,8 @@ class RepositoryTests(unittest.TestCase):
         self.assertIn("--ref " + self.commit, release_line)
         self.assertFalse(self.github.writes)
 
-    def test_default_repeat_retains_the_tagged_snapshot_when_main_advances(self):
-        """Continue the selected release after later commits reach main."""
+    def test_default_command_refuses_published_header_when_main_advances(self):
+        """Refuse a stale header instead of selecting an older published commit."""
         self.cut()
         before = list(self.github.writes)
         (self.root / "README.md").write_text("Later documentation change")
@@ -761,8 +804,11 @@ class RepositoryTests(unittest.TestCase):
         self.git.run("commit", "-m", "Update documentation")
         self.git.run("push", "origin", "main")
         self.args.ref = None
+        self.args.resume = None
         self.github.run = None
-        self.assertIn("Commit: " + self.commit, self.cut())
+        self.github.docs_run = None
+        with self.assertRaisesRegex(ReleaseError, "advance the numeric version"):
+            self.cut()
         self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), self.commit)
         self.assertEqual(self.github.writes, before)
 
@@ -787,6 +833,7 @@ class RepositoryTests(unittest.TestCase):
         self.git.run("push", "origin", "main")
         corrected = self.git.commit("HEAD")
         self.args.ref = None
+        self.args.resume = None
         self.github.run = successful_run(corrected)
         self.cut()
         self.assertEqual(self.git.remote_tag("origin", "v2.0.0"), corrected)

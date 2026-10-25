@@ -60,19 +60,21 @@ def check_local_tools(python_version=None):
                                f"gh {' '.join(operation)} is unavailable.") from ex
 
 
-def release_command(args, root, commit):
+def release_command(args, root, commit, version):
     """Format a retry command pinned to a checked source commit.
 
     Args:
         args (argparse.Namespace): Repository, remote, timeout, poll, and notes options.
         root (str | Path): Checkout directory.
         commit (str): Full source commit object ID.
+        version (str): Exact release version to recover.
 
     Returns:
         str: Quoted command using this interpreter and script.
     """
     parts = [sys.executable, str(Path(__file__).resolve()), "--root", str(root), "--repo", args.repo,
-             "--remote", args.remote, "--ref", commit, "--timeout", str(args.timeout), "--poll", str(args.poll)]
+             "--remote", args.remote, "--resume", version, "--ref", commit,
+             "--timeout", str(args.timeout), "--poll", str(args.poll)]
     if args.notes_file:
         parts.extend(["--notes-file", str(args.notes_file.resolve())])
     return subprocess.list2cmdline(parts) if os.name == "nt" else shlex.join(parts)
@@ -529,7 +531,8 @@ def require_new_version(github, version):
             candidate's core, or the remote listing cannot be completed.
     """
     if any(prior >= version_core(version) for prior in github.published_stable_versions()):
-        raise ReleaseError("A new release must advance the numeric version beyond published stable releases.")
+        raise ReleaseError(f"Version {version} is already published or older than a published release. "
+                           "A new release must advance the numeric version in include/cetl/cetl.hpp on main.")
 
 
 def require_latest_stable(github, tag, release):
@@ -700,11 +703,11 @@ def deploy_docs(github, tag, timeout, poll, release_id):
 
 
 def cut_release(args, git=None, github=None):
-    """Release the header version from verified main source, continuing matching attempts.
+    """Publish a new header version or recover an explicitly pinned release.
 
     Args:
-        args (argparse.Namespace): root, repo, remote, optional ref and notes_file,
-            dry_run, and positive timeout/poll durations in seconds.
+        args (argparse.Namespace): root, repo, remote, optional ref, resume version,
+            and notes_file, dry_run, and positive timeout/poll durations in seconds.
         git (Git | None): Checkout adapter; None uses args.root.
         github (GitHub | None): Repository adapter; None uses args.repo.
 
@@ -714,10 +717,14 @@ def cut_release(args, git=None, github=None):
         ValueError: A service response or manifest is invalid JSON.
         KeyError: A service record lacks a required field.
 
-    Checks CI and the bundle before pushing a new tag. Existing matching tags,
-    drafts, uploads, and published releases are reused. Retry commands pin the
-    selected commit. Dry runs perform preflight without remote writes.
+    Checks CI and the bundle before pushing a new tag. Explicit recovery reuses
+    matching tags, drafts, uploads, and published releases. Recovery commands pin
+    the selected version and commit. Dry runs perform preflight without remote writes.
     """
+    if args.resume is not None:
+        parse_version(args.resume)
+        if not args.ref or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", args.ref):
+            raise ReleaseError("Recovery requires --resume X.Y.Z and --ref with the full release commit ID.")
     check_local_tools()
     if not re.fullmatch(r"[\w.-]+/[\w.-]+", args.repo) or args.remote.startswith("-"):
         raise ReleaseError("Expected --repo OWNER/NAME and a named Git remote.")
@@ -736,11 +743,12 @@ def cut_release(args, git=None, github=None):
     main_commit = git.commit(f"refs/remotes/{args.remote}/main")
     commit = git.commit(args.ref) if args.ref else main_commit
     version = git.validate(commit)["version"]
+    if args.resume is not None and args.resume != version:
+        raise ReleaseError(f"Recovery version {args.resume} does not match the selected commit's header ({version}).")
     tag = "v" + version
+    if args.resume is None:
+        require_new_version(github, version)
     remote_commit = git.remote_tag(args.remote, tag)
-    # A rerun of the default command continues the already selected release snapshot.
-    if remote_commit and not args.ref:
-        commit = git.commit(remote_commit)
     try:
         git.run("merge-base", "--is-ancestor", commit, f"refs/remotes/{args.remote}/main")
     except ReleaseError as ex:
@@ -749,13 +757,16 @@ def cut_release(args, git=None, github=None):
         git.require_release_files(target)
     git.validate(commit, tag)
     print(f"Repository: {args.repo}\nTag: {tag}\nCommit: {commit}")
-    print("Retry command: " + release_command(args, git.root, commit))
+    print("Recovery command: " + release_command(args, git.root, commit, version))
     if remote_commit and remote_commit != commit:
         raise ReleaseError(f"Remote tag {tag} points to another commit; refusing to move it.")
     if git.run("tag", "--list", tag) and git.commit(f"refs/tags/{tag}") != commit:
         raise ReleaseError(f"Local tag {tag} points to another commit.")
     marker = f"<!-- CETL release tag={tag} commit={commit} -->"
     release = github.release(tag)
+    if args.resume is None and (remote_commit is not None or release is not None):
+        raise ReleaseError(f"An attempt for {tag} already exists. Recover this exact version and commit with: "
+                           + release_command(args, git.root, commit, version))
     if release:
         release = github.release_by_id(release["id"])
         check_draft(release, tag, marker)
@@ -770,7 +781,7 @@ def cut_release(args, git=None, github=None):
     if args.dry_run:
         print("Dry run: verify main CI and bundle; push tag; upload and publish release; deploy documentation. "
               "No remote writes performed.")
-        print("Release this checked commit: " + release_command(args, git.root, commit))
+        print("Release this checked commit: " + release_command(args, git.root, commit, version))
         return
     if release and not release["draft"]:
         verify_published_assets(github, release, commit, tag)
@@ -870,6 +881,7 @@ def main():
             status 1, or keyboard interruption exits with status 130.
     """
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--resume", metavar="X.Y.Z", help="Recover this exact release version; requires --ref with its full commit ID")
     parser.add_argument("--ref", help="Commit/ref merged into remote main; defaults to freshly fetched main")
     parser.add_argument("--repo", default="OpenCyphal/CETL")
     parser.add_argument("--remote", default="origin")

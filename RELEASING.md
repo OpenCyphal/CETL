@@ -12,6 +12,7 @@ The script fetches `main`, reads the header version, verifies CI and the release
 bundle, then creates the tag, publishes the release, and deploys documentation.
 Failed verification leaves the version available for a corrected commit.
 
-If interrupted, run the command again. Matching tags, drafts, and uploaded assets
-are reused. The script also prints a retry command pinned to the selected commit.
-Conflicting tags or asset contents are refused.
+The normal command requires a version newer than every published stable release.
+If interrupted, use the printed recovery command, which pins the version and commit.
+Recovery reuses matching tags, drafts, and uploaded assets. Conflicting tags or asset
+contents are refused.
