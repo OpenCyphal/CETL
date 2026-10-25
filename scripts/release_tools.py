@@ -307,7 +307,7 @@ def required_jobs():
     """
     names = {"version", "release-tests", "cache-warmup", "docs", "release-ready", "release-assets"}
     for architecture, compilers, standards in (
-        ("amd64", ("gcc-native-32", "clang-native"), (14, 17, 20, 23)),
+        ("amd64", ("gcc-native-32", "clang-native"), (14, 17, 20, 23, 26)),
         ("arm64", ("gcc-native", "clang-native"), (14, 17, 20)),
         ("legacy-arm64", ("gcc7-native",), (14,)),
     ):
