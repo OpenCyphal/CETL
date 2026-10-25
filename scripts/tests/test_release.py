@@ -148,7 +148,6 @@ class GateTests(unittest.TestCase):
             expected = {f"verification-{architecture} ({compiler}, {standard})"
                         for compiler in compilers for standard in standards}
             self.assertEqual(expected, {name for name in required_jobs() if name.startswith(f"verification-{architecture} (")})
-            self.assertIn("startsWith(github.ref, 'refs/tags/v')", section)
             self.assertNotIn("!inputs.docs_ref", section)
         gate = _workflow_group(r"^  release-ready:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S)
         dependencies = _workflow_group(r"needs: \[(.*)\]", gate).split(", ")
@@ -162,7 +161,7 @@ class GateTests(unittest.TestCase):
         gate = _workflow_group(r"^  release-ready:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S)
         condition_pattern = r"^    if: >-?\n(.*?)(?=^    \S)"
         # Each predicate is an OR term; always() lets the gate inspect failed dependencies.
-        predicate_pattern = r"(?:startsWith|contains)\([^()\n]*\)|github\.event_name == '[^']+'"
+        predicate_pattern = r"(?:startsWith|contains)\([^()\n]*\)|github\.(?:event_name|ref) == '[^']+'"
         condition = _workflow_group(condition_pattern, gate, re.M | re.S)
         gate_triggers = set(re.findall(predicate_pattern, condition))
         self.assertTrue(gate_triggers)
@@ -176,6 +175,14 @@ class GateTests(unittest.TestCase):
                 condition = _workflow_group(condition_pattern, section, re.M | re.S)
                 missing = gate_triggers - set(re.findall(predicate_pattern, condition))
                 self.assertFalse(missing, f"{dependency} skips full-gate triggers: {sorted(missing)}")
+
+    def test_version_tags_reuse_the_main_run(self):
+        """Leave version tags out of CETLVaSt; the release reuses the tagged commit's main push run."""
+        workflow = (SCRIPTS.parent / ".github/workflows/cetlvast.yml").read_text()
+        push = _workflow_group(r"^  push:\n(.*?)(?=^  [a-z])", workflow, re.M | re.S)
+        # A push filter with only branches never matches a tag.
+        self.assertEqual(re.findall(r"^    ([a-z-]+):", push, re.M), ["branches"])
+        self.assertNotIn("refs/tags", workflow)
 
 
 class GitHubTransportTests(unittest.TestCase):

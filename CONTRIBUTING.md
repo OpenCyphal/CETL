@@ -164,23 +164,20 @@ invoke Clang-Format of the correct version from the container (be sure to use th
 docker run --rm -v ${PWD}:/repo ghcr.io/opencyphal/toolshed:ts26.4.5 /bin/sh -c 'cd cetlvast && cmake --preset configure-clang-native-cpp-17-offline && cd build && ninja danger-danger-cetlvast-clang-format-in-place'
 ```
 
-# `issue/*` and hashtag-based CI triggering
+# CI triggering
 
-Normally, the CI will only run on pull requests (PR), releases, and perhaps some other special occasions on `main` branch.
-Often, however, you will want to run it on your branch before proposing the changes to ensure all checks are
-green and test coverage is adequate - to do that:
+Every push to a branch runs version/header validation and the release-tool tests. Full verification, including
+documentation and release archive checks, runs for pull requests (PR) into `main` or an `issue/*` branch, for pushes
+to `main`, and for manual dispatches. A PR in a GitHub stack gets full verification as if it targeted the base of
+the stack. To verify a branch before proposing the changes to `main`:
 - either target your PR to any `issue/NN_LABEL` branch, where `NN` is the issue number and `LABEL` is a small title giving context (like `issue/83_any`)
-- or add a hashtag with the name of the workflow you need to run to the head commit;
-for example, making a commit with a message like `Add feature such and such #verification #docs`
-will force the CI to execute jobs named `verification` and `docs`.
+- or, with write access, dispatch the workflow on the branch: `gh workflow run cetlvast.yml --ref <branch>`.
 
-Note that if the job you requested is dependent on other jobs that are not triggered, it will not run.
+Do not dispatch for a commit that a PR run already verifies; each full run is expensive.
 
-Version/header validation and release-tool tests run independently of hashtags.
-The `#verification` trigger includes documentation and release archive checks.
-Version tags and verification dispatches run full verification. Documentation
-deployment verifies the published bundle and its successful main CI run, then
-deploys the packaged documentation.
+A new commit cancels the running verification of the PR it is pushed to. Runs on `main` are never cancelled.
+A release reuses the `main` run of the tagged commit; pushing the version tag starts no CI. Documentation
+deployment verifies the published bundle and its successful main CI run, then deploys the packaged documentation.
 See [Releasing CETL](RELEASING.md) for the maintainer Python CLI and recovery instructions.
 The CMake `release` target is a legacy build/test alias and does not publish a release.
 
