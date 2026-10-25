@@ -3648,15 +3648,15 @@ private:
         size_type index = 0;
         while (index < available)
         {
-            unsigned       byte = 0U;
-            const unsigned bits = static_cast<unsigned>(std::min<size_type>(8U, available - index));
+            unsigned       packed = 0U;
+            const unsigned bits   = static_cast<unsigned>(std::min<size_type>(8U, available - index));
             for (unsigned bit = 0U; bit < bits; ++bit, (void) ++first)
             {
                 bool value = false;
                 base::assign_element(value, *first);
-                byte |= (value ? 1U : 0U) << bit;
+                packed |= (value ? 1U : 0U) << bit;
             }
-            data_[index / 8U] = static_cast<storage>(byte);
+            data_[index / 8U] = static_cast<storage>(packed);
             index += bits;
         }
         set_size_bits(available);

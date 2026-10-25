@@ -4,6 +4,8 @@
 /// Copyright (C) OpenCyphal Development Team <opencyphal.org>
 /// SPDX-License-Identifier: MIT
 
+// Include the facade first so namespace aliases participate in VLA diagnostics (#263).
+#include "cetl/pf17/cetlpf.hpp"
 #include "cetl/variable_length_array.hpp"
 #include "cetlvast/helpers_gtest.hpp"
 
@@ -21,6 +23,17 @@ namespace
 {
 template <typename T>
 using Array = cetl::variable_length_array<T, std::allocator<T>>;
+
+TEST(VLAAssignPolyfill, BoolPointerRange)
+{
+    const bool  source[] = {true, false, true};
+    Array<bool> actual{std::allocator<bool>{}};
+    actual.assign(std::begin(source), std::end(source));
+    ASSERT_EQ(actual.size(), 3U);
+    EXPECT_TRUE(actual[0]);
+    EXPECT_FALSE(actual[1]);
+    EXPECT_TRUE(actual[2]);
+}
 
 template <typename T>
 class VLAAssign : public ::testing::Test
