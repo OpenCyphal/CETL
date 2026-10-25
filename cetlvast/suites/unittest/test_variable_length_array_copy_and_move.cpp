@@ -99,9 +99,9 @@ template <typename Params>
 class VLAMoveConstructorExceptionTests : public ::testing::Test
 {
 protected:
-    using T         = typename Params::value_type;
-    using Subject   = cetl::variable_length_array<T, MoveConstructorAllocator<T, typename Params::pocma>>;
-    using Allocator = typename Subject::allocator_type;
+    using T             = typename Params::value_type;
+    using ArrayType     = cetl::variable_length_array<T, MoveConstructorAllocator<T, typename Params::pocma>>;
+    using AllocatorType = typename ArrayType::allocator_type;
 };
 
 using MoveConstructorValueTypes = ::testing::Types<MoveConstructorParams<int, std::false_type>,
@@ -112,8 +112,8 @@ TYPED_TEST_SUITE(VLAMoveConstructorExceptionTests, MoveConstructorValueTypes, );
 
 TYPED_TEST(VLAMoveConstructorExceptionTests, UnequalAllocatorAllocationFailure)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
 
     MoveConstructorAllocatorState source_state;
     MoveConstructorAllocatorState destination_state;
@@ -158,8 +158,8 @@ TYPED_TEST(VLAMoveConstructorExceptionTests, UnequalAllocatorAllocationFailure)
 
 TYPED_TEST(VLAMoveConstructorExceptionTests, EqualAllocatorDoesNotAllocate)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
 
     MoveConstructorAllocatorState state;
     {
