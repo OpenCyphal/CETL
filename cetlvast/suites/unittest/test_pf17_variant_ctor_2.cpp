@@ -115,8 +115,8 @@ static constexpr auto test_ctor_2_constexpr()
     using cetl::pf17::in_place_index;
     struct U
     {
-        constexpr explicit U(const std::int64_t value)
-            : value(value)
+        constexpr explicit U(const std::int64_t initial_value)
+            : value(initial_value)
         {
         }
         constexpr U(const U&) noexcept            = default;

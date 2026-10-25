@@ -280,8 +280,8 @@ TEST(test_optional, throwing_move_only_propagates)
 template <typename T>
 struct comparable final
 {
-    explicit constexpr comparable(const T& value)
-        : value(value)
+    explicit constexpr comparable(const T& initial_value)
+        : value(initial_value)
     {
     }
     comparable(const comparable&)            = delete;

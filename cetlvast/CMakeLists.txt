@@ -203,6 +203,7 @@ endif()
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/unittest)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/docs)
 add_subdirectory(${CMAKE_SOURCE_DIR}/suites/compile)
+add_subdirectory(${CMAKE_SOURCE_DIR}/suites/headers)
 if(benchmark_FOUND)
     add_subdirectory(${CMAKE_SOURCE_DIR}/suites/benchmark)
 endif()
@@ -240,6 +241,7 @@ add_custom_target(
         build_unittests
         build_examples
         build_compile_tests
+        build_header_tests
 )
 
 add_custom_target(
@@ -250,6 +252,7 @@ add_custom_target(
         run_examples
         $<$<CONFIG:Coverage>:gcovr_html_report_for_examples>
         run_compile_precheck_tests
+        build_header_tests
 )
 
 # "release" is a legacy target supported for older build systems that use this

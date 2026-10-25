@@ -327,8 +327,8 @@ struct OnlyMovable
     OnlyMovable(const OnlyMovable&)            = delete;
     OnlyMovable& operator=(const OnlyMovable&) = delete;
 
-    OnlyMovable(int* value)
-        : value(value)
+    OnlyMovable(int* initial_value)
+        : value(initial_value)
     {
     }
 
@@ -343,9 +343,9 @@ TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestDefaultConstruction)
 {
     typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
         cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
-    using AllocatorType = typename TestFixture::template AllocatorType<OnlyMovable>;
-    AllocatorType subject{resource};
-    OnlyMovable*  p = subject.allocate(1);
+    using SubjectAllocator = typename TestFixture::template AllocatorType<OnlyMovable>;
+    SubjectAllocator subject{resource};
+    OnlyMovable*     p = subject.allocate(1);
     ASSERT_FALSE(nullptr == p);
     subject.deallocate(p, 1);
 }
@@ -358,9 +358,9 @@ TYPED_TEST(TestPolymorphicAllocatorMoveOnlyProtocols, TestEmplace)
     int                                                             other_test_data = 0;
     typename cetlvast::MRH::template MemoryResourceType<TypeParam>* resource =
         cetlvast::MRH::template new_delete_resource_by_tag<TypeParam>();
-    using AllocatorType = typename TestFixture::template AllocatorType<OnlyMovable>;
-    AllocatorType subject{resource};
-    OnlyMovable*  p = subject.allocate(1);
+    using SubjectAllocator = typename TestFixture::template AllocatorType<OnlyMovable>;
+    SubjectAllocator subject{resource};
+    OnlyMovable*     p = subject.allocate(1);
     ASSERT_FALSE(nullptr == p);
     subject.construct(p, &test_data);
     ASSERT_EQ(&test_data, p->value);

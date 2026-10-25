@@ -114,8 +114,8 @@ template <typename T>
 class VLAMoveCapacityTests : public ::testing::Test
 {
 protected:
-    using Subject   = cetl::variable_length_array<T, TrackingAllocator<T>>;
-    using Allocator = typename Subject::allocator_type;
+    using ArrayType     = cetl::variable_length_array<T, TrackingAllocator<T>>;
+    using AllocatorType = typename ArrayType::allocator_type;
 
     static std::size_t storage_bytes(std::size_t capacity)
     {
@@ -126,7 +126,7 @@ protected:
     // Retention must preserve the original allocation and allocator, permit filling it without allocation,
     // and allow the caller to release it explicitly. Repeated shrinking must not deallocate twice. Releasing the
     // allocation through any allocator other than the source's fails in TrackingAllocator::deallocate.
-    static void check_retained_source(Subject& source, AllocationState& state, void* allocation)
+    static void check_retained_source(ArrayType& source, AllocationState& state, void* allocation)
     {
         ASSERT_TRUE(source.empty());
         ASSERT_EQ(source.capacity(), SourceCapacity);
@@ -154,7 +154,7 @@ protected:
     }
 
     // Write the payload that check_values expects, ending in a partial byte for packed bits.
-    static void fill(Subject& array)
+    static void fill(ArrayType& array)
     {
         for (std::size_t i = 0; i < ElementCount; ++i)
         {
@@ -164,7 +164,7 @@ protected:
 
     // Preserve payload and packed-bit size across the transfer, including the partial final byte. Elements appended
     // after the transfer may follow the payload, so the caller states the total size.
-    static void check_values(const Subject& array, const std::size_t size = ElementCount)
+    static void check_values(const ArrayType& array, const std::size_t size = ElementCount)
     {
         ASSERT_EQ(array.size(), size);
         for (std::size_t i = 0; i < ElementCount; ++i)
@@ -180,8 +180,8 @@ TYPED_TEST_SUITE(VLAMoveCapacityTests, ValueTypes, );
 // Relocation retains the source allocation while the destination acquires only enough storage for its elements.
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorPreservesSourceCapacity)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
 
     AllocationState source_state;
     AllocationState destination_state;
@@ -222,8 +222,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorPreservesSourceCapacity)
 // An empty reserved source keeps its allocation; the destination needs no storage at all.
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorMovesEmptyReservedSource)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
 
     AllocationState source_state;
     AllocationState destination_state;
@@ -248,8 +248,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorMovesEmptyReservedSource)
 // Equal allocators transfer the entire allocation; shrinking the empty source cannot release destination storage.
 TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorTransfersUnusedCapacity)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
 
     AllocationState state;
     Subject         source{Allocator{state}};
@@ -286,8 +286,8 @@ TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorTransfersUnusedCapacity)
 // Destination reuse covers both assignment into existing elements and construction of a new suffix.
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentPreservesSourceCapacity)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     struct Shape
     {
         std::size_t size;
@@ -327,8 +327,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentPreservesSourceCapaci
 // Assigning an empty reserved source clears the destination's elements while both buffers stay available.
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentFromEmptyReservedSource)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     AllocationState source_state;
     AllocationState destination_state;
     Subject         source{Allocator{source_state}};
@@ -353,8 +353,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentFromEmptyReservedSour
 // shrinking the empty source cannot release destination storage.
 TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorAssignmentTransfersUnusedCapacity)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     AllocationState state;
     Subject         source{Allocator{state}};
     Subject         destination{Allocator{state}};
@@ -388,8 +388,8 @@ TYPED_TEST(VLAMoveCapacityTests, EqualAllocatorAssignmentTransfersUnusedCapacity
 // report the failure; without them the empty destination and non-empty source report it. Either way a retry works.
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedConstructionLeavesSourceUnchanged)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     AllocationState source_state;
     AllocationState destination_state;
     Subject         source{Allocator{source_state}};
@@ -422,8 +422,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedConstructionLeavesSourc
 // Assignment releases an insufficient destination buffer before a declined replacement allocation (#225).
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedAssignmentLeavesSourceUnchanged)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     AllocationState source_state;
     AllocationState destination_state;
     Subject         source{Allocator{source_state}};
@@ -458,8 +458,8 @@ TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorDeclinedAssignmentLeavesSourceU
 // the destination never holds more elements than its own max_size() (#224).
 TYPED_TEST(VLAMoveCapacityTests, UnequalAllocatorAssignmentAdoptsSourceMaxSize)
 {
-    using Subject   = typename TestFixture::Subject;
-    using Allocator = typename TestFixture::Allocator;
+    using Subject   = typename TestFixture::ArrayType;
+    using Allocator = typename TestFixture::AllocatorType;
     {
         // Replacement: the destination's bound and capacity are both smaller than the source's elements.
         AllocationState source_state;
