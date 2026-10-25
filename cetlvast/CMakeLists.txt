@@ -78,7 +78,7 @@ message(STATUS
 # +---------------------------------------------------------------------------+
 
 set(CETLVAST_CPP_STANDARD "20" CACHE STRING "C++ standard to use when compiling.")
-set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20)
+set_property(CACHE CETLVAST_CPP_STANDARD PROPERTY STRINGS 14 17 20 23 26)
 
 option(CETLVAST_ENABLE_FUZZING "Build native libFuzzer targets with ASan and UBSan." OFF)
 if(CETLVAST_ENABLE_FUZZING AND CMAKE_CROSSCOMPILING)
