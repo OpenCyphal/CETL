@@ -136,8 +136,8 @@ static constexpr auto test_ctor_3_constexpr()
     using cetl::pf17::get;
     struct U
     {
-        constexpr explicit U(const std::int64_t value)
-            : value(value)
+        constexpr explicit U(const std::int64_t initial_value)
+            : value(initial_value)
         {
         }
         constexpr U(const U&) noexcept            = delete;

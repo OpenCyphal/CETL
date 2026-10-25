@@ -19,6 +19,7 @@ list(APPEND C_FLAG_SET
                 "-pedantic"
                 "-Wall"
                 "-Wextra"
+                "-Wshadow"
                 "-Werror"
                 "-Wfloat-equal"
                 "-Wconversion"

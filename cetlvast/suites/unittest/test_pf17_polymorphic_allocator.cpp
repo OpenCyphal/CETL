@@ -327,8 +327,8 @@ struct OnlyMovable
     OnlyMovable(const OnlyMovable&)            = delete;
     OnlyMovable& operator=(const OnlyMovable&) = delete;
 
-    OnlyMovable(int* value)
-        : value(value)
+    OnlyMovable(int* initial_value)
+        : value(initial_value)
     {
     }
 

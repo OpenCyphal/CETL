@@ -888,9 +888,9 @@ TEST(test_variant, visit)
     variant<std::int64_t, anchored>           b(in_place_index<0>, 1234);
     std::int64_t                              div = 0;
     visit(make_overloaded(
-              [&div](anchored& a, std::int64_t& b) {
-                  div = a.value / b;
-                  std::swap(a.value, b);
+              [&div](anchored& lhs, std::int64_t& rhs) {
+                  div = lhs.value / rhs;
+                  std::swap(lhs.value, rhs);
               },
               [](const auto&, const auto&) { std::terminate(); }),
           a,
