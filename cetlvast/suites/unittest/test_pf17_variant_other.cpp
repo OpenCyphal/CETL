@@ -934,8 +934,8 @@ TEST(test_variant, visit)
 #if __cplusplus >= 201703L
     using cetl::make_overloaded;
     using cetl::pf17::in_place_type;
-    static_assert(1110 == visit(make_overloaded([](const std::int8_t a,
-                                                   const float       b) { return a + static_cast<std::int64_t>(b); },
+    static_assert(1110 == visit(make_overloaded([](const std::int8_t lhs,
+                                                   const float rhs) { return lhs + static_cast<std::int64_t>(rhs); },
                                                 [](const auto&, const auto&) { return 0; }),
                                 variant<float, std::int8_t>(in_place_index<1>, static_cast<std::int8_t>(123)),
                                 variant<float, bool>(in_place_type<float>, 987.0F)));
