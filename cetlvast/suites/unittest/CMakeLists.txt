@@ -110,6 +110,9 @@ set(NATIVE_TESTS
     test_pf20_span.cpp
     test_pf20.cpp
     test_pf20_utility.cpp
+    test_pf23_expected.cpp
+    test_pf23_expected_asserts.cpp
+    test_pf23_expected_operations.cpp
     test_pf26_numeric.cpp
     test_rtti.cpp
     test_type_traits_ext.cpp
