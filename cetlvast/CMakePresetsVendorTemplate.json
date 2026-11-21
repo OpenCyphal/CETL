@@ -58,7 +58,8 @@
                             "cpp-14",
                             "cpp-17",
                             "cpp-20",
-                            "cpp-23"
+                            "cpp-23",
+                            "cpp-26"
                         ],
                         "update": [
                             "online",
@@ -68,7 +69,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23", "cpp-26"]
                         }
                     ],
                     "shape": {
@@ -101,7 +102,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23", "cpp-26"]
                         },
                         {
                             "toolchain": "arm-none-eabi-gcc",
@@ -129,7 +130,7 @@
                     "exclude": [
                         {
                             "toolchain": "gcc7-native",
-                            "standard": ["cpp-17", "cpp-20", "cpp-23"]
+                            "standard": ["cpp-17", "cpp-20", "cpp-23", "cpp-26"]
                         },
                         {
                             "configuration": "Coverage"

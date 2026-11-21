@@ -51,6 +51,7 @@
 
 #if (__cplusplus >= CETL_CPP_STANDARD_20 && !defined(CETL_DOXYGEN))
 #    include <span>
+#    include <utility>
 
 namespace cetl
 {
@@ -58,9 +59,19 @@ constexpr std::size_t dynamic_extent = std::dynamic_extent;
 
 template <typename T, std::size_t Extent = dynamic_extent>
 using span = std::span<T, Extent>;
+
+// utility
+using std::cmp_equal;
+using std::cmp_not_equal;
+using std::cmp_less;
+using std::cmp_greater;
+using std::cmp_less_equal;
+using std::cmp_greater_equal;
+using std::in_range;
 }  // namespace cetl
 #else
 #    include "cetl/pf20/span.hpp"
+#    include "cetl/pf20/utility.hpp"
 
 namespace cetl
 {
@@ -68,6 +79,15 @@ constexpr std::size_t dynamic_extent = cetl::pf20::dynamic_extent;
 
 template <typename T, std::size_t Extent = dynamic_extent>
 using span = cetl::pf20::span<T, Extent>;
+
+// utility
+using cetl::pf20::cmp_equal;
+using cetl::pf20::cmp_not_equal;
+using cetl::pf20::cmp_less;
+using cetl::pf20::cmp_greater;
+using cetl::pf20::cmp_less_equal;
+using cetl::pf20::cmp_greater_equal;
+using cetl::pf20::in_range;
 
 }  // namespace cetl
 #endif
